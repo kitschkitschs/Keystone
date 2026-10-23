@@ -11,8 +11,8 @@
 //   3. At each time the sender pings the phone. The service worker (sw.js)
 //      then shows the reminders that are due, using the texts kept here.
 
-// The sender's web address. Filled in after it is published on Cloudflare.
-const REMINDER_SENDER_URL = '';
+// The sender's web address on Cloudflare.
+const REMINDER_SENDER_URL = 'https://keystone-reminders.lilworkerguy.workers.dev';
 
 async function getReminders() {
   const items = await getAllItems();
