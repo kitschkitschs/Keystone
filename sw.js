@@ -16,6 +16,16 @@ const CACHE_NAME = 'keystone-app';
 // in case it arrives late (for example when the phone was offline).
 const REMINDER_LATE_MINUTES = 60;
 
+// How reminder notifications look. Swap these files to change the look.
+//   badge: the small symbol in the bar at the top of the screen. Android
+//          only uses its shape: a white shape on a see-through background,
+//          96 x 96 pixels. Colors in it are ignored.
+//   icon:  the larger picture shown next to the reminder text.
+const NOTIFICATION_LOOK = {
+  badge: 'icons/badge.png',
+  icon: 'icons/icon-192.png',
+};
+
 const APP_FILES = [
   './',
   'index.html',
@@ -27,6 +37,7 @@ const APP_FILES = [
   'js/app.js',
   'icons/icon-192.png',
   'icons/icon-512.png',
+  'icons/badge.png',
 ];
 
 self.addEventListener('install', (event) => {
@@ -83,7 +94,8 @@ async function showDueReminders() {
 
     await self.registration.showNotification(reminder.text, {
       tag: reminder.id,
-      icon: 'icons/icon-192.png',
+      badge: NOTIFICATION_LOOK.badge,
+      icon: NOTIFICATION_LOOK.icon,
     });
     shown[reminder.id] = today;
   }
