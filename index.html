@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Keystone</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>Keystone</h1>
+
+    <!-- Shown only when the last save is old. See showBackupReminder() in app.js. -->
+    <p id="backup-reminder" hidden></p>
+
+    <section>
+      <h2 id="today-heading">Today</h2>
+      <p>A test list, so you can check that saving, loading and offline work.</p>
+      <form id="note-form">
+        <input id="note-input" type="text" placeholder="Write a note" autocomplete="off" required>
+        <button type="submit">Add</button>
+      </form>
+      <ul id="note-list"></ul>
+    </section>
+
+    <section>
+      <h2>Sync</h2>
+      <p>
+        <button id="save-button" type="button">Save to file</button>
+        <label>
+          <span>Load from file</span>
+          <input id="load-input" type="file" accept=".txt,text/plain">
+        </label>
+      </p>
+      <p id="sync-status" role="status"></p>
+      <p id="last-saved"></p>
+      <p id="storage-status"></p>
+    </section>
+  </main>
+
+  <!-- Plain scripts, loaded in order. No build step. -->
+  <script src="js/db.js"></script>
+  <script src="js/sync.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
