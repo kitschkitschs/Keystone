@@ -19,7 +19,7 @@ sync, with a plain test screen. There's no visual design yet.
 | `js/app.js` | Connects the screen to the files above. |
 | `sw.js` | The service worker, which keeps a copy of the app so it opens offline. |
 | `manifest.webmanifest` | Name and icon used when the app is installed to the home screen. |
-| `icons/` | Placeholder icons. |
+| `icons/` | Placeholder icons. `badge.png` is the small symbol on reminder notifications. |
 | `worker/` | The reminder sender, a tiny program that runs on Cloudflare. |
 | `.github/workflows/deploy-reminders.yml` | Publishes `worker/` to Cloudflare when it changes. |
 | `.nojekyll` | Tells GitHub Pages to serve the files as they are. |
