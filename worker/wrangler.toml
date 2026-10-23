@@ -1,0 +1,19 @@
+# Settings for the reminder sender, a tiny program that runs on Cloudflare.
+# GitHub publishes it automatically (see .github/workflows/deploy-reminders.yml).
+
+name = "keystone-reminders"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+# Runs the sender once a minute.
+[triggers]
+crons = ["* * * * *"]
+
+# Where the sender keeps its short list of reminder times.
+[[durable_objects.bindings]]
+name = "STORE"
+class_name = "ReminderStore"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ReminderStore"]

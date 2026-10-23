@@ -13,6 +13,12 @@ const syncStatus = document.getElementById('sync-status');
 const lastSaved = document.getElementById('last-saved');
 const storageStatus = document.getElementById('storage-status');
 const backupReminder = document.getElementById('backup-reminder');
+const reminderForm = document.getElementById('reminder-form');
+const reminderText = document.getElementById('reminder-text');
+const reminderTime = document.getElementById('reminder-time');
+const reminderList = document.getElementById('reminder-list');
+const remindersOnButton = document.getElementById('reminders-on-button');
+const reminderStatus = document.getElementById('reminder-status');
 
 // --- Today's test notes ---
 
@@ -48,6 +54,71 @@ noteForm.addEventListener('submit', async (event) => {
   showBackupInfo();
 });
 
+// --- Reminders ---
+
+async function showReminders() {
+  reminderList.replaceChildren();
+  for (const reminder of await getReminders()) {
+    const li = document.createElement('li');
+    li.textContent = `${reminder.time} ${reminder.text} `;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.textContent = 'Delete';
+    remove.addEventListener('click', async () => {
+      await deleteItem(reminder.id);
+      showReminders();
+      updateReminderSender();
+    });
+    li.append(remove);
+    reminderList.append(li);
+  }
+}
+
+// Sends the current list of times to the reminder sender, and says how it went.
+async function updateReminderSender() {
+  if (!REMINDER_SENDER_URL) {
+    reminderStatus.textContent = "The reminder sender isn't set up yet.";
+    remindersOnButton.hidden = true;
+    return;
+  }
+  if (!remindersSupported()) {
+    reminderStatus.textContent = "This browser can't show reminders.";
+    remindersOnButton.hidden = true;
+    return;
+  }
+  try {
+    const on = await sendSchedule();
+    reminderStatus.textContent = on
+      ? 'Reminders are on for this phone.'
+      : 'Reminders are off for this phone.';
+    remindersOnButton.hidden = on;
+  } catch (error) {
+    reminderStatus.textContent = `Couldn't reach the reminder sender: ${error.message}`;
+  }
+}
+
+reminderForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const text = reminderText.value.trim();
+  if (!text || !reminderTime.value) return;
+  await addReminder(text, reminderTime.value);
+  reminderText.value = '';
+  reminderTime.value = '';
+  showReminders();
+  updateReminderSender();
+});
+
+remindersOnButton.addEventListener('click', async () => {
+  reminderStatus.textContent = '';
+  try {
+    await turnOnReminders();
+  } catch (error) {
+    reminderStatus.textContent = `Couldn't turn on reminders: ${error.message}`;
+    return;
+  }
+  updateReminderSender();
+});
+
 // --- Save and load ---
 
 saveButton.addEventListener('click', async () => {
@@ -73,6 +144,8 @@ loadInput.addEventListener('change', async () => {
   }
   loadInput.value = ''; // so the same file can be picked again
   showNotes();
+  showReminders();
+  updateReminderSender();
 });
 
 // --- Backup reminder ---
@@ -121,6 +194,8 @@ if ('serviceWorker' in navigator) {
 
 showNotes();
 showBackupInfo();
+showReminders();
+updateReminderSender();
 askForPersistentStorage();
 
 // When you come back to the app, refresh in case the day has changed.

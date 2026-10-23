@@ -28,6 +28,19 @@
     </section>
 
     <section>
+      <h2>Reminders</h2>
+      <p>A ping at the same time each day, even when the app is closed.</p>
+      <form id="reminder-form">
+        <input id="reminder-text" type="text" placeholder="What to think about" autocomplete="off" required>
+        <input id="reminder-time" type="time" required>
+        <button type="submit">Add</button>
+      </form>
+      <ul id="reminder-list"></ul>
+      <p><button id="reminders-on-button" type="button">Turn on reminders on this phone</button></p>
+      <p id="reminder-status" role="status"></p>
+    </section>
+
+    <section>
       <h2>Sync</h2>
       <p>
         <button id="save-button" type="button">Save to file</button>
@@ -45,6 +58,7 @@
   <!-- Plain scripts, loaded in order. No build step. -->
   <script src="js/db.js"></script>
   <script src="js/sync.js"></script>
+  <script src="js/reminders.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
