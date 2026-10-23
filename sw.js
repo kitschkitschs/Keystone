@@ -7,7 +7,14 @@
 //
 // If you add a new file to the app, add it to APP_FILES below.
 
+// db.js lets the service worker read reminders from the app's data.
+importScripts('js/db.js');
+
 const CACHE_NAME = 'keystone-app';
+
+// A ping shows reminders whose time was up to this many minutes ago,
+// in case it arrives late (for example when the phone was offline).
+const REMINDER_LATE_MINUTES = 60;
 
 const APP_FILES = [
   './',
@@ -16,6 +23,7 @@ const APP_FILES = [
   'manifest.webmanifest',
   'js/db.js',
   'js/sync.js',
+  'js/reminders.js',
   'js/app.js',
   'icons/icon-192.png',
   'icons/icon-512.png',
@@ -50,4 +58,44 @@ self.addEventListener('fetch', (event) => {
       return fresh;
     })
   );
+});
+
+// --- Reminders ---
+
+// The reminder sender (worker/ in this repo) pings the phone at each reminder
+// time. The ping is empty: the texts come from the app's own data here.
+self.addEventListener('push', (event) => {
+  event.waitUntil(showDueReminders());
+});
+
+async function showDueReminders() {
+  const now = new Date();
+  const today = todayKey(now);
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const shown = (await getMeta('remindersShown')) || {}; // reminder id -> day it was last shown
+
+  const reminders = (await getAllItems()).filter((item) => item.kind === 'reminder' && !item.deleted);
+  for (const reminder of reminders) {
+    const [hours, minutes] = reminder.time.split(':').map(Number);
+    const minutesLate = nowMinutes - (hours * 60 + minutes);
+    // -1 allows for the phone's clock being a little behind the sender's.
+    if (minutesLate < -1 || minutesLate > REMINDER_LATE_MINUTES || shown[reminder.id] === today) continue;
+
+    await self.registration.showNotification(reminder.text, {
+      tag: reminder.id,
+      icon: 'icons/icon-192.png',
+    });
+    shown[reminder.id] = today;
+  }
+  await setMeta('remindersShown', shown);
+}
+
+// Tapping a reminder opens Keystone.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (windows.length) return windows[0].focus();
+    return self.clients.openWindow('./');
+  })());
 });

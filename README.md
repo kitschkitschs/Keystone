@@ -15,10 +15,13 @@ sync, with a plain test screen. There's no visual design yet.
 | `style.css` | Styling. Kept minimal for now. |
 | `js/db.js` | Saves and reads data on the device (IndexedDB). |
 | `js/sync.js` | Saves a backup file and loads one back in. |
-| `js/app.js` | Connects the screen to the two files above. |
+| `js/reminders.js` | Daily reminders, and signing the phone up for pings. |
+| `js/app.js` | Connects the screen to the files above. |
 | `sw.js` | The service worker, which keeps a copy of the app so it opens offline. |
 | `manifest.webmanifest` | Name and icon used when the app is installed to the home screen. |
 | `icons/` | Placeholder icons. |
+| `worker/` | The reminder sender, a tiny program that runs on Cloudflare. |
+| `.github/workflows/deploy-reminders.yml` | Publishes `worker/` to Cloudflare when it changes. |
 | `.nojekyll` | Tells GitHub Pages to serve the files as they are. |
 
 There's no build step. The files in this folder are exactly what runs.
@@ -41,6 +44,31 @@ and `updatedAt`, the time it last changed. Deleting an item keeps it with
   (`BACKUP_REMINDER_DAYS` in `js/app.js`).
 
 The file is JSON inside, but ends in `.txt` because Chrome won't share `.json` files.
+
+## How reminders work
+
+Chrome can't wake a web app at an exact time, so a small free program on
+Cloudflare (`worker/`) does it. Once a minute it checks its list, and at each
+reminder time it sends an empty ping to the phone. The service worker
+(`sw.js`) then shows whichever reminders are due, with their texts from the
+phone's own data.
+
+The sender only knows the phone's push address, its time zone and the list of
+times. It never sees reminder texts or anything else from Keystone.
+
+Setup, done once:
+
+1. A free Cloudflare account, with a workers.dev subdomain chosen
+   (Cloudflare asks for one the first time you open **Workers & Pages**).
+2. Two repository secrets in GitHub (**Settings > Secrets and variables >
+   Actions**): `CLOUDFLARE_API_TOKEN`, made from the "Edit Cloudflare Workers"
+   token template, and `CLOUDFLARE_ACCOUNT_ID`.
+3. After the first publish, the sender's address goes into
+   `REMINDER_SENDER_URL` in `js/reminders.js`.
+
+On the phone, tap **Turn on reminders on this phone**. To get reminders on a
+watch, switch on notifications for Keystone in the watch's phone app
+(for Garmin, the Garmin Connect app).
 
 ## Trying it on your PC
 
