@@ -1,11 +1,12 @@
 // reminders.js: reminders that ping the phone at a set time each day.
+// On screen this feature is called "Notice".
 //
 // Each reminder is an item (see db.js) like this:
 //   { id: "reminder-...", kind: "reminder", day: "", text: "What movement today?", time: "13:00" }
 // "day" is empty because a reminder isn't tied to one day.
 //
 // How a reminder reaches the phone:
-//   1. "Turn on reminders" asks for permission to show notifications and
+//   1. "Let Notice reach this phone" asks for permission to show notifications and
 //      signs this phone up with the reminder sender (worker/ in this repo).
 //   2. The app sends the sender only the list of times, never the texts.
 //   3. At each time the sender pings the phone. The service worker (sw.js)
@@ -46,13 +47,13 @@ async function senderRequest(path, body) {
     body: JSON.stringify(body),
   });
   const result = await response.json();
-  if (!response.ok) throw new Error(result.error || `The reminder sender answered ${response.status}.`);
+  if (!response.ok) throw new Error(result.error || `The sender answered ${response.status}.`);
   return result;
 }
 
 // Asks for permission and signs this phone up. Must be started by a tap.
 async function turnOnReminders() {
-  if (!REMINDER_SENDER_URL) throw new Error("The reminder sender isn't set up yet.");
+  if (!REMINDER_SENDER_URL) throw new Error("Notice's sender isn't set up yet.");
   if ((await Notification.requestPermission()) !== 'granted') {
     throw new Error('Notifications are blocked. Allow them in Chrome\'s site settings for Keystone.');
   }

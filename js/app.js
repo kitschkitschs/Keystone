@@ -77,23 +77,23 @@ async function showReminders() {
 // Sends the current list of times to the reminder sender, and says how it went.
 async function updateReminderSender() {
   if (!REMINDER_SENDER_URL) {
-    reminderStatus.textContent = "The reminder sender isn't set up yet.";
+    reminderStatus.textContent = "Notice's sender isn't set up yet.";
     remindersOnButton.hidden = true;
     return;
   }
   if (!remindersSupported()) {
-    reminderStatus.textContent = "This browser can't show reminders.";
+    reminderStatus.textContent = "This browser can't show Notice.";
     remindersOnButton.hidden = true;
     return;
   }
   try {
     const on = await sendSchedule();
     reminderStatus.textContent = on
-      ? 'Reminders are on for this phone.'
-      : 'Reminders are off for this phone.';
+      ? 'Notice is on for this phone.'
+      : 'Notice is off for this phone.';
     remindersOnButton.hidden = on;
   } catch (error) {
-    reminderStatus.textContent = `Couldn't reach the reminder sender: ${error.message}`;
+    reminderStatus.textContent = `Couldn't reach Notice's sender: ${error.message}`;
   }
 }
 
@@ -113,7 +113,7 @@ remindersOnButton.addEventListener('click', async () => {
   try {
     await turnOnReminders();
   } catch (error) {
-    reminderStatus.textContent = `Couldn't turn on reminders: ${error.message}`;
+    reminderStatus.textContent = `Couldn't turn on Notice: ${error.message}`;
     return;
   }
   updateReminderSender();

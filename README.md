@@ -45,7 +45,7 @@ and `updatedAt`, the time it last changed. Deleting an item keeps it with
 
 The file is JSON inside, but ends in `.txt` because Chrome won't share `.json` files.
 
-## How reminders work
+## How reminders (Notice) work
 
 Chrome can't wake a web app at an exact time, so a small free program on
 Cloudflare (`worker/`) does it. Once a minute it checks its list, and at each
@@ -66,7 +66,7 @@ Setup, done once:
 3. After the first publish, the sender's address goes into
    `REMINDER_SENDER_URL` in `js/reminders.js`.
 
-On the phone, tap **Turn on reminders on this phone**. To get reminders on a
+On the phone, tap **Let Notice reach this phone**. To get reminders on a
 watch, switch on notifications for Keystone in the watch's phone app
 (for Garmin, the Garmin Connect app).
 
