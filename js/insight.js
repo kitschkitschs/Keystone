@@ -449,6 +449,14 @@ function itemPage(id) {
 function symptomsPage() {
   const days = insight.days;
   const items = symptomItems();
+  // One month as a calendar, stepping back and forth through the months.
+  const monthKeys = buckets('Month');
+  const month = monthKeys.includes(zooms.loadMonth) ? zooms.loadMonth : monthKeys[monthKeys.length - 1];
+  const at = monthKeys.indexOf(month);
+  const monthDays = days.filter((d) => d.startsWith(month));
+  const monthLoads = Object.fromEntries(loadValues(monthDays).map((v, k) => [monthDays[k], v]));
+  const monthName = new Date(`${month}-15T12:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  const step = (k, words, arrow) => (monthKeys[k] ? `<button type="button" class="icon-button" data-zoom="loadMonth" data-value="${monthKeys[k]}" aria-label="${words}">${arrow}</button>` : '<span class="icon-button"></span>');
   // The year: a row per month (from the first month with anything logged, up to 12), a column per day.
   const months = buckets('Month').slice(-12);
   const yearDays = days.filter((d) => months.includes(d.slice(0, 7)));
@@ -473,8 +481,10 @@ function symptomsPage() {
     return [i, vs.length, common];
   }).filter(([, n]) => n).sort((a, b) => b[1] - a[1]);
   return `${crumbs([['insight/health', 'Health']], 'Symptoms')}${head('Symptoms')}<div class="side">
-    ${labelRow('Symptom load', 'a row per month')}${heatYear(year, 'Symptom load, a row per month')}
+    <div class="month-step">${step(at - 1, 'Month before', chevronLeft)}<span>${monthName}</span>${step(at + 1, 'Month after', chevronRight)}</div>
+    ${heatMonth(month, monthLoads, `Symptom load in ${monthName}`)}
     ${heatKey()}
+    ${labelRow('The year', 'a row per month')}${heatYear(year, 'Symptom load, a row per month')}
     ${labelRow('Each symptom by week', '16 weeks')}${shown.length ? heatStrips(grid, shown.map(([i]) => i.name), weekNames, 'Each symptom by week') : empty('No symptoms logged in the last 16 weeks.')}
     ${labelRow('How often, how bad', '90 days')}
     ${rows.length ? rows.map(([i, n, common]) => `<button type="button" class="list-row" data-go="insight/item/${encodeURIComponent(i.id)}"><span class="grow">${escapeHtml(i.name)}</span><span style="width: 90px; display: grid">${hbar(n / 90, i.colour)}</span><span class="num" style="min-width: 110px">${n} days · ${common}</span></button>`).join('') : empty('No symptoms logged in the last 90 days.')}
@@ -504,10 +514,15 @@ function linksPage() {
   const otherwise = days.filter(isCalm).map(nextOf).filter(Boolean);
   const targets = insight.healthItems.filter((i) => i.id !== pivot && i.id !== sleep.id && (i.scale === 'symptom' || i.group === 'Check-in')).slice(0, 12);
   const score = (i, set) => avg(set.map((d) => (insight.health.get(d).get(i.id) || 0) / (SCALES[i.scale].length - 1)));
-  const rows = targets.map((i) => [i, score(i, after), score(i, otherwise)]).sort((a, b) => Math.abs(b[1] - b[2]) - Math.abs(a[1] - a[2])).slice(0, 7);
-  const pivotWords = pivot === 'poor-sleep' ? 'a poor night' : `a bad day of ${insight.healthItems.find((i) => i.id === pivot).name.toLowerCase()}`;
+  const all = targets.map((i) => [i, score(i, after), score(i, otherwise)]).sort((a, b) => Math.abs(b[1] - b[2]) - Math.abs(a[1] - a[2]));
+  const rows = all.slice(0, 7);
+  const pivotName = pivot === 'poor-sleep' ? 'Poor sleep' : insight.healthItems.find((i) => i.id === pivot).name;
+  const pivotWords = pivot === 'poor-sleep' ? 'a poor night' : `a bad day of ${pivotName.toLowerCase()}`;
+  // The ring: how far apart the day after is from other days, a difference of 0.3 or more = the hottest.
+  const ringItems = all.slice(0, 8).map(([i, a, b]) => ({ name: i.name, s: Math.min(1, Math.abs(a - b) / 0.3) }));
   return `${crumbs([['insight/health', 'Health']], 'What goes together')}${head('What goes together', '<div class="muted">the last 6 months</div>')}<div class="side">
     <div class="pills">${pivots.map(([id, n]) => `<button type="button" class="chip" aria-pressed="${id === pivot}" data-links="${id}"${id === pivot ? ` style="background: ${INK}"` : ''}>${escapeHtml(n)}</button>`).join('')}</div>
+    ${after.length && ringItems.length ? heatRing(ringItems, pivotName, 'and the next day', `What moves with ${pivotWords}, hotter = stronger`) : ''}
     ${labelRow(`The day after ${pivotWords}`, `${after.length} times`)}
     ${rows.map(([i, a, b]) => `<div class="bar-row"><span>${escapeHtml(i.name)}</span><span style="display: grid; gap: 3px">${hbar(a, i.colour)}${hbar(b, COLOURS.compare)}</span><span class="num">${a > b + 0.05 ? 'more' : a < b - 0.05 ? 'less' : 'same'}</span></div>`).join('') || empty('Not enough days logged yet.')}
     <div class="key"><span>coloured: the day after ${escapeHtml(pivotWords)}</span><span>grey: after a ${pivot === 'poor-sleep' ? 'good night' : 'day without it'}</span></div>

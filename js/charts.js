@@ -185,6 +185,57 @@ function heatYear(rows, label) {
   return `${svgOpen(h + 18, label)}${heatField(rows.map((r) => r.values), left, w, rowH, { blur: 5 })}${names}${days}</svg>`;
 }
 
+// A month as a calendar (Monday first), the heat melting across the days, with the dates on top.
+// values: { "YYYY-MM-DD": 0..1 }; days missing from it show as none.
+function heatMonth(month, values, label) {
+  const first = new Date(`${month}-01T12:00:00`);
+  const offset = (first.getDay() + 6) % 7;
+  const length = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+  const rows = Math.ceil((offset + length) / 7);
+  const cw = W / 7;
+  const grid = Array.from({ length: rows }, () => new Array(7).fill(0));
+  let dates = '';
+  for (let d = 1; d <= length; d++) {
+    const pos = offset + d - 1;
+    const v = values[`${month}-${String(d).padStart(2, '0')}`] || 0;
+    grid[Math.floor(pos / 7)][pos % 7] = v;
+    // Dates sit on the field: light on the deepest colours, ink on the rest.
+    dates += txt((pos % 7) * cw + 9, Math.floor(pos / 7) * cw + 18, String(d), { anchor: 'start', size: 11, fill: v > 0.76 ? COLOURS.onColour : INK });
+  }
+  return `${svgOpen(rows * cw, label)}${heatField(grid, 0, W, cw, { blur: 13 })}${dates}</svg>`;
+}
+
+// What goes together: a glowing ring with a hot spot for each thing, hotter where the link is stronger.
+// The ring itself glows softly; each spot sits in it, its own size and heat.
+// items: [{ name, s: 0..1 }], strongest first, placed clockwise from the top.
+function heatRing(items, big, small, label) {
+  const id = `heat${heatIds++}`;
+  const h = 330;
+  const cx = W / 2;
+  const cy = h / 2;
+  const R = 96;
+  const n = items.length;
+  const grey = (v) => { const g = Math.round(Math.min(Math.max(v, 0), 1) * 255); return `rgb(${g},${g},${g})`; };
+  const point = (a, r) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+  // The ring: a wide faint glow with a slightly warmer line inside it.
+  let shapes = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${grey(0.12)}" stroke-width="72"/><circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${grey(0.2)}" stroke-width="26"/>`;
+  let names = '';
+  items.forEach((item, k) => {
+    const mid = -Math.PI / 2 + (k / n) * Math.PI * 2;
+    const half = (Math.PI / n) * (0.3 + 0.35 * item.s);
+    const [x1, y1] = point(mid - half, R);
+    const [x2, y2] = point(mid + half, R);
+    // A rounded spot along the ring: longer, fatter and hotter for a stronger link.
+    shapes += `<path d="M${x1.toFixed(2)} ${y1.toFixed(2)} A${R} ${R} 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)}" fill="none" stroke="${grey(0.3 + 0.7 * item.s)}" stroke-width="${(16 + 16 * item.s).toFixed(1)}" stroke-linecap="round"/>`;
+    const [lx, ly] = point(mid, R + 50);
+    const anchor = Math.abs(lx - cx) < 12 ? 'middle' : lx > cx ? 'start' : 'end';
+    names += txt(lx + (anchor === 'start' ? -10 : anchor === 'end' ? 10 : 0), ly + 4, item.name, { anchor, size: 11, fill: INK });
+  });
+  return `${svgOpen(h, label)}<defs>${heatFilter(id, 8)}<radialGradient id="${id}g" cx="${cx}" cy="${cy}" r="${R + 60}" gradientUnits="userSpaceOnUse"><stop offset="0.25" stop-color="#fff" stop-opacity="0"/><stop offset="0.42" stop-color="#fff"/><stop offset="0.78" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><mask id="${id}c"><rect width="${W}" height="${h}" fill="url(#${id}g)"/></mask></defs>
+    <g mask="url(#${id}c)"><g filter="url(#${id})"><rect x="0" y="0" width="${W}" height="${h}" fill="${grey(0)}"/>${shapes}</g></g>
+    ${names}${txt(cx, cy - 4, big, { size: 20, fill: INK, family: 'Lora, serif' })}${txt(cx, cy + 15, small, { size: 11 })}</svg>`;
+}
+
 // One soft strip per thing, the heat running sideways through the columns.
 function heatStrips(grid, rowNames, colNames, label) {
   const left = 96;
