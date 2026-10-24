@@ -183,7 +183,7 @@ $('plan').addEventListener('click', async (event) => {
 function showBudLook() {
   document.documentElement.classList.toggle('bud', budDay);
   $('bookmark-button').setAttribute('aria-pressed', budDay);
-  document.querySelector('meta[name="theme-color"]').content = budDay ? '#121212' : '#EDE5D1';
+  if (typeof showThemeColour === 'function') showThemeColour(); // from colours.js, which loads after this file
 }
 
 $('bookmark-button').addEventListener('click', async () => {

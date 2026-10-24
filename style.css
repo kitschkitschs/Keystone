@@ -10,9 +10,11 @@
 :root {
   --paper: #EDE5D1;
   --ink: #1B1716;
-  --muted: #6A5C55;
-  --rule: rgba(27, 23, 22, 0.14);
-  --dash: rgba(27, 23, 22, 0.55);
+  /* Everything else is mixed from paper and ink, so the colour sliders in the menu change it all. */
+  --muted: color-mix(in srgb, var(--ink) 66%, var(--paper));
+  --rule: color-mix(in srgb, var(--ink) 14%, transparent);
+  --dash: color-mix(in srgb, var(--ink) 55%, transparent);
+  --bar-paper: color-mix(in srgb, var(--paper) 92%, var(--ink));
   --serif: 'Lora', Georgia, serif;
   --sans: 'Roboto', system-ui, sans-serif;
   --side: 22px;
@@ -135,7 +137,7 @@ html.bud .sheet::backdrop { background: rgba(255, 255, 255, 0.25); }
   display: flex; align-items: center; gap: 10px; min-height: 44px; width: 100%;
   background: none; border: 0; padding: 0; color: var(--muted); font-size: 14px;
 }
-.add-line span { border-bottom: 1px dashed rgba(106, 92, 85, 0.6); padding-bottom: 1px; }
+.add-line span { border-bottom: 1px dashed color-mix(in srgb, var(--muted) 60%, transparent); padding-bottom: 1px; }
 
 /* ---- Health page ---- */
 .day-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 10px 14px; }
@@ -164,7 +166,7 @@ html.bud .sheet::backdrop { background: rgba(255, 255, 255, 0.25); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 8px; }
 .chip {
   font-size: 13px; line-height: 1.3; padding: 5px 10px; min-height: 32px; border-radius: 1.5px;
-  background: none; border: 1.1px dashed rgba(27, 23, 22, 0.45);
+  background: none; border: 1.1px dashed color-mix(in srgb, var(--ink) 45%, transparent);
 }
 .chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-style: solid; border-color: var(--ink); }
 .tags { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 0; border-bottom: 1px solid var(--rule); }
@@ -177,14 +179,14 @@ html.bud .sheet::backdrop { background: rgba(255, 255, 255, 0.25); }
 .subfolder summary::-webkit-details-marker { display: none; }
 .subfolder:not([open]) .chev { transform: rotate(-90deg); }
 .sub-name { flex: 1; font-size: 15px; font-weight: 500; }
-.sub-rows { margin-left: 8px; padding-left: 16px; border-left: 1.1px dashed rgba(27, 23, 22, 0.45); }
+.sub-rows { padding-left: 24px; }
 
 /* ---- Bottom bar ---- */
 .bar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 3;
   height: calc(var(--bar) + env(safe-area-inset-bottom));
   padding: 0 var(--side) calc(12px + env(safe-area-inset-bottom));
-  display: flex; flex-direction: column; background: #E5DCC4;
+  display: flex; flex-direction: column; background: var(--bar-paper);
 }
 .bar-buttons { flex: 1; display: grid; grid-template-columns: repeat(5, 1fr); align-items: center; max-width: 436px; width: 100%; margin: 0 auto; }
 .bar-buttons button { min-width: 48px; height: 48px; margin: 0 auto; display: grid; place-items: center; background: none; border: 0; padding: 0; }
@@ -223,12 +225,20 @@ input:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px 
 .simple-list li { display: flex; align-items: center; gap: 8px; min-height: 40px; border-bottom: 1px solid var(--rule); }
 .simple-list li span { flex: 1; }
 
+/* ---- Colour sliders (full menu) ---- */
+.colour { margin: 12px 0 4px; }
+.colour-head { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.swatch { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--rule); }
+.colour-code { margin-left: auto; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.slider { display: grid; grid-template-columns: 74px 1fr; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); min-height: 36px; }
+.slider input { width: 100%; accent-color: var(--ink); }
+
 /* ---- Task sheet ---- */
 .sheet {
   width: min(436px, calc(100% - 24px)); margin: auto auto 12px; padding: 20px var(--side) 14px;
   background: var(--paper); color: var(--ink); border: 1.2px solid var(--ink); border-radius: 2px;
 }
-.sheet::backdrop { background: rgba(27, 23, 22, 0.35); }
+.sheet::backdrop { background: color-mix(in srgb, var(--ink) 35%, transparent); }
 .sheet h2 { margin: 0 0 12px; font-family: var(--serif); font-weight: 500; font-size: 22px; }
 .field { display: flex; flex-direction: column; gap: 4px; margin: 0 0 12px; padding: 0; border: 0; font-size: 13px; }
 .field legend { padding: 0; margin-bottom: 6px; }
@@ -238,7 +248,7 @@ input:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px 
 .choices input { position: absolute; opacity: 0; pointer-events: none; }
 .choices span {
   display: block; text-align: center; padding: 8px 0; font-size: 14px;
-  border: 1.1px dashed rgba(27, 23, 22, 0.5); border-radius: 1.5px;
+  border: 1.1px dashed color-mix(in srgb, var(--ink) 50%, transparent); border-radius: 1.5px;
 }
 .choices input:checked + span { background: var(--ink); color: var(--paper); border-style: solid; border-color: var(--ink); }
 .choices input:focus-visible + span { outline: 2px solid var(--ink); outline-offset: 2px; }

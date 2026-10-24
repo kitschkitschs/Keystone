@@ -147,7 +147,7 @@ function countText(path, folder) {
 
 function subFolder(path, folder) {
   return `<li><details class="subfolder" data-fold="${path}"${isFolderFolded(path) ? '' : ' open'}>
-    <summary><span class="sub-name">${escapeHtml(folder.name)}</span><span class="part-count">${countText(path, folder)}</span>${chevron}</summary>
+    <summary><span class="sub-name">${escapeHtml(folder.name)}</span>${chevron}</summary>
     <ul class="rows sub-rows">${folderBody(path, folder)}</ul>
   </details></li>`;
 }

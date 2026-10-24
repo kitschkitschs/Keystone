@@ -109,7 +109,7 @@ function stamp(shape, { size = 200, done = 1, press = 1, from = 0, seed = 1, rot
     '<feComposite in="rough" in2="ink" operator="out"/>' +
     '</filter></defs>' +
     `<g transform="rotate(${rot} 100 100)" opacity="${opacity.toFixed(2)}"><g filter="url(#${id}f)">` +
-    `<rect width="200" height="200" fill="${INK}" mask="url(#${id}m)"/></g></g></svg>`;
+    `<rect width="200" height="200" style="fill: var(--ink, ${INK})" mask="url(#${id}m)"/></g></g></svg>`;
 }
 
 // The part of a stamp that didn't press down: a soft-edged band that leaves only a ghost
