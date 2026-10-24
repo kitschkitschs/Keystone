@@ -70,9 +70,14 @@ function frameShape(name) {
 //   label  what a screen reader says, or leave empty to hide it from screen readers
 function stamp(shape, { size = 200, done = 1, seed = 1, rot = 0, label = '' } = {}) {
   const id = `stamp${++stampCount}`;
-  const threshold = 0.5 + 0.22 * done;
-  const patches = 0.95 - 0.3 * done;
-  const opacity = 0.25 + 0.75 * Math.pow(done, 0.8);
+  // Each tick should darken the stamp by the same visible amount, however many
+  // tasks there are. So pick how dark it should look, split that between how
+  // strong the ink is and how much of the shape gets printed, then look up
+  // which grain cut-off prints that much of the shape.
+  const opacity = 0.3 + 0.7 * done;
+  const printed = Math.min(1, (0.92 * done) / opacity);
+  const threshold = cutoffFor(printed);
+  const patches = 0.95 - 0.5 * (threshold - 0.3);
   const warp = 4.4 - 1.4 * done;
   const grain = Math.min(0.75, (0.75 * size) / 300);
   const a11y = label ? `role="img" aria-label="${label}"` : 'aria-hidden="true"';
@@ -92,6 +97,22 @@ function stamp(shape, { size = 200, done = 1, seed = 1, rot = 0, label = '' } = 
     '</filter></defs>' +
     `<g transform="rotate(${rot} 100 100)" opacity="${opacity.toFixed(2)}"><g filter="url(#${id}f)">` +
     `<rect width="200" height="200" fill="${INK}" mask="url(#${id}m)"/></g></g></svg>`;
+}
+
+// How much of a shape gets printed (0 to 1) at grain cut-offs 0.30, 0.33, 0.36 ... 0.90.
+// Measured by printing the frames many times; the ink isn't printed evenly
+// around the middle cut-offs, so stepping the cut-off evenly gave uneven steps.
+const PRINTED_AT = [0, 0.002, 0.006, 0.012, 0.025, 0.044, 0.072, 0.119, 0.183, 0.26, 0.368, 0.478,
+  0.595, 0.722, 0.817, 0.9, 0.955, 0.981, 0.994, 0.999, 1];
+
+function cutoffFor(printed) {
+  for (let i = 1; i < PRINTED_AT.length; i++) {
+    if (printed <= PRINTED_AT[i]) {
+      const t = (printed - PRINTED_AT[i - 1]) / (PRINTED_AT[i] - PRINTED_AT[i - 1]);
+      return 0.3 + 0.03 * (i - 1 + t);
+    }
+  }
+  return 0.9;
 }
 
 // A number from 0 to 1 that is always the same for the same text.
