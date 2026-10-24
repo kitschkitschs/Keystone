@@ -165,7 +165,7 @@ function catStrength(name) {
 
 // --- Page pieces ---
 
-const head = (kicker, big, extra = '') => `<header class="page-head"><div><div class="kicker">${escapeHtml(kicker)}</div><h1 class="big">${escapeHtml(big)}</h1>${extra}</div><button class="icon-button open-menu" type="button" aria-label="Menu">${menuIcon}</button></header>`;
+const head = (big, extra = '') => `<header class="page-head"><div><h1 class="big">${escapeHtml(big)}</h1>${extra}</div></header>`;
 // The path to this page, like folders on a computer: tap any step to jump straight there.
 // trail: [[address, name], ...] from the top down; the last name is this page.
 const crumbs = (trail, here) => `<nav class="crumbs" aria-label="Where you are">${trail.map(([to, words]) =>
@@ -174,8 +174,6 @@ const labelRow = (left, right = '') => `<div class="label-row"><span class="labe
 const stat = (big, small) => `<div class="stat"><b>${escapeHtml(big)}</b><span>${escapeHtml(small)}</span></div>`;
 const stats = (cells) => `<div class="stats">${cells.join('')}</div>`;
 const zoomRow = (name, options, current) => `<div class="zoom" role="group">${options.map((o) => `<button type="button" data-zoom="${name}" data-value="${o}" aria-pressed="${o === current}">${o}</button>`).join('')}</div>`;
-const topTabs = (current) => `<nav class="tabs side" aria-label="Insight">${[['Habits', 'insight'], ['Health', 'insight/health'], ['Avoidance', 'insight/avoid']]
-  .map(([n, to]) => `<button type="button" class="tab" aria-selected="${n === current}" data-go="${to}">${n}</button>`).join('')}</nav>`;
 const empty = (words) => `<p class="note">${escapeHtml(words)}</p>`;
 
 // Remembered zoom levels, per chart.
@@ -217,7 +215,7 @@ function buckets(size) {
 function habitsFront() {
   const cats = categories();
   if (!cats.length) {
-    return `${head('Insight', 'Habits')}${topTabs('Habits')}<div class="side">${empty('Habits are the every-day tasks on the front page. Tick "Every day" when you add a task, and it shows here.')}</div>`;
+    return `<div class="side">${empty('Habits are the every-day tasks on the front page. Tick "Every day" when you add a task, and it shows here.')}</div>`;
   }
   const last = insight.days.length - 1;
   const rings = cats.map((c) => ({ label: c, v: catStrength(c)[last], colour: insight.catColours.get(c) }));
@@ -229,7 +227,7 @@ function habitsFront() {
     return `<button type="button" class="list-row" data-go="insight/cat/${encodeURIComponent(c)}">${miniRing(v, insight.catColours.get(c))}<span class="grow">${escapeHtml(c)}</span><span class="muted">${hs.length} habit${hs.length === 1 ? '' : 's'}</span><span class="num">${pct(v)}</span>${chevronRight}</button>
       ${open ? hs.map((h) => `<button type="button" class="list-row sub" data-go="insight/habit/${h.id}">${miniRing(h.now, h.colour, 22)}<span class="grow">${escapeHtml(h.name)}</span>${beadRow(lastDays(h, 7), h.colour, 70)}<span class="num">${pct(h.now)}</span></button>`).join('') : ''}`;
   }).join('');
-  return `${head('Insight', 'Habits')}${topTabs('Habits')}<div class="side">
+  return `<div class="side">
     <div style="padding-top: 14px">${ringSet(rings, pct(all), 'all habits')}</div>
     ${labelRow('Categories', 'a category = the average of its habits')}${rows}
     <div class="key"><span>${beadRow([{ state: 'done', t: 1 }], INK, 12)} done</span><span>${beadRow([{ state: 'miss' }], INK, 12)} not done</span><span>${beadRow([{ state: 'skip' }], INK, 12)} skipped</span></div>
@@ -264,7 +262,7 @@ function categoryPage(name) {
     return ds.length ? avg(ds.map((d) => (d.state === 'done' ? d.t : 0))) : 0;
   });
   const carry = hs.map((h) => [h, h.states.slice(-84).filter((s) => s === 'done').length]);
-  return `${crumbs([['insight', 'Insight'], ['insight', 'Habits']], name)}${head('Category', name)}<div class="side">
+  return `${crumbs([['insight', 'Habits']], name)}${head(name)}<div class="side">
     <div style="padding-top: 10px">${ringSet([{ label: 'All', v: series[last], colour }, ...hs.map((h) => ({ label: h.name, v: h.now, colour: h.colour }))], pct(series[last]), `${hs.length} habits`)}</div>
     ${stats([stat(pct(series[last]), 'strength'), stat(signed(series[last] - series[Math.max(0, last - 30)]), 'this month'), stat(signed(series[last] - series[0]), 'this year'), stat(String(fullDays), 'full days, 30')])}
     ${labelRow('How much got done', '26 weeks')}${beadCalendar(days.map((d, k) => ({ day: d, ...share[k] })), colour, 'How much got done each day')}
@@ -305,7 +303,7 @@ function habitPage(id) {
     return counted.length ? counted.filter(([, s]) => s === 'done').length / counted.length : 0;
   });
   const cal = days.map((d, k) => ({ day: d, state: h.states[k], t: 1 }));
-  return `${crumbs([['insight', 'Insight'], ['insight', 'Habits'], [`insight/cat/${encodeURIComponent(h.category)}`, h.category]], h.name)}${head(h.category, h.name, `<div class="muted">${freqWords(h.freq)}</div>`)}<div class="side">
+  return `${crumbs([['insight', 'Habits'], [`insight/cat/${encodeURIComponent(h.category)}`, h.category]], h.name)}${head(h.name, `<div class="muted">${freqWords(h.freq)}</div>`)}<div class="side">
     <div style="padding-top: 8px">${ringSet([{ label: '', v: h.now, colour: h.colour }], pct(h.now), 'strength', 180)}</div>
     ${stats([stat(pct(h.now), 'strength'), stat(signed(h.month), 'this month'), stat(signed(h.year), 'this year'), stat(String(h.doneCount), 'times')])}
     ${labelRow('Strength', 'rises slowly when you keep it up')}${zoomRow('score', ['Day', 'Week', 'Month', 'Quarter', 'Year'], zooms.score)}
@@ -398,7 +396,7 @@ function healthFront() {
   });
   const loads = insight.days.slice(-14).map((d) => symptomLoad(d));
   const maxLoad = Math.max(1, ...loads);
-  return `${head('Insight', 'Health')}${topTabs('Health')}<div class="side">
+  return `<div class="side">
     <div style="padding-top: 14px">${ringSet(rings, '30 days', 'average, full ring = best')}</div>
     ${labelRow('Last 14 days', 'bigger, deeper = better / more')}${measureRows(measures)}
     <button type="button" class="list-row" data-go="insight/symptoms"><span class="grow">Symptom load</span>${beadRow(loads.map((l, k) => (l ? { state: 'done', t: l / maxLoad } : { state: loggedDay(insight.days[insight.days.length - 14 + k]) ? 'miss' : 'none' })), COLOURS.load, 120)}<span class="num">today</span>${chevronRight}</button>
@@ -430,7 +428,7 @@ function itemPage(id) {
     const maxFeel = Math.max(1, ...topFeel.map(([, n]) => n));
     extra = `${labelRow('Feelings you picked most', '13 weeks')}${topFeel.map(([w, n]) => `<div class="bar-row"><span>${escapeHtml(w)}</span>${hbar(n / maxFeel, EMOTION_COLOURS[familyOf.get(w)] || item.colour)}<span class="num">${n}</span></div>`).join('') || empty('No feelings picked yet.')}`;
   }
-  return `${crumbs([['insight', 'Insight'], ['insight/health', 'Health'], ...(isSymptom ? [['insight/symptoms', 'Symptoms']] : [])], item.name)}${head(item.group, item.name)}<div class="side">
+  return `${crumbs([['insight/health', 'Health'], ...(isSymptom ? [['insight/symptoms', 'Symptoms']] : [])], item.name)}${head(item.name, item.group ? `<div class="muted">${escapeHtml(item.group)}</div>` : '')}<div class="side">
     ${labelRow('13 weeks', isSymptom ? 'bigger, deeper = worse' : 'bigger, deeper = better')}${beadCalendar(cal, item.colour, `${item.name} calendar`, 13)}
     <div class="key"><span>${beadRow([{ state: 'miss' }], item.colour, 12)} ${isSymptom ? 'none' : 'not logged'}</span><span>${beadRow([{ state: 'none' }], item.colour, 12)} nothing logged that day</span></div>
     ${labelRow('How the days spread', 'days at each level')}
@@ -453,7 +451,7 @@ function symptomsPage() {
     const common = vs.length ? SCALES.symptom[Math.round(avg(vs))] : '';
     return [i, vs.length, common];
   }).filter(([, n]) => n).sort((a, b) => b[1] - a[1]);
-  return `${crumbs([['insight', 'Insight'], ['insight/health', 'Health']], 'Symptoms')}${head('Health', 'Symptoms')}<div class="side">
+  return `${crumbs([['insight/health', 'Health']], 'Symptoms')}${head('Symptoms')}<div class="side">
     ${labelRow('Symptom load per week', '16 weeks')}${columns(perWeek.map((v) => v / maxWeek), perWeek, COLOURS.load, 'Symptom load per week')}
     ${labelRow('How often, how bad', '90 days')}
     ${rows.length ? rows.map(([i, n, common]) => `<button type="button" class="list-row" data-go="insight/item/${encodeURIComponent(i.id)}"><span class="grow">${escapeHtml(i.name)}</span><span style="width: 90px; display: grid">${hbar(n / 90, i.colour)}</span><span class="num" style="min-width: 110px">${n} days · ${common}</span></button>`).join('') : empty('No symptoms logged in the last 90 days.')}
@@ -485,7 +483,7 @@ function linksPage() {
   const score = (i, set) => avg(set.map((d) => (insight.health.get(d).get(i.id) || 0) / (SCALES[i.scale].length - 1)));
   const rows = targets.map((i) => [i, score(i, after), score(i, otherwise)]).sort((a, b) => Math.abs(b[1] - b[2]) - Math.abs(a[1] - a[2])).slice(0, 7);
   const pivotWords = pivot === 'poor-sleep' ? 'a poor night' : `a bad day of ${insight.healthItems.find((i) => i.id === pivot).name.toLowerCase()}`;
-  return `${crumbs([['insight', 'Insight'], ['insight/health', 'Health']], 'What goes together')}${head('Health · 6 months', 'What goes together')}<div class="side">
+  return `${crumbs([['insight/health', 'Health']], 'What goes together')}${head('What goes together', '<div class="muted">the last 6 months</div>')}<div class="side">
     <div class="pills">${pivots.map(([id, n]) => `<button type="button" class="chip" aria-pressed="${id === pivot}" data-links="${id}"${id === pivot ? ` style="background: ${INK}"` : ''}>${escapeHtml(n)}</button>`).join('')}</div>
     ${labelRow(`The day after ${pivotWords}`, `${after.length} times`)}
     ${rows.map(([i, a, b]) => `<div class="bar-row"><span>${escapeHtml(i.name)}</span><span style="display: grid; gap: 3px">${hbar(a, i.colour)}${hbar(b, COLOURS.compare)}</span><span class="num">${a > b + 0.05 ? 'more' : a < b - 0.05 ? 'less' : 'same'}</span></div>`).join('') || empty('Not enough days logged yet.')}
@@ -513,20 +511,20 @@ function showingUp(ids) {
 
 function avoidFront() {
   const list = areas();
-  if (!list.length) return `${head('Health', 'Avoidance')}${topTabs('Avoidance')}<div class="side">${empty('Add areas to an Avoidance folder on the Health page (scale: approach or avoid), and they show here.')}</div>`;
+  if (!list.length) return `<div class="side">${empty('Add areas to an Avoidance folder on the Health page (scale: approach or avoid), and they show here.')}</div>`;
   const colour = list[0].colour;
   const deep = COLOURS.hiding;
   const s = showingUp(list.map((a) => a.id));
   const last = s.length - 1;
   const all = list.flatMap((a) => areaValues(a.id));
-  return `${head('Health', 'Avoidance')}${topTabs('Avoidance')}<div class="side">
+  return `<div class="side">
     <div style="display: flex; align-items: baseline; gap: 8px; padding-top: 12px"><b style="font-family: Lora, serif; font-size: 28px; font-weight: 500">${pct(s[last])}</b><span class="muted">showing-up score</span></div>
     ${horizon(s[last], COLOURS.showingUp, deep, 'Showing up, above the line; hiding, below')}
     ${stats([stat(signed(s[last] - s[Math.max(0, last - 30)]), 'this month'), stat(signed(s[last] - s[0]), 'this year'), stat(String(all.filter((v) => v === 1).length), 'approached'), stat(String(all.filter((v) => v === 0).length), 'avoided')])}
     ${labelRow('Areas', 'last 7 days')}
     ${list.map((a) => {
       const sa = strengthSeries(areaValues(a.id), 0.6);
-      const week = areaValues(a.id).slice(-7).map((v) => (v == null ? { state: 'none' } : { state: 'done', t: v ? 0.15 : 1, colour: v ? COLOURS.showingUp : deep }));
+      const week = areaValues(a.id).slice(-7).map((v) => (v == null ? { state: 'none' } : { state: 'done', t: 1, colour: v ? COLOURS.showingUp : deep }));
       return `<button type="button" class="list-row" data-go="insight/area/${encodeURIComponent(a.id)}">${miniSun(sa[last], COLOURS.showingUp, deep)}<span class="grow">${escapeHtml(a.name)}</span>${beadRow(week, colour, 80)}<span class="num">${pct(sa[last])}</span>${chevronRight}</button>`;
     }).join('')}
     <p class="note">The score works like Loop's strength: it rises slowly when you show up and sinks slowly when you hide. Days you logged nothing leave it where it was.</p>
@@ -541,7 +539,7 @@ function areaPage(id) {
   const s = strengthSeries(vals, 0.6);
   const last = s.length - 1;
   const days = insight.days;
-  const cal = days.map((d, k) => ({ day: d, ...(vals[k] == null ? { state: 'none' } : { state: 'done', t: vals[k] ? 0.6 : 1, colour: vals[k] ? COLOURS.showingUp : deep }) })).slice(-91);
+  const cal = days.map((d, k) => ({ day: d, ...(vals[k] == null ? { state: 'none' } : { state: 'done', t: 1, colour: vals[k] ? COLOURS.showingUp : deep }) })).slice(-91);
   const weeks = buckets('Week').slice(-12);
   const weekShares = weeks.map((w) => {
     const vs = vals.filter((v, k) => v != null && bucketKey(days[k], 'Week') === w);
@@ -567,21 +565,24 @@ function areaPage(id) {
   if (run) runs.push(run);
   const best = runs.sort((x, y) => y.length - x.length).slice(0, 4);
   const bestMax = Math.max(1, ...best.map((r) => r.length));
+  const loggedByWeekday = WEEKDAYS.map((_, wd) => vals.filter((v, k) => v != null && weekdayOf(days[k]) === wd).slice(-12));
+  const avoidedByWeekday = loggedByWeekday.map((vs) => (vs.length ? 1 - avg(vs) : 0));
   const byWeekday = WEEKDAYS.map((_, wd) => {
-    const vs = vals.filter((v, k) => v != null && weekdayOf(days[k]) === wd).slice(-12);
+    const vs = loggedByWeekday[wd];
     return vs.length ? avg(vs) : 0;
   });
   const months = buckets('Month').slice(-4);
-  return `${crumbs([['insight', 'Insight'], ['insight/avoid', 'Avoidance']], a.name)}${head('Avoidance', a.name)}<div class="side">
+  return `${crumbs([['insight/avoid', 'Avoidance']], a.name)}${head(a.name)}<div class="side">
     <div style="display: flex; align-items: baseline; gap: 8px; padding-top: 12px"><b style="font-family: Lora, serif; font-size: 28px; font-weight: 500">${pct(s[last])}</b><span class="muted">score</span></div>
     ${horizon(s[last], COLOURS.showingUp, deep, `${a.name}: showing up`, 120, 40)}
     ${stats([stat(signed(s[last] - s[Math.max(0, last - 30)]), 'this month'), stat(signed(s[last] - s[0]), 'this year'), stat(String(vals.filter((v) => v === 1).length), 'approached'), stat(String(vals.filter((v) => v === 0).length), 'avoided')])}
     ${labelRow('Score', '6 months')}${lineChart(s.slice(-182), 'Score over time', [monthOf(days[days.length - 182]), monthOf(days[last])])}
     ${labelRow('Days', '13 weeks')}${beadCalendar(cal, a.colour, 'Days approached or avoided', 13)}
-    <div class="key"><span>${beadRow([{ state: 'done', t: 0.6, colour: COLOURS.showingUp }], a.colour, 12)} approached</span><span>${beadRow([{ state: 'done', t: 1, colour: deep }], a.colour, 12)} avoided</span><span>${beadRow([{ state: 'none' }], a.colour, 12)} nothing logged</span></div>
+    <div class="key"><span>${beadRow([{ state: 'done', t: 1, colour: COLOURS.showingUp }], a.colour, 12)} approached</span><span>${beadRow([{ state: 'done', t: 1, colour: deep }], a.colour, 12)} avoided</span><span>${beadRow([{ state: 'none' }], a.colour, 12)} nothing logged</span></div>
     ${labelRow('Sun path', '12 weeks · showed up / logged')}${sunPath(weekShares, weekLabels, COLOURS.showingUp, deep, 'Each week, above the line when you mostly showed up')}
-    ${labelRow('Longest runs of showing up')}${best.map((r) => `<div class="bar-row"><span>${fmtShort(r.from)} to ${fmtShort(r.to)}</span>${hbar(r.length / bestMax, COLOURS.runs)}<span class="num">${r.length}</span></div>`).join('') || empty('No runs yet.')}
-    ${labelRow('Which days', 'longer = showed up more')}${flower(byWeekday, WEEKDAYS, COLOURS.runs, 'Showing up by weekday')}
+    ${labelRow('Longest runs of showing up')}${best.map((r) => `<div class="bar-row"><span>${fmtShort(r.from)} to ${fmtShort(r.to)}</span>${hbar(r.length / bestMax, COLOURS.showingUp)}<span class="num">${r.length}</span></div>`).join('') || empty('No runs yet.')}
+    ${labelRow('Which days you showed up', 'last 12 of each weekday')}${flower(byWeekday, WEEKDAYS, COLOURS.showingUp, 'Showing up by weekday')}
+    ${labelRow('Which days you avoided', 'last 12 of each weekday')}${flower(avoidedByWeekday, WEEKDAYS, deep, 'Avoiding by weekday')}
     ${labelRow('Months')}<div style="display: grid; grid-template-columns: repeat(4, 1fr); text-align: center">${months.map((m) => {
       const vs = vals.filter((v, k) => v != null && days[k].startsWith(m));
       const share = vs.length ? avg(vs) : 0.5;
@@ -608,9 +609,25 @@ async function showInsight(route) {
   else if (page === 'area') html = areaPage(id);
   else html = habitsFront();
   $('insight-page').innerHTML = html;
-  for (const button of $('insight-page').querySelectorAll('.open-menu')) button.insertAdjacentHTML('beforeend', '<span class="menu-dot" hidden></span>');
+  const section = page === 'avoid' || page === 'area' ? 'Avoidance' : ['health', 'item', 'symptoms', 'links'].includes(page) ? 'Health' : 'Habits';
+  $('insight-section-name').textContent = section;
+  for (const b of $('insight-sections').children) b.setAttribute('aria-current', b.textContent === section ? 'page' : 'false');
+  $('insight-sections').hidden = true;
+  $('insight-section').setAttribute('aria-expanded', 'false');
   showBackupInfo();
 }
+
+// The Habits / Health / Avoidance menu, top left.
+$('insight-section').addEventListener('click', () => {
+  const open = $('insight-sections').hidden;
+  $('insight-sections').hidden = !open;
+  $('insight-section').setAttribute('aria-expanded', String(open));
+});
+$('insight-sections').addEventListener('click', (event) => {
+  const go = event.target.closest('[data-go]');
+  if (go) location.hash = go.dataset.go;
+  $('insight-sections').hidden = true;
+});
 
 $('insight-page').addEventListener('click', (event) => {
   const go = event.target.closest('[data-go]');
