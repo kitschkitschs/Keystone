@@ -205,33 +205,34 @@ function heatMonth(month, values, label) {
   return `${svgOpen(rows * cw, label)}${heatField(grid, 0, W, cw, { blur: 13 })}${dates}</svg>`;
 }
 
-// What goes together: one ring, the heat flowing round it, hotter where the link is stronger.
+// What goes together: a glowing ring with a hot spot for each thing, hotter where the link is stronger.
+// The ring itself glows softly; each spot sits in it, its own size and heat.
 // items: [{ name, s: 0..1 }], strongest first, placed clockwise from the top.
 function heatRing(items, big, small, label) {
   const id = `heat${heatIds++}`;
-  const h = 320;
+  const h = 330;
   const cx = W / 2;
   const cy = h / 2;
-  const R = 92;
-  const band = 32;
+  const R = 96;
   const n = items.length;
   const grey = (v) => { const g = Math.round(Math.min(Math.max(v, 0), 1) * 255); return `rgb(${g},${g},${g})`; };
   const point = (a, r) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
-  let arcs = '';
+  // The ring: a wide faint glow with a slightly warmer line inside it.
+  let shapes = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${grey(0.12)}" stroke-width="72"/><circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${grey(0.2)}" stroke-width="26"/>`;
   let names = '';
   items.forEach((item, k) => {
     const mid = -Math.PI / 2 + (k / n) * Math.PI * 2;
-    const half = Math.PI / n;
+    const half = (Math.PI / n) * (0.3 + 0.35 * item.s);
     const [x1, y1] = point(mid - half, R);
     const [x2, y2] = point(mid + half, R);
-    arcs += `<path d="M${x1.toFixed(2)} ${y1.toFixed(2)} A${R} ${R} 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)}" fill="none" stroke="${grey(0.14 + 0.86 * item.s)}" stroke-width="${band * 2}"/>`;
-    const [lx, ly] = point(mid, R + band / 2 + 16);
+    // A rounded spot along the ring: longer, fatter and hotter for a stronger link.
+    shapes += `<path d="M${x1.toFixed(2)} ${y1.toFixed(2)} A${R} ${R} 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)}" fill="none" stroke="${grey(0.3 + 0.7 * item.s)}" stroke-width="${(16 + 16 * item.s).toFixed(1)}" stroke-linecap="round"/>`;
+    const [lx, ly] = point(mid, R + 50);
     const anchor = Math.abs(lx - cx) < 12 ? 'middle' : lx > cx ? 'start' : 'end';
-    names += txt(lx + (anchor === 'start' ? -6 : anchor === 'end' ? 6 : 0), ly + 4, item.name, { anchor, size: 11, fill: INK });
+    names += txt(lx + (anchor === 'start' ? -10 : anchor === 'end' ? 10 : 0), ly + 4, item.name, { anchor, size: 11, fill: INK });
   });
-  const ring = `M${cx - R - band / 2} ${cy}a${R + band / 2} ${R + band / 2} 0 1 0 ${2 * R + band} 0a${R + band / 2} ${R + band / 2} 0 1 0 ${-(2 * R + band)} 0Z M${cx - R + band / 2} ${cy}a${R - band / 2} ${R - band / 2} 0 1 0 ${2 * R - band} 0a${R - band / 2} ${R - band / 2} 0 1 0 ${-(2 * R - band)} 0Z`;
-  return `${svgOpen(h, label)}<defs>${heatFilter(id, 9)}<clipPath id="${id}c"><path d="${ring}" clip-rule="evenodd"/></clipPath></defs>
-    <g clip-path="url(#${id}c)"><g filter="url(#${id})"><rect x="0" y="0" width="${W}" height="${h}" fill="${grey(0)}"/>${arcs}</g></g>
+  return `${svgOpen(h, label)}<defs>${heatFilter(id, 8)}<radialGradient id="${id}g" cx="${cx}" cy="${cy}" r="${R + 60}" gradientUnits="userSpaceOnUse"><stop offset="0.25" stop-color="#fff" stop-opacity="0"/><stop offset="0.42" stop-color="#fff"/><stop offset="0.78" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><mask id="${id}c"><rect width="${W}" height="${h}" fill="url(#${id}g)"/></mask></defs>
+    <g mask="url(#${id}c)"><g filter="url(#${id})"><rect x="0" y="0" width="${W}" height="${h}" fill="${grey(0)}"/>${shapes}</g></g>
     ${names}${txt(cx, cy - 4, big, { size: 20, fill: INK, family: 'Lora, serif' })}${txt(cx, cy + 15, small, { size: 11 })}</svg>`;
 }
 
