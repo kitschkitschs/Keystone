@@ -166,7 +166,10 @@ function catStrength(name) {
 // --- Page pieces ---
 
 const head = (kicker, big, extra = '') => `<header class="page-head"><div><div class="kicker">${escapeHtml(kicker)}</div><h1 class="big">${escapeHtml(big)}</h1>${extra}</div><button class="icon-button open-menu" type="button" aria-label="Menu">${menuIcon}</button></header>`;
-const backLink = (to, words) => `<button class="back" type="button" data-go="${to}"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M9 3L5 7l4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>${escapeHtml(words)}</button>`;
+// The path to this page, like folders on a computer: tap any step to jump straight there.
+// trail: [[address, name], ...] from the top down; the last name is this page.
+const crumbs = (trail, here) => `<nav class="crumbs" aria-label="Where you are">${trail.map(([to, words]) =>
+  `<button type="button" data-go="${to}">${escapeHtml(words)}</button><span class="crumb-sep" aria-hidden="true">${chevronRight}</span>`).join('')}<span aria-current="page">${escapeHtml(here)}</span></nav>`;
 const labelRow = (left, right = '') => `<div class="label-row"><span class="label">${escapeHtml(left)}</span>${right ? `<span class="muted">${escapeHtml(right)}</span>` : ''}</div>`;
 const stat = (big, small) => `<div class="stat"><b>${escapeHtml(big)}</b><span>${escapeHtml(small)}</span></div>`;
 const stats = (cells) => `<div class="stats">${cells.join('')}</div>`;
@@ -261,7 +264,7 @@ function categoryPage(name) {
     return ds.length ? avg(ds.map((d) => (d.state === 'done' ? d.t : 0))) : 0;
   });
   const carry = hs.map((h) => [h, h.states.slice(-84).filter((s) => s === 'done').length]);
-  return `${backLink('insight', 'Habits')}${head('Category', name)}<div class="side">
+  return `${crumbs([['insight', 'Insight'], ['insight', 'Habits']], name)}${head('Category', name)}<div class="side">
     <div style="padding-top: 10px">${ringSet([{ label: 'All', v: series[last], colour }, ...hs.map((h) => ({ label: h.name, v: h.now, colour: h.colour }))], pct(series[last]), `${hs.length} habits`)}</div>
     ${stats([stat(pct(series[last]), 'strength'), stat(signed(series[last] - series[Math.max(0, last - 30)]), 'this month'), stat(signed(series[last] - series[0]), 'this year'), stat(String(fullDays), 'full days, 30')])}
     ${labelRow('How much got done', '26 weeks')}${beadCalendar(days.map((d, k) => ({ day: d, ...share[k] })), colour, 'How much got done each day')}
@@ -301,8 +304,8 @@ function habitPage(id) {
     const counted = days.map((d, k) => [d, h.states[k]]).filter(([d, s]) => s && s !== 'skip' && weekdayOf(d) === wd).slice(-12);
     return counted.length ? counted.filter(([, s]) => s === 'done').length / counted.length : 0;
   });
-  const cal = days.map((d, k) => ({ day: d, state: h.states[k], t: 0.45 + 0.55 * h.strength[k] }));
-  return `${backLink(`insight/cat/${encodeURIComponent(h.category)}`, h.category)}${head(h.category, h.name, `<div class="muted">${freqWords(h.freq)}</div>`)}<div class="side">
+  const cal = days.map((d, k) => ({ day: d, state: h.states[k], t: 1 }));
+  return `${crumbs([['insight', 'Insight'], ['insight', 'Habits'], [`insight/cat/${encodeURIComponent(h.category)}`, h.category]], h.name)}${head(h.category, h.name, `<div class="muted">${freqWords(h.freq)}</div>`)}<div class="side">
     <div style="padding-top: 8px">${ringSet([{ label: '', v: h.now, colour: h.colour }], pct(h.now), 'strength', 180)}</div>
     ${stats([stat(pct(h.now), 'strength'), stat(signed(h.month), 'this month'), stat(signed(h.year), 'this year'), stat(String(h.doneCount), 'times')])}
     ${labelRow('Strength', 'rises slowly when you keep it up')}${zoomRow('score', ['Day', 'Week', 'Month', 'Quarter', 'Year'], zooms.score)}
@@ -311,7 +314,7 @@ function habitPage(id) {
     ${columns(counts.map((c) => c / maxCount), counts, h.colour, 'Times done')}
     <div class="key">${histKeys.length <= 12 ? histKeys.map((k) => `<span style="flex: 1; justify-content: center">${bucketLabel(k, zooms.history)}</span>`).join('') : `<span>${bucketLabel(histKeys[0], zooms.history)}</span><span class="spacer"></span><span>${bucketLabel(histKeys[histKeys.length - 1], zooms.history)}</span>`}</div>
     ${labelRow('Calendar', '26 weeks')}${beadCalendar(cal, h.colour, 'Calendar of days done')}
-    <div class="key"><span>${beadRow([{ state: 'done', t: 1 }], h.colour, 12)} done (bigger: steadier)</span><span>${beadRow([{ state: 'miss' }], h.colour, 12)} not done</span><span>${beadRow([{ state: 'skip' }], h.colour, 12)} skipped</span></div>
+    <div class="key"><span>${beadRow([{ state: 'done', t: 1 }], h.colour, 12)} done</span><span>${beadRow([{ state: 'miss' }], h.colour, 12)} not done</span><span>${beadRow([{ state: 'skip' }], h.colour, 12)} skipped</span></div>
     ${labelRow('Best streaks', h.current ? `now: ${h.current} day${h.current === 1 ? '' : 's'}` : '')}
     ${best.length ? best.map((s) => `<div class="bar-row"><span>${fmtShort(s.from)} to ${fmtShort(s.to)}</span>${hbar(s.length / bestMax, h.colour)}<span class="num">${s.length}</span></div>`).join('') : empty('No streaks yet.')}
     ${labelRow('Which days', 'share done, last 12 of each weekday')}${flower(byWeekday, WEEKDAYS, h.colour, 'Share done by weekday')}
@@ -427,7 +430,7 @@ function itemPage(id) {
     const maxFeel = Math.max(1, ...topFeel.map(([, n]) => n));
     extra = `${labelRow('Feelings you picked most', '13 weeks')}${topFeel.map(([w, n]) => `<div class="bar-row"><span>${escapeHtml(w)}</span>${hbar(n / maxFeel, EMOTION_COLOURS[familyOf.get(w)] || item.colour)}<span class="num">${n}</span></div>`).join('') || empty('No feelings picked yet.')}`;
   }
-  return `${backLink(isSymptom ? 'insight/symptoms' : 'insight/health', isSymptom ? 'Symptoms' : 'Health')}${head(item.group, item.name)}<div class="side">
+  return `${crumbs([['insight', 'Insight'], ['insight/health', 'Health'], ...(isSymptom ? [['insight/symptoms', 'Symptoms']] : [])], item.name)}${head(item.group, item.name)}<div class="side">
     ${labelRow('13 weeks', isSymptom ? 'bigger, deeper = worse' : 'bigger, deeper = better')}${beadCalendar(cal, item.colour, `${item.name} calendar`, 13)}
     <div class="key"><span>${beadRow([{ state: 'miss' }], item.colour, 12)} ${isSymptom ? 'none' : 'not logged'}</span><span>${beadRow([{ state: 'none' }], item.colour, 12)} nothing logged that day</span></div>
     ${labelRow('How the days spread', 'days at each level')}
@@ -450,7 +453,7 @@ function symptomsPage() {
     const common = vs.length ? SCALES.symptom[Math.round(avg(vs))] : '';
     return [i, vs.length, common];
   }).filter(([, n]) => n).sort((a, b) => b[1] - a[1]);
-  return `${backLink('insight/health', 'Health')}${head('Health', 'Symptoms')}<div class="side">
+  return `${crumbs([['insight', 'Insight'], ['insight/health', 'Health']], 'Symptoms')}${head('Health', 'Symptoms')}<div class="side">
     ${labelRow('Symptom load per week', '16 weeks')}${columns(perWeek.map((v) => v / maxWeek), perWeek, COLOURS.load, 'Symptom load per week')}
     ${labelRow('How often, how bad', '90 days')}
     ${rows.length ? rows.map(([i, n, common]) => `<button type="button" class="list-row" data-go="insight/item/${encodeURIComponent(i.id)}"><span class="grow">${escapeHtml(i.name)}</span><span style="width: 90px; display: grid">${hbar(n / 90, i.colour)}</span><span class="num" style="min-width: 110px">${n} days · ${common}</span></button>`).join('') : empty('No symptoms logged in the last 90 days.')}
@@ -482,7 +485,7 @@ function linksPage() {
   const score = (i, set) => avg(set.map((d) => (insight.health.get(d).get(i.id) || 0) / (SCALES[i.scale].length - 1)));
   const rows = targets.map((i) => [i, score(i, after), score(i, otherwise)]).sort((a, b) => Math.abs(b[1] - b[2]) - Math.abs(a[1] - a[2])).slice(0, 7);
   const pivotWords = pivot === 'poor-sleep' ? 'a poor night' : `a bad day of ${insight.healthItems.find((i) => i.id === pivot).name.toLowerCase()}`;
-  return `${backLink('insight/health', 'Health')}${head('Health · 6 months', 'What goes together')}<div class="side">
+  return `${crumbs([['insight', 'Insight'], ['insight/health', 'Health']], 'What goes together')}${head('Health · 6 months', 'What goes together')}<div class="side">
     <div class="pills">${pivots.map(([id, n]) => `<button type="button" class="chip" aria-pressed="${id === pivot}" data-links="${id}"${id === pivot ? ` style="background: ${INK}"` : ''}>${escapeHtml(n)}</button>`).join('')}</div>
     ${labelRow(`The day after ${pivotWords}`, `${after.length} times`)}
     ${rows.map(([i, a, b]) => `<div class="bar-row"><span>${escapeHtml(i.name)}</span><span style="display: grid; gap: 3px">${hbar(a, i.colour)}${hbar(b, COLOURS.compare)}</span><span class="num">${a > b + 0.05 ? 'more' : a < b - 0.05 ? 'less' : 'same'}</span></div>`).join('') || empty('Not enough days logged yet.')}
@@ -569,7 +572,7 @@ function areaPage(id) {
     return vs.length ? avg(vs) : 0;
   });
   const months = buckets('Month').slice(-4);
-  return `${backLink('insight/avoid', 'Avoidance')}${head('Avoidance', a.name)}<div class="side">
+  return `${crumbs([['insight', 'Insight'], ['insight/avoid', 'Avoidance']], a.name)}${head('Avoidance', a.name)}<div class="side">
     <div style="display: flex; align-items: baseline; gap: 8px; padding-top: 12px"><b style="font-family: Lora, serif; font-size: 28px; font-weight: 500">${pct(s[last])}</b><span class="muted">score</span></div>
     ${horizon(s[last], COLOURS.showingUp, deep, `${a.name}: showing up`, 120, 40)}
     ${stats([stat(signed(s[last] - s[Math.max(0, last - 30)]), 'this month'), stat(signed(s[last] - s[0]), 'this year'), stat(String(vals.filter((v) => v === 1).length), 'approached'), stat(String(vals.filter((v) => v === 0).length), 'avoided')])}

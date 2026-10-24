@@ -109,7 +109,8 @@ function flower(values, names, colour, label, size = 190) {
   const w = W;
   const cx = w / 2;
   const c = size / 2;
-  const L = size / 2 - 34;
+  const L = size / 2 - 52; // the longest petal; names sit outside it with room to spare
+  const R = size / 2 - 12;
   let petals = '';
   let words = '';
   values.forEach((v, k) => {
@@ -117,7 +118,7 @@ function flower(values, names, colour, label, size = 190) {
     const len = 12 + L * v;
     petals += `<ellipse cx="${cx}" cy="${(c - len / 2 - 5).toFixed(2)}" rx="${(6 + 4 * v).toFixed(2)}" ry="${(len / 2).toFixed(2)}" transform="rotate(${a.toFixed(1)} ${cx} ${c})" fill="${shade(colour, 0.25 + 0.75 * v)}"/>`;
     const rad = ((a - 90) * Math.PI) / 180;
-    words += txt(cx + (L + 24) * Math.cos(rad), c + (L + 24) * Math.sin(rad) + 4, names[k], { size: 9.5 });
+    words += txt(cx + R * Math.cos(rad), c + R * Math.sin(rad) + 4, names[k], { size: 9.5 });
   });
   return `${svgOpen(size, label)}${petals}${words}</svg>`;
 }
