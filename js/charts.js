@@ -3,8 +3,6 @@
 // Every chart is 350 units wide and scales to the screen.
 
 const W = 350;
-const GREY_BIG = '#D6CFD4';
-const GREY_TINY = '#B9AFBE';
 
 const svgOpen = (h, label, w = W) => `<svg class="chart" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${escapeHtml(label)}">`;
 const txt = (x, y, s, { anchor = 'middle', size = 10, fill = MUTED, weight = 400, family = '' } = {}) =>
@@ -36,16 +34,16 @@ function ringSet(rings, big, small, size = 230) {
 function miniRing(v, colour, size = 26) {
   const c = size / 2;
   const r = c - 4;
-  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true" style="flex-shrink: 0">${v > 0.002 ? `<path d="${arcPath(c, c, r, v)}" fill="none" stroke="${shade(colour, 0.35 + 0.55 * v)}" stroke-width="4" stroke-linecap="round"/>` : `<circle cx="${c}" cy="${c}" r="1.6" fill="${GREY_TINY}"/>`}</svg>`;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true" style="flex-shrink: 0">${v > 0.002 ? `<path d="${arcPath(c, c, r, v)}" fill="none" stroke="${shade(colour, 0.35 + 0.55 * v)}" stroke-width="4" stroke-linecap="round"/>` : `<circle cx="${c}" cy="${c}" r="1.6" fill="${COLOURS.nothing}"/>`}</svg>`;
 }
 
 // A bead per day. state: "done" (coloured, t = 0..1 for how much), "miss" (bigger grey),
 // "skip" (tiny grey), "none" (nothing logged: tiny, lighter grey) or null (no dot).
 function bead(x, y, d, max, colour) {
   if (!d || !d.state) return '';
-  if (d.state === 'skip') return `<circle cx="${x}" cy="${y}" r="1.5" fill="${GREY_TINY}"/>`;
-  if (d.state === 'none') return `<circle cx="${x}" cy="${y}" r="1.2" fill="${GREY_BIG}"/>`;
-  if (d.state === 'miss') return `<circle cx="${x}" cy="${y}" r="${(max * 0.62).toFixed(2)}" fill="${GREY_BIG}"/>`;
+  if (d.state === 'skip') return `<circle cx="${x}" cy="${y}" r="1.5" fill="${COLOURS.skipped}"/>`;
+  if (d.state === 'none') return `<circle cx="${x}" cy="${y}" r="1.2" fill="${COLOURS.nothing}"/>`;
+  if (d.state === 'miss') return `<circle cx="${x}" cy="${y}" r="${(max * 0.62).toFixed(2)}" fill="${COLOURS.notDone}"/>`;
   const t = d.t == null ? 1 : d.t;
   return `<circle cx="${x}" cy="${y}" r="${(max * (0.55 + 0.45 * t)).toFixed(2)}" fill="${shade(d.colour || colour, 0.3 + 0.7 * t)}"/>`;
 }
@@ -135,7 +133,7 @@ function dotMatrix(grid, rowNames, colNames, colour, label) {
   grid.forEach((row, r) => row.forEach((v, c) => {
     const x = 26 + (c + 0.5) * cw;
     const y = (r + 0.5) * rh;
-    body += v ? `<circle cx="${x.toFixed(1)}" cy="${y}" r="${(1.8 + 5 * (v / max)).toFixed(2)}" fill="${shade(colour, 0.3 + 0.7 * (v / max))}"/>` : `<circle cx="${x.toFixed(1)}" cy="${y}" r="1.2" fill="${GREY_BIG}"/>`;
+    body += v ? `<circle cx="${x.toFixed(1)}" cy="${y}" r="${(1.8 + 5 * (v / max)).toFixed(2)}" fill="${shade(colour, 0.3 + 0.7 * (v / max))}"/>` : `<circle cx="${x.toFixed(1)}" cy="${y}" r="1.2" fill="${COLOURS.nothing}"/>`;
   }));
   const rn = rowNames.map((n, r) => txt(0, (r + 0.5) * rh + 3.5, n, { anchor: 'start' })).join('');
   const cn = colNames.map((n, c) => txt(26 + (c + 0.5) * cw, rows * rh + 12, n, { size: 9 })).join('');
@@ -167,22 +165,24 @@ function miniSun(share, light, deep, size = 26) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true" style="flex-shrink: 0"><defs><clipPath id="${id}a"><rect width="${size}" height="${c}"/></clipPath><clipPath id="${id}b"><rect y="${c}" width="${size}" height="${c}"/></clipPath></defs><circle cx="${c}" cy="${cy}" r="${R}" fill="${light}" clip-path="url(#${id}a)"/><circle cx="${c}" cy="${cy}" r="${R}" fill="${deep}" clip-path="url(#${id}b)"/><line x1="2" x2="${size - 2}" y1="${c}" y2="${c}" stroke="${INK}" stroke-width="0.8"/></svg>`;
 }
 
-// A row of little suns along a horizon, one per week: above for weeks you mostly showed up.
+// A row of little suns along a horizon, one per week. Like the big sun, each one sits
+// higher the more you showed up, and the part above the line is light, the part below deep.
 function sunPath(shares, labels, light, deep, label) {
-  const h = 70;
-  const hy = 26;
+  const h = 74;
+  const hy = 30;
   const per = W / shares.length;
-  const R = Math.min(10, per * 0.36);
+  const R = Math.min(11, per * 0.38);
+  const defs = `<defs><clipPath id="sp-up"><rect x="0" y="0" width="${W}" height="${hy}"/></clipPath><clipPath id="sp-down"><rect x="0" y="${hy}" width="${W}" height="${h - hy}"/></clipPath></defs>`;
   let body = '';
   shares.forEach((s, k) => {
-    const x = (k + 0.5) * per;
-    if (s == null) {
-      body += `<circle cx="${x}" cy="${hy}" r="1.4" fill="${GREY_TINY}"/>`;
-      return;
+    const x = ((k + 0.5) * per).toFixed(1);
+    if (s != null) {
+      const cy = (hy + R - s * 2 * R).toFixed(1);
+      body += `<circle cx="${x}" cy="${cy}" r="${R}" fill="${light}" clip-path="url(#sp-up)"/><circle cx="${x}" cy="${cy}" r="${R}" fill="${deep}" clip-path="url(#sp-down)"/>`;
+    } else {
+      body += `<circle cx="${x}" cy="${hy}" r="1.4" fill="${COLOURS.nothing}"/>`;
     }
-    const cy = hy + R - s * 2 * R;
-    body += `<circle cx="${x.toFixed(1)}" cy="${cy.toFixed(1)}" r="${R}" fill="${s >= 0.5 ? light : deep}"/>`;
-    body += txt(x, h - 8, labels[k], { size: 9 });
+    body += txt(Number(x), h - 6, labels[k], { size: 9 });
   });
-  return `${svgOpen(h, label)}<line x1="0" x2="${W}" y1="${hy}" y2="${hy}" stroke="${INK}" stroke-width="0.8"/>${body}</svg>`;
+  return `${svgOpen(h, label)}${defs}${body}<line x1="0" x2="${W}" y1="${hy}" y2="${hy}" stroke="${INK}" stroke-width="0.8"/></svg>`;
 }

@@ -18,7 +18,6 @@
 
 const DAYS_BACK = 365;
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const LIGHT_SUN = '#F2CB7E';
 
 let insight = null; // everything loaded for the Insight pages, see loadInsight()
 
@@ -399,7 +398,7 @@ function healthFront() {
   return `${head('Insight', 'Health')}${topTabs('Health')}<div class="side">
     <div style="padding-top: 14px">${ringSet(rings, '30 days', 'average, full ring = best')}</div>
     ${labelRow('Last 14 days', 'bigger, deeper = better / more')}${measureRows(measures)}
-    <button type="button" class="list-row" data-go="insight/symptoms"><span class="grow">Symptom load</span>${beadRow(loads.map((l, k) => (l ? { state: 'done', t: l / maxLoad } : { state: loggedDay(insight.days[insight.days.length - 14 + k]) ? 'miss' : 'none' })), '#BC4960', 120)}<span class="num">today</span>${chevronRight}</button>
+    <button type="button" class="list-row" data-go="insight/symptoms"><span class="grow">Symptom load</span>${beadRow(loads.map((l, k) => (l ? { state: 'done', t: l / maxLoad } : { state: loggedDay(insight.days[insight.days.length - 14 + k]) ? 'miss' : 'none' })), COLOURS.load, 120)}<span class="num">today</span>${chevronRight}</button>
     <button type="button" class="list-row" data-go="insight/links"><span class="grow">What goes together</span><span class="muted">after a poor night, and more</span>${chevronRight}</button>
   </div>`;
 }
@@ -452,7 +451,7 @@ function symptomsPage() {
     return [i, vs.length, common];
   }).filter(([, n]) => n).sort((a, b) => b[1] - a[1]);
   return `${backLink('insight/health', 'Health')}${head('Health', 'Symptoms')}<div class="side">
-    ${labelRow('Symptom load per week', '16 weeks')}${columns(perWeek.map((v) => v / maxWeek), perWeek, '#BC4960', 'Symptom load per week')}
+    ${labelRow('Symptom load per week', '16 weeks')}${columns(perWeek.map((v) => v / maxWeek), perWeek, COLOURS.load, 'Symptom load per week')}
     ${labelRow('How often, how bad', '90 days')}
     ${rows.length ? rows.map(([i, n, common]) => `<button type="button" class="list-row" data-go="insight/item/${encodeURIComponent(i.id)}"><span class="grow">${escapeHtml(i.name)}</span><span style="width: 90px; display: grid">${hbar(n / 90, i.colour)}</span><span class="num" style="min-width: 110px">${n} days · ${common}</span></button>`).join('') : empty('No symptoms logged in the last 90 days.')}
   </div>`;
@@ -486,7 +485,7 @@ function linksPage() {
   return `${backLink('insight/health', 'Health')}${head('Health · 6 months', 'What goes together')}<div class="side">
     <div class="pills">${pivots.map(([id, n]) => `<button type="button" class="chip" aria-pressed="${id === pivot}" data-links="${id}"${id === pivot ? ` style="background: ${INK}"` : ''}>${escapeHtml(n)}</button>`).join('')}</div>
     ${labelRow(`The day after ${pivotWords}`, `${after.length} times`)}
-    ${rows.map(([i, a, b]) => `<div class="bar-row"><span>${escapeHtml(i.name)}</span><span style="display: grid; gap: 3px">${hbar(a, i.colour)}${hbar(b, '#B9AFBE')}</span><span class="num">${a > b + 0.05 ? 'more' : a < b - 0.05 ? 'less' : 'same'}</span></div>`).join('') || empty('Not enough days logged yet.')}
+    ${rows.map(([i, a, b]) => `<div class="bar-row"><span>${escapeHtml(i.name)}</span><span style="display: grid; gap: 3px">${hbar(a, i.colour)}${hbar(b, COLOURS.compare)}</span><span class="num">${a > b + 0.05 ? 'more' : a < b - 0.05 ? 'less' : 'same'}</span></div>`).join('') || empty('Not enough days logged yet.')}
     <div class="key"><span>coloured: the day after ${escapeHtml(pivotWords)}</span><span>grey: after a ${pivot === 'poor-sleep' ? 'good night' : 'day without it'}</span></div>
     <p class="note">These show things that move together, not what causes what.</p>
   </div>`;
@@ -513,19 +512,19 @@ function avoidFront() {
   const list = areas();
   if (!list.length) return `${head('Health', 'Avoidance')}${topTabs('Avoidance')}<div class="side">${empty('Add areas to an Avoidance folder on the Health page (scale: approach or avoid), and they show here.')}</div>`;
   const colour = list[0].colour;
-  const deep = shade(colour, 0.95);
+  const deep = COLOURS.hiding;
   const s = showingUp(list.map((a) => a.id));
   const last = s.length - 1;
   const all = list.flatMap((a) => areaValues(a.id));
   return `${head('Health', 'Avoidance')}${topTabs('Avoidance')}<div class="side">
     <div style="display: flex; align-items: baseline; gap: 8px; padding-top: 12px"><b style="font-family: Lora, serif; font-size: 28px; font-weight: 500">${pct(s[last])}</b><span class="muted">showing-up score</span></div>
-    ${horizon(s[last], LIGHT_SUN, deep, 'Showing up, above the line; hiding, below')}
+    ${horizon(s[last], COLOURS.showingUp, deep, 'Showing up, above the line; hiding, below')}
     ${stats([stat(signed(s[last] - s[Math.max(0, last - 30)]), 'this month'), stat(signed(s[last] - s[0]), 'this year'), stat(String(all.filter((v) => v === 1).length), 'approached'), stat(String(all.filter((v) => v === 0).length), 'avoided')])}
     ${labelRow('Areas', 'last 7 days')}
     ${list.map((a) => {
       const sa = strengthSeries(areaValues(a.id), 0.6);
-      const week = areaValues(a.id).slice(-7).map((v) => (v == null ? { state: 'none' } : { state: 'done', t: v ? 0.15 : 1, colour: v ? LIGHT_SUN : deep }));
-      return `<button type="button" class="list-row" data-go="insight/area/${encodeURIComponent(a.id)}">${miniSun(sa[last], LIGHT_SUN, deep)}<span class="grow">${escapeHtml(a.name)}</span>${beadRow(week, colour, 80)}<span class="num">${pct(sa[last])}</span>${chevronRight}</button>`;
+      const week = areaValues(a.id).slice(-7).map((v) => (v == null ? { state: 'none' } : { state: 'done', t: v ? 0.15 : 1, colour: v ? COLOURS.showingUp : deep }));
+      return `<button type="button" class="list-row" data-go="insight/area/${encodeURIComponent(a.id)}">${miniSun(sa[last], COLOURS.showingUp, deep)}<span class="grow">${escapeHtml(a.name)}</span>${beadRow(week, colour, 80)}<span class="num">${pct(sa[last])}</span>${chevronRight}</button>`;
     }).join('')}
     <p class="note">The score works like Loop's strength: it rises slowly when you show up and sinks slowly when you hide. Days you logged nothing leave it where it was.</p>
   </div>`;
@@ -534,12 +533,12 @@ function avoidFront() {
 function areaPage(id) {
   const a = areas().find((x) => x.id === id);
   if (!a) return avoidFront();
-  const deep = shade(a.colour, 0.95);
+  const deep = COLOURS.hiding;
   const vals = areaValues(a.id);
   const s = strengthSeries(vals, 0.6);
   const last = s.length - 1;
   const days = insight.days;
-  const cal = days.map((d, k) => ({ day: d, ...(vals[k] == null ? { state: 'none' } : { state: 'done', t: vals[k] ? 0.6 : 1, colour: vals[k] ? LIGHT_SUN : deep }) })).slice(-91);
+  const cal = days.map((d, k) => ({ day: d, ...(vals[k] == null ? { state: 'none' } : { state: 'done', t: vals[k] ? 0.6 : 1, colour: vals[k] ? COLOURS.showingUp : deep }) })).slice(-91);
   const weeks = buckets('Week').slice(-12);
   const weekShares = weeks.map((w) => {
     const vs = vals.filter((v, k) => v != null && bucketKey(days[k], 'Week') === w);
@@ -572,18 +571,18 @@ function areaPage(id) {
   const months = buckets('Month').slice(-4);
   return `${backLink('insight/avoid', 'Avoidance')}${head('Avoidance', a.name)}<div class="side">
     <div style="display: flex; align-items: baseline; gap: 8px; padding-top: 12px"><b style="font-family: Lora, serif; font-size: 28px; font-weight: 500">${pct(s[last])}</b><span class="muted">score</span></div>
-    ${horizon(s[last], LIGHT_SUN, deep, `${a.name}: showing up`, 120, 40)}
+    ${horizon(s[last], COLOURS.showingUp, deep, `${a.name}: showing up`, 120, 40)}
     ${stats([stat(signed(s[last] - s[Math.max(0, last - 30)]), 'this month'), stat(signed(s[last] - s[0]), 'this year'), stat(String(vals.filter((v) => v === 1).length), 'approached'), stat(String(vals.filter((v) => v === 0).length), 'avoided')])}
     ${labelRow('Score', '6 months')}${lineChart(s.slice(-182), 'Score over time', [monthOf(days[days.length - 182]), monthOf(days[last])])}
     ${labelRow('Days', '13 weeks')}${beadCalendar(cal, a.colour, 'Days approached or avoided', 13)}
-    <div class="key"><span>${beadRow([{ state: 'done', t: 0.6, colour: LIGHT_SUN }], a.colour, 12)} approached</span><span>${beadRow([{ state: 'done', t: 1, colour: deep }], a.colour, 12)} avoided</span><span>${beadRow([{ state: 'none' }], a.colour, 12)} nothing logged</span></div>
-    ${labelRow('Sun path', '12 weeks · showed up / logged')}${sunPath(weekShares, weekLabels, LIGHT_SUN, deep, 'Each week, above the line when you mostly showed up')}
-    ${labelRow('Longest runs of showing up')}${best.map((r) => `<div class="bar-row"><span>${fmtShort(r.from)} to ${fmtShort(r.to)}</span>${hbar(r.length / bestMax, '#DB9A2E')}<span class="num">${r.length}</span></div>`).join('') || empty('No runs yet.')}
-    ${labelRow('Which days', 'longer = showed up more')}${flower(byWeekday, WEEKDAYS, '#DB9A2E', 'Showing up by weekday')}
+    <div class="key"><span>${beadRow([{ state: 'done', t: 0.6, colour: COLOURS.showingUp }], a.colour, 12)} approached</span><span>${beadRow([{ state: 'done', t: 1, colour: deep }], a.colour, 12)} avoided</span><span>${beadRow([{ state: 'none' }], a.colour, 12)} nothing logged</span></div>
+    ${labelRow('Sun path', '12 weeks · showed up / logged')}${sunPath(weekShares, weekLabels, COLOURS.showingUp, deep, 'Each week, above the line when you mostly showed up')}
+    ${labelRow('Longest runs of showing up')}${best.map((r) => `<div class="bar-row"><span>${fmtShort(r.from)} to ${fmtShort(r.to)}</span>${hbar(r.length / bestMax, COLOURS.runs)}<span class="num">${r.length}</span></div>`).join('') || empty('No runs yet.')}
+    ${labelRow('Which days', 'longer = showed up more')}${flower(byWeekday, WEEKDAYS, COLOURS.runs, 'Showing up by weekday')}
     ${labelRow('Months')}<div style="display: grid; grid-template-columns: repeat(4, 1fr); text-align: center">${months.map((m) => {
       const vs = vals.filter((v, k) => v != null && days[k].startsWith(m));
       const share = vs.length ? avg(vs) : 0.5;
-      return `<div>${miniSun(share, LIGHT_SUN, deep, 44)}<div style="font-size: 12px">${bucketLabel(m, 'Month')}</div><div class="muted" style="font-size: 11px">${vs.length ? `${pct(share)} approached` : 'nothing logged'}</div></div>`;
+      return `<div>${miniSun(share, COLOURS.showingUp, deep, 44)}<div style="font-size: 12px">${bucketLabel(m, 'Month')}</div><div class="muted" style="font-size: 11px">${vs.length ? `${pct(share)} approached` : 'nothing logged'}</div></div>`;
     }).join('')}</div>
   </div>`;
 }

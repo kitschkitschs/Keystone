@@ -9,11 +9,17 @@
 @font-face { font-family: 'Roboto'; font-weight: 500; font-display: swap; src: url('fonts/roboto-latin-500-normal.woff2') format('woff2'); }
 
 :root {
-  --paper: #F4F0E8;
-  --ink: #1C1730;
-  --muted: #635C70;
-  --rule: #DCD3DF;
-  --faint: #B9AFBE;
+  /* Defaults only: look.js sets these from the Colours page. */
+  --paper: #F4EFE7;
+  --ink: #3D3432;
+  --muted: #7A6F6B;
+  --rule: #E4DAD3;
+  --faint: #C4B9B2;
+  --on-colour: #FFFFFF;
+  --field-text: #FFFFFF;
+  --danger: #B5545C;
+  --shadow: rgba(61, 52, 50, 0.25);
+  --backdrop: rgba(61, 52, 50, 0.35);
   --serif: 'Lora', Georgia, serif;
   --sans: 'Roboto', system-ui, sans-serif;
   --side: 20px;
@@ -59,7 +65,7 @@ html.bud .sheet::backdrop { background: rgba(255, 255, 255, 0.25); }
 .menu-dot { position: absolute; top: 9px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 
 /* ---- The emotion field at the top of the front page and the Health page ---- */
-.field-head { position: relative; height: 320px; color: #FFFFFF; overflow: hidden; }
+.field-head { position: relative; height: 320px; color: var(--field-text); overflow: hidden; }
 .field-head.short { height: 210px; }
 .field-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .field-inner { position: relative; height: 100%; display: flex; flex-direction: column; padding: 8px 10px 20px var(--side); }
@@ -161,7 +167,7 @@ details:not([open]) > summary .chev { transform: rotate(-90deg); }
 
 .tag-list { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 0 4px; }
 .chip { padding: 6px 12px; border-radius: 999px; font-size: 12.5px; min-height: 32px; border: 1px solid var(--rule); color: var(--muted); background: none; }
-.chip[aria-pressed="true"] { color: #FFFFFF; font-weight: 500; border-color: transparent; }
+.chip[aria-pressed="true"] { color: var(--on-colour); font-weight: 500; border-color: transparent; }
 
 /* ---- Editing the Health page ---- */
 .plain-head { display: flex; align-items: flex-end; justify-content: space-between; padding: 36px var(--side) 6px; }
@@ -253,7 +259,7 @@ details:not([open]) > summary .chev { transform: rotate(-90deg); }
   background: var(--ink); color: var(--paper); border: 0; border-radius: 999px; font-size: 14px;
 }
 .text-button { min-height: 40px; padding: 0 10px; background: none; border: 0; font-size: 14px; }
-.danger { color: #BE4A4E; }
+.danger { color: var(--danger); }
 .row-form { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
 .row-form input[type="text"] { flex: 1 1 160px; }
 input[type="text"], input[type="time"], input[type="number"], select {
@@ -269,9 +275,9 @@ input:focus-visible, button:focus-visible, summary:focus-visible, select:focus-v
 .sheet {
   width: min(436px, calc(100% - 24px)); max-height: calc(100% - 24px); margin: 12px auto auto; padding: 20px var(--side) 14px;
   background: var(--paper); color: var(--ink); border: 0; border-radius: 18px;
-  box-shadow: 0 10px 40px rgba(28, 23, 48, 0.25);
+  box-shadow: 0 10px 40px var(--shadow);
 }
-.sheet::backdrop { background: rgba(28, 23, 48, 0.35); }
+.sheet::backdrop { background: var(--backdrop); }
 .sheet h2 { margin: 0 0 12px; font-family: var(--serif); font-weight: 500; font-size: 22px; }
 .sheet h2:focus { outline: none; }
 .sheet h3 { margin: 14px 0 6px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 400; }
@@ -290,3 +296,12 @@ input:focus-visible, button:focus-visible, summary:focus-visible, select:focus-v
 .spacer { flex: 1; }
 .family { margin-top: 10px; }
 .family-name { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+
+/* ===== Colours page ===== */
+#colours-list h2.label { margin: 26px 0 4px; font-weight: 500; }
+#colours-list .row-word { font-variant-numeric: tabular-nums; }
+.palette-edit { margin: 8px 0 4px; }
+.colour-buttons { margin-top: 28px; flex-wrap: wrap; }
+
+/* White words stay readable on the pale feelings colours. */
+.field-head:not(.quiet) { text-shadow: 0 1px 10px rgba(61, 52, 50, 0.28); }
