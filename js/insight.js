@@ -385,11 +385,11 @@ function symptomLoad(day) {
   return symptomItems().reduce((sum, i) => sum + (answers.get(i.id) || 0), 0);
 }
 
-// Each day's symptom load as a heat map cell, scaled so the heaviest day shown is the most.
-function loadCells(days) {
+// Each day's symptom load, 0..1, the heaviest day shown = 1.
+function loadValues(days) {
   const loads = days.map((d) => symptomLoad(d));
   const max = Math.max(1, ...loads);
-  return days.map((d, k) => (loads[k] ? { t: loads[k] / max } : loggedDay(d) ? { t: 0 } : null));
+  return loads.map((l) => l / max);
 }
 
 function healthFront() {
@@ -404,7 +404,7 @@ function healthFront() {
   return `<div class="side">
     <div style="padding-top: 14px">${ringSet(rings, '30 days', 'average, full ring = best')}</div>
     ${labelRow('Last 14 days', 'bigger, deeper = better / more')}${measureRows(measures)}
-    <button type="button" class="list-row" data-go="insight/symptoms"><span class="grow">Symptom load</span>${heatRow(loadCells(insight.days.slice(-14)), 120)}<span class="num">today</span>${chevronRight}</button>
+    <button type="button" class="list-row" data-go="insight/symptoms"><span class="grow">Symptom load</span>${heatRow(loadValues(insight.days.slice(-14)), 120)}<span class="num">today</span>${chevronRight}</button>
     <button type="button" class="list-row" data-go="insight/links"><span class="grow">What goes together</span><span class="muted">after a poor night, and more</span>${chevronRight}</button>
   </div>`;
 }
@@ -447,16 +447,21 @@ function itemPage(id) {
 function symptomsPage() {
   const days = insight.days;
   const items = symptomItems();
-  const cal = days.slice(-182);
-  const calCells = loadCells(cal);
+  // The year: a row per month (from the first month with anything logged, up to 12), a column per day.
+  const months = buckets('Month').slice(-12);
+  const yearDays = days.filter((d) => months.includes(d.slice(0, 7)));
+  const loads = new Map(loadValues(yearDays).map((v, k) => [yearDays[k], v]));
+  const year = months.map((m) => ({
+    name: bucketLabel(m, 'Month'),
+    values: Array.from({ length: 31 }, (_, k) => loads.get(`${m}-${String(k + 1).padStart(2, '0')}`) || 0),
+  }));
   // Each symptom by week: how heavy it was that week, the heaviest week of any symptom = the most.
   const weeks = buckets('Week').slice(-16);
   const weekDays = weeks.map((w) => days.filter((d) => bucketKey(d, 'Week') === w));
   const shown = items.map((i) => [i, weekDays.map((ds) => ds.reduce((s, d) => s + (insight.health.get(d).get(i.id) || 0), 0))])
     .filter(([, sums]) => sums.some(Boolean)).sort((a, b) => b[1].reduce((x, y) => x + y, 0) - a[1].reduce((x, y) => x + y, 0));
   const maxWeek = Math.max(1, ...shown.flatMap(([, sums]) => sums));
-  const loggedWeek = weekDays.map((ds) => ds.some(loggedDay));
-  const grid = shown.map(([, sums]) => sums.map((v, c) => (v ? { t: v / maxWeek } : loggedWeek[c] ? { t: 0 } : null)));
+  const grid = shown.map(([, sums]) => sums.map((v) => v / maxWeek));
   // Each month named over its first Monday.
   const weekNames = weeks.map((w) => (Number(w.slice(8)) <= 7 ? bucketLabel(w.slice(0, 7), 'Month') : ''));
   const recent = days.slice(-90);
@@ -466,9 +471,9 @@ function symptomsPage() {
     return [i, vs.length, common];
   }).filter(([, n]) => n).sort((a, b) => b[1] - a[1]);
   return `${crumbs([['insight/health', 'Health']], 'Symptoms')}${head('Symptoms')}<div class="side">
-    ${labelRow('Symptom load', '26 weeks')}${heatCalendar(cal.map((day, k) => ({ day, cell: calCells[k] })), 'Symptom load heat map, a square per day')}
+    ${labelRow('Symptom load', 'a row per month')}${heatYear(year, 'Symptom load, a row per month')}
     ${heatKey()}
-    ${labelRow('Each symptom by week', '16 weeks')}${shown.length ? heatGrid(grid, shown.map(([i]) => i.name), weekNames, 'Each symptom by week') : empty('No symptoms logged in the last 16 weeks.')}
+    ${labelRow('Each symptom by week', '16 weeks')}${shown.length ? heatStrips(grid, shown.map(([i]) => i.name), weekNames, 'Each symptom by week') : empty('No symptoms logged in the last 16 weeks.')}
     ${labelRow('How often, how bad', '90 days')}
     ${rows.length ? rows.map(([i, n, common]) => `<button type="button" class="list-row" data-go="insight/item/${encodeURIComponent(i.id)}"><span class="grow">${escapeHtml(i.name)}</span><span style="width: 90px; display: grid">${hbar(n / 90, i.colour)}</span><span class="num" style="min-width: 110px">${n} days · ${common}</span></button>`).join('') : empty('No symptoms logged in the last 90 days.')}
   </div>`;
