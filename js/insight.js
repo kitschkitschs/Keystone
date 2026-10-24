@@ -449,6 +449,14 @@ function itemPage(id) {
 function symptomsPage() {
   const days = insight.days;
   const items = symptomItems();
+  // One month as a calendar, stepping back and forth through the months.
+  const monthKeys = buckets('Month');
+  const month = monthKeys.includes(zooms.loadMonth) ? zooms.loadMonth : monthKeys[monthKeys.length - 1];
+  const at = monthKeys.indexOf(month);
+  const monthDays = days.filter((d) => d.startsWith(month));
+  const monthLoads = Object.fromEntries(loadValues(monthDays).map((v, k) => [monthDays[k], v]));
+  const monthName = new Date(`${month}-15T12:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  const step = (k, words, arrow) => (monthKeys[k] ? `<button type="button" class="icon-button" data-zoom="loadMonth" data-value="${monthKeys[k]}" aria-label="${words}">${arrow}</button>` : '<span class="icon-button"></span>');
   // The year: a row per month (from the first month with anything logged, up to 12), a column per day.
   const months = buckets('Month').slice(-12);
   const yearDays = days.filter((d) => months.includes(d.slice(0, 7)));
@@ -473,8 +481,10 @@ function symptomsPage() {
     return [i, vs.length, common];
   }).filter(([, n]) => n).sort((a, b) => b[1] - a[1]);
   return `${crumbs([['insight/health', 'Health']], 'Symptoms')}${head('Symptoms')}<div class="side">
-    ${labelRow('Symptom load', 'a row per month')}${heatYear(year, 'Symptom load, a row per month')}
+    <div class="month-step">${step(at - 1, 'Month before', chevronLeft)}<span>${monthName}</span>${step(at + 1, 'Month after', chevronRight)}</div>
+    ${heatMonth(month, monthLoads, `Symptom load in ${monthName}`)}
     ${heatKey()}
+    ${labelRow('The year', 'a row per month')}${heatYear(year, 'Symptom load, a row per month')}
     ${labelRow('Each symptom by week', '16 weeks')}${shown.length ? heatStrips(grid, shown.map(([i]) => i.name), weekNames, 'Each symptom by week') : empty('No symptoms logged in the last 16 weeks.')}
     ${labelRow('How often, how bad', '90 days')}
     ${rows.length ? rows.map(([i, n, common]) => `<button type="button" class="list-row" data-go="insight/item/${encodeURIComponent(i.id)}"><span class="grow">${escapeHtml(i.name)}</span><span style="width: 90px; display: grid">${hbar(n / 90, i.colour)}</span><span class="num" style="min-width: 110px">${n} days · ${common}</span></button>`).join('') : empty('No symptoms logged in the last 90 days.')}

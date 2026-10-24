@@ -185,6 +185,26 @@ function heatYear(rows, label) {
   return `${svgOpen(h + 18, label)}${heatField(rows.map((r) => r.values), left, w, rowH, { blur: 5 })}${names}${days}</svg>`;
 }
 
+// A month as a calendar (Monday first), the heat melting across the days, with the dates on top.
+// values: { "YYYY-MM-DD": 0..1 }; days missing from it show as none.
+function heatMonth(month, values, label) {
+  const first = new Date(`${month}-01T12:00:00`);
+  const offset = (first.getDay() + 6) % 7;
+  const length = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+  const rows = Math.ceil((offset + length) / 7);
+  const cw = W / 7;
+  const grid = Array.from({ length: rows }, () => new Array(7).fill(0));
+  let dates = '';
+  for (let d = 1; d <= length; d++) {
+    const pos = offset + d - 1;
+    const v = values[`${month}-${String(d).padStart(2, '0')}`] || 0;
+    grid[Math.floor(pos / 7)][pos % 7] = v;
+    // Dates sit on the field: light on the deepest colours, ink on the rest.
+    dates += txt((pos % 7) * cw + 9, Math.floor(pos / 7) * cw + 18, String(d), { anchor: 'start', size: 11, fill: v > 0.76 ? COLOURS.onColour : INK });
+  }
+  return `${svgOpen(rows * cw, label)}${heatField(grid, 0, W, cw, { blur: 13 })}${dates}</svg>`;
+}
+
 // One soft strip per thing, the heat running sideways through the columns.
 function heatStrips(grid, rowNames, colNames, label) {
   const left = 96;

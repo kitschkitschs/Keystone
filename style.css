@@ -133,6 +133,7 @@ details:not([open]) > summary .chev { transform: rotate(-90deg); }
 .day-step { display: flex; align-items: center; gap: 0; font-size: 14px; }
 .day-step .icon-button { width: 36px; }
 .day-step-date { min-width: 64px; text-align: center; }
+.month-step { display: flex; align-items: center; justify-content: space-between; margin: 10px -12px 4px; font-family: Lora, serif; font-size: 18px; }
 .checkin { display: flex; gap: 12px; width: 100%; padding: 16px 0; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--rule); color: var(--ink); }
 .checkin-icon { padding-top: 2px; }
 .checkin-body { flex: 1; display: flex; flex-direction: column; gap: 3px; }
