@@ -70,6 +70,12 @@ button { cursor: pointer; }
   filter: drop-shadow(0.5px 1.5px 1px rgba(40, 25, 10, 0.22)); pointer-events: none; z-index: 2;
 }
 
+.bookmark-button { position: absolute; top: 0; left: 18px; width: 46px; height: 76px; background: none; border: 0; padding: 0; z-index: 3; }
+
+/* Bud mode: the same page, turned to black and white (dark paper, pale ink). */
+html.bud, html.bud .sheet { filter: invert(1) grayscale(1); }
+html.bud .sheet::backdrop { background: rgba(255, 255, 255, 0.25); }
+
 /* ---- Date and today's stamp ---- */
 .today-head { display: flex; justify-content: space-between; align-items: flex-end; padding: 18px var(--side) 0; }
 .date { display: flex; flex-direction: column; gap: 4px; padding-bottom: 14px; }
