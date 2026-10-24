@@ -141,21 +141,16 @@ function dotMatrix(grid, rowNames, colNames, colour, label) {
   return `${svgOpen(rows * rh + 16, label)}${rn}${body}${cn}</svg>`;
 }
 
-// --- Heat maps: a soft thermal field, the colours melting into each other ---
+// --- Heat maps: a thermal field, the colours melting into each other ---
 // Values (0..1) are drawn as grey squares, blurred, then each grey is swapped for its colour
-// on the heat ramp: background (none) > heat1 (a little) > heat4 (the most).
+// on the heat ramp (see heat() in look.js).
 
 let heatIds = 0;
-
-// The ramp's colour for t = 0..1, starting at a faint tint of heat1 so the field's shape shows.
-function heatRamp(t) {
-  return t < 0.12 ? mix(PAPER, COLOURS.heat1, 0.22 + (0.78 * t) / 0.12) : heat((t - 0.12) / 0.88);
-}
 
 // The blur and the grey-to-colour swap, as an SVG filter.
 function heatFilter(id, blur) {
   const tables = [[], [], []];
-  for (let k = 0; k < 40; k++) hexToRgb(heatRamp(k / 39)).forEach((v, i) => tables[i].push(v.toFixed(3)));
+  for (let k = 0; k < 40; k++) hexToRgb(heat(k / 39)).forEach((v, i) => tables[i].push(v.toFixed(3)));
   const [r, g, b] = tables.map((t) => t.join(' '));
   return `<filter id="${id}" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="${blur}"/><feComponentTransfer><feFuncR type="table" tableValues="${r}"/><feFuncG type="table" tableValues="${g}"/><feFuncB type="table" tableValues="${b}"/><feFuncA type="linear" slope="0" intercept="1"/></feComponentTransfer></filter>`;
 }
@@ -182,24 +177,24 @@ function heatField(grid, x, w, rowH, { blur = 4, strips = 0 } = {}) {
 // The year: a row per month, a column per day of the month. rows: [{ name, values: [31 x 0..1 or null] }].
 function heatYear(rows, label) {
   const left = 30;
-  const rowH = 17;
+  const rowH = 30;
   const w = W - left;
   const h = rows.length * rowH;
   const names = rows.map((r, k) => txt(0, k * rowH + rowH / 2 + 3.5, r.name, { anchor: 'start', size: 9.5 })).join('');
-  const days = [1, 10, 20, 31].map((d) => txt(left + ((d - 0.5) / 31) * w, h + 13, String(d), { size: 9 })).join('');
+  const days = [1, 10, 20, 31].map((d) => txt(left + ((d - 0.5) / 31) * w, h + 14, String(d), { size: 9.5 })).join('');
   return `${svgOpen(h + 18, label)}${heatField(rows.map((r) => r.values), left, w, rowH, { blur: 5 })}${names}${days}</svg>`;
 }
 
 // One soft strip per thing, the heat running sideways through the columns.
 function heatStrips(grid, rowNames, colNames, label) {
   const left = 96;
-  const rowH = 22;
+  const rowH = 30;
   const w = W - left;
   const h = grid.length * rowH;
   const names = rowNames.map((n, r) => txt(0, r * rowH + rowH / 2 + 3.5, n.length > 15 ? `${n.slice(0, 14)}…` : n, { anchor: 'start', size: 10, fill: INK })).join('');
   const cw = w / grid[0].length;
   const cn = colNames.map((n, c) => (n ? txt(left + c * cw + 2, h + 12, n, { anchor: 'start', size: 9 }) : '')).join('');
-  return `${svgOpen(h + 16, label)}${heatField(grid, left, w, rowH, { blur: cw * 0.45, strips: 7 })}${names}${cn}</svg>`;
+  return `${svgOpen(h + 16, label)}${heatField(grid, left, w, rowH, { blur: cw * 0.5, strips: 9 })}${names}${cn}</svg>`;
 }
 
 // A small soft strip, for list rows.
@@ -209,7 +204,7 @@ function heatRow(values, w = 120) {
 
 // The heat map's key: the ramp from none to the most.
 function heatKey() {
-  const stops = Array.from({ length: 9 }, (_, k) => `<stop offset="${k / 8}" stop-color="${heatRamp(k / 8)}"/>`).join('');
+  const stops = Array.from({ length: 9 }, (_, k) => `<stop offset="${k / 8}" stop-color="${heat(k / 8)}"/>`).join('');
   const id = `heat${heatIds++}k`;
   return `<div class="key"><span>none <svg width="120" height="8" aria-hidden="true"><defs><linearGradient id="${id}">${stops}</linearGradient></defs><rect width="120" height="8" rx="4" fill="url(#${id})"/></svg> the most</span></div>`;
 }

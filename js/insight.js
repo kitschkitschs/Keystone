@@ -385,11 +385,13 @@ function symptomLoad(day) {
   return symptomItems().reduce((sum, i) => sum + (answers.get(i.id) || 0), 0);
 }
 
-// Each day's symptom load, 0..1, the heaviest day shown = 1.
+// Each day's symptom load, 0..1. A busy day near the top of what's shown counts as the most,
+// so one very bad day doesn't leave every other day pale.
 function loadValues(days) {
   const loads = days.map((d) => symptomLoad(d));
-  const max = Math.max(1, ...loads);
-  return loads.map((l) => l / max);
+  const sorted = loads.filter(Boolean).sort((a, b) => a - b);
+  const top = Math.max(1, sorted[Math.floor(sorted.length * 0.98)] || 0);
+  return loads.map((l) => Math.min(1, l / top));
 }
 
 function healthFront() {
