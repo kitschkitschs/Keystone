@@ -42,11 +42,10 @@ document.addEventListener('click', (event) => {
   if (event.target.closest('.open-menu')) openMenu();
 });
 
-// Words for now; Home is a plain ring.
+// Words for now, until the real icons are drawn.
 const BAR = [['Health', 'health'], ['Insight', 'insight'], ['Home', 'home'], ['Hobby', ''], ['Journal', '']];
-$('bar-buttons').innerHTML = BAR.map(([name, view]) => (view === 'home'
-  ? `<button type="button" class="bar-home" aria-label="Home" data-view="home"><svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="14" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="17" cy="17" r="10" fill="none" stroke="currentColor" stroke-width="0.9"/></svg></button>`
-  : `<button type="button" class="bar-word"${view ? ` data-view="${view}"` : ` aria-label="${name} (coming later)"`}>${name}</button>`)).join('');
+$('bar-buttons').innerHTML = BAR.map(([name, view]) =>
+  `<button type="button" class="bar-word"${view ? ` data-view="${view}"` : ` aria-label="${name} (coming later)"`}>${name}</button>`).join('');
 $('bar-buttons').addEventListener('click', (event) => {
   const button = event.target.closest('[data-view]');
   if (button) goTo(button.dataset.view);

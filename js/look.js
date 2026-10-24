@@ -11,6 +11,7 @@
 const COLOUR_DEFAULTS = {
   // The app
   paper: '#F4EFE7', // river stone
+  topBar: '#FFFFFF',
   ink: '#3D3432',
   muted: '#7A6F6B',
   rule: '#E4DAD3',
@@ -33,7 +34,6 @@ const COLOUR_DEFAULTS = {
   showingUp: '#F2C46F',
   hiding: '#6E7E95',
   load: '#B8646E',
-  runs: '#E2A174',
   compare: '#B9BAAE',
   // Colours offered in every colour picker
   palette: [
@@ -45,9 +45,9 @@ const COLOUR_DEFAULTS = {
 
 // The names shown on the Colours page, in groups.
 const COLOUR_ROLES = [
-  ['The app', [['paper', 'Background'], ['ink', 'Text and lines'], ['muted', 'Soft text'], ['rule', 'Thin lines'], ['faint', 'Faint marks'], ['onColour', 'Text on darker colours'], ['fieldText', 'Words on the feelings colours'], ['emptyField', 'Feelings colours, nothing picked yet'], ['danger', 'Delete']]],
+  ['The app', [['paper', 'Background'], ['topBar', 'Top bar'], ['ink', 'Text and lines'], ['muted', 'Soft text'], ['rule', 'Thin lines'], ['faint', 'Faint marks'], ['onColour', 'Text on darker colours'], ['fieldText', 'Words on the feelings colours'], ['emptyField', 'Feelings colours, nothing picked yet'], ['danger', 'Delete']]],
   ['Feelings', [['Happiness', 'Happiness'], ['Surprise', 'Surprise'], ['Fear', 'Fear'], ['Anger', 'Anger'], ['Disgust', 'Disgust'], ['Sadness', 'Sadness']]],
-  ['Insight', [['notDone', 'Not done (bigger grey dot)'], ['skipped', 'Skipped (tiny grey dot)'], ['nothing', 'Nothing logged (tiny pale dot)'], ['showingUp', 'Sun: showing up'], ['hiding', 'Sun: hiding'], ['load', 'Symptom load'], ['runs', 'Avoidance runs and weekdays'], ['compare', 'The "without" bar on Links']]],
+  ['Insight', [['notDone', 'Not done (bigger grey dot)'], ['skipped', 'Skipped (tiny grey dot)'], ['nothing', 'Nothing logged (tiny pale dot)'], ['showingUp', 'Sun: showing up'], ['hiding', 'Sun: hiding'], ['load', 'Symptom load'], ['compare', 'The "without" bar on Links']]],
 ];
 
 // The palette before 24 Oct 2026, so colours saved with it can move to the new one.
@@ -98,7 +98,7 @@ const PAPER = COLOURS.paper;
 
 // The page's own colours (in style.css) follow the same roles.
 (() => {
-  const css = { paper: '--paper', ink: '--ink', muted: '--muted', rule: '--rule', faint: '--faint', onColour: '--on-colour', fieldText: '--field-text', danger: '--danger' };
+  const css = { topBar: '--top-bar', paper: '--paper', ink: '--ink', muted: '--muted', rule: '--rule', faint: '--faint', onColour: '--on-colour', fieldText: '--field-text', danger: '--danger' };
   for (const [role, name] of Object.entries(css)) document.documentElement.style.setProperty(name, COLOURS[role]);
   document.documentElement.style.setProperty('--shadow', `${COLOURS.ink}40`);
   document.documentElement.style.setProperty('--backdrop', `${COLOURS.ink}59`);

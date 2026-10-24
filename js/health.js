@@ -183,7 +183,6 @@ function rateRow(item, colour) {
   return `<li class="row">
     <div class="row-main">
       <button type="button" class="row-name" data-note="${item.id}" aria-label="${escapeHtml(item.name)}: add a note">${escapeHtml(item.name)}</button>
-      ${value && item.scale !== 'approach' ? `<span class="row-word">${SCALES[item.scale][value]}</span>` : ''}
       ${stepsFor(item.id, item.scale, colour)}
     </div>
     ${note ? `<div class="row-note">${pencilIcon.replace('width="16" height="16"', 'width="11" height="11"')}${escapeHtml(note)}</div>` : ''}

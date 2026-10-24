@@ -16,13 +16,14 @@
   <div id="page">
   <!-- ===== Front page ===== -->
   <div id="front" class="view">
+    <div class="top-bar">
+      <span class="top-left"><button id="bud-button" class="icon-button" type="button" aria-label="Bud day" aria-pressed="false"></button></span>
+      <span></span>
+      <span class="top-right"><button class="icon-button open-menu" type="button" aria-label="Menu"></button></span>
+    </div>
     <header class="field-head short">
       <canvas id="front-field" class="field-canvas" aria-hidden="true"></canvas>
       <div class="field-inner">
-        <div class="field-row">
-          <button id="bud-button" class="icon-button" type="button" aria-label="Bud day" aria-pressed="false"></button>
-          <button class="icon-button open-menu" type="button" aria-label="Menu"></button>
-        </div>
         <div class="field-foot">
           <div class="date">
             <div id="date-line" class="date-line"></div>
@@ -37,25 +38,25 @@
 
   <!-- ===== Health page: how you are, day by day. Drawn by health.js. ===== -->
   <section id="health" class="view" aria-label="Health" hidden>
+    <div class="top-bar">
+      <span class="top-left"><button id="feel-button" class="icon-button" type="button" aria-label="Add feelings"></button></span>
+      <div class="day-step">
+        <button id="health-prev" class="icon-button" type="button" aria-label="Previous day">
+          <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true"><path d="M11.5 3.5 6 9l5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <span id="health-date" class="day-step-date"></span>
+        <button id="health-next" class="icon-button" type="button" aria-label="Next day">
+          <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true"><path d="M6.5 3.5 12 9l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <span class="top-right">
+        <button id="health-edit-button" class="icon-button" type="button" aria-label="Edit the Health page"></button>
+        <button class="icon-button open-menu" type="button" aria-label="Menu"></button>
+      </span>
+    </div>
     <header class="field-head">
       <canvas id="health-field" class="field-canvas" aria-hidden="true"></canvas>
       <div class="field-inner">
-        <div class="field-row">
-          <div class="day-step">
-            <button id="health-prev" class="icon-button" type="button" aria-label="Previous day">
-              <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true"><path d="M11.5 3.5 6 9l5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
-            <span id="health-date" class="day-step-date"></span>
-            <button id="health-next" class="icon-button" type="button" aria-label="Next day">
-              <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true"><path d="M6.5 3.5 12 9l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
-          </div>
-          <span class="field-icons">
-            <button id="feel-button" class="icon-button" type="button" aria-label="Add feelings"></button>
-            <button id="health-edit-button" class="icon-button" type="button" aria-label="Edit the Health page"></button>
-            <button class="icon-button open-menu" type="button" aria-label="Menu"></button>
-          </span>
-        </div>
         <div id="health-words" class="field-words"></div>
         <div id="health-checkins" class="field-checkins"></div>
       </div>
@@ -95,6 +96,18 @@
 
   <!-- ===== Insight: habits, health and avoidance over time. Drawn by insight.js. ===== -->
   <section id="insight" class="view" aria-label="Insight" hidden>
+    <div class="top-bar">
+      <span class="top-left section-menu">
+        <button id="insight-section" class="section-button" type="button" aria-haspopup="true" aria-expanded="false"><span id="insight-section-name">Habits</span><svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <span id="insight-sections" class="dropdown" hidden>
+          <button type="button" data-go="insight">Habits</button>
+          <button type="button" data-go="insight/health">Health</button>
+          <button type="button" data-go="insight/avoid">Avoidance</button>
+        </span>
+      </span>
+      <span></span>
+      <span class="top-right"><button class="icon-button open-menu" type="button" aria-label="Menu"></button></span>
+    </div>
     <div id="insight-page"></div>
   </section>
   </div>
