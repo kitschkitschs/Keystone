@@ -33,11 +33,15 @@ const COLOUR_DEFAULTS = {
   nothing: '#DAD0CA',
   showingUp: '#F2C46F',
   hiding: '#6E7E95',
-  // Symptom load heat map, from a little to the most
-  heat1: '#F3D9A2',
-  heat2: '#E5A06E',
-  heat3: '#C9636D',
-  heat4: '#7D6283',
+  // Symptom heat maps, a thermal ramp from none to the most
+  heat0: '#F3EEE6',
+  heat1: '#EAD5F1',
+  heat2: '#D49EEC',
+  heat3: '#FFE6A6',
+  heat4: '#FFAE4C',
+  heat5: '#F0663A',
+  heat6: '#5A2FE0',
+  heat7: '#130B47',
   compare: '#B9BAAE',
   // Colours offered in every colour picker
   palette: [
@@ -51,7 +55,7 @@ const COLOUR_DEFAULTS = {
 const COLOUR_ROLES = [
   ['The app', [['paper', 'Background'], ['topBar', 'Top bar'], ['ink', 'Text and lines'], ['muted', 'Soft text'], ['rule', 'Thin lines'], ['faint', 'Faint marks'], ['onColour', 'Text on darker colours'], ['fieldText', 'Words on the feelings colours'], ['emptyField', 'Feelings colours, nothing picked yet'], ['danger', 'Delete']]],
   ['Feelings', [['Happiness', 'Happiness'], ['Surprise', 'Surprise'], ['Fear', 'Fear'], ['Anger', 'Anger'], ['Disgust', 'Disgust'], ['Sadness', 'Sadness']]],
-  ['Insight', [['notDone', 'Not done (bigger grey dot)'], ['skipped', 'Skipped (tiny grey dot)'], ['nothing', 'Nothing logged (tiny pale dot)'], ['showingUp', 'Sun: showing up'], ['hiding', 'Sun: hiding'], ['heat1', 'Heat map: a little'], ['heat2', 'Heat map: some'], ['heat3', 'Heat map: a lot'], ['heat4', 'Heat map: the most'], ['compare', 'The "without" bar on Links']]],
+  ['Insight', [['notDone', 'Not done (bigger grey dot)'], ['skipped', 'Skipped (tiny grey dot)'], ['nothing', 'Nothing logged (tiny pale dot)'], ['showingUp', 'Sun: showing up'], ['hiding', 'Sun: hiding'], ['heat0', 'Heat map 1: none'], ['heat1', 'Heat map 2'], ['heat2', 'Heat map 3'], ['heat3', 'Heat map 4'], ['heat4', 'Heat map 5'], ['heat5', 'Heat map 6'], ['heat6', 'Heat map 7'], ['heat7', 'Heat map 8: the most'], ['compare', 'The "without" bar on Links']]],
 ];
 
 // The palette before 24 Oct 2026, so colours saved with it can move to the new one.
@@ -149,12 +153,14 @@ function shade(colour, t) {
   return mix(PAPER, colour, Math.min(1, 0.22 + (0.78 * t) / 0.85));
 }
 
-// The heat map's colour for t = 0..1, running through its four colours.
+// The heat maps' colour for t = 0..1: a thermal ramp through eight colours, each at its own place,
+// so the levels show as clear bands (lilac for a little, then gold, orange and deep violet for the most).
+const HEAT_AT = [0, 0.16, 0.34, 0.48, 0.6, 0.72, 0.85, 1];
 function heat(t) {
-  const stops = [COLOURS.heat1, COLOURS.heat2, COLOURS.heat3, COLOURS.heat4];
-  const x = Math.min(Math.max(t, 0), 1) * (stops.length - 1);
-  const k = Math.min(Math.floor(x), stops.length - 2);
-  return mix(stops[k], stops[k + 1], x - k);
+  const x = Math.min(Math.max(t, 0), 1);
+  let k = 1;
+  while (k < HEAT_AT.length - 1 && x > HEAT_AT[k]) k++;
+  return mix(COLOURS[`heat${k - 1}`], COLOURS[`heat${k}`], (x - HEAT_AT[k - 1]) / (HEAT_AT[k] - HEAT_AT[k - 1]));
 }
 
 // Text for on top of a colour: ink on light colours, the "text on darker colours" role on the rest.

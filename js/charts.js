@@ -141,68 +141,72 @@ function dotMatrix(grid, rowNames, colNames, colour, label) {
   return `${svgOpen(rows * rh + 16, label)}${rn}${body}${cn}</svg>`;
 }
 
-// --- Heat maps: a square per day (or week), coloured from heat1 (a little) to heat4 (the most) ---
-// A cell: { t } = how much (0..1), { t: 0 } = logged but none (pale grey square),
-// null = nothing logged (tiny dot), undefined = not a day yet (left empty).
-function heatCell(x, y, size, cell) {
-  if (cell === undefined) return '';
-  const c = size / 2;
-  if (cell === null) return `<circle cx="${(x + c).toFixed(2)}" cy="${(y + c).toFixed(2)}" r="1.2" fill="${COLOURS.nothing}"/>`;
-  const fill = cell.t > 0 ? heat(cell.t) : mix(PAPER, COLOURS.notDone, 0.6);
-  return `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${size.toFixed(2)}" height="${size.toFixed(2)}" rx="${Math.min(2.5, size / 4).toFixed(2)}" fill="${fill}"/>`;
+// --- Heat maps: a thermal field, the colours melting into each other ---
+// Values (0..1) are drawn as grey squares, blurred, then each grey is swapped for its colour
+// on the heat ramp (see heat() in look.js).
+
+let heatIds = 0;
+
+// The blur and the grey-to-colour swap, as an SVG filter.
+function heatFilter(id, blur) {
+  const tables = [[], [], []];
+  for (let k = 0; k < 40; k++) hexToRgb(heat(k / 39)).forEach((v, i) => tables[i].push(v.toFixed(3)));
+  const [r, g, b] = tables.map((t) => t.join(' '));
+  return `<filter id="${id}" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="${blur}"/><feComponentTransfer><feFuncR type="table" tableValues="${r}"/><feFuncG type="table" tableValues="${g}"/><feFuncB type="table" tableValues="${b}"/><feFuncA type="linear" slope="0" intercept="1"/></feComponentTransfer></filter>`;
 }
 
-// A calendar heat map: one column per week (Monday on top), the last column is this week,
-// with the months named along the top. days: [{ day: "YYYY-MM-DD", cell }], oldest first, ending today.
-function heatCalendar(days, label, weeks = 26) {
-  const end = new Date(`${days[days.length - 1].day}T12:00:00`);
-  const rowOf = (date) => (date.getDay() + 6) % 7;
-  const cw = (W - 18) / weeks;
-  const size = cw - 2;
-  const top = 14;
-  let body = '';
-  let months = '';
-  for (let k = days.length - 1; k >= 0; k--) {
-    const date = new Date(`${days[k].day}T12:00:00`);
-    const back = Math.round((end - date) / 86400000) + (6 - rowOf(end));
-    const col = weeks - 1 - Math.floor(back / 7);
-    if (col < 0) break;
-    body += heatCell(18 + col * cw + 1, top + rowOf(date) * cw + 1, size, days[k].cell);
-  }
-  // Month names over each month's first Monday.
-  for (let col = 0; col < weeks; col++) {
-    const monday = new Date(end);
-    monday.setDate(end.getDate() - rowOf(end) - (weeks - 1 - col) * 7);
-    if (monday.getDate() <= 7 && col < weeks - 2) months += txt(18 + col * cw + 1, 10, monday.toLocaleDateString('en-GB', { month: 'short' }), { anchor: 'start', size: 9.5 });
-  }
-  const names = ['M', '', 'W', '', 'F', '', 'S'].map((n, r) => txt(5, top + (r + 0.5) * cw + 3.5, n, { anchor: 'start' })).join('');
-  return `${svgOpen(top + 7 * cw, label)}${months}${names}${body}</svg>`;
-}
-
-// A heat map grid: one row per thing, one column per week. grid[row][col] is a cell (see heatCell).
-function heatGrid(grid, rowNames, colNames, label) {
-  const left = 96;
+// A heat field inside an SVG: grid[row][col] = 0..1 (null = nothing, drawn as none).
+// strips: each row is its own rounded strip and the heat only runs sideways; otherwise one rounded field.
+function heatField(grid, x, w, rowH, { blur = 4, strips = 0 } = {}) {
+  const id = `heat${heatIds++}`;
   const cols = grid[0].length;
-  const cw = (W - left) / cols;
-  const size = cw - 2;
-  let body = '';
-  grid.forEach((row, r) => row.forEach((cell, c) => { body += heatCell(left + c * cw + 1, r * cw + 1, size, cell); }));
-  const rn = rowNames.map((n, r) => txt(0, (r + 0.5) * cw + 3.5, n.length > 15 ? `${n.slice(0, 14)}…` : n, { anchor: 'start', size: 10, fill: INK })).join('');
-  const cn = colNames.map((n, c) => (n ? txt(left + c * cw + 1, grid.length * cw + 12, n, { anchor: 'start', size: 9 }) : '')).join('');
-  return `${svgOpen(grid.length * cw + 16, label)}${rn}${body}${cn}</svg>`;
+  const cw = w / cols;
+  const grey = (v) => { const g = Math.round(Math.min(Math.max(v || 0, 0), 1) * 255); return `rgb(${g},${g},${g})`; };
+  let cells = '';
+  grid.forEach((row, r) => row.forEach((v, c) => {
+    if (v) cells += `<rect x="${(x + c * cw).toFixed(2)}" y="${(r * rowH).toFixed(2)}" width="${(cw + 0.5).toFixed(2)}" height="${(rowH + 0.5).toFixed(2)}" fill="${grey(v)}"/>`;
+  }));
+  const h = grid.length * rowH;
+  const clip = strips
+    ? grid.map((_, r) => `<rect x="${x}" y="${r * rowH + strips / 2}" width="${w}" height="${rowH - strips}" rx="${(rowH - strips) / 2}"/>`).join('')
+    : `<rect x="${x}" y="0" width="${w}" height="${h}" rx="12"/>`;
+  return `<defs>${heatFilter(id, strips ? `${blur} 0.01` : blur)}<clipPath id="${id}c">${clip}</clipPath></defs>
+    <g clip-path="url(#${id}c)"><g filter="url(#${id})"><rect x="${x - 30}" y="-30" width="${w + 60}" height="${h + 60}" fill="${grey(0)}"/>${cells}</g></g>`;
 }
 
-// A row of heat squares, one per day, for list rows.
-function heatRow(cells, w = 120) {
-  const per = w / cells.length;
-  const size = per - 1.6;
-  return `<svg width="${w}" height="${size.toFixed(2)}" viewBox="0 0 ${w} ${size.toFixed(2)}" aria-hidden="true" style="flex-shrink: 0">${cells.map((c, k) => heatCell(k * per + 0.8, 0, size, c)).join('')}</svg>`;
+// The year: a row per month, a column per day of the month. rows: [{ name, values: [31 x 0..1 or null] }].
+function heatYear(rows, label) {
+  const left = 30;
+  const rowH = 30;
+  const w = W - left;
+  const h = rows.length * rowH;
+  const names = rows.map((r, k) => txt(0, k * rowH + rowH / 2 + 3.5, r.name, { anchor: 'start', size: 9.5 })).join('');
+  const days = [1, 10, 20, 31].map((d) => txt(left + ((d - 0.5) / 31) * w, h + 14, String(d), { size: 9.5 })).join('');
+  return `${svgOpen(h + 18, label)}${heatField(rows.map((r) => r.values), left, w, rowH, { blur: 5 })}${names}${days}</svg>`;
 }
 
-// The heat map's key: none, then the colours running from a little to the most, and nothing logged.
+// One soft strip per thing, the heat running sideways through the columns.
+function heatStrips(grid, rowNames, colNames, label) {
+  const left = 96;
+  const rowH = 30;
+  const w = W - left;
+  const h = grid.length * rowH;
+  const names = rowNames.map((n, r) => txt(0, r * rowH + rowH / 2 + 3.5, n.length > 15 ? `${n.slice(0, 14)}…` : n, { anchor: 'start', size: 10, fill: INK })).join('');
+  const cw = w / grid[0].length;
+  const cn = colNames.map((n, c) => (n ? txt(left + c * cw + 2, h + 12, n, { anchor: 'start', size: 9 }) : '')).join('');
+  return `${svgOpen(h + 16, label)}${heatField(grid, left, w, rowH, { blur: cw * 0.5, strips: 9 })}${names}${cn}</svg>`;
+}
+
+// A small soft strip, for list rows.
+function heatRow(values, w = 120) {
+  return `<svg width="${w}" height="12" viewBox="0 0 ${w} 12" aria-hidden="true" style="flex-shrink: 0">${heatField([values], 0, w, 12, { blur: (w / values.length) * 0.45, strips: 0.01 })}</svg>`;
+}
+
+// The heat map's key: the ramp from none to the most.
 function heatKey() {
-  const steps = [0.08, 0.3, 0.55, 0.8, 1];
-  return `<div class="key heat-key"><span>${heatRow([{ t: 0 }], 12)} none</span><span>a little ${heatRow(steps.map((t) => ({ t })), 60)} the most</span><span>${heatRow([null], 12)} nothing logged</span></div>`;
+  const stops = Array.from({ length: 9 }, (_, k) => `<stop offset="${k / 8}" stop-color="${heat(k / 8)}"/>`).join('');
+  const id = `heat${heatIds++}k`;
+  return `<div class="key"><span>none <svg width="120" height="8" aria-hidden="true"><defs><linearGradient id="${id}">${stops}</linearGradient></defs><rect width="120" height="8" rx="4" fill="url(#${id})"/></svg> the most</span></div>`;
 }
 
 // A horizontal bar for list rows: the track is a pale tint, the fill deepens with the value.
