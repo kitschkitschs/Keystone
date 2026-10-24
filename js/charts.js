@@ -141,6 +141,70 @@ function dotMatrix(grid, rowNames, colNames, colour, label) {
   return `${svgOpen(rows * rh + 16, label)}${rn}${body}${cn}</svg>`;
 }
 
+// --- Heat maps: a square per day (or week), coloured from heat1 (a little) to heat4 (the most) ---
+// A cell: { t } = how much (0..1), { t: 0 } = logged but none (pale grey square),
+// null = nothing logged (tiny dot), undefined = not a day yet (left empty).
+function heatCell(x, y, size, cell) {
+  if (cell === undefined) return '';
+  const c = size / 2;
+  if (cell === null) return `<circle cx="${(x + c).toFixed(2)}" cy="${(y + c).toFixed(2)}" r="1.2" fill="${COLOURS.nothing}"/>`;
+  const fill = cell.t > 0 ? heat(cell.t) : mix(PAPER, COLOURS.notDone, 0.6);
+  return `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${size.toFixed(2)}" height="${size.toFixed(2)}" rx="${Math.min(2.5, size / 4).toFixed(2)}" fill="${fill}"/>`;
+}
+
+// A calendar heat map: one column per week (Monday on top), the last column is this week,
+// with the months named along the top. days: [{ day: "YYYY-MM-DD", cell }], oldest first, ending today.
+function heatCalendar(days, label, weeks = 26) {
+  const end = new Date(`${days[days.length - 1].day}T12:00:00`);
+  const rowOf = (date) => (date.getDay() + 6) % 7;
+  const cw = (W - 18) / weeks;
+  const size = cw - 2;
+  const top = 14;
+  let body = '';
+  let months = '';
+  for (let k = days.length - 1; k >= 0; k--) {
+    const date = new Date(`${days[k].day}T12:00:00`);
+    const back = Math.round((end - date) / 86400000) + (6 - rowOf(end));
+    const col = weeks - 1 - Math.floor(back / 7);
+    if (col < 0) break;
+    body += heatCell(18 + col * cw + 1, top + rowOf(date) * cw + 1, size, days[k].cell);
+  }
+  // Month names over each month's first Monday.
+  for (let col = 0; col < weeks; col++) {
+    const monday = new Date(end);
+    monday.setDate(end.getDate() - rowOf(end) - (weeks - 1 - col) * 7);
+    if (monday.getDate() <= 7 && col < weeks - 2) months += txt(18 + col * cw + 1, 10, monday.toLocaleDateString('en-GB', { month: 'short' }), { anchor: 'start', size: 9.5 });
+  }
+  const names = ['M', '', 'W', '', 'F', '', 'S'].map((n, r) => txt(5, top + (r + 0.5) * cw + 3.5, n, { anchor: 'start' })).join('');
+  return `${svgOpen(top + 7 * cw, label)}${months}${names}${body}</svg>`;
+}
+
+// A heat map grid: one row per thing, one column per week. grid[row][col] is a cell (see heatCell).
+function heatGrid(grid, rowNames, colNames, label) {
+  const left = 96;
+  const cols = grid[0].length;
+  const cw = (W - left) / cols;
+  const size = cw - 2;
+  let body = '';
+  grid.forEach((row, r) => row.forEach((cell, c) => { body += heatCell(left + c * cw + 1, r * cw + 1, size, cell); }));
+  const rn = rowNames.map((n, r) => txt(0, (r + 0.5) * cw + 3.5, n.length > 15 ? `${n.slice(0, 14)}…` : n, { anchor: 'start', size: 10, fill: INK })).join('');
+  const cn = colNames.map((n, c) => (n ? txt(left + c * cw + 1, grid.length * cw + 12, n, { anchor: 'start', size: 9 }) : '')).join('');
+  return `${svgOpen(grid.length * cw + 16, label)}${rn}${body}${cn}</svg>`;
+}
+
+// A row of heat squares, one per day, for list rows.
+function heatRow(cells, w = 120) {
+  const per = w / cells.length;
+  const size = per - 1.6;
+  return `<svg width="${w}" height="${size.toFixed(2)}" viewBox="0 0 ${w} ${size.toFixed(2)}" aria-hidden="true" style="flex-shrink: 0">${cells.map((c, k) => heatCell(k * per + 0.8, 0, size, c)).join('')}</svg>`;
+}
+
+// The heat map's key: none, then the colours running from a little to the most, and nothing logged.
+function heatKey() {
+  const steps = [0.08, 0.3, 0.55, 0.8, 1];
+  return `<div class="key heat-key"><span>${heatRow([{ t: 0 }], 12)} none</span><span>a little ${heatRow(steps.map((t) => ({ t })), 60)} the most</span><span>${heatRow([null], 12)} nothing logged</span></div>`;
+}
+
 // A horizontal bar for list rows: the track is a pale tint, the fill deepens with the value.
 function hbar(v, colour) {
   return `<span class="track" style="background: linear-gradient(90deg, ${shade(colour, 0.3)}, ${shade(colour, 0.3 + 0.7 * v)}) 0 0 / ${Math.max(4, Math.round(v * 100))}% 100% no-repeat"></span>`;

@@ -33,7 +33,11 @@ const COLOUR_DEFAULTS = {
   nothing: '#DAD0CA',
   showingUp: '#F2C46F',
   hiding: '#6E7E95',
-  load: '#B8646E',
+  // Symptom load heat map, from a little to the most
+  heat1: '#F3D9A2',
+  heat2: '#E5A06E',
+  heat3: '#C9636D',
+  heat4: '#7D6283',
   compare: '#B9BAAE',
   // Colours offered in every colour picker
   palette: [
@@ -47,7 +51,7 @@ const COLOUR_DEFAULTS = {
 const COLOUR_ROLES = [
   ['The app', [['paper', 'Background'], ['topBar', 'Top bar'], ['ink', 'Text and lines'], ['muted', 'Soft text'], ['rule', 'Thin lines'], ['faint', 'Faint marks'], ['onColour', 'Text on darker colours'], ['fieldText', 'Words on the feelings colours'], ['emptyField', 'Feelings colours, nothing picked yet'], ['danger', 'Delete']]],
   ['Feelings', [['Happiness', 'Happiness'], ['Surprise', 'Surprise'], ['Fear', 'Fear'], ['Anger', 'Anger'], ['Disgust', 'Disgust'], ['Sadness', 'Sadness']]],
-  ['Insight', [['notDone', 'Not done (bigger grey dot)'], ['skipped', 'Skipped (tiny grey dot)'], ['nothing', 'Nothing logged (tiny pale dot)'], ['showingUp', 'Sun: showing up'], ['hiding', 'Sun: hiding'], ['load', 'Symptom load'], ['compare', 'The "without" bar on Links']]],
+  ['Insight', [['notDone', 'Not done (bigger grey dot)'], ['skipped', 'Skipped (tiny grey dot)'], ['nothing', 'Nothing logged (tiny pale dot)'], ['showingUp', 'Sun: showing up'], ['hiding', 'Sun: hiding'], ['heat1', 'Heat map: a little'], ['heat2', 'Heat map: some'], ['heat3', 'Heat map: a lot'], ['heat4', 'Heat map: the most'], ['compare', 'The "without" bar on Links']]],
 ];
 
 // The palette before 24 Oct 2026, so colours saved with it can move to the new one.
@@ -143,6 +147,14 @@ function mix(a, b, t) {
 // It never goes darker than the colour you picked: from t = 0.85 up it's exactly that colour.
 function shade(colour, t) {
   return mix(PAPER, colour, Math.min(1, 0.22 + (0.78 * t) / 0.85));
+}
+
+// The heat map's colour for t = 0..1, running through its four colours.
+function heat(t) {
+  const stops = [COLOURS.heat1, COLOURS.heat2, COLOURS.heat3, COLOURS.heat4];
+  const x = Math.min(Math.max(t, 0), 1) * (stops.length - 1);
+  const k = Math.min(Math.floor(x), stops.length - 2);
+  return mix(stops[k], stops[k + 1], x - k);
 }
 
 // Text for on top of a colour: ink on light colours, the "text on darker colours" role on the rest.
