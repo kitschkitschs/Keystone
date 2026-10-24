@@ -38,16 +38,11 @@ function rememberFolded(part, folded) {
 
 $('bookmark').innerHTML = stamp(SHAPE_BOOKMARK, { size: 190, done: 1, seed: 88 });
 
-const BAR = [
-  { label: 'Tracker (coming later)', size: 22 },
-  { label: 'Calendar (coming later)', size: 22 },
-  { label: 'Home', size: 30, home: true },
-  { label: 'Hobbies (coming later)', size: 22 },
-  { label: 'Journal (coming later)', size: 22 },
-];
-$('bar-buttons').innerHTML = BAR.map((b, i) =>
-  `<button type="button" aria-label="${b.label}"${b.home ? ' aria-current="page"' : ''}>` +
-  stamp(SHAPE_DOT, { size: b.size, done: 0.85 + 0.05 * i, seed: 500 + i * 17 }) + '</button>'
+// Words for now; the centre is a round stamp frame. Only Home works so far.
+const BAR = ['Health', 'Calendar', 'Home', 'Hobby', 'Journal'];
+$('bar-buttons').innerHTML = BAR.map((name) => name === 'Home'
+  ? `<button type="button" class="bar-home" aria-label="Home" aria-current="page">${stamp(frameShape('circle'), { size: 40, done: 1, seed: 61 })}</button>`
+  : `<button type="button" class="bar-word" aria-label="${name} (coming later)">${name}</button>`
 ).join('');
 $('bar-buttons').children[2].addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 

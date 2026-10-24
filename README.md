@@ -18,7 +18,7 @@ Day and Evening; ticking a task stamps it off, and the day gets its own stamp.
 | `js/sync.js` | Saves a backup file and loads one back in. |
 | `js/reminders.js` | Daily reminders, and signing the phone up for pings. |
 | `js/plan.js` | The day's tasks (morning, day, evening) and ticking them off. |
-| `js/stamps.js` | Draws stamps in uneven ink: the day's frame, ticks, the bottom bar dots. |
+| `js/stamps.js` | Draws stamps in uneven ink: the day's frame, the ticks, the bottom bar's home stamp. |
 | `js/stamp-shapes.js` | The carved shapes of the bookmark and the tick stamp. Made by a script, not by hand. |
 | `js/app.js` | Draws the front page and the menu, and connects them to the files above. |
 | `fonts/` | Lora and Roboto, kept here so they work offline. Both are free fonts (SIL Open Font License). |

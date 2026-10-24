@@ -61,8 +61,6 @@ function frameShape(name) {
     `<path d="${draw(a - 9, b - 9)}" fill="none" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/>`;
 }
 
-const SHAPE_DOT = '<circle cx="100" cy="100" r="80" fill="#fff"/>';
-
 // Returns an <svg> of one stamp press.
 //   shape  the shape's mask, from stamp-shapes.js or frameShape()
 //   size   how wide it lands on the page, in pixels

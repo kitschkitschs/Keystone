@@ -139,7 +139,8 @@ button { cursor: pointer; }
   display: flex; flex-direction: column; background: #E5DCC4;
 }
 .bar-buttons { flex: 1; display: grid; grid-template-columns: repeat(5, 1fr); align-items: center; max-width: 436px; width: 100%; margin: 0 auto; }
-.bar-buttons button { width: 48px; height: 48px; margin: 0 auto; display: grid; place-items: center; background: none; border: 0; padding: 0; }
+.bar-buttons button { min-width: 48px; height: 48px; margin: 0 auto; display: grid; place-items: center; background: none; border: 0; padding: 0; }
+.bar-word { font-size: 13px; letter-spacing: 0.02em; }
 
 /* ---- Full menu ---- */
 .menu {
