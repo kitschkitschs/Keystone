@@ -1,9 +1,11 @@
 // sw.js: the service worker. It keeps a copy of the app's files on the phone,
 // so Keystone opens without a connection.
 //
-// How updates work: the app always opens from the saved copy (fast, works
-// offline), and at the same time fetches fresh files in the background.
-// So after you publish a change, it shows up the next time you open the app.
+// How updates work: when there's a connection, the app opens with the newest
+// files (asking the server past any short-term caching) and saves a copy.
+// With no connection, or one too slow to answer within a few seconds, it
+// opens from the saved copy instead. So a published change shows up on the
+// next open.
 //
 // If you add a new file to the app, add it to APP_FILES below.
 
@@ -59,6 +61,9 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+// How long to wait for the server before opening from the saved copy.
+const NETWORK_WAIT_MS = 4000;
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
@@ -66,17 +71,16 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {
       const cached = await cache.match(request, { ignoreSearch: true });
-      const fresh = fetch(request)
-        .then((response) => {
-          if (response.ok) cache.put(request, response.clone());
-          return response;
-        })
-        .catch(() => cached || Response.error());
-      if (cached) {
-        event.waitUntil(fresh);
-        return cached;
-      }
-      return fresh;
+      // cache: 'no-cache' makes the browser check with the server, so a change
+      // shows up right away instead of after the server's 10-minute cache.
+      const fresh = fetch(request, { cache: 'no-cache' }).then((response) => {
+        if (response.ok) cache.put(request, response.clone());
+        return response;
+      });
+      if (!cached) return fresh;
+      event.waitUntil(fresh.catch(() => {}));
+      const slow = new Promise((resolve) => setTimeout(() => resolve(cached), NETWORK_WAIT_MS));
+      return Promise.race([fresh.catch(() => cached), slow]);
     })
   );
 });
