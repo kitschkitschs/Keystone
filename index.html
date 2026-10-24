@@ -123,6 +123,19 @@
     </div>
     <div id="health-list" class="health-list"></div>
   </section>
+
+  <!-- ===== Changing the Health page's list. Drawn by health-edit.js. ===== -->
+  <section id="health-edit" class="health" aria-label="Edit the Health page" hidden>
+    <div class="edit-top">
+      <div class="date">
+        <div class="date-line">Health page</div>
+        <h1 class="weekday">Edit the list</h1>
+      </div>
+      <button id="edit-done" class="ink-button" type="button">Done</button>
+    </div>
+    <p class="muted edit-intro">Tap anything to rename it, move it or delete it.</p>
+    <div id="edit-list" class="health-list"></div>
+  </section>
   </div>
 
   <!-- The bottom bar. Ink dots stand in until the real icons are drawn. -->
@@ -156,6 +169,12 @@
       <p id="sync-status" class="status" role="status"></p>
       <p id="last-saved" class="muted"></p>
       <p id="storage-status" class="muted"></p>
+    </section>
+
+    <section class="menu-section">
+      <h3>Health page</h3>
+      <p class="muted">Add, rename, move and delete what you track.</p>
+      <p><button id="edit-health-button" class="ink-button" type="button">Edit the Health page</button></p>
     </section>
 
     <section class="menu-section">
@@ -212,6 +231,36 @@
     </form>
   </dialog>
 
+  <!-- ===== Adding or changing one thing on the Health page ===== -->
+  <dialog id="edit-dialog" class="sheet">
+    <form id="edit-form" method="dialog">
+      <h2 id="edit-dialog-title" tabindex="-1" autofocus>Change</h2>
+      <label class="field">
+        <span>Name</span>
+        <input id="edit-name" type="text" autocomplete="off" required>
+      </label>
+      <fieldset id="edit-scale" class="field">
+        <legend>Scale</legend>
+        <div class="choices">
+          <label><input type="radio" name="scale" value="symptom"><span>Symptom</span></label>
+          <label><input type="radio" name="scale" value="quality"><span>Quality</span></label>
+          <label><input type="radio" name="scale" value="mood"><span>Mood</span></label>
+        </div>
+        <span id="edit-scale-words" class="muted"></span>
+      </fieldset>
+      <div id="edit-move" class="sheet-buttons">
+        <button id="edit-up" class="text-button" type="button">Move up</button>
+        <button id="edit-down" class="text-button" type="button">Move down</button>
+      </div>
+      <div class="sheet-buttons">
+        <button id="edit-delete" class="text-button danger" type="button">Delete</button>
+        <span class="spacer"></span>
+        <button id="edit-cancel" class="text-button" type="button">Cancel</button>
+        <button class="ink-button" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Plain scripts, loaded in order. No build step. -->
   <script src="js/db.js"></script>
   <script src="js/sync.js"></script>
@@ -222,6 +271,7 @@
   <script src="js/plan.js"></script>
   <script src="js/app.js"></script>
   <script src="js/health.js"></script>
+  <script src="js/health-edit.js"></script>
   <script src="js/colours.js"></script>
 </body>
 </html>

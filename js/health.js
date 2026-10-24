@@ -1,14 +1,22 @@
 // health.js: the Health page. Everything about how you are that isn't an activity:
 // the main scores on top (mood, motivation, productivity, energy, sleep), then folders.
 //
-// The list itself lives in HEALTH_LIST below for now. Later it moves into edit mode
-// (in the full menu), so it can be changed without touching code.
+// The list itself (what's on the page) is saved as one item, changed on the edit
+// page (health-edit.js, opened from the full menu):
+//   { id: "health-list", kind: "health-list", day: "", list: { main, feelings, folders } }
+//     main:     [{ id, name, scale }]                 always shown, never folded
+//     feelings: [{ id, name }]                        tags under the mood score
+//     folders:  [{ id, name, items, tags }]           items are scores { id, name, scale }
+//                                                     or smaller folders { id, name, items, tags }
+//     tags:     [{ id, name }]                        yes/no tags
+// Before anything is edited, the starting list below is used.
 //
-// Each answer is saved as its own item for that day:
+// Each answer is saved as its own item for that day, under the id of what it answers:
 //   { id: "health-2026-10-24-body/pain/headache", kind: "health", day: "2026-10-24",
 //     key: "body/pain/headache", value: 2 }
 // Scores are numbers (0 = nothing picked); tags and feelings are true or false.
-// One item per answer, so answers made on two phones merge cleanly.
+// One item per answer, so answers made on two phones merge cleanly. Renaming
+// something keeps its id, so its past answers stay with it.
 
 const SCALES = {
   mood: ['', 'awful', 'bad', 'neutral', 'content', 'happy'],
@@ -16,44 +24,52 @@ const SCALES = {
   symptom: ['', 'present', 'distressing', 'debilitating'],
 };
 
-const FEELINGS = ['calm', 'hopeful', 'grateful', 'proud', 'loved', 'relieved', 'excited', 'tired', 'bored',
-  'restless', 'anxious', 'overwhelmed', 'irritable', 'frustrated', 'sad', 'lonely', 'numb', 'ashamed'];
-
-// The main items: always there, never folded.
-const HEALTH_MAIN = [
-  { key: 'mood', name: 'Mood', scale: 'mood' },
-  { key: 'motivation', name: 'Motivation', scale: 'quality' },
-  { key: 'productivity', name: 'Productivity', scale: 'quality' },
-  { key: 'energy', name: 'Energy', scale: 'quality' },
-  { key: 'sleep', name: 'Sleep', scale: 'quality' },
-];
-
-// The folders. A folder holds scores (symptom scale unless it says otherwise),
-// smaller folders, and one group of yes/no tags.
-const HEALTH_LIST = [
-  {
-    name: 'Body',
-    items: [
-      { name: 'Pain', items: [{ name: 'Headache' }, { name: 'Joint pain' }, { name: 'Back pain' }, { name: 'Cramps' }] },
-      { name: 'Stomach', items: [{ name: 'Nausea' }, { name: 'Bloating' }, { name: 'No appetite' }] },
-      { name: 'Fatigue' },
-      { name: 'Dizziness' },
-    ],
-    tags: ['period', 'nap', 'painkiller', 'flare-up', 'fever'],
-  },
-  {
-    name: 'Mind',
-    items: [{ name: 'Brain fog' }, { name: 'Anxiety' }, { name: 'Low mood' }, { name: 'Irritability' }],
-    tags: ['panic attack', 'cried', 'shut down', 'overstimulated'],
-  },
-  {
-    name: 'Day',
-    items: [],
-    tags: ['went outside', 'saw someone', 'showered', 'cooked', 'tidied', 'rested', 'screen-free hour'],
-  },
-];
-
 const slug = (text) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+// The starting list. Its ids are made from the names, as the first version of the page did.
+function startingHealthList() {
+  const feelings = ['calm', 'hopeful', 'grateful', 'proud', 'loved', 'relieved', 'excited', 'tired', 'bored',
+    'restless', 'anxious', 'overwhelmed', 'irritable', 'frustrated', 'sad', 'lonely', 'numb', 'ashamed'];
+  const folder = (path, name, items, tags = []) => {
+    const id = path ? `${path}/${slug(name)}` : slug(name);
+    return {
+      id,
+      name,
+      items: items.map((item) => (typeof item === 'string'
+        ? { id: `${id}/${slug(item)}`, name: item, scale: 'symptom' }
+        : folder(id, item.name, item.items, item.tags))),
+      tags: tags.map((tag) => ({ id: `${id}/tag/${slug(tag)}`, name: tag })),
+    };
+  };
+  return {
+    main: [
+      { id: 'mood', name: 'Mood', scale: 'mood' },
+      { id: 'motivation', name: 'Motivation', scale: 'quality' },
+      { id: 'productivity', name: 'Productivity', scale: 'quality' },
+      { id: 'energy', name: 'Energy', scale: 'quality' },
+      { id: 'sleep', name: 'Sleep', scale: 'quality' },
+    ],
+    feelings: feelings.map((f) => ({ id: `feel/${slug(f)}`, name: f })),
+    folders: [
+      folder('', 'Body', [
+        { name: 'Pain', items: ['Headache', 'Joint pain', 'Back pain', 'Cramps'] },
+        { name: 'Stomach', items: ['Nausea', 'Bloating', 'No appetite'] },
+        'Fatigue', 'Dizziness',
+      ], ['period', 'nap', 'painkiller', 'flare-up', 'fever']),
+      folder('', 'Mind', ['Brain fog', 'Anxiety', 'Low mood', 'Irritability'], ['panic attack', 'cried', 'shut down', 'overstimulated']),
+      folder('', 'Day', [], ['went outside', 'saw someone', 'showered', 'cooked', 'tidied', 'rested', 'screen-free hour']),
+    ],
+  };
+}
+
+async function getHealthList() {
+  const saved = (await getItemsForDay('')).find((item) => item.id === 'health-list');
+  return saved ? saved.list : startingHealthList();
+}
+
+function saveHealthList(list) {
+  return putItem({ id: 'health-list', kind: 'health-list', day: '', list });
+}
 
 // All of one day's answers, as a Map from key to value.
 async function getHealthDay(day) {
@@ -72,6 +88,7 @@ function setHealthAnswer(day, key, value) {
 
 let healthDay = todayKey();
 let healthAnswers = new Map();
+let healthList = startingHealthList();
 let feelingsOpen = false;
 
 // A hand-inked dot for a score: filled when picked, a faint ring when not.
@@ -100,63 +117,56 @@ function chip(key, word) {
 }
 
 // Mood: the score, then feelings. Folded, only the picked feelings show.
-function moodRow() {
-  const picked = FEELINGS.filter((f) => healthAnswers.get(`feel/${slug(f)}`) === true);
-  const rest = FEELINGS.filter((f) => !picked.includes(f));
+function moodRow(item) {
+  const picked = healthList.feelings.filter((f) => healthAnswers.get(f.id) === true);
+  const rest = healthList.feelings.filter((f) => !picked.includes(f));
   return `<li class="mood">
-    <ul class="rows">${rateRow('mood', 'Mood', 'mood').replace('class="row"', 'class="row no-rule"')}</ul>
+    <ul class="rows">${rateRow(item.id, item.name, item.scale).replace('class="row"', 'class="row no-rule"')}</ul>
     <details class="feels"${feelingsOpen ? ' open' : ''}>
-      <summary>${picked.map((f) => chip(`feel/${slug(f)}`, f)).join('')}<span class="more"><span class="more-word">${picked.length ? 'more' : 'feelings'}</span>${chevron}</span></summary>
-      <div class="chips">${rest.map((f) => chip(`feel/${slug(f)}`, f)).join('')}</div>
+      <summary>${picked.map((f) => chip(f.id, f.name)).join('')}<span class="more"><span class="more-word">${picked.length ? 'more' : 'feelings'}</span>${chevron}</span></summary>
+      <div class="chips">${rest.map((f) => chip(f.id, f.name)).join('')}</div>
     </details>
   </li>`;
 }
 
 // How much is noted in a folder: scores above nothing, and tags that are on.
-function countNoted(path, folder) {
+function countNoted(folder) {
   let n = 0;
-  for (const item of folder.items || []) {
-    const key = `${path}/${slug(item.name)}`;
-    if (item.items) n += countNoted(key, item);
-    else if (healthAnswers.get(key)) n++;
+  for (const item of folder.items) {
+    if (item.items) n += countNoted(item);
+    else if (healthAnswers.get(item.id)) n++;
   }
-  for (const tag of folder.tags || []) if (healthAnswers.get(`${path}/tag/${slug(tag)}`) === true) n++;
+  for (const tag of folder.tags) if (healthAnswers.get(tag.id) === true) n++;
   return n;
 }
 
-function isFolderFolded(path) {
-  try { return localStorage.getItem(`keystone-folded-health/${path}`) === '1'; } catch { return false; }
+function isFolderFolded(id) {
+  try { return localStorage.getItem(`keystone-folded-health/${id}`) === '1'; } catch { return false; }
 }
 
-function folderBody(path, folder) {
-  const rows = (folder.items || []).map((item) => {
-    const key = `${path}/${slug(item.name)}`;
-    return item.items ? subFolder(key, item) : rateRow(key, item.name, item.scale || 'symptom');
-  });
-  if (folder.tags && folder.tags.length) {
-    rows.push(`<li class="tags">${folder.tags.map((t) => chip(`${path}/tag/${slug(t)}`, t)).join('')}</li>`);
-  }
+function folderBody(folder) {
+  const rows = folder.items.map((item) => (item.items ? subFolder(item) : rateRow(item.id, item.name, item.scale)));
+  if (folder.tags.length) rows.push(`<li class="tags">${folder.tags.map((t) => chip(t.id, t.name)).join('')}</li>`);
   return rows.join('');
 }
 
-function countText(path, folder) {
-  const n = countNoted(path, folder);
-  if (!(folder.items || []).length) return `${n} of ${folder.tags.length}`;
+function countText(folder) {
+  const n = countNoted(folder);
+  if (!folder.items.length) return folder.tags.length ? `${n} of ${folder.tags.length}` : '';
   return n ? `${n} noted` : '';
 }
 
-function subFolder(path, folder) {
-  return `<li><details class="subfolder" data-fold="${path}"${isFolderFolded(path) ? '' : ' open'}>
+function subFolder(folder) {
+  return `<li><details class="subfolder" data-fold="${folder.id}"${isFolderFolded(folder.id) ? '' : ' open'}>
     <summary><span class="sub-name">${escapeHtml(folder.name)}</span>${chevron}</summary>
-    <ul class="rows sub-rows">${folderBody(path, folder)}</ul>
+    <ul class="rows sub-rows">${folderBody(folder)}</ul>
   </details></li>`;
 }
 
 function topFolder(folder) {
-  const path = slug(folder.name);
-  return `<details class="part folder" data-fold="${path}"${isFolderFolded(path) ? '' : ' open'}>
-    <summary><span class="part-name">${escapeHtml(folder.name)}</span><span class="part-count">${countText(path, folder)}</span>${chevron}</summary>
-    <ul class="rows">${folderBody(path, folder)}</ul>
+  return `<details class="part folder" data-fold="${folder.id}"${isFolderFolded(folder.id) ? '' : ' open'}>
+    <summary><span class="part-name">${escapeHtml(folder.name)}</span><span class="part-count">${countText(folder)}</span>${chevron}</summary>
+    <ul class="rows">${folderBody(folder)}</ul>
   </details>`;
 }
 
@@ -167,17 +177,22 @@ async function showHealth() {
   $('health-weekday').textContent = date.toLocaleDateString('en-GB', { weekday: 'long' });
   $('health-next').style.visibility = healthDay >= todayKey() ? 'hidden' : '';
 
+  healthList = await getHealthList();
   healthAnswers = await getHealthDay(healthDay);
+  // The feelings hang under the first main item that uses the mood scale.
+  const moodItem = healthList.main.find((m) => m.scale === 'mood');
   $('health-list').innerHTML =
-    `<ul class="rows main-rows">${moodRow()}${HEALTH_MAIN.slice(1).map((m) => rateRow(m.key, m.name, m.scale)).join('')}</ul>` +
-    HEALTH_LIST.map(topFolder).join('');
+    `<ul class="rows main-rows">${healthList.main.map((m) => (m === moodItem ? moodRow(m) : rateRow(m.id, m.name, m.scale))).join('')}</ul>` +
+    healthList.folders.map(topFolder).join('') +
+    '<p class="edit-hint">Change this list from the full menu</p>';
 
   for (const details of $('health-list').querySelectorAll('details[data-fold]')) {
     details.addEventListener('toggle', () => {
       try { localStorage.setItem(`keystone-folded-health/${details.dataset.fold}`, details.open ? '0' : '1'); } catch { /* not important */ }
     });
   }
-  $('health-list').querySelector('details.feels').addEventListener('toggle', (event) => { feelingsOpen = event.target.open; });
+  const feels = $('health-list').querySelector('details.feels');
+  if (feels) feels.addEventListener('toggle', () => { feelingsOpen = feels.open; });
 }
 
 function stepHealthDay(days) {
@@ -211,18 +226,20 @@ $('health-list').addEventListener('click', async (event) => {
 // The Health page has its own place in the phone's history, so the back button returns home.
 
 function showView() {
-  const health = location.hash === '#health';
-  $('front').hidden = health;
-  $('health').hidden = !health;
+  const view = { '#health': 'health', '#health-edit': 'health-edit' }[location.hash] || 'home';
+  $('front').hidden = view !== 'home';
+  $('health').hidden = view !== 'health';
+  $('health-edit').hidden = view !== 'health-edit';
   for (const button of $('bar-buttons').children) {
-    const here = health ? button.dataset.view === 'health' : button.dataset.view === 'home';
+    const here = button.dataset.view === (view === 'health-edit' ? 'health' : view);
     if (here) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   }
-  if (health) {
+  if (view === 'health') {
     healthDay = todayKey();
     showHealth();
   }
+  if (view === 'health-edit') showHealthEdit();
   window.scrollTo(0, 0);
 }
 
@@ -231,8 +248,9 @@ function goHealth() {
 }
 function goHome() {
   if (location.hash === '#health') history.back();
+  else if (location.hash) location.replace('#');
   else window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 window.addEventListener('hashchange', showView);
-if (location.hash === '#health') history.replaceState(null, '', location.pathname);
+if (location.hash) history.replaceState(null, '', location.pathname);

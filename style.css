@@ -225,6 +225,24 @@ input:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px 
 .simple-list li { display: flex; align-items: center; gap: 8px; min-height: 40px; border-bottom: 1px solid var(--rule); }
 .simple-list li span { flex: 1; }
 
+/* ---- Editing the Health page ---- */
+.edit-hint { margin: 22px 0 0; font-size: 12px; color: var(--muted); text-align: center; }
+.edit-top { display: flex; align-items: flex-end; justify-content: space-between; padding: 40px var(--side) 0; }
+.edit-top .date { padding-bottom: 0; }
+.edit-intro { padding: 0 var(--side); margin: 10px 0 14px; }
+.edit-heading {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 0; text-align: left;
+  background: none; border: 0; border-bottom: 1.6px solid var(--ink);
+}
+.edit-row {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 2px 0; text-align: left;
+  background: none; border: 0; border-bottom: 1px solid var(--rule);
+}
+.add-lines { display: flex; flex-wrap: wrap; column-gap: 18px; }
+.add-lines .add-line { width: auto; }
+.edit-sub > div > .tags, .edit-sub > div > .add-lines { padding-left: 24px; }
+.sheet fieldset[hidden] { display: none; }
+
 /* ---- Colour sliders (full menu) ---- */
 .colour { margin: 12px 0 4px; }
 .colour-head { display: flex; align-items: center; gap: 10px; font-size: 14px; }
