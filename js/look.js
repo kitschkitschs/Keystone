@@ -139,10 +139,10 @@ function mix(a, b, t) {
   return rgbToHex(fromLab(x.map((v, i) => v + (y[i] - v) * t)));
 }
 
-// A colour's steps from pale to deep, for data: t = 0 is a pale tint, 1 the deepest shade.
+// A colour's steps for data, from a pale tint (t = 0) up to the colour itself.
+// It never goes darker than the colour you picked: from t = 0.85 up it's exactly that colour.
 function shade(colour, t) {
-  if (t <= 0.6) return mix(PAPER, colour, 0.22 + (t / 0.6) * 0.78);
-  return mix(colour, INK, ((t - 0.6) / 0.4) * 0.45);
+  return mix(PAPER, colour, Math.min(1, 0.22 + (0.78 * t) / 0.85));
 }
 
 // Text for on top of a colour: ink on light colours, the "text on darker colours" role on the rest.
