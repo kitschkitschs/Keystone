@@ -42,6 +42,7 @@ const APP_FILES = [
   'js/app.js',
   'js/health.js',
   'js/health-edit.js',
+  'js/colours.js',
   'js/charts.js',
   'js/insight.js',
   'fonts/lora-latin-400-normal.woff2',

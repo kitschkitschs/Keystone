@@ -46,37 +46,37 @@ function startingHealthList() {
     version: 2,
     checkins: {
       morning: [
-        { id: 'sleep', name: 'Sleep', scale: 'quality', colour: '#56629A' },
-        { id: 'morning/mood', name: 'Mood', scale: 'mood', colour: '#DB9A2E' },
-        { id: 'morning/motivation', name: 'Motivation', scale: 'quality', colour: '#7F9566' },
+        { id: 'sleep', name: 'Sleep', scale: 'quality', colour: '#7F92AB' },
+        { id: 'morning/mood', name: 'Mood', scale: 'mood', colour: '#EDBE68' },
+        { id: 'morning/motivation', name: 'Motivation', scale: 'quality', colour: '#7E9D84' },
       ],
       evening: [
-        { id: 'mood', name: 'Mood', scale: 'mood', colour: '#DB9A2E' },
-        { id: 'motivation', name: 'Motivation', scale: 'quality', colour: '#7F9566' },
-        { id: 'productivity', name: 'Productivity', scale: 'quality', colour: '#DC7E4A' },
-        { id: 'energy', name: 'Energy', scale: 'quality', colour: '#A36AAE' },
+        { id: 'mood', name: 'Mood', scale: 'mood', colour: '#EDBE68' },
+        { id: 'motivation', name: 'Motivation', scale: 'quality', colour: '#7E9D84' },
+        { id: 'productivity', name: 'Productivity', scale: 'quality', colour: '#E2A174' },
+        { id: 'energy', name: 'Energy', scale: 'quality', colour: '#A98AA6' },
       ],
     },
     feelings: EMOTION_FAMILIES.map(([family, words]) => ({ family, words: [...words] })),
     tabs: [
       { id: 'mental', name: 'Mental', entries: [
-        folder('thinking', 'Thinking', 'mind', '#675C96', ['Brain fog', 'Racing thoughts', 'Rumination'], ['spaced out', 'overthinking']),
-        folder('feelings', 'Feelings', 'heart', '#46679A', ['Anxiety', 'Low mood', 'Irritability'], ['panic attack', 'cried', 'shut down']),
-        { id: 'stress', name: 'Stress', scale: 'symptom', colour: '#A36AAE' },
+        folder('thinking', 'Thinking', 'mind', '#5C6D86', ['Brain fog', 'Racing thoughts', 'Rumination'], ['spaced out', 'overthinking']),
+        folder('feelings', 'Feelings', 'heart', '#7FA39C', ['Anxiety', 'Low mood', 'Irritability'], ['panic attack', 'cried', 'shut down']),
+        { id: 'stress', name: 'Stress', scale: 'symptom', colour: '#A98AA6' },
       ] },
       { id: 'physical', name: 'Physical', entries: [
-        folder('pain', 'Pain', 'pain', '#BC4960', ['Headache', 'Muscle tension', 'Joint pain'], ['cramps', 'pain flare', 'stiff neck']),
-        folder('injury', 'Injury', 'injury', '#E4943B', ['Sprain', 'Bruise']),
-        folder('body', 'Body', 'body', '#AB67A4', ['Fatigue', 'Nausea', 'Dizziness'], ['period', 'cold', 'hot flush']),
+        folder('pain', 'Pain', 'pain', '#B8646E', ['Headache', 'Muscle tension', 'Joint pain'], ['cramps', 'pain flare', 'stiff neck']),
+        folder('injury', 'Injury', 'injury', '#C9993F', ['Sprain', 'Bruise']),
+        folder('body', 'Body', 'body', '#7D6283', ['Fatigue', 'Nausea', 'Dizziness'], ['period', 'cold', 'hot flush']),
       ] },
       { id: 'behavioural', name: 'Behavioural', entries: [
-        folder('avoidance', 'Avoidance', 'door', '#46679A', ['Social', 'Chores', 'Appointments', 'Messages'], [], 'approach'),
-        folder('eating', 'Eating', 'bowl', '#579B90', ['Emotional eating', 'Skipped meals'], ['cravings', 'snacking']),
+        folder('avoidance', 'Avoidance', 'door', '#7FA39C', ['Social', 'Chores', 'Appointments', 'Messages'], [], 'approach'),
+        folder('eating', 'Eating', 'bowl', '#5E7A66', ['Emotional eating', 'Skipped meals'], ['cravings', 'snacking']),
       ] },
       { id: 'factors', name: 'Factors', entries: [
-        folder('day', 'Day', 'sun', '#DB9A2E', [], ['went outside', 'saw someone', 'showered', 'cooked', 'rested', 'screen-free hour']),
-        { id: 'caffeine', name: 'Caffeine', scale: 'amount', colour: '#8C7A5B' },
-        { id: 'screen-time', name: 'Screen time', scale: 'amount', colour: '#3F4E7A' },
+        folder('day', 'Day', 'sun', '#EDBE68', [], ['went outside', 'saw someone', 'showered', 'cooked', 'rested', 'screen-free hour']),
+        { id: 'caffeine', name: 'Caffeine', scale: 'amount', colour: '#8F7B6A' },
+        { id: 'screen-time', name: 'Screen time', scale: 'amount', colour: '#4F5B70' },
       ] },
     ],
   };
@@ -166,7 +166,7 @@ function stepsFor(key, scale, colour) {
     return `<span class="pair" role="radiogroup">${[1, 2].map((v) => {
       const on = value === v;
       const fill = v === 1 ? shade(colour, 0.25) : shade(colour, 0.85);
-      return `<button type="button" class="pair-choice" role="radio" aria-checked="${on}" data-rate="${key}" data-value="${v}" style="${on ? `background: ${fill}; color: ${v === 1 ? INK : '#FFFFFF'}; border-color: transparent` : ''}">${words[v]}</button>`;
+      return `<button type="button" class="pair-choice" role="radio" aria-checked="${on}" data-rate="${key}" data-value="${v}" style="${on ? `background: ${fill}; color: ${textOn(fill)}; border-color: transparent` : ''}">${words[v]}</button>`;
     }).join('')}</span>`;
   }
   const n = words.length - 1;
@@ -192,7 +192,7 @@ function rateRow(item, colour) {
 
 function chip(key, word, colour) {
   const on = healthAnswers.get(key) === true;
-  return `<button type="button" class="chip" aria-pressed="${on}" data-tag="${key}"${on ? ` style="background: ${colour}"` : ''}>${escapeHtml(word)}</button>`;
+  return `<button type="button" class="chip" aria-pressed="${on}" data-tag="${key}"${on ? ` style="background: ${colour}; color: ${textOn(colour)}"` : ''}>${escapeHtml(word)}</button>`;
 }
 
 function countText(folder) {
@@ -280,7 +280,7 @@ function openFeelings() {
     <div class="family-name"><span class="swatch" style="background: ${EMOTION_COLOURS[family] || INK}"></span>${family}</div>
     <div class="tag-list">${words.map((w) => {
       const on = healthAnswers.get(`feel/${w}`) === true;
-      return `<button type="button" class="chip" aria-pressed="${on}" data-feel="${escapeHtml(w)}" data-colour-on="${EMOTION_COLOURS[family]}"${on ? ` style="background: ${EMOTION_COLOURS[family]}"` : ''}>${escapeHtml(w)}</button>`;
+      return `<button type="button" class="chip" aria-pressed="${on}" data-feel="${escapeHtml(w)}" data-colour-on="${EMOTION_COLOURS[family]}"${on ? ` style="background: ${EMOTION_COLOURS[family]}; color: ${textOn(EMOTION_COLOURS[family])}"` : ''}>${escapeHtml(w)}</button>`;
     }).join('')}</div></div>`).join('');
   openSheet('How do you feel?', `<p class="muted">Pick as many as fit. Tap again to take one away.</p>${html}`, async (form) => {
     for (const button of form.querySelectorAll('[data-feel]')) {
@@ -298,6 +298,7 @@ sheetForm.addEventListener('click', (event) => {
   const on = feel.getAttribute('aria-pressed') !== 'true';
   feel.setAttribute('aria-pressed', on);
   feel.style.background = on ? feel.dataset.colourOn : '';
+  feel.style.color = on ? textOn(feel.dataset.colourOn) : '';
 });
 
 // --- Notes on a single item ---

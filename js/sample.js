@@ -58,7 +58,7 @@ function makeSampleItems() {
       if (done || skip) add({ id: `tick-${id}-${day}`, kind: 'tick', day, taskId: id, done, skip });
     });
   });
-  [['Morning routine', '#DB9A2E'], ['Evening routine', '#56629A'], ['Home and Mymlen', '#579B90'], ['Movement', '#DC7E4A'], ['Learning', '#A36AAE']]
+  [['Morning routine', '#EDBE68'], ['Evening routine', '#7F92AB'], ['Home and Mymlen', '#5E7A66'], ['Movement', '#E2A174'], ['Learning', '#A98AA6']]
     .forEach(([name, colour]) => add({ id: `habit-cat-${slug(name)}`, kind: 'habit-cat', day: '', name, colour }));
   // A few one-off tasks for today.
   [['Call the pharmacy', 'day'], ['Post the parcel', 'day'], ['Read a chapter', 'evening']].forEach(([text, part], k) =>

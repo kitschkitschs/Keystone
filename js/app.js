@@ -177,7 +177,7 @@ $('bud-button').innerHTML = budIcon;
 function showBudLook() {
   document.documentElement.classList.toggle('bud', budDay);
   $('bud-button').setAttribute('aria-pressed', budDay);
-  document.querySelector('meta[name="theme-color"]').content = budDay ? '#121212' : '#F4F0E8';
+  document.querySelector('meta[name="theme-color"]').content = budDay ? '#121212' : COLOURS.paper;
 }
 
 $('bud-button').addEventListener('click', async () => {
@@ -280,7 +280,7 @@ sheetForm.addEventListener('input', (event) => {
 function currentView() {
   const hash = location.hash.slice(1);
   if (hash.startsWith('insight')) return 'insight';
-  return ['health', 'health-edit'].includes(hash) ? hash : 'home';
+  return ['health', 'health-edit', 'colours'].includes(hash) ? hash : 'home';
 }
 
 function showView() {
@@ -289,6 +289,7 @@ function showView() {
   $('health').hidden = view !== 'health';
   $('health-edit').hidden = view !== 'health-edit';
   $('insight').hidden = view !== 'insight';
+  $('colours').hidden = view !== 'colours';
   const barView = view === 'health-edit' ? 'health' : view;
   for (const button of $('bar-buttons').children) {
     if (button.dataset.view === barView) button.setAttribute('aria-current', 'page');
@@ -298,6 +299,7 @@ function showView() {
   if (view === 'health') showHealth();
   if (view === 'health-edit') showHealthEdit();
   if (view === 'insight') showInsight(location.hash.slice(1));
+  if (view === 'colours') showColours();
   window.scrollTo(0, 0);
 }
 
@@ -433,6 +435,7 @@ loadInput.addEventListener('change', async () => {
   try {
     const changed = await loadBackup(file);
     syncStatus.textContent = `Loaded ${file.name}. ${changed} item(s) added or updated.`;
+    await movePaletteColours();
   } catch (error) {
     syncStatus.textContent = `Couldn't load: ${error.message}`;
   }
@@ -498,7 +501,8 @@ if ('serviceWorker' in navigator) {
 // --- Start ---
 // Waits until every script has loaded, since the pages live in their own files.
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  await movePaletteColours();
   showView();
   showBackupInfo();
   showReminders();

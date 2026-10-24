@@ -1,17 +1,84 @@
 // look.js: the colours and small drawings shared by every page.
 //
-// The six emotion colours are the anchor of the whole palette. Everything
-// else that carries colour (folders, habits, charts) picks from PALETTE, which
-// is made of colours in the same family, or from any colour you choose.
+// Every colour in the app has a name here (a "role"), so all of them can be
+// changed on the Colours page (menu > Colours). Changes are kept on this phone
+// (localStorage "keystone-colours") and the page reloads to use them.
+//
+// The palette is soft and sunset-warm: pale petal, wild rose, warm clay, golden
+// hour, river stone, fern leaf and eucalyptus, plus a dusty blue, mauve and a few
+// deeper shades so data still reads clearly on the light background.
 
-const EMOTION_COLOURS = {
-  Happiness: '#DB9A2E',
-  Surprise: '#7F9566',
-  Fear: '#DC7E4A',
-  Anger: '#BE4A4E',
-  Disgust: '#A36AAE',
-  Sadness: '#56629A',
+const COLOUR_DEFAULTS = {
+  // The app
+  paper: '#F4EFE7', // river stone
+  ink: '#3D3432',
+  muted: '#7A6F6B',
+  rule: '#E4DAD3',
+  faint: '#C4B9B2',
+  onColour: '#FFFFFF',
+  fieldText: '#FFFFFF',
+  emptyField: '#E6DCD8',
+  danger: '#B5545C',
+  // The six feelings families
+  Happiness: '#EDBE68', // golden hour
+  Surprise: '#7E9D84', // fern leaf
+  Fear: '#E2A174', // warm clay
+  Anger: '#D9868B', // wild rose
+  Disgust: '#A98AA6', // mauve
+  Sadness: '#7F92AB', // dusty blue
+  // Insight
+  notDone: '#DAD0CA',
+  skipped: '#BDB2AB',
+  nothing: '#DAD0CA',
+  showingUp: '#F2C46F',
+  hiding: '#6E7E95',
+  load: '#B8646E',
+  runs: '#E2A174',
+  compare: '#B9BAAE',
+  // Colours offered in every colour picker
+  palette: [
+    '#EDBE68', '#7E9D84', '#E2A174', '#D9868B', '#A98AA6', '#7F92AB',
+    '#B8646E', '#C9993F', '#7D6283', '#5C6D86', '#7FA39C', '#5E7A66',
+    '#8F7B6A', '#A3A698', '#E8B4B2', '#4F5B70',
+  ],
 };
+
+// The names shown on the Colours page, in groups.
+const COLOUR_ROLES = [
+  ['The app', [['paper', 'Background'], ['ink', 'Text and lines'], ['muted', 'Soft text'], ['rule', 'Thin lines'], ['faint', 'Faint marks'], ['onColour', 'Text on darker colours'], ['fieldText', 'Words on the feelings colours'], ['emptyField', 'Feelings colours, nothing picked yet'], ['danger', 'Delete']]],
+  ['Feelings', [['Happiness', 'Happiness'], ['Surprise', 'Surprise'], ['Fear', 'Fear'], ['Anger', 'Anger'], ['Disgust', 'Disgust'], ['Sadness', 'Sadness']]],
+  ['Insight', [['notDone', 'Not done (bigger grey dot)'], ['skipped', 'Skipped (tiny grey dot)'], ['nothing', 'Nothing logged (tiny pale dot)'], ['showingUp', 'Sun: showing up'], ['hiding', 'Sun: hiding'], ['load', 'Symptom load'], ['runs', 'Avoidance runs and weekdays'], ['compare', 'The "without" bar on Links']]],
+];
+
+// The palette before 24 Oct 2026, so colours saved with it can move to the new one.
+const OLD_PALETTE = [
+  '#DB9A2E', '#7F9566', '#DC7E4A', '#BE4A4E', '#A36AAE', '#56629A',
+  '#BC4960', '#E4943B', '#AB67A4', '#675C96', '#46679A', '#579B90',
+  '#8C7A5B', '#4E8A6B', '#C46F8C', '#3F4E7A',
+];
+
+function savedColours() {
+  try {
+    return JSON.parse(localStorage.getItem('keystone-colours')) || {};
+  } catch {
+    return {};
+  }
+}
+function saveColours(changes) {
+  try {
+    if (changes) localStorage.setItem('keystone-colours', JSON.stringify(changes));
+    else localStorage.removeItem('keystone-colours');
+  } catch {}
+}
+
+const COLOURS = { ...COLOUR_DEFAULTS, ...savedColours() };
+// Moves a colour from the old palette to the same place in today's palette.
+const newPaletteColour = (c) => {
+  const k = OLD_PALETTE.indexOf((c || '').toUpperCase());
+  return k < 0 ? c : COLOURS.palette[k];
+};
+
+const EMOTION_COLOURS = Object.fromEntries(['Happiness', 'Surprise', 'Fear', 'Anger', 'Disgust', 'Sadness'].map((f) => [f, COLOURS[f]]));
 
 // The emotion families and their feelings (from the emotions and sensations chart).
 const EMOTION_FAMILIES = [
@@ -23,17 +90,21 @@ const EMOTION_FAMILIES = [
   ['Sadness', ['apathetic', 'lonely', 'despair', 'depressed', 'abandoned', 'guilty']],
 ];
 
-// Colours to pick from: the six emotions, then the folder colours tuned to sit beside them.
-const PALETTE = [
-  '#DB9A2E', '#7F9566', '#DC7E4A', '#BE4A4E', '#A36AAE', '#56629A',
-  '#BC4960', '#E4943B', '#AB67A4', '#675C96', '#46679A', '#579B90',
-  '#8C7A5B', '#4E8A6B', '#C46F8C', '#3F4E7A',
-];
+const PALETTE = COLOURS.palette;
+const INK = COLOURS.ink;
+const MUTED = COLOURS.muted;
+const RULE = COLOURS.rule;
+const PAPER = COLOURS.paper;
 
-const INK = '#1C1730';
-const MUTED = '#635C70';
-const RULE = '#DCD3DF';
-const PAPER = '#F4F0E8';
+// The page's own colours (in style.css) follow the same roles.
+(() => {
+  const css = { paper: '--paper', ink: '--ink', muted: '--muted', rule: '--rule', faint: '--faint', onColour: '--on-colour', fieldText: '--field-text', danger: '--danger' };
+  for (const [role, name] of Object.entries(css)) document.documentElement.style.setProperty(name, COLOURS[role]);
+  document.documentElement.style.setProperty('--shadow', `${COLOURS.ink}40`);
+  document.documentElement.style.setProperty('--backdrop', `${COLOURS.ink}59`);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = COLOURS.paper;
+})();
 
 // --- Colour maths (OKLab, so blends stay clean instead of going muddy) ---
 
@@ -74,6 +145,11 @@ function shade(colour, t) {
   return mix(colour, INK, ((t - 0.6) / 0.4) * 0.45);
 }
 
+// Text for on top of a colour: ink on light colours, the "text on darker colours" role on the rest.
+function textOn(colour) {
+  return toLab(hexToRgb(colour))[0] > 0.76 ? INK : COLOURS.onColour;
+}
+
 // --- Today's emotions as a soft field of colour ---
 // Each family flows in from an edge; the family you felt most takes the middle of the top.
 
@@ -107,7 +183,7 @@ function drawEmotionField(canvas, picks) {
     const [L, A, B] = anchors[0].lab;
     anchors.push({ lab: [L + 0.1, A * 0.75, B * 0.75], x: w * 1.05, y: h * 0.8, sig: Math.max(w, h) * 0.32, a: 0.45 });
   }
-  const empty = toLab(hexToRgb('#DCD6E2'));
+  const empty = toLab(hexToRgb(COLOURS.emptyField));
   const image = ctx.createImageData(w, h);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -149,7 +225,7 @@ function strongestFamily(picks) {
   return ranked[0][0];
 }
 
-function faceIcon(family, colour = '#FFFFFF', size = 26) {
+function faceIcon(family, colour = COLOURS.fieldText, size = 26) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${colour}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="9.2" cy="10.6" r="0.55" fill="${colour}"/><circle cx="14.8" cy="10.6" r="0.55" fill="${colour}"/>${FACE_MOUTHS[family]}</svg>`;
 }
 

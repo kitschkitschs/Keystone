@@ -7,7 +7,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <meta name="theme-color" content="#F4F0E8">
+  <meta name="theme-color" content="#F4EFE7">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -80,6 +80,19 @@
     <div id="edit-list" class="side"></div>
   </section>
 
+  <!-- ===== Every colour in the app. Drawn by colours.js. ===== -->
+  <section id="colours" class="view" aria-label="Colours" hidden>
+    <header class="plain-head">
+      <div class="date">
+        <div class="date-line">Menu</div>
+        <h1 class="weekday">Colours</h1>
+      </div>
+      <button id="colours-done" class="ink-button" type="button">Done</button>
+    </header>
+    <p class="muted side">Tap any colour to change it.</p>
+    <div id="colours-list" class="side"></div>
+  </section>
+
   <!-- ===== Insight: habits, health and avoidance over time. Drawn by insight.js. ===== -->
   <section id="insight" class="view" aria-label="Insight" hidden>
     <div id="insight-page"></div>
@@ -128,6 +141,12 @@
       <h3>Health page</h3>
       <p class="muted">Add, rename, recolour, move and delete what you track.</p>
       <p><button id="edit-health-button" class="ink-button" type="button">Edit the Health page</button></p>
+    </section>
+
+    <section class="menu-section">
+      <h3>Colours</h3>
+      <p class="muted">Every colour in the app in one place: the background and text, feelings, Insight, habits and the Health page.</p>
+      <p><button id="colours-button" class="ink-button" type="button">Change colours</button></p>
     </section>
 
     <section class="menu-section">
@@ -192,6 +211,7 @@
   <script src="js/app.js"></script>
   <script src="js/health.js"></script>
   <script src="js/health-edit.js"></script>
+  <script src="js/colours.js"></script>
   <script src="js/charts.js"></script>
   <script src="js/insight.js"></script>
 </body>
