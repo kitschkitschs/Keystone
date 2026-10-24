@@ -155,6 +155,7 @@ function allHealthItems(list) {
 let healthDay = todayKey();
 let healthAnswers = new Map();
 let healthList = startingHealthList();
+const CHECKIN_TAB = 'checkins';
 let healthTab = 'physical';
 try { healthTab = localStorage.getItem('keystone-health-tab') || 'physical'; } catch { /* first tab */ }
 
@@ -237,12 +238,19 @@ function checkinSentence(items) {
   return text[0].toUpperCase() + text.slice(1) + '.';
 }
 
-// A check-in as a small pill in the colour field: what you answered, or an invitation.
+// A check-in on the morning and evening tab: what you answered, or a button to start.
 function checkinLine(part) {
   const words = checkinSentence(healthList.checkins[part]);
-  const title = part === 'morning' ? 'Morning check-in' : 'Evening check-in';
-  return `<button type="button" class="checkin-pill${words ? ' done' : ''}" data-checkin="${part}" aria-label="${title}">
-    ${icon(part === 'morning' ? 'sun' : 'moon', 'currentColor', 17, 1.5)}<span>${escapeHtml(words || title)}</span></button>`;
+  const time = healthAnswers.get(`checkin/${part}`) || '';
+  const title = part === 'morning' ? 'Morning' : 'Evening';
+  return `<button type="button" class="checkin" data-checkin="${part}">
+    <span class="checkin-icon">${icon(part === 'morning' ? 'sun' : 'moon', INK, 20, 1.4)}</span>
+    <span class="checkin-body">
+      <span class="checkin-top"><b>${title}</b><span>${escapeHtml(time)}</span></span>
+      <span class="checkin-words${words ? '' : ' muted'}">${escapeHtml(words || `${title} check-in`)}</span>
+    </span>
+    ${words ? '' : `<span class="checkin-start">${part === 'evening' ? 'Good night' : 'Start'}</span>`}
+  </button>`;
 }
 
 function openCheckin(part) {
@@ -314,7 +322,7 @@ async function showHealth() {
 
   healthList = await getHealthList();
   healthAnswers = await getHealthDay(healthDay);
-  if (!healthList.tabs.some((t) => t.id === healthTab)) healthTab = healthList.tabs[0].id;
+  if (healthTab !== CHECKIN_TAB && !healthList.tabs.some((t) => t.id === healthTab)) healthTab = healthList.tabs[0].id;
 
   const picks = await getFeelings(healthDay);
   showField($('health-field'), picks);
@@ -325,11 +333,13 @@ async function showHealth() {
     ? escapeHtml(picks.map(([, w]) => w).join(', '))
     : '<span class="hint">How do you feel? Tap the face to add feelings.</span>';
 
-  $('health-checkins').innerHTML = checkinLine('morning') + checkinLine('evening');
-  $('health-tabs').innerHTML = healthList.tabs.map((t) => `<button type="button" class="tab" role="tab" aria-selected="${t.id === healthTab}" data-tab="${t.id}">${escapeHtml(t.name)}</button>`).join('');
+  // The first tab, marked with a sun and a moon, holds the morning and evening check-ins.
+  $('health-tabs').innerHTML = `<button type="button" class="tab tab-icons" role="tab" aria-selected="${healthTab === CHECKIN_TAB}" data-tab="${CHECKIN_TAB}" aria-label="Morning and evening">${icon('sun', 'currentColor', 18, 1.5)}${icon('moon', 'currentColor', 16, 1.5)}</button>`
+    + healthList.tabs.map((t) => `<button type="button" class="tab" role="tab" aria-selected="${t.id === healthTab}" data-tab="${t.id}">${escapeHtml(t.name)}</button>`).join('');
   const tab = healthList.tabs.find((t) => t.id === healthTab);
-  $('health-folders').innerHTML = tab.entries.map((e) => (e.items ? folderBlock(e) : loneBlock(e))).join('')
-    || '<p class="muted">Nothing here yet. Add folders and items on the edit page (the pencil at the top).</p>';
+  $('health-folders').innerHTML = healthTab === CHECKIN_TAB ? checkinLine('morning') + checkinLine('evening')
+    : tab.entries.map((e) => (e.items ? folderBlock(e) : loneBlock(e))).join('')
+    || '<p class="muted">Nothing here yet. Add folders and items on the edit page (menu > Edit the Health page).</p>';
 
   for (const details of $('health-folders').querySelectorAll('details[data-fold]')) {
     details.addEventListener('toggle', () => rememberFolded(`health/${details.dataset.fold}`, !details.open));
@@ -345,12 +355,6 @@ function stepHealthDay(days) {
 $('health-prev').addEventListener('click', () => stepHealthDay(-1));
 $('health-next').addEventListener('click', () => stepHealthDay(1));
 $('feel-button').addEventListener('click', openFeelings);
-$('health-edit-button').addEventListener('click', () => goTo('health-edit'));
-
-$('health-checkins').addEventListener('click', (event) => {
-  const line = event.target.closest('[data-checkin]');
-  if (line) openCheckin(line.dataset.checkin);
-});
 
 $('health-tabs').addEventListener('click', (event) => {
   const tab = event.target.closest('[data-tab]');
@@ -361,6 +365,8 @@ $('health-tabs').addEventListener('click', (event) => {
 });
 
 $('health-folders').addEventListener('click', async (event) => {
+  const line = event.target.closest('[data-checkin]');
+  if (line) return openCheckin(line.dataset.checkin);
   const rate = event.target.closest('[data-rate]');
   const tag = event.target.closest('[data-tag]');
   const note = event.target.closest('[data-note]');

@@ -10,7 +10,7 @@
 
 const COLOUR_DEFAULTS = {
   // The app
-  paper: '#F4EFE7', // river stone
+  paper: '#FFFFFF',
   topBar: '#FFFFFF',
   ink: '#3D3432',
   muted: '#7A6F6B',
