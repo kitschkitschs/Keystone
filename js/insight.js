@@ -514,10 +514,15 @@ function linksPage() {
   const otherwise = days.filter(isCalm).map(nextOf).filter(Boolean);
   const targets = insight.healthItems.filter((i) => i.id !== pivot && i.id !== sleep.id && (i.scale === 'symptom' || i.group === 'Check-in')).slice(0, 12);
   const score = (i, set) => avg(set.map((d) => (insight.health.get(d).get(i.id) || 0) / (SCALES[i.scale].length - 1)));
-  const rows = targets.map((i) => [i, score(i, after), score(i, otherwise)]).sort((a, b) => Math.abs(b[1] - b[2]) - Math.abs(a[1] - a[2])).slice(0, 7);
-  const pivotWords = pivot === 'poor-sleep' ? 'a poor night' : `a bad day of ${insight.healthItems.find((i) => i.id === pivot).name.toLowerCase()}`;
+  const all = targets.map((i) => [i, score(i, after), score(i, otherwise)]).sort((a, b) => Math.abs(b[1] - b[2]) - Math.abs(a[1] - a[2]));
+  const rows = all.slice(0, 7);
+  const pivotName = pivot === 'poor-sleep' ? 'Poor sleep' : insight.healthItems.find((i) => i.id === pivot).name;
+  const pivotWords = pivot === 'poor-sleep' ? 'a poor night' : `a bad day of ${pivotName.toLowerCase()}`;
+  // The ring: how far apart the day after is from other days, a difference of 0.3 or more = the hottest.
+  const ringItems = all.slice(0, 8).map(([i, a, b]) => ({ name: i.name, s: Math.min(1, Math.abs(a - b) / 0.3) }));
   return `${crumbs([['insight/health', 'Health']], 'What goes together')}${head('What goes together', '<div class="muted">the last 6 months</div>')}<div class="side">
     <div class="pills">${pivots.map(([id, n]) => `<button type="button" class="chip" aria-pressed="${id === pivot}" data-links="${id}"${id === pivot ? ` style="background: ${INK}"` : ''}>${escapeHtml(n)}</button>`).join('')}</div>
+    ${after.length && ringItems.length ? heatRing(ringItems, pivotName, 'and the next day', `What moves with ${pivotWords}, hotter = stronger`) : ''}
     ${labelRow(`The day after ${pivotWords}`, `${after.length} times`)}
     ${rows.map(([i, a, b]) => `<div class="bar-row"><span>${escapeHtml(i.name)}</span><span style="display: grid; gap: 3px">${hbar(a, i.colour)}${hbar(b, COLOURS.compare)}</span><span class="num">${a > b + 0.05 ? 'more' : a < b - 0.05 ? 'less' : 'same'}</span></div>`).join('') || empty('Not enough days logged yet.')}
     <div class="key"><span>coloured: the day after ${escapeHtml(pivotWords)}</span><span>grey: after a ${pivot === 'poor-sleep' ? 'good night' : 'day without it'}</span></div>
