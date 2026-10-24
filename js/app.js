@@ -83,6 +83,7 @@ async function showDayStamp(day, tasks) {
 // --- The day's plan ---
 
 let currentDay = todayKey();
+let budDay = false; // a bud day shows its own list, in black and white
 let justPressed = null; // the task whose stamp should land with a little press
 
 const chevron = '<svg class="chev" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -125,7 +126,9 @@ async function showPlan() {
   const day = todayKey();
   currentDay = day;
   showDate(new Date());
-  planTasks = await getPlan(day);
+  budDay = await isBudDay(day);
+  showBudLook();
+  planTasks = await getPlan(day, budDay ? 'bud' : '');
 
   $('plan').innerHTML = PARTS.map((part) => {
     const tasks = planTasks.filter((t) => t.part === part.key);
@@ -167,6 +170,23 @@ $('plan').addEventListener('click', async (event) => {
   }
 });
 
+// --- Bud mode ---
+// Tapping the bookmark makes today a bud day: a separate, gentler list, and the
+// whole page in black and white. Tapping it again goes back to the usual list.
+
+function showBudLook() {
+  document.documentElement.classList.toggle('bud', budDay);
+  $('bookmark-button').setAttribute('aria-pressed', budDay);
+  document.querySelector('meta[name="theme-color"]').content = budDay ? '#121212' : '#EDE5D1';
+}
+
+$('bookmark-button').addEventListener('click', async () => {
+  if (navigator.vibrate) navigator.vibrate(12);
+  await setBudDay(currentDay, !budDay);
+  showPlan();
+  showBackupInfo();
+});
+
 // --- Adding, changing and deleting a task ---
 
 const taskDialog = $('task-dialog');
@@ -197,7 +217,7 @@ taskForm.addEventListener('submit', async (event) => {
     everyDay: $('task-every-day').checked,
   };
   if (editingTask) await updateTask(editingTask, fields, currentDay);
-  else await addTask(fields, currentDay);
+  else await addTask(fields, currentDay, budDay ? 'bud' : '');
   taskDialog.close();
   showPlan();
   showBackupInfo();

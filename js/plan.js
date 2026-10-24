@@ -9,6 +9,10 @@
 //   { id: "tick-<task id>-2026-10-24", kind: "tick", day: "2026-10-24", taskId: "task-...", done: true }
 // The tick's id is made from the task and the day, so the same tick made on two
 // phones is still one tick after syncing.
+//
+// Bud days have their own, separate list. Its tasks carry list: "bud" (normal
+// tasks have no list). Whether a day is a bud day is saved as its own item:
+//   { id: "budday-2026-10-24", kind: "budday", day: "2026-10-24", on: true }
 
 const PARTS = [
   { key: 'morning', name: 'Morning' },
@@ -16,24 +20,26 @@ const PARTS = [
   { key: 'evening', name: 'Evening' },
 ];
 
-// The tasks for one day, each with done: true or false, in the order they were added.
-async function getPlan(day) {
+// The tasks for one day from one list ("" or "bud"), each with done: true or false,
+// in the order they were added.
+async function getPlan(day, list = '') {
   const items = await getAllItems();
   const ticks = new Map();
   for (const item of items) {
     if (item.kind === 'tick' && item.day === day && !item.deleted) ticks.set(item.taskId, item.done);
   }
   return items
-    .filter((item) => item.kind === 'task' && !item.deleted)
+    .filter((item) => item.kind === 'task' && !item.deleted && (item.list || '') === list)
     .filter((task) => task.day === day || (task.day === '' && task.since <= day))
     .sort((a, b) => a.createdAt - b.createdAt)
     .map((task) => ({ ...task, done: ticks.get(task.id) === true }));
 }
 
-function addTask({ part, text, note, everyDay }, day) {
+function addTask({ part, text, note, everyDay }, day, list = '') {
   return putItem({
     id: newId('task'),
     kind: 'task',
+    list,
     part,
     text,
     note,
@@ -49,6 +55,7 @@ function updateTask(task, { part, text, note, everyDay }, day) {
   return putItem({
     id: task.id,
     kind: 'task',
+    list: task.list || '',
     part,
     text,
     note,
@@ -69,4 +76,13 @@ async function countStampedDays() {
     if (item.kind === 'tick' && item.done && !item.deleted) days.add(item.day);
   }
   return days.size;
+}
+
+async function isBudDay(day) {
+  const items = await getItemsForDay(day);
+  return items.some((item) => item.kind === 'budday' && item.on && !item.deleted);
+}
+
+function setBudDay(day, on) {
+  return putItem({ id: `budday-${day}`, kind: 'budday', day, on });
 }
