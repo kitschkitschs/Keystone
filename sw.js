@@ -39,6 +39,7 @@ const APP_FILES = [
   'js/stamp-shapes.js',
   'js/stamp-flowers.js',
   'js/health.js',
+  'js/colours.js',
   'js/stamps.js',
   'js/plan.js',
   'js/app.js',

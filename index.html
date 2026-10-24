@@ -9,6 +9,13 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <meta name="theme-color" content="#EDE5D1">
   <link rel="stylesheet" href="style.css">
+  <!-- Your own paper and ink colours, if you've changed them in the menu (see colours.js). -->
+  <script>
+    try {
+      const c = JSON.parse(localStorage.getItem('keystone-colours'));
+      if (c) for (const k of ['paper', 'ink']) if (c[k]) document.documentElement.style.setProperty('--' + k, c[k]);
+    } catch { /* keep the usual colours */ }
+  </script>
 </head>
 <body>
   <!-- Paper: a fine grain, a soft light in the middle, and a shadow along the spine. -->
@@ -152,6 +159,13 @@
     </section>
 
     <section class="menu-section">
+      <h3>Colours</h3>
+      <p class="muted">Play with the paper and ink. Kept on this phone only.</p>
+      <div id="colour-sliders"></div>
+      <p><button id="colours-reset" class="text-button" type="button">Back to the usual colours</button></p>
+    </section>
+
+    <section class="menu-section">
       <h3>Notice</h3>
       <p class="muted">A ping at the same time each day, even when the app is closed.</p>
       <form id="reminder-form" class="row-form">
@@ -208,5 +222,6 @@
   <script src="js/plan.js"></script>
   <script src="js/app.js"></script>
   <script src="js/health.js"></script>
+  <script src="js/colours.js"></script>
 </body>
 </html>
