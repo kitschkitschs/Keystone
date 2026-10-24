@@ -38,13 +38,19 @@ function rememberFolded(part, folded) {
 
 $('bookmark').innerHTML = stamp(SHAPE_BOOKMARK, { size: 190, done: 1, seed: 88 });
 
-// Words for now; the centre is a round stamp frame. Only Home works so far.
+// Words for now; the centre is a round stamp frame. Home and Health work so far.
 const BAR = ['Health', 'Calendar', 'Home', 'Hobby', 'Journal'];
 $('bar-buttons').innerHTML = BAR.map((name) => name === 'Home'
-  ? `<button type="button" class="bar-home" aria-label="Home" aria-current="page">${stamp(frameShape('circle'), { size: 40, done: 1, seed: 61 })}</button>`
-  : `<button type="button" class="bar-word" aria-label="${name} (coming later)">${name}</button>`
+  ? `<button type="button" class="bar-home" aria-label="Home" aria-current="page" data-view="home">${stamp(frameShape('circle'), { size: 40, done: 1, seed: 61 })}</button>`
+  : name === 'Health'
+    ? '<button type="button" class="bar-word" data-view="health">Health</button>'
+    : `<button type="button" class="bar-word" aria-label="${name} (coming later)">${name}</button>`
 ).join('');
-$('bar-buttons').children[2].addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+$('bar-buttons').addEventListener('click', (event) => {
+  const view = event.target.closest('[data-view]');
+  if (view && view.dataset.view === 'home') goHome();
+  if (view && view.dataset.view === 'health') goHealth();
+});
 
 // --- Date and today's stamp ---
 
