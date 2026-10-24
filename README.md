@@ -20,6 +20,7 @@ Day and Evening; ticking a task stamps it off, and the day gets its own stamp.
 | `js/plan.js` | The day's tasks (morning, day, evening) and ticking them off. |
 | `js/stamps.js` | Draws stamps in uneven ink: the day's frame, the ticks, the bottom bar's home stamp. |
 | `js/stamp-shapes.js` | The carved shapes of the bookmark and the tick stamp. Made by a script, not by hand. |
+| `js/stamp-flowers.js` | The tulip-family flowers that sit inside the day's stamp frames. Made by a script, not by hand. |
 | `js/app.js` | Draws the front page and the menu, and connects them to the files above. |
 | `fonts/` | Lora and Roboto, kept here so they work offline. Both are free fonts (SIL Open Font License). |
 | `sw.js` | The service worker, which keeps a copy of the app so it opens offline. |

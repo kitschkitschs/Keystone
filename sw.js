@@ -35,6 +35,7 @@ const APP_FILES = [
   'js/sync.js',
   'js/reminders.js',
   'js/stamp-shapes.js',
+  'js/stamp-flowers.js',
   'js/stamps.js',
   'js/plan.js',
   'js/app.js',

@@ -55,7 +55,7 @@ function showDate(date) {
 }
 
 // Each day gets its own frame and tilt, picked from the date, so it stays the same all day.
-// The ink gets darker and more even the more of the day's plan is ticked off.
+// The more of the day's plan is ticked off, the more of the stamp presses down; the rest is a pale ghost.
 async function showDayStamp(day, tasks) {
   const done = tasks.filter((t) => t.done).length;
   const stamped = await countStampedDays();
@@ -66,9 +66,13 @@ async function showDayStamp(day, tasks) {
     return;
   }
   const frame = FRAME_NAMES[Math.floor(steadyRandom(day) * FRAME_NAMES.length)];
-  box.innerHTML = stamp(frameShape(frame), {
+  const flower = FLOWER_NAMES[Math.floor(steadyRandom(day + 'flower') * FLOWER_NAMES.length)];
+  const share = done / tasks.length;
+  box.innerHTML = stamp(frameShape(frame, flower), {
     size: 92,
-    done: done / tasks.length,
+    done: 0.43 + 0.57 * share,
+    press: share,
+    from: Math.floor(steadyRandom(day + 'from') * 360),
     seed: 1 + Math.floor(steadyRandom(day + 'seed') * 900),
     rot: Math.round((steadyRandom(day + 'tilt') - 0.5) * 8),
     label: `Today's stamp, ${done} of ${tasks.length} done`,
