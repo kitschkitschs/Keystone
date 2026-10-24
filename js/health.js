@@ -335,7 +335,10 @@ async function showHealth() {
 
   // The first tab, marked with a sun and a moon, holds the morning and evening check-ins.
   $('health-tabs').innerHTML = `<button type="button" class="tab tab-icons" role="tab" aria-selected="${healthTab === CHECKIN_TAB}" data-tab="${CHECKIN_TAB}" aria-label="Morning and evening">${icon('sun', 'currentColor', 18, 1.5)}${icon('moon', 'currentColor', 16, 1.5)}</button>`
-    + healthList.tabs.map((t) => `<button type="button" class="tab" role="tab" aria-selected="${t.id === healthTab}" data-tab="${t.id}">${escapeHtml(t.name)}</button>`).join('');
+    + healthList.tabs.map((t) => (t.id === 'factors'
+      // Factors is marked with a plus, like the check-in tab is marked with its icons.
+      ? `<button type="button" class="tab tab-icons" role="tab" aria-selected="${t.id === healthTab}" data-tab="${t.id}" aria-label="${escapeHtml(t.name)}"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>`
+      : `<button type="button" class="tab" role="tab" aria-selected="${t.id === healthTab}" data-tab="${t.id}">${escapeHtml(t.name)}</button>`)).join('');
   const tab = healthList.tabs.find((t) => t.id === healthTab);
   $('health-folders').innerHTML = healthTab === CHECKIN_TAB ? checkinLine('morning') + checkinLine('evening')
     : tab.entries.map((e) => (e.items ? folderBlock(e) : loneBlock(e))).join('')
