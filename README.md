@@ -19,6 +19,7 @@ Day and Evening; ticking a task stamps it off, and the day gets its own stamp.
 | `js/reminders.js` | Daily reminders, and signing the phone up for pings. |
 | `js/plan.js` | The day's tasks (morning, day, evening) and ticking them off. |
 | `js/health.js` | The Health page: mood, the main scores, and folders of symptoms and tags, day by day. |
+| `js/health-edit.js` | The page for changing the Health page's list (from the full menu). |
 | `js/colours.js` | The colour sliders in the menu: your own paper and ink colours, kept on this phone. |
 | `js/stamps.js` | Draws stamps in uneven ink: the day's frame, the ticks, the bottom bar's home stamp. |
 | `js/stamp-shapes.js` | The carved shapes of the bookmark and the tick stamp. Made by a script, not by hand. |
