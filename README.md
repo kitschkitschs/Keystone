@@ -4,19 +4,24 @@ A personal day-structure app for Android, built as an installable web app.
 It works offline, keeps its data on the phone, and syncs by hand through
 backup files.
 
-This is the skeleton: the plumbing for installing, offline use, storage and
-sync, with a plain test screen. There's no visual design yet.
+The look is "stamp and paper": black ink on cream paper, Lora for titles and
+Roboto for everything else. The front page holds the day's plan in Morning,
+Day and Evening; ticking a task stamps it off, and the day gets its own stamp.
 
 ## Files
 
 | File | What it does |
 | --- | --- |
 | `index.html` | The page itself. |
-| `style.css` | Styling. Kept minimal for now. |
+| `style.css` | The look: paper, ink, fonts, layout. |
 | `js/db.js` | Saves and reads data on the device (IndexedDB). |
 | `js/sync.js` | Saves a backup file and loads one back in. |
 | `js/reminders.js` | Daily reminders, and signing the phone up for pings. |
-| `js/app.js` | Connects the screen to the files above. |
+| `js/plan.js` | The day's tasks (morning, day, evening) and ticking them off. |
+| `js/stamps.js` | Draws stamps in uneven ink: the day's frame, ticks, the bottom bar dots. |
+| `js/stamp-shapes.js` | The carved shapes of the bookmark and the tick stamp. Made by a script, not by hand. |
+| `js/app.js` | Draws the front page and the menu, and connects them to the files above. |
+| `fonts/` | Lora and Roboto, kept here so they work offline. Both are free fonts (SIL Open Font License). |
 | `sw.js` | The service worker, which keeps a copy of the app so it opens offline. |
 | `manifest.webmanifest` | Name and icon used when the app is installed to the home screen. |
 | `icons/` | Placeholder icons. `badge.png` is the small symbol on reminder notifications. |
