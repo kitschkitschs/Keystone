@@ -155,7 +155,9 @@ function textOn(colour) {
 
 function drawEmotionField(canvas, picks) {
   const w = 130;
-  const h = Math.round(w * (canvas.clientHeight || 320) / (canvas.clientWidth || 390));
+  // Always drawn in the full field's shape: a shorter header (the front page) shows the
+  // whole field gently squeezed, so every colour shows, not just the middle where they blend.
+  const h = Math.round(w * Math.max(320 / 390, (canvas.clientHeight || 320) / (canvas.clientWidth || 390)));
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext('2d');

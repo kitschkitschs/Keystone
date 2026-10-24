@@ -41,26 +41,26 @@
       <canvas id="health-field" class="field-canvas" aria-hidden="true"></canvas>
       <div class="field-inner">
         <div class="field-row">
-          <button id="feel-button" class="icon-button" type="button" aria-label="Add feelings"></button>
+          <div class="day-step">
+            <button id="health-prev" class="icon-button" type="button" aria-label="Previous day">
+              <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true"><path d="M11.5 3.5 6 9l5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <span id="health-date" class="day-step-date"></span>
+            <button id="health-next" class="icon-button" type="button" aria-label="Next day">
+              <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true"><path d="M6.5 3.5 12 9l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
           <span class="field-icons">
+            <button id="feel-button" class="icon-button" type="button" aria-label="Add feelings"></button>
             <button id="health-edit-button" class="icon-button" type="button" aria-label="Edit the Health page"></button>
             <button class="icon-button open-menu" type="button" aria-label="Menu"></button>
           </span>
         </div>
         <div id="health-words" class="field-words"></div>
+        <div id="health-checkins" class="field-checkins"></div>
       </div>
     </header>
-    <div class="day-step">
-      <button id="health-prev" class="icon-button" type="button" aria-label="Previous day">
-        <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true"><path d="M11.5 3.5 6 9l5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <span id="health-date" class="day-step-date"></span>
-      <button id="health-next" class="icon-button" type="button" aria-label="Next day">
-        <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true"><path d="M6.5 3.5 12 9l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-    </div>
     <div class="side">
-      <div id="health-checkins"></div>
       <nav id="health-tabs" class="tabs" aria-label="Health sections"></nav>
       <div id="health-folders"></div>
     </div>

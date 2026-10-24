@@ -238,19 +238,12 @@ function checkinSentence(items) {
   return text[0].toUpperCase() + text.slice(1) + '.';
 }
 
+// A check-in as a small pill in the colour field: what you answered, or an invitation.
 function checkinLine(part) {
-  const items = healthList.checkins[part];
-  const words = checkinSentence(items);
-  const time = healthAnswers.get(`checkin/${part}`) || '';
-  const title = part === 'morning' ? 'Morning' : 'Evening';
-  return `<button type="button" class="checkin" data-checkin="${part}">
-    <span class="checkin-icon">${icon(part === 'morning' ? 'sun' : 'moon', INK, 20, 1.4)}</span>
-    <span class="checkin-body">
-      <span class="checkin-top"><b>${title}</b><span>${escapeHtml(time)}</span></span>
-      ${words ? `<span class="checkin-words">${escapeHtml(words)}</span>` : `<span class="checkin-words muted">${title} check-in</span>`}
-    </span>
-    ${words ? '' : '<span class="checkin-start">Start</span>'}
-  </button>`;
+  const words = checkinSentence(healthList.checkins[part]);
+  const title = part === 'morning' ? 'Morning check-in' : 'Evening check-in';
+  return `<button type="button" class="checkin-pill${words ? ' done' : ''}" data-checkin="${part}" aria-label="${title}">
+    ${icon(part === 'morning' ? 'sun' : 'moon', 'currentColor', 17, 1.5)}<span>${escapeHtml(words || title)}</span></button>`;
 }
 
 function openCheckin(part) {
@@ -317,7 +310,7 @@ function openNote(id) {
 
 async function showHealth() {
   const date = new Date(`${healthDay}T12:00:00`);
-  $('health-date').textContent = healthDay === todayKey() ? 'Today' : date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  $('health-date').textContent = healthDay === todayKey() ? 'Today' : date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
   $('health-next').style.visibility = healthDay >= todayKey() ? 'hidden' : '';
 
   healthList = await getHealthList();
