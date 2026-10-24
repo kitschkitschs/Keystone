@@ -14,7 +14,6 @@
   --muted: color-mix(in srgb, var(--ink) 66%, var(--paper));
   --rule: color-mix(in srgb, var(--ink) 14%, transparent);
   --dash: color-mix(in srgb, var(--ink) 55%, transparent);
-  --bar-paper: color-mix(in srgb, var(--paper) 92%, var(--ink));
   --serif: 'Lora', Georgia, serif;
   --sans: 'Roboto', system-ui, sans-serif;
   --side: 22px;
@@ -55,7 +54,10 @@ button { cursor: pointer; }
   content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 14px;
   background: linear-gradient(90deg, color-mix(in srgb, var(--paper) 88%, black), transparent);
 }
-#page, .bar, .menu { position: relative; z-index: 1; }
+/* The bottom bar carries its own copy of the paper, lined up with the page's,
+   so the two look like one sheet. */
+.bar .paper { position: absolute; inset: auto 0 0 0; height: 100vh; z-index: -1; }
+#page, .menu { position: relative; z-index: 1; }
 #page { max-width: 480px; margin: 0 auto; overflow: hidden; }
 
 /* ---- Top: bookmark, menu button, double rule ---- */
@@ -188,7 +190,7 @@ html.bud .sheet::backdrop { background: rgba(255, 255, 255, 0.25); }
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 3;
   height: calc(var(--bar) + env(safe-area-inset-bottom));
   padding: 0 var(--side) calc(12px + env(safe-area-inset-bottom));
-  display: flex; flex-direction: column; background: var(--bar-paper);
+  display: flex; flex-direction: column; overflow: hidden; background: var(--paper);
 }
 .bar-buttons { flex: 1; display: grid; grid-template-columns: repeat(5, 1fr); align-items: center; max-width: 436px; width: 100%; margin: 0 auto; }
 .bar-buttons button { min-width: 48px; height: 48px; margin: 0 auto; display: grid; place-items: center; background: none; border: 0; padding: 0; }
@@ -255,7 +257,7 @@ input:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px 
 
 /* ---- Task sheet ---- */
 .sheet {
-  width: min(436px, calc(100% - 24px)); margin: auto auto 12px; padding: 20px var(--side) 14px;
+  width: min(436px, calc(100% - 24px)); margin: 12px auto auto; padding: 20px var(--side) 14px;
   background: var(--paper); color: var(--ink); border: 1.2px solid var(--ink); border-radius: 2px;
 }
 .sheet::backdrop { background: color-mix(in srgb, var(--ink) 35%, transparent); }
