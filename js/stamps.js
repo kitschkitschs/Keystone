@@ -49,16 +49,27 @@ const FRAME_SIZES = {
 
 const FRAME_NAMES = Object.keys(FRAME_SHAPES);
 
+// How big the flower sits inside each frame, and how far down it moves: [scale, shift].
+const FLOWER_FIT = {
+  octagon: [0.9, 2], arch: [0.86, 8], oval: [0.84, 0], scallop: [0.8, 0],
+  diamond: [0.64, 4], shield: [0.8, -8], ticket: [0.88, 0], circle: [0.8, 0],
+};
+
 function polygon(points) {
   return 'M' + points.map(([x, y]) => `${x.toFixed(2)} ${y.toFixed(2)}`).join('L') + 'Z';
 }
 
-// The shape of one frame, ready to stamp.
-function frameShape(name) {
+// The shape of one frame, ready to stamp, with a flower from stamp-flowers.js inside if one is named.
+function frameShape(name, flower) {
   const [a, b] = FRAME_SIZES[name];
   const draw = FRAME_SHAPES[name];
-  return `<path d="${draw(a, b)}" fill="none" stroke="#fff" stroke-width="5" stroke-linejoin="round"/>` +
+  let shape = `<path d="${draw(a, b)}" fill="none" stroke="#fff" stroke-width="5" stroke-linejoin="round"/>` +
     `<path d="${draw(a - 9, b - 9)}" fill="none" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/>`;
+  if (flower) {
+    const [scale, shift] = FLOWER_FIT[name];
+    shape += `<g transform="translate(100 ${100 + shift}) scale(${scale}) translate(-100 -100)">${FLOWER_SHAPES[flower]}</g>`;
+  }
+  return shape;
 }
 
 // Returns an <svg> of one stamp press.
@@ -67,8 +78,10 @@ function frameShape(name) {
 //   done   0 to 1: how much of the day's plan is finished. More done = darker, more even ink.
 //   seed   changes the ink pattern, so every press looks different
 //   rot    turns the stamp a little, in degrees
+//   press  0 to 1: how much of the stamp landed on the paper. The rest shows only as a pale ghost.
+//   from   which way the press landed from, in degrees, when press is less than 1
 //   label  what a screen reader says, or leave empty to hide it from screen readers
-function stamp(shape, { size = 200, done = 1, seed = 1, rot = 0, label = '' } = {}) {
+function stamp(shape, { size = 200, done = 1, press = 1, from = 0, seed = 1, rot = 0, label = '' } = {}) {
   const id = `stamp${++stampCount}`;
   // Each tick should darken the stamp by the same visible amount, however many
   // tasks there are. So pick how dark it should look, split that between how
@@ -83,7 +96,7 @@ function stamp(shape, { size = 200, done = 1, seed = 1, rot = 0, label = '' } = 
   const a11y = label ? `role="img" aria-label="${label}"` : 'aria-hidden="true"';
   return `<svg viewBox="0 0 200 200" width="${size}" height="${size}" ${a11y}>` +
     `<defs><mask id="${id}m" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="200">` +
-    `<rect width="200" height="200" fill="#000"/>${shape}</mask>` +
+    `<rect width="200" height="200" fill="#000"/>${shape}${press < 1 ? missedPart(id, press, from) : ''}</mask>` +
     `<filter id="${id}f" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">` +
     `<feTurbulence type="fractalNoise" baseFrequency="0.08" numOctaves="2" seed="${seed}" result="warp"/>` +
     `<feDisplacementMap in="SourceGraphic" in2="warp" scale="${warp.toFixed(2)}" xChannelSelector="R" yChannelSelector="G" result="rough"/>` +
@@ -97,6 +110,18 @@ function stamp(shape, { size = 200, done = 1, seed = 1, rot = 0, label = '' } = 
     '</filter></defs>' +
     `<g transform="rotate(${rot} 100 100)" opacity="${opacity.toFixed(2)}"><g filter="url(#${id}f)">` +
     `<rect width="200" height="200" fill="${INK}" mask="url(#${id}m)"/></g></g></svg>`;
+}
+
+// The part of a stamp that didn't press down: a soft-edged band that leaves only a ghost
+// of the shape. The pressed part grows from one side as press goes from 0 to 1.
+const GHOST = 0.14;
+
+function missedPart(id, press, from) {
+  const edge = 200 * press;
+  return `<linearGradient id="${id}g" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="200" y2="0" gradientTransform="rotate(${from} 100 100)">` +
+    `<stop offset="${Math.max(0, (edge - 14) / 200).toFixed(3)}" stop-color="#000" stop-opacity="0"/>` +
+    `<stop offset="${Math.min(1, (edge + 14) / 200).toFixed(3)}" stop-color="#000" stop-opacity="${1 - GHOST}"/></linearGradient>` +
+    `<rect x="-60" y="-60" width="320" height="320" fill="url(#${id}g)"/>`;
 }
 
 // How much of a shape gets printed (0 to 1) at grain cut-offs 0.30, 0.33, 0.36 ... 0.90.
