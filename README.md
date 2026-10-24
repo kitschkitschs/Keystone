@@ -18,6 +18,7 @@ Day and Evening; ticking a task stamps it off, and the day gets its own stamp.
 | `js/sync.js` | Saves a backup file and loads one back in. |
 | `js/reminders.js` | Daily reminders, and signing the phone up for pings. |
 | `js/plan.js` | The day's tasks (morning, day, evening) and ticking them off. |
+| `js/health.js` | The Health page: mood, the main scores, and folders of symptoms and tags, day by day. |
 | `js/stamps.js` | Draws stamps in uneven ink: the day's frame, the ticks, the bottom bar's home stamp. |
 | `js/stamp-shapes.js` | The carved shapes of the bookmark and the tick stamp. Made by a script, not by hand. |
 | `js/stamp-flowers.js` | The tulip-family flowers that sit inside the day's stamp frames. Made by a script, not by hand. |
