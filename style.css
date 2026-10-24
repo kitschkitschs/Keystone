@@ -47,11 +47,13 @@ button { cursor: pointer; }
 .paper svg { position: absolute; inset: 0; }
 .paper::before {
   content: ''; position: absolute; inset: 0;
-  background: radial-gradient(130% 95% at 45% 35%, rgba(255, 251, 240, 0.5) 0%, rgba(255, 251, 240, 0) 55%, rgba(110, 80, 45, 0.16) 100%);
+  /* A soft light in the middle and shade at the edges, both mixed from the paper colour so they suit any paper. */
+  background: radial-gradient(130% 95% at 45% 35%,
+    color-mix(in srgb, var(--paper) 90%, white) 0%, var(--paper) 55%, color-mix(in srgb, var(--paper) 90%, black) 100%);
 }
 .paper::after {
   content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 14px;
-  background: linear-gradient(90deg, rgba(90, 65, 35, 0.13), rgba(90, 65, 35, 0));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--paper) 88%, black), transparent);
 }
 #page, .bar, .menu { position: relative; z-index: 1; }
 #page { max-width: 480px; margin: 0 auto; overflow: hidden; }
