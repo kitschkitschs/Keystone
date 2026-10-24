@@ -1,55 +1,38 @@
-// health-edit.js: the page for changing what's on the Health page, opened from
-// the full menu. Everything can be added, renamed, moved and deleted: the main
-// items, the feelings, folders, smaller folders inside them, scores and tags.
-// Changes are saved as the "health-list" item (see health.js) straight away.
+// health-edit.js: the page for changing what's on the Health page, opened with the
+// pencil on the Health page or from the full menu. Everything can be added,
+// renamed, recoloured, moved and deleted: the check-in items, the feelings,
+// folders, single items and tags. Changes are saved as the "health-list" item
+// (see health.js) straight away.
 
 let editList = null;
+let editTab = 'physical';
 // What each button on the page points at, filled in as the page is drawn.
 let editTargets = [];
-let editing = null; // { target, adding }
 
-const arrowRight = '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M5 3l4 4-4 4" fill="none" stroke="currentColor" stroke-opacity="0.7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-
-const KIND_WORDS = {
-  main: 'main item', item: 'score', folder: 'folder', subfolder: 'folder', tag: 'tag', feeling: 'feeling',
-};
-const SCALE_NAMES = { symptom: 'symptom', quality: 'quality', mood: 'mood' };
-const SCALE_WORDS = { symptom: 'present · distressing · debilitating', quality: 'poor · fine · good', mood: 'awful to happy, 5 steps' };
+const ICON_NAMES = Object.keys(ICONS);
 
 function target(info) {
   editTargets.push(info);
   return editTargets.length - 1;
 }
 
-function editRow(arr, item, kind) {
-  return `<li><button type="button" class="edit-row" data-edit="${target({ arr, item, kind })}">
-    <span class="row-name">${escapeHtml(item.name)}</span>
-    <span class="rate-word">${SCALE_NAMES[item.scale] || ''}</span>${arrowRight}
-  </button></li>`;
+function editRow(info, name, extra = '', colour = '') {
+  return `<button type="button" class="edit-row" data-edit="${target(info)}">
+    ${colour ? `<span class="swatch" style="background: ${colour}"></span>` : ''}
+    <span class="row-name">${escapeHtml(name)}</span><span class="row-word">${extra}</span>${chevronRight}</button>`;
 }
 
-function editChips(arr, kind) {
-  return arr.map((item) => `<button type="button" class="chip" data-edit="${target({ arr, item, kind })}">${escapeHtml(item.name)}</button>`).join('');
+function addLine(info, words) {
+  return `<button class="add-line" type="button" data-add="${target(info)}">${plus}<span>${words}</span></button>`;
 }
 
-function addLine(arr, kind, words) {
-  return `<button class="add-line" type="button" data-add="${target({ arr, kind })}">${plus}<span>${words}</span></button>`;
-}
-
-function editFolder(arr, folder, kind) {
-  const inner = folder.items.map((item) => (item.items
-    ? `<li class="edit-sub">${editFolder(folder.items, item, 'subfolder')}</li>`
-    : editRow(folder.items, item, 'item'))).join('');
-  const heading = kind === 'folder'
-    ? `<button type="button" class="edit-heading" data-edit="${target({ arr, item: folder, kind })}"><span class="part-name">${escapeHtml(folder.name)}</span><span class="part-count">folder</span>${arrowRight}</button>`
-    : `<button type="button" class="edit-row edit-subname" data-edit="${target({ arr, item: folder, kind })}"><span class="sub-name">${escapeHtml(folder.name)}</span><span class="rate-word">folder</span>${arrowRight}</button>`;
-  return `<div class="${kind === 'folder' ? 'folder' : ''}">${heading}
-    <ul class="rows${kind === 'subfolder' ? ' sub-rows' : ''}">${inner}</ul>
-    ${folder.tags.length ? `<div class="tags">${editChips(folder.tags, 'tag')}</div>` : ''}
-    <div class="add-lines">
-      ${addLine(folder.items, 'item', 'add a score')}
-      ${kind === 'folder' ? addLine(folder.items, 'subfolder', 'add a folder inside') : ''}
-      ${addLine(folder.tags, 'tag', 'add a tag')}
+function editFolder(arr, folder) {
+  return `<div class="edit-block">
+    <button type="button" class="edit-row edit-head" data-edit="${target({ arr, item: folder, kind: 'folder' })}">${icon(folder.icon, folder.colour, 19, 1.8)}<span class="row-name">${escapeHtml(folder.name)}</span><span class="row-word">folder</span>${chevronRight}</button>
+    <div class="edit-inner">
+      ${folder.items.map((item) => editRow({ arr: folder.items, item, kind: 'item' }, item.name, SCALE_NAMES[item.scale].toLowerCase())).join('')}
+      ${folder.tags.length ? `<div class="tag-list">${folder.tags.map((t) => `<button type="button" class="chip" data-edit="${target({ arr: folder.tags, item: t, kind: 'tag' })}">${escapeHtml(t.name)}</button>`).join('')}</div>` : ''}
+      <div class="add-lines">${addLine({ arr: folder.items, kind: 'item' }, 'add an item')}${addLine({ arr: folder.tags, kind: 'tag' }, 'add a tag')}</div>
     </div>
   </div>`;
 }
@@ -57,95 +40,122 @@ function editFolder(arr, folder, kind) {
 async function showHealthEdit() {
   editList = await getHealthList();
   editTargets = [];
-  $('edit-list').innerHTML = `
-    <div class="part"><div class="edit-heading plain"><span class="part-name">Main items</span><span class="part-count">always shown</span></div>
-      <ul class="rows">${editList.main.map((m) => editRow(editList.main, m, 'main')).join('')}</ul>
-      ${addLine(editList.main, 'main', 'add a main item')}
-    </div>
-    <div class="folder"><div class="edit-heading plain"><span class="part-name">Feelings</span><span class="part-count">under mood</span></div>
-      <div class="tags">${editChips(editList.feelings, 'feeling')}</div>
-      ${addLine(editList.feelings, 'feeling', 'add a feeling')}
-    </div>
-    ${editList.folders.map((f) => editFolder(editList.folders, f, 'folder')).join('')}
-    <div class="folder">${addLine(editList.folders, 'folder', 'add a folder')}</div>`;
+  if (!editList.tabs.some((t) => t.id === editTab)) editTab = healthTab;
+  $('edit-tabs').innerHTML = [...editList.tabs.map((t) => [t.id, t.name]), ['checkins', 'Check-ins'], ['feelings', 'Feelings']]
+    .map(([id, name]) => `<button type="button" class="tab" role="tab" aria-selected="${id === editTab}" data-tab="${id}">${escapeHtml(name)}</button>`).join('');
+
+  let html = '';
+  if (editTab === 'checkins') {
+    html = ['morning', 'evening'].map((part) => `<div class="edit-block"><div class="edit-row edit-head"><span class="row-name">${part === 'morning' ? 'Morning' : 'Evening'}</span></div>
+      ${editList.checkins[part].map((item) => editRow({ arr: editList.checkins[part], item, kind: 'single' }, item.name, SCALE_NAMES[item.scale].toLowerCase(), item.colour)).join('')}
+      ${addLine({ arr: editList.checkins[part], kind: 'single' }, 'add a check-in item')}</div>`).join('');
+  } else if (editTab === 'feelings') {
+    html = editList.feelings.map((f) => `<div class="edit-block"><div class="edit-row edit-head"><span class="swatch" style="background: ${EMOTION_COLOURS[f.family]}"></span><span class="row-name">${f.family}</span></div>
+      <div class="tag-list">${f.words.map((w, i) => `<button type="button" class="chip" data-edit="${target({ arr: f.words, item: w, index: i, kind: 'feeling' })}">${escapeHtml(w)}</button>`).join('')}</div>
+      ${addLine({ arr: f.words, kind: 'feeling' }, 'add a feeling')}</div>`).join('');
+  } else {
+    const tab = editList.tabs.find((t) => t.id === editTab);
+    html = tab.entries.map((e) => (e.items
+      ? editFolder(tab.entries, e)
+      : `<div class="edit-block">${editRow({ arr: tab.entries, item: e, kind: 'single' }, e.name, `single · ${SCALE_NAMES[e.scale].toLowerCase()}`, e.colour)}</div>`)).join('')
+      + `<div class="add-lines" style="margin-top: 14px">${addLine({ arr: tab.entries, kind: 'folder' }, 'add a folder')}${addLine({ arr: tab.entries, kind: 'single' }, 'add a single item')}</div>`;
+  }
+  $('edit-list').innerHTML = html;
 }
 
-// --- The little sheet for one thing ---
+// --- The sheet for one thing ---
 
-const editDialog = $('edit-dialog');
-const editForm = $('edit-form');
+const KIND_WORDS = { folder: 'folder', item: 'item', single: 'item', tag: 'tag', feeling: 'feeling' };
 
 function openEditSheet(info, adding) {
-  editing = { info, adding };
-  const word = KIND_WORDS[info.kind];
-  const hasScale = info.kind === 'main' || info.kind === 'item';
-  $('edit-dialog-title').textContent = adding ? `New ${word}` : `Change ${word}`;
-  $('edit-name').value = adding ? '' : info.item.name;
-  $('edit-scale').hidden = !hasScale;
-  const scale = adding ? (info.kind === 'main' ? 'quality' : 'symptom') : info.item.scale;
-  for (const radio of editForm.elements.scale) radio.checked = radio.value === scale;
-  $('edit-scale-words').textContent = SCALE_WORDS[scale] || '';
-  $('edit-move').hidden = adding;
-  $('edit-delete').hidden = adding;
-  editDialog.showModal();
-  if (adding) $('edit-name').focus();
-}
+  const { kind } = info;
+  const item = adding ? null : info.item;
+  const name = kind === 'feeling' ? item || '' : item ? item.name : '';
+  const hasScale = kind === 'item' || kind === 'single';
+  const hasColour = kind === 'folder' || kind === 'single';
+  const scale = item && item.scale ? item.scale : (kind === 'single' && info.arr === editList.checkins.morning ? 'quality' : 'symptom');
+  const colour = item && item.colour ? item.colour : PALETTE[Math.floor(Math.random() * PALETTE.length)];
+  const otherTabs = editList.tabs.filter((t) => t.id !== editTab);
+  const movable = !adding && (kind === 'folder' || (kind === 'single' && editList.tabs.some((t) => t.entries === info.arr)));
 
-editForm.addEventListener('change', () => {
-  $('edit-scale-words').textContent = SCALE_WORDS[editForm.elements.scale.value] || '';
-});
-
-async function saveEdit() {
-  await saveHealthList(editList);
-  showHealthEdit();
-  showBackupInfo();
-}
-
-editForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const name = $('edit-name').value.trim();
-  if (!name) return;
-  const { info, adding } = editing;
-  const scale = editForm.elements.scale.value || 'symptom';
-  if (adding) {
-    const item = { id: newId('h'), name };
-    if (info.kind === 'main' || info.kind === 'item') item.scale = scale;
-    if (info.kind === 'folder' || info.kind === 'subfolder') Object.assign(item, { items: [], tags: [] });
-    info.arr.push(item);
-  } else {
-    info.item.name = name;
-    if (info.kind === 'main' || info.kind === 'item') info.item.scale = scale;
+  let html = `<label class="field"><span>Name</span><input type="text" name="name" value="${escapeHtml(name)}" autocomplete="off" required></label>`;
+  if (hasScale) {
+    html += `<fieldset class="field"><legend>Scale</legend><div class="choices">${Object.keys(SCALES).map((s) =>
+      `<label><input type="radio" name="scale" value="${s}"${s === scale ? ' checked' : ''}><span>${SCALE_NAMES[s]}</span></label>`).join('')}</div>
+      <span class="muted" data-scale-words>${SCALES[scale].slice(1).join(' · ')}</span></fieldset>`;
   }
-  editDialog.close();
-  await saveEdit();
-});
+  if (hasColour) html += `<h3>Colour</h3>${colourPicker(colour)}`;
+  if (kind === 'folder') {
+    const current = item ? item.icon : 'dot';
+    html += `<h3>Icon</h3><div class="icon-choices">${ICON_NAMES.map((n) => `<button type="button" data-icon="${n}" aria-pressed="${n === current}" aria-label="${n}">${icon(n, INK, 20, 1.6)}</button>`).join('')}</div><input type="hidden" name="icon" value="${current}">`;
+  }
+  if (movable && otherTabs.length) {
+    html += `<label class="field" style="margin-top: 12px"><span>Tab</span><select name="tab">${editList.tabs.map((t) => `<option value="${t.id}"${t.id === editTab ? ' selected' : ''}>${escapeHtml(t.name)}</option>`).join('')}</select></label>`;
+  }
+  if (!adding) {
+    html += `<div class="sheet-buttons"><button class="text-button" type="submit" name="action" value="up" formnovalidate>Move up</button><button class="text-button" type="submit" name="action" value="down" formnovalidate>Move down</button><span class="spacer"></span><button class="text-button danger" type="submit" name="action" value="delete" formnovalidate>Delete</button></div>`;
+  }
 
-async function moveEdit(step) {
-  const { arr, item } = editing.info;
-  const from = arr.indexOf(item);
-  const to = from + step;
-  if (to < 0 || to >= arr.length) return;
-  arr.splice(from, 1);
-  arr.splice(to, 0, item);
-  editDialog.close();
-  await saveEdit();
+  openSheet(adding ? `New ${KIND_WORDS[kind]}` : `Change ${KIND_WORDS[kind]}`, html, async (form, submitter) => {
+    const action = submitter && submitter.value;
+    const arr = info.arr;
+    const index = kind === 'feeling' ? info.index : arr.indexOf(item);
+    if (action === 'delete') {
+      const inside = item && item.items ? item.items.length + item.tags.length : 0;
+      const question = inside
+        ? `Delete the folder "${item.name}" and everything in it?`
+        : `Delete "${name}"? Answers you already logged stay saved, but won't show.`;
+      if (!confirm(question)) return false;
+      arr.splice(index, 1);
+    } else if (action === 'up' || action === 'down') {
+      const to = index + (action === 'up' ? -1 : 1);
+      if (to < 0 || to >= arr.length) return false;
+      const [moved] = arr.splice(index, 1);
+      arr.splice(to, 0, moved);
+    } else {
+      const newName = form.elements.name.value.trim();
+      if (!newName) return false;
+      if (kind === 'feeling') {
+        if (adding) arr.push(newName.toLowerCase());
+        else arr[index] = newName.toLowerCase();
+      } else {
+        const thing = item || { id: newId('h') };
+        thing.name = newName;
+        if (hasScale) thing.scale = form.elements.scale.value || 'symptom';
+        if (hasColour) thing.colour = form.elements.colour.value.toUpperCase();
+        if (kind === 'folder') Object.assign(thing, { icon: form.elements.icon.value, items: thing.items || [], tags: thing.tags || [] });
+        if (adding) arr.push(thing);
+        // Moving to another tab.
+        if (form.elements.tab && form.elements.tab.value !== editTab) {
+          arr.splice(arr.indexOf(thing), 1);
+          editList.tabs.find((t) => t.id === form.elements.tab.value).entries.push(thing);
+        }
+      }
+    }
+    await saveHealthList(editList);
+    showHealthEdit();
+    showBackupInfo();
+  });
 }
-$('edit-up').addEventListener('click', () => moveEdit(-1));
-$('edit-down').addEventListener('click', () => moveEdit(1));
 
-$('edit-delete').addEventListener('click', async () => {
-  const { arr, item, kind } = editing.info;
-  const inside = item.items ? item.items.length + item.tags.length : 0;
-  const question = inside
-    ? `Delete the folder "${item.name}" and everything in it?`
-    : `Delete "${item.name}"? Answers you already logged stay saved, but won't show.`;
-  if (!confirm(question)) return;
-  arr.splice(arr.indexOf(item), 1);
-  editDialog.close();
-  await saveEdit();
+sheetForm.addEventListener('click', (event) => {
+  const choice = event.target.closest('[data-icon]');
+  if (!choice) return;
+  sheetForm.elements.icon.value = choice.dataset.icon;
+  for (const b of sheetForm.querySelectorAll('[data-icon]')) b.setAttribute('aria-pressed', b === choice);
+});
+sheetForm.addEventListener('change', (event) => {
+  if (event.target.name !== 'scale') return;
+  const words = sheetForm.querySelector('[data-scale-words]');
+  if (words) words.textContent = SCALES[event.target.value].slice(1).join(' · ');
 });
 
-$('edit-cancel').addEventListener('click', () => editDialog.close());
+$('edit-tabs').addEventListener('click', (event) => {
+  const tab = event.target.closest('[data-tab]');
+  if (!tab) return;
+  editTab = tab.dataset.tab;
+  showHealthEdit();
+});
 
 $('edit-list').addEventListener('click', (event) => {
   const edit = event.target.closest('[data-edit]');
@@ -154,7 +164,7 @@ $('edit-list').addEventListener('click', (event) => {
   else if (add) openEditSheet(editTargets[add.dataset.add], true);
 });
 
-// Back to wherever you were before opening the menu.
+// Back to wherever you were before.
 $('edit-done').addEventListener('click', () => history.back());
 
 $('edit-health-button').addEventListener('click', () => {

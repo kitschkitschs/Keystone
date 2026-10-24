@@ -19,6 +19,17 @@
 //   meta   small settings, such as when you last saved a backup.
 
 const DB_NAME = 'keystone';
+
+// Sample mode: the app shows made-up data (see sample.js) instead of yours.
+// Your own data isn't touched; changes made in sample mode are only kept until
+// the app closes. Switched on and off in the full menu.
+let sampleMode = false;
+try { sampleMode = localStorage.getItem('keystone-sample') === '1'; } catch { /* stays off */ }
+let sampleStore = null;
+function sampleItems() {
+  if (!sampleStore) sampleStore = new Map(makeSampleItems().map((item) => [item.id, item]));
+  return sampleStore;
+}
 const DB_VERSION = 1;
 
 let dbPromise = null;
@@ -72,11 +83,20 @@ function newId(kind) {
 // Saves an item, stamping it with the current time.
 function putItem(item) {
   const stamped = { ...item, updatedAt: Date.now() };
+  if (sampleMode) {
+    sampleItems().set(stamped.id, stamped);
+    return Promise.resolve(stamped);
+  }
   return runRequest('items', 'readwrite', (store) => store.put(stamped)).then(() => stamped);
 }
 
 // Marks an item as deleted, rather than removing it, so the deletion syncs.
 async function deleteItem(id) {
+  if (sampleMode) {
+    const item = sampleItems().get(id);
+    if (item) await putItem({ id: item.id, kind: item.kind, day: item.day, deleted: true });
+    return;
+  }
   const item = await runRequest('items', 'readonly', (store) => store.get(id));
   if (item) {
     await putItem({ id: item.id, kind: item.kind, day: item.day, deleted: true });
@@ -85,12 +105,14 @@ async function deleteItem(id) {
 
 // All items for one day, without deleted ones.
 async function getItemsForDay(day) {
+  if (sampleMode) return [...sampleItems().values()].filter((item) => item.day === day && !item.deleted);
   const items = await runRequest('items', 'readonly', (store) => store.index('day').getAll(day));
   return items.filter((item) => !item.deleted);
 }
 
 // Every item, deleted ones included. Used when saving a backup file.
 function getAllItems() {
+  if (sampleMode) return Promise.resolve([...sampleItems().values()]);
   return runRequest('items', 'readonly', (store) => store.getAll());
 }
 

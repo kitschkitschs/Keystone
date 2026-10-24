@@ -7,6 +7,8 @@
 //
 // Ticking a task off saves a separate "tick" item for that day:
 //   { id: "tick-<task id>-2026-10-24", kind: "tick", day: "2026-10-24", taskId: "task-...", done: true }
+// An every-day task is a habit. A habit can also be skipped for a day (skip: true),
+// which the Insight page shows as a tiny grey dot and which doesn't break a streak.
 // The tick's id is made from the task and the day, so the same tick made on two
 // phones is still one tick after syncing.
 //
@@ -26,13 +28,16 @@ async function getPlan(day, list = '') {
   const items = await getAllItems();
   const ticks = new Map();
   for (const item of items) {
-    if (item.kind === 'tick' && item.day === day && !item.deleted) ticks.set(item.taskId, item.done);
+    if (item.kind === 'tick' && item.day === day && !item.deleted) ticks.set(item.taskId, item);
   }
   return items
     .filter((item) => item.kind === 'task' && !item.deleted && (item.list || '') === list)
     .filter((task) => task.day === day || (task.day === '' && task.since <= day))
     .sort((a, b) => a.createdAt - b.createdAt)
-    .map((task) => ({ ...task, done: ticks.get(task.id) === true }));
+    .map((task) => {
+      const tick = ticks.get(task.id);
+      return { ...task, done: Boolean(tick && tick.done), skipped: Boolean(tick && tick.skip && !tick.done) };
+    });
 }
 
 function addTask({ part, text, note, everyDay }, day, list = '') {
@@ -65,17 +70,9 @@ function updateTask(task, { part, text, note, everyDay }, day) {
   });
 }
 
-function setTicked(task, day, done) {
-  return putItem({ id: `tick-${task.id}-${day}`, kind: 'tick', day, taskId: task.id, done });
-}
-
-// How many days so far had at least one task ticked off: the "fig." number.
-async function countStampedDays() {
-  const days = new Set();
-  for (const item of await getAllItems()) {
-    if (item.kind === 'tick' && item.done && !item.deleted) days.add(item.day);
-  }
-  return days.size;
+// state is "done", "skip" or "" (not done).
+function setTicked(task, day, state) {
+  return putItem({ id: `tick-${task.id}-${day}`, kind: 'tick', day, taskId: task.id, done: state === 'done', skip: state === 'skip' });
 }
 
 async function isBudDay(day) {
