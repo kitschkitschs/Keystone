@@ -37,7 +37,6 @@ function rememberFolded(key, folded) {
 // --- The page's fixed pieces: menu buttons and bottom bar ---
 
 for (const button of document.querySelectorAll('.open-menu')) button.innerHTML = menuIcon + '<span class="menu-dot" hidden></span>';
-$('health-edit-button').innerHTML = pencilIcon;
 document.addEventListener('click', (event) => {
   if (event.target.closest('.open-menu')) openMenu();
 });
@@ -467,7 +466,6 @@ async function showBackupInfo() {
 // --- Sample data ---
 
 $('sample-button').textContent = sampleMode ? 'Back to my own data' : 'Show sample data';
-$('sample-banner').hidden = !sampleMode;
 $('sample-button').addEventListener('click', () => {
   try { localStorage.setItem('keystone-sample', sampleMode ? '0' : '1'); } catch { return; }
   location.hash = '';
