@@ -1,5 +1,5 @@
-// app.js: the screen itself. Draws the front page and connects the buttons
-// to db.js (saving), plan.js (the day's tasks), sync.js and reminders.js.
+// app.js: the screen itself. Moves between pages, and connects the menu's
+// buttons to db.js (saving), sync.js and reminders.js.
 
 // How long after the last save the backup reminder appears.
 const BACKUP_REMINDER_DAYS = 7;
@@ -10,20 +10,6 @@ const $ = (id) => document.getElementById(id);
 
 function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-}
-
-function ordinal(n) {
-  const tens = n % 100;
-  if (tens >= 11 && tens <= 13) return `${n}th`;
-  return n + ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th');
-}
-
-// Week number, counted the usual European way (weeks start on Monday).
-function weekNumber(date) {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
 }
 
 // Folded sections are remembered on this phone only.
@@ -42,196 +28,12 @@ document.addEventListener('click', (event) => {
 });
 
 // Words for now, until the real icons are drawn.
-const BAR = [['Health', 'health'], ['Insight', 'insight'], ['Home', 'home'], ['Hobby', ''], ['Journal', '']];
+const BAR = [['Room', 'home'], ['Insight', 'insight']];
 $('bar-buttons').innerHTML = BAR.map(([name, view]) =>
   `<button type="button" class="bar-word"${view ? ` data-view="${view}"` : ` aria-label="${name} (coming later)"`}>${name}</button>`).join('');
 $('bar-buttons').addEventListener('click', (event) => {
   const button = event.target.closest('[data-view]');
   if (button) goTo(button.dataset.view);
-});
-
-// --- Today's feelings, shared by the front page and the Health page ---
-
-// The feelings picked on a day, as [family, word] pairs, in the order they were picked.
-async function getFeelings(day) {
-  const words = new Map();
-  for (const [family, list] of EMOTION_FAMILIES) for (const word of list) words.set(word, family);
-  return (await getItemsForDay(day))
-    .filter((item) => item.kind === 'health' && item.key.startsWith('feel/') && item.value === true)
-    .sort((a, b) => a.updatedAt - b.updatedAt)
-    .map((item) => [words.get(item.key.slice(5)), item.key.slice(5)])
-    .filter(([family]) => family);
-}
-
-// Paints the field; with no feelings yet it stays a quiet grey with ink text.
-function showField(canvas, picks) {
-  canvas.closest('.field-head').classList.toggle('quiet', picks.length === 0);
-  drawEmotionField(canvas, picks);
-}
-
-// --- Date and the day's ring ---
-
-function showDate(date) {
-  const month = date.toLocaleDateString('en-GB', { month: 'long' });
-  $('date-line').textContent = `${month} ${ordinal(date.getDate())} · week ${weekNumber(date)}`;
-  $('weekday').textContent = date.toLocaleDateString('en-GB', { weekday: 'long' });
-}
-
-// A ring that fills as the day's plan gets done.
-function showDayRing(tasks) {
-  const done = tasks.filter((t) => t.done).length;
-  const share = tasks.length ? done / tasks.length : 0;
-  const r = 24;
-  const length = 2 * Math.PI * r;
-  $('day-ring').innerHTML = `<svg width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="${done} of ${tasks.length} done">
-    <circle cx="32" cy="32" r="${r}" fill="none" stroke="currentColor" stroke-opacity="0.3" stroke-width="5"/>
-    <circle cx="32" cy="32" r="${r}" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"
-      stroke-dasharray="${(share * length).toFixed(1)} ${length.toFixed(1)}" transform="rotate(-90 32 32)"${share ? '' : ' stroke-opacity="0"'}/>
-    <text x="32" y="36.5" text-anchor="middle" font-family="Lora, serif" font-size="14" fill="currentColor">${done}/${tasks.length}</text></svg>`;
-}
-
-// --- The day's plan ---
-
-let currentDay = todayKey();
-let budDay = false; // a bud day shows its own list, in black and white
-
-const tickIcon = '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 7.4l2.6 2.6L11 4.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-
-function taskRow(task) {
-  const habit = task.day === '';
-  const state = task.done ? 'done' : task.skipped ? 'skip' : '';
-  const word = { done: 'done', skip: 'skipped', '': 'not done' }[state];
-  return `<li class="task${task.done ? ' done' : ''}${task.skipped ? ' skipped' : ''}">
-    <button class="task-words" type="button" data-edit="${task.id}" aria-label="Change: ${escapeHtml(task.text)}">
-      <span class="task-text">${escapeHtml(task.text)}</span>
-      ${task.note ? `<span class="task-note">${escapeHtml(task.note)}</span>` : ''}
-      ${task.skipped ? '<span class="task-habit">skipped today</span>' : ''}
-    </button>
-    <button class="tick" type="button" role="checkbox" aria-checked="${task.done}" data-state="${state}"
-      aria-label="${escapeHtml(task.text)}: ${word}${habit ? '. Tap again to skip.' : ''}" data-tick="${task.id}">
-      <span class="tick-mark">${task.done ? tickIcon : ''}</span>
-    </button>
-  </li>`;
-}
-
-let planTasks = [];
-
-async function showPlan() {
-  const day = todayKey();
-  currentDay = day;
-  showDate(new Date());
-  budDay = await isBudDay(day);
-  showBudLook();
-  planTasks = await getPlan(day, budDay ? 'bud' : '');
-  showField($('front-field'), await getFeelings(day));
-  showDayRing(planTasks);
-
-  $('plan').innerHTML = PARTS.map((part) => {
-    const tasks = planTasks.filter((t) => t.part === part.key);
-    const done = tasks.filter((t) => t.done).length;
-    return `<details class="part" data-part="${part.key}"${isFolded(part.key) ? '' : ' open'}>
-      <summary>
-        <span class="part-name">${part.name}</span>
-        <span class="part-count">${tasks.length ? `${done} of ${tasks.length}` : ''}</span>
-        ${chevron}
-      </summary>
-      <ul class="tasks">${tasks.map(taskRow).join('')}</ul>
-      <button class="add-line" type="button" data-add="${part.key}">${plus}<span>add a task</span></button>
-    </details>`;
-  }).join('');
-
-  for (const details of $('plan').querySelectorAll('details')) {
-    details.addEventListener('toggle', () => rememberFolded(details.dataset.part, !details.open));
-  }
-}
-
-$('plan').addEventListener('click', async (event) => {
-  const tick = event.target.closest('[data-tick]');
-  const edit = event.target.closest('[data-edit]');
-  const add = event.target.closest('[data-add]');
-  if (tick) {
-    const task = planTasks.find((t) => t.id === tick.dataset.tick);
-    if (!task) return;
-    // A one-off task is done or not. A habit goes: not done, done, skipped, not done.
-    const next = task.done ? (task.day === '' ? 'skip' : '') : task.skipped ? '' : 'done';
-    if (navigator.vibrate) navigator.vibrate(next === 'done' ? 12 : 5);
-    await setTicked(task, currentDay, next);
-    showPlan();
-    showBackupInfo();
-  } else if (edit) {
-    openTaskSheet(planTasks.find((t) => t.id === edit.dataset.edit));
-  } else if (add) {
-    openTaskSheet(null, add.dataset.add);
-  }
-});
-
-// --- Bud mode ---
-// The bud button makes today a bud day: a separate, gentler list, and the
-// whole page in black and white. Tapping it again goes back to the usual list.
-
-const budIcon = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21v-8"/><path d="M12 13c-3.2 0-5-2.4-5-5.6C9.4 7.4 11 8.6 12 10c1-1.4 2.6-2.6 5-2.6 0 3.2-1.8 5.6-5 5.6z"/><path d="M12 10c-.6-2.2-.2-4.4 1.6-6.4"/><path d="M12 17.5c-1.6-1.6-3.6-2-5.4-1.6"/></svg>';
-$('bud-button').innerHTML = budIcon;
-
-function showBudLook() {
-  document.documentElement.classList.toggle('bud', budDay);
-  $('bud-button').setAttribute('aria-pressed', budDay);
-  document.querySelector('meta[name="theme-color"]').content = budDay ? '#121212' : COLOURS.paper;
-}
-
-$('bud-button').addEventListener('click', async () => {
-  if (navigator.vibrate) navigator.vibrate(12);
-  await setBudDay(currentDay, !budDay);
-  showPlan();
-  showBackupInfo();
-});
-
-// --- Adding, changing and deleting a task ---
-
-const taskDialog = $('task-dialog');
-const taskForm = $('task-form');
-let editingTask = null;
-
-function openTaskSheet(task, part = 'morning') {
-  editingTask = task;
-  $('task-dialog-title').textContent = task ? 'Change task' : 'New task';
-  $('task-text').value = task ? task.text : '';
-  $('task-note').value = task ? task.note || '' : '';
-  const chosen = task ? task.part : part;
-  for (const radio of taskForm.elements.part) radio.checked = radio.value === chosen;
-  $('task-every-day').checked = task ? task.day === '' : false;
-  $('task-delete').hidden = !task;
-  taskDialog.showModal();
-  if (!task) $('task-text').focus();
-}
-
-taskForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const text = $('task-text').value.trim();
-  if (!text) return;
-  const fields = {
-    part: taskForm.elements.part.value || 'morning',
-    text,
-    note: $('task-note').value.trim(),
-    everyDay: $('task-every-day').checked,
-  };
-  if (editingTask) await updateTask(editingTask, fields, currentDay);
-  else await addTask(fields, currentDay, budDay ? 'bud' : '');
-  taskDialog.close();
-  showPlan();
-  showBackupInfo();
-});
-
-$('task-cancel').addEventListener('click', () => taskDialog.close());
-
-$('task-delete').addEventListener('click', async () => {
-  if (!editingTask) return;
-  const question = editingTask.day === ''
-    ? `Delete "${editingTask.text}"? It's an every-day task, so it goes from every day.`
-    : `Delete "${editingTask.text}"?`;
-  if (!confirm(question)) return;
-  await deleteItem(editingTask.id);
-  taskDialog.close();
-  showPlan();
 });
 
 // --- The shared sheet, for small forms opened by any page ---
@@ -278,24 +80,24 @@ sheetForm.addEventListener('input', (event) => {
 function currentView() {
   const hash = location.hash.slice(1);
   if (hash.startsWith('insight')) return 'insight';
-  return ['health', 'health-edit', 'colours'].includes(hash) ? hash : 'home';
+  return ['room-add', 'cat', 'colours'].includes(hash) ? hash : 'home';
 }
 
 function showView() {
   const view = currentView();
-  $('front').hidden = view !== 'home';
-  $('health').hidden = view !== 'health';
-  $('health-edit').hidden = view !== 'health-edit';
+  $('room').hidden = view !== 'home';
+  $('room-add').hidden = view !== 'room-add';
+  $('cat').hidden = view !== 'cat';
   $('insight').hidden = view !== 'insight';
   $('colours').hidden = view !== 'colours';
-  const barView = view === 'health-edit' ? 'health' : view;
+  const barView = view === 'room-add' || view === 'cat' ? 'home' : view;
   for (const button of $('bar-buttons').children) {
     if (button.dataset.view === barView) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   }
-  if (view === 'home') showPlan();
-  if (view === 'health') showHealth();
-  if (view === 'health-edit') showHealthEdit();
+  if (view === 'home') showRoom();
+  if (view === 'room-add') showRoomAdd();
+  if (view === 'cat') showCatSetup();
   if (view === 'insight') showInsight(location.hash.slice(1));
   if (view === 'colours') showColours();
   window.scrollTo(0, 0);
@@ -509,8 +311,5 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // When you come back to the app, refresh in case the day has changed.
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && currentView() === 'home') {
-    showPlan();
-    showBackupInfo();
-  }
+  if (document.visibilityState === 'visible' && currentView() === 'home') showBackupInfo();
 });
