@@ -699,7 +699,7 @@ function catStatus() {
 function showRoomPanel() {
   const bar = $('room-bar');
   const panel = $('room-panel');
-  $('room-time').textContent = previewHour === null ? '' : `Trying ${timeWord(previewHour)} light`;
+  $('room-light').textContent = previewHour === null ? 'Clock' : LIGHT_STEPS.find(([hour]) => hour === previewHour)?.[1] || timeWord(previewHour);
   if (!decorating) {
     bar.innerHTML = `<span class="grow muted" id="room-status">${escapeHtml(catStatus())}, ${timeWord(hourNow())}.</span>
       <button class="ink-button" type="button" data-room="decorate">Decorate</button>`;
@@ -722,7 +722,7 @@ function showRoomPanel() {
     .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   panel.innerHTML = `
     ${sampleMode ? '<p class="muted">Sample data is on, so changes to the room are only kept until you turn it off.</p>' : ''}
-    <nav class="tabs scroll inv-tabs" aria-label="Kinds of pieces">${tabs.map(([key, name]) => `<button type="button" class="tab" data-inv-tab="${key}" aria-selected="${key === inventoryTab}">${name}</button>`).join('')}</nav>
+    <nav class="inv-tabs" aria-label="Kinds of pieces">${tabs.map(([key, name]) => `<button type="button" class="chip" data-inv-tab="${key}" aria-pressed="${key === inventoryTab}">${name}</button>`).join('')}</nav>
     <div class="inventory">
       <button type="button" class="inv-tile inv-add" data-room="add"><span class="inv-plus">+</span><span class="inv-name">Add</span></button>
       ${list.map((p) => {
@@ -889,6 +889,15 @@ function openRoomSettings() {
     previewHour = Number(form.elements.hour.value);
   });
 }
+
+// The light button at the top: follow the clock, or pick a time of day to see
+// the room in. A picked time lasts until the app closes.
+const LIGHT_STEPS = [[null, 'Clock'], [10, 'Day'], [18, 'Evening'], [22.5, 'Night']];
+$('room-light').addEventListener('click', () => {
+  const i = LIGHT_STEPS.findIndex(([hour]) => hour === previewHour);
+  previewHour = LIGHT_STEPS[(i + 1) % LIGHT_STEPS.length][0];
+  showRoomPanel();
+});
 
 // --- Showing the page ---
 
