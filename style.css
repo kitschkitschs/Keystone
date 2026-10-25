@@ -209,7 +209,7 @@ details:not([open]) > summary .chev { transform: rotate(-90deg); }
 .own-colour input { width: 44px; height: 32px; padding: 0; border: 1px solid var(--rule); border-radius: 8px; background: none; }
 .icon-choices { display: flex; flex-wrap: wrap; gap: 6px; }
 .icon-choices button { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--rule); background: none; display: grid; place-items: center; }
-.icon-choices button[aria-pressed="true"] { border-color: var(--ink); background: #FFFFFF; }
+.icon-choices button[aria-pressed="true"] { border-color: var(--ink); background: var(--paper); }
 
 /* ---- Insight ---- */
 .page-head { padding: 10px var(--side) 0; display: flex; align-items: flex-start; justify-content: space-between; }
@@ -284,7 +284,7 @@ details:not([open]) > summary .chev { transform: rotate(-90deg); }
 .row-form { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
 .row-form input[type="text"] { flex: 1 1 160px; }
 input[type="text"], input[type="time"], input[type="number"], select {
-  min-height: 40px; padding: 0 12px; background: #FFFFFF;
+  min-height: 40px; padding: 0 12px; background: var(--paper);
   border: 1px solid var(--rule); border-radius: 10px; font-size: 15px;
 }
 input:focus-visible, button:focus-visible, summary:focus-visible, select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
@@ -372,3 +372,7 @@ input:focus-visible, button:focus-visible, summary:focus-visible, select:focus-v
 .anim-body .cut-box { margin: 6px 0 0; }
 .anim-body .cut-box input { width: 64px; }
 .small-num { width: 52px; margin-left: 6px; color: var(--ink); }
+/* Dark mode: the see-through checks and previews go dark too. */
+html.dark .cut-scroll, html.dark .anim-preview { background: #2A2436; }
+html.dark .cut-preview { background: repeating-conic-gradient(#2A2436 0 25%, #342D43 0 50%) 0 0 / 16px 16px; }
+html.dark { color-scheme: dark; }

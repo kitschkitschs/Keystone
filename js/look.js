@@ -65,21 +65,50 @@ const OLD_PALETTE = [
   '#8C7A5B', '#4E8A6B', '#C46F8C', '#3F4E7A',
 ];
 
-function savedColours() {
+// Dark mode (menu > Dark mode): a deep plum night instead of white paper.
+// It has its own colour changes ("keystone-colours-dark"), so changing a colour
+// in dark mode doesn't change it in the light, and the other way round.
+let darkMode = false;
+try { darkMode = localStorage.getItem('keystone-dark') === '1'; } catch { /* stays light */ }
+const DARK_DEFAULTS = {
+  paper: '#1E1A2A',
+  topBar: '#1E1A2A',
+  ink: '#ECE4EE',
+  muted: '#A79DB2',
+  rule: '#3A3249',
+  faint: '#5D5372',
+  emptyField: '#3A3349',
+  danger: '#E08A92',
+  notDone: '#463E57',
+  skipped: '#5D5372',
+  nothing: '#3A3349',
+  heat0: '#2C2639',
+  compare: '#5D5372',
+};
+const COLOURS_KEY = darkMode ? 'keystone-colours-dark' : 'keystone-colours';
+
+function readColours(key) {
   try {
-    return JSON.parse(localStorage.getItem('keystone-colours')) || {};
+    return JSON.parse(localStorage.getItem(key)) || {};
   } catch {
     return {};
   }
 }
+function savedColours() {
+  return readColours(COLOURS_KEY);
+}
 function saveColours(changes) {
   try {
-    if (changes) localStorage.setItem('keystone-colours', JSON.stringify(changes));
-    else localStorage.removeItem('keystone-colours');
+    if (changes) localStorage.setItem(COLOURS_KEY, JSON.stringify(changes));
+    else localStorage.removeItem(COLOURS_KEY);
   } catch {}
 }
 
-const COLOURS = { ...COLOUR_DEFAULTS, ...savedColours() };
+// In dark mode, colours you changed in the light (like a feeling's colour) carry
+// over, except the ones dark mode itself changes.
+const COLOURS = darkMode
+  ? { ...COLOUR_DEFAULTS, ...readColours('keystone-colours'), ...DARK_DEFAULTS, ...savedColours() }
+  : { ...COLOUR_DEFAULTS, ...savedColours() };
 // Moves a colour from the old palette to the same place in today's palette.
 const newPaletteColour = (c) => {
   const k = OLD_PALETTE.indexOf((c || '').toUpperCase());
@@ -110,6 +139,7 @@ const PAPER = COLOURS.paper;
   for (const [role, name] of Object.entries(css)) document.documentElement.style.setProperty(name, COLOURS[role]);
   document.documentElement.style.setProperty('--shadow', `${COLOURS.ink}40`);
   document.documentElement.style.setProperty('--backdrop', `${COLOURS.ink}59`);
+  document.documentElement.classList.toggle('dark', darkMode);
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.content = COLOURS.paper;
 })();

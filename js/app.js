@@ -274,6 +274,14 @@ $('sample-button').addEventListener('click', () => {
   location.reload();
 });
 
+// --- Dark mode (see look.js) ---
+
+$('dark-button').textContent = darkMode ? 'Turn dark mode off' : 'Turn dark mode on';
+$('dark-button').addEventListener('click', () => {
+  try { localStorage.setItem('keystone-dark', darkMode ? '0' : '1'); } catch { return; }
+  location.reload();
+});
+
 // --- Keeping data safe ---
 
 // Asks Chrome not to clear this app's storage when the phone runs low on space.
