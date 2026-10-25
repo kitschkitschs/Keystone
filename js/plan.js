@@ -1,4 +1,5 @@
-// plan.js: the day's plan on the front page, split into morning, day and evening.
+// plan.js: tasks and habits, kept so the Insight page can read them. (The front
+// page that showed them was taken out on 25 October 2026, to be redone with the room.)
 //
 // A task is an item (see db.js) like this:
 //   { id: "task-...", kind: "task", part: "morning", text: "Take meds", note: "with food",

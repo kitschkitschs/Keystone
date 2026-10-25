@@ -13,69 +13,30 @@
 <body>
 
   <div id="page">
-  <!-- ===== Front page ===== -->
-  <div id="front" class="view">
+  <!-- ===== The room: the home page. Drawn by room.js. ===== -->
+  <section id="room" class="view" aria-label="Room">
     <div class="top-bar">
-      <span class="top-left"><button id="bud-button" class="icon-button" type="button" aria-label="Bud day" aria-pressed="false"></button></span>
-      <span></span>
+      <span class="top-left"></span>
+      <span id="room-time" class="room-time muted"></span>
       <span class="top-right"><button class="icon-button open-menu" type="button" aria-label="Menu"></button></span>
     </div>
-    <header class="field-head short">
-      <canvas id="front-field" class="field-canvas" aria-hidden="true"></canvas>
-      <div class="field-inner">
-        <div class="field-foot">
-          <div class="date">
-            <div id="date-line" class="date-line"></div>
-            <h1 id="weekday" class="weekday"></h1>
-          </div>
-          <div id="day-ring" class="day-ring"></div>
-        </div>
-      </div>
-    </header>
-    <main id="plan" class="plan"></main>
-  </div>
-
-  <!-- ===== Health page: how you are, day by day. Drawn by health.js. ===== -->
-  <section id="health" class="view" aria-label="Health" hidden>
-    <div class="top-bar">
-      <span class="top-left"><button id="feel-button" class="icon-button" type="button" aria-label="Add feelings"></button></span>
-      <div class="day-step">
-        <button id="health-prev" class="icon-button" type="button" aria-label="Previous day">
-          <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true"><path d="M11.5 3.5 6 9l5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
-        <span id="health-date" class="day-step-date"></span>
-        <button id="health-next" class="icon-button" type="button" aria-label="Next day">
-          <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true"><path d="M6.5 3.5 12 9l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
-      </div>
-      <span class="top-right">
-        <button class="icon-button open-menu" type="button" aria-label="Menu"></button>
-      </span>
+    <!-- The room and the bar under it stay in view while the inventory scrolls. -->
+    <div class="room-top">
+      <div class="room-stage"><canvas id="room-canvas" class="pixel"></canvas></div>
+      <p id="room-note" class="room-note side" role="status" hidden></p>
+      <div id="room-bar" class="room-bar side"></div>
     </div>
-    <header class="field-head">
-      <canvas id="health-field" class="field-canvas" aria-hidden="true"></canvas>
-      <div class="field-inner">
-        <div id="health-words" class="field-words"></div>
-      </div>
-    </header>
-    <div class="side">
-      <nav id="health-tabs" class="tabs" aria-label="Health sections"></nav>
-      <div id="health-folders"></div>
-    </div>
+    <div id="room-panel" class="side"></div>
   </section>
 
-  <!-- ===== Changing the Health page's list. Drawn by health-edit.js. ===== -->
-  <section id="health-edit" class="view" aria-label="Edit the Health page" hidden>
-    <header class="plain-head">
-      <div class="date">
-        <div class="date-line">Health page</div>
-        <h1 class="weekday">Edit the list</h1>
-      </div>
-      <button id="edit-done" class="ink-button" type="button">Done</button>
-    </header>
-    <p class="muted side">Tap anything to rename it, recolour it, move it or delete it.</p>
-    <nav id="edit-tabs" class="tabs scroll side" aria-label="Health sections"></nav>
-    <div id="edit-list" class="side"></div>
+  <!-- ===== Cutting your own pieces from a picture. Drawn by room-add.js. ===== -->
+  <section id="room-add" class="view" aria-label="Add pieces" hidden>
+    <div id="cut-page"></div>
+  </section>
+
+  <!-- ===== The cat's sprite sheet. Drawn by room-add.js. ===== -->
+  <section id="cat" class="view" aria-label="Cat" hidden>
+    <div id="cat-page"></div>
   </section>
 
   <!-- ===== Every colour in the app. Drawn by colours.js. ===== -->
@@ -148,12 +109,6 @@
     </section>
 
     <section class="menu-section">
-      <h3>Health page</h3>
-      <p class="muted">Add, rename, recolour, move and delete what you track.</p>
-      <p><button id="edit-health-button" class="ink-button" type="button">Edit the Health page</button></p>
-    </section>
-
-    <section class="menu-section">
       <h3>Colours</h3>
       <p class="muted">Every colour in the app in one place: the background and text, feelings, Insight, habits and the Health page.</p>
       <p><button id="colours-button" class="ink-button" type="button">Change colours</button></p>
@@ -173,40 +128,7 @@
     </section>
   </div>
 
-  <!-- ===== Adding or changing a task ===== -->
-  <dialog id="task-dialog" class="sheet">
-    <form id="task-form" method="dialog">
-      <h2 id="task-dialog-title" tabindex="-1" autofocus>New task</h2>
-      <label class="field">
-        <span>Task</span>
-        <input id="task-text" type="text" autocomplete="off" required>
-      </label>
-      <label class="field">
-        <span>Small note <span class="muted">(optional)</span></span>
-        <input id="task-note" type="text" autocomplete="off">
-      </label>
-      <fieldset class="field">
-        <legend>Part of the day</legend>
-        <div class="choices">
-          <label><input type="radio" name="part" value="morning"><span>Morning</span></label>
-          <label><input type="radio" name="part" value="day"><span>Day</span></label>
-          <label><input type="radio" name="part" value="evening"><span>Evening</span></label>
-        </div>
-      </fieldset>
-      <label class="check">
-        <input id="task-every-day" type="checkbox">
-        <span>Every day <span class="muted">(a habit: shows on the Insight page)</span></span>
-      </label>
-      <div class="sheet-buttons">
-        <button id="task-delete" class="text-button danger" type="button">Delete</button>
-        <span class="spacer"></span>
-        <button class="text-button" type="button" value="cancel" id="task-cancel">Cancel</button>
-        <button class="ink-button" type="submit" value="save">Save</button>
-      </div>
-    </form>
-  </dialog>
-
-  <!-- ===== One-off sheets (feelings, check-ins, notes, editing, habit options). Filled in by the page that opens them. ===== -->
+  <!-- ===== One-off sheets (room pieces, room size, habit options, colours). Filled in by the page that opens them. ===== -->
   <dialog id="sheet" class="sheet">
     <form id="sheet-form" method="dialog"></form>
   </dialog>
@@ -220,9 +142,11 @@
   <script src="js/plan.js"></script>
   <script src="js/app.js"></script>
   <script src="js/health.js"></script>
-  <script src="js/health-edit.js"></script>
   <script src="js/colours.js"></script>
   <script src="js/charts.js"></script>
   <script src="js/insight.js"></script>
+  <script src="js/room-art.js"></script>
+  <script src="js/room.js"></script>
+  <script src="js/room-add.js"></script>
 </body>
 </html>

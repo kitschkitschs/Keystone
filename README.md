@@ -4,9 +4,10 @@ A personal day-structure app for Android, built as an installable web app.
 It works offline, keeps its data on the phone, and syncs by hand through
 backup files.
 
-The look is "stamp and paper": black ink on cream paper, Lora for titles and
-Roboto for everything else. The front page holds the day's plan in Morning,
-Day and Evening; ticking a task stamps it off, and the day gets its own stamp.
+The home page is a cosy pixel-art room with a cat. You decorate it with your
+own pieces (cut from any picture, kept on the phone and in your backup, never
+in this repo), the cat comes from a sprite sheet, and the light follows the
+clock. The Insight page shows habits and health over time.
 
 ## Files
 
@@ -17,14 +18,17 @@ Day and Evening; ticking a task stamps it off, and the day gets its own stamp.
 | `js/db.js` | Saves and reads data on the device (IndexedDB). |
 | `js/sync.js` | Saves a backup file and loads one back in. |
 | `js/reminders.js` | Daily reminders, and signing the phone up for pings. |
-| `js/plan.js` | The day's tasks (morning, day, evening) and ticking them off. |
-| `js/health.js` | The Health page: mood, the main scores, and folders of symptoms and tags, day by day. |
-| `js/health-edit.js` | The page for changing the Health page's list (from the full menu). |
-| `js/colours.js` | The colour sliders in the menu: your own paper and ink colours, kept on this phone. |
-| `js/stamps.js` | Draws stamps in uneven ink: the day's frame, the ticks, the bottom bar's home stamp. |
-| `js/stamp-shapes.js` | The carved shapes of the bookmark and the tick stamp. Made by a script, not by hand. |
-| `js/stamp-flowers.js` | The tulip-family flowers that sit inside the day's stamp frames. Made by a script, not by hand. |
-| `js/app.js` | Draws the front page and the menu, and connects them to the files above. |
+| `js/plan.js` | Tasks and habits, kept for the Insight page. |
+| `js/health.js` | What the Health page tracked, kept for the Insight page. |
+| `js/look.js` | Colours, the emotion palette and icons. |
+| `js/colours.js` | The Colours page in the menu. |
+| `js/charts.js`, `js/insight.js` | The Insight page. |
+| `js/sample.js` | Made-up data, for "Show sample data" in the menu. |
+| `js/room.js` | The room: the tile grid, placing and moving pieces, the cat, day and night. |
+| `js/room-add.js` | Cutting your own pieces from a picture, and setting up the cat's sprite sheet. |
+| `js/room-art.js` | The placeholder pieces, the cat's standard sheet layout, and picture helpers. |
+| `room-art/` | Placeholder art drawn for Keystone: `starter.png` (furniture) and `cat.png` (a grey tabby, Stardew pet layout). |
+| `js/app.js` | Moves between pages, and connects the menu to the files above. |
 | `fonts/` | Lora and Roboto, kept here so they work offline. Both are free fonts (SIL Open Font License). |
 | `sw.js` | The service worker, which keeps a copy of the app so it opens offline. |
 | `manifest.webmanifest` | Name and icon used when the app is installed to the home screen. |
