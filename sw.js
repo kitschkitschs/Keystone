@@ -47,6 +47,7 @@ const APP_FILES = [
   'js/room-art.js',
   'js/room.js',
   'js/room-add.js',
+  'js/room-draw.js',
   'room-art/starter.png',
   'room-art/cat.png',
   'fonts/lora-latin-400-normal.woff2',
