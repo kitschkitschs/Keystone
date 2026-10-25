@@ -740,6 +740,7 @@ function showRoomPanel() {
     <div class="buttons room-more">
       <button class="text-button" type="button" data-room="edit" aria-pressed="${editingPieces}">${editingPieces ? 'Stop editing pieces' : 'Edit pieces'}</button>
       <button class="text-button" type="button" data-room="settings">Room</button>
+      <button class="text-button" type="button" data-room="draw">Draw</button>
       <button class="text-button" type="button" data-room="cat">Cat</button>
     </div>
     ${editingPieces ? '<p class="muted">Tap a piece above to rename it, change it, or delete it.</p>' : ''}`;
@@ -769,6 +770,7 @@ async function roomButton(event) {
   if (action === 'away') putAway();
   if (action === 'add') { cutFor = null; goTo('room-add'); }
   if (action === 'cat') goTo('cat');
+  if (action === 'draw') { drawFor = null; goTo('draw'); }
   if (action === 'edit') { editingPieces = !editingPieces; showRoomPanel(); }
   if (action === 'settings') openRoomSettings();
   if (action === 'starter') {
@@ -805,6 +807,7 @@ function openPieceDetails(piece) {
       <img class="pixel" src="${v.src}" alt="" style="--pw: ${v.pw}; --ph: ${v.ph}">
       <label>Wide <input type="number" name="w${i}" min="1" max="12" value="${v.w}"></label>
       <label>Deep <input type="number" name="d${i}" min="1" max="12" value="${v.d}"></label>
+      <button class="text-button" type="submit" value="draw-${i}">Draw</button>
       ${i ? `<button class="text-button danger" type="submit" value="unview-${i}">Remove</button>` : ''}
     </div>`).join('');
   openSheet('Piece', `
@@ -842,7 +845,10 @@ function openPieceDetails(piece) {
     });
     pieces.set(saved.id, saved);
     showRoomPanel();
-    if (action === 'addview') {
+    if (action && action.startsWith('draw-')) {
+      drawFor = { piece: saved.id, view: Number(action.slice(5)) };
+      goTo('draw');
+    } else if (action === 'addview') {
       cutFor = saved.id;
       goTo('room-add');
     } else if (action && action.startsWith('unview-')) {

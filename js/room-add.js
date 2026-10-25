@@ -21,9 +21,10 @@ function showRoomAdd() {
         Pictures need a see-through background, like a PNG.</p>
       <div class="buttons">
         <label class="ink-button"><span>Choose a picture</span><input id="cut-file" type="file" accept="image/*" hidden></label>
+        <button class="text-button" type="button" data-cut="draw">Draw one</button>
         <button class="text-button" type="button" data-cut="starter">Use the starter sheet</button>
       </div>
-      <p id="cut-status" class="status" role="status"></p>
+      <p id="cut-status" class="status" role="status">${cut.note || ''}</p>
       <div id="cut-work"${cut.sheet ? '' : ' hidden'}>
         <div class="cut-tools">
           <button class="text-button" type="button" data-cut="out" aria-label="Zoom out">−</button>
@@ -63,6 +64,7 @@ function showRoomAdd() {
         </form>
       </div>
     </div>`;
+  cut.note = '';
   if (cut.sheet) {
     fitCutZoom();
     drawCutSheet();
@@ -184,6 +186,10 @@ $('cut-page').addEventListener('click', async (event) => {
   if (action === 'done') {
     cutFor = null;
     goTo('home');
+  }
+  if (action === 'draw') {
+    drawFor = null;
+    goTo('draw');
   }
   if (action === 'starter') await useCutPicture('room-art/starter.png', 'The starter sheet. Box a piece to try it.');
   if (!cut.sheet) return;

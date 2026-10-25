@@ -376,3 +376,18 @@ input:focus-visible, button:focus-visible, summary:focus-visible, select:focus-v
 html.dark .cut-scroll, html.dark .anim-preview { background: #2A2436; }
 html.dark .cut-preview { background: repeating-conic-gradient(#2A2436 0 25%, #342D43 0 50%) 0 0 / 16px 16px; }
 html.dark { color-scheme: dark; }
+
+/* ---- Drawing pieces (room-draw.js) ---- */
+.draw-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0; }
+.draw-tools .chip { color: var(--ink); }
+.draw-tools .chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.draw-tools .spacer { flex: 1; }
+.draw-stage { display: grid; place-items: center; padding: 6px 0; }
+#draw-canvas { display: block; touch-action: none; border: 1px solid var(--rule); cursor: crosshair; }
+.draw-colours { display: grid; grid-template-columns: repeat(auto-fill, minmax(30px, 1fr)); gap: 6px; margin: 10px 0 8px; }
+.draw-colours button { aspect-ratio: 1; border-radius: 8px; border: 1px solid var(--rule); padding: 0; }
+.draw-colours button[aria-pressed="true"] { outline: 2px solid var(--ink); outline-offset: 2px; }
+.draw-preview-row { display: flex; align-items: flex-end; gap: 14px; margin: 12px 0; }
+.draw-preview { flex: none; max-width: 50%; padding: 6px; border-radius: 10px; background: repeating-conic-gradient(#E9E4DE 0 25%, #F7F4F0 0 50%) 0 0 / 16px 16px; }
+.file-button { display: inline-flex; align-items: center; cursor: pointer; }
+html.dark .draw-preview { background: repeating-conic-gradient(#2A2436 0 25%, #342D43 0 50%) 0 0 / 16px 16px; }
