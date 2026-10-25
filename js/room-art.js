@@ -22,9 +22,9 @@ const PIECE_TYPES = [
 // the piece stands on. A piece with several boxes can be turned.
 const STARTER_PIECES = [
   { name: 'Bookshelf', type: 'furniture', boxes: [[0, 0, 32, 48]], w: 2, d: 1 },
-  { name: 'Bed', type: 'furniture', boxes: [[32, 0, 32, 48]], w: 2, d: 2 },
+  { name: 'Bed', type: 'furniture', boxes: [[32, 0, 32, 48]], w: 2, d: 2, catSpot: true, catLift: 6 },
   { name: 'Table', type: 'furniture', boxes: [[64, 0, 32, 32]], w: 2, d: 1, surface: true, lift: 19 },
-  { name: 'Armchair', type: 'furniture', boxes: [[96, 0, 32, 32]], w: 2, d: 1 },
+  { name: 'Armchair', type: 'furniture', boxes: [[96, 0, 32, 32]], w: 2, d: 1, catSpot: true, catLift: 8 },
   { name: 'Chair', type: 'furniture', boxes: [[128, 0, 16, 32], [144, 0, 16, 32]], w: 1, d: 1, count: 2 },
   { name: 'Tall plant', type: 'furniture', boxes: [[160, 0, 16, 32]], w: 1, d: 1 },
   { name: 'Window', type: 'wall', boxes: [[176, 0, 32, 32]], w: 2, d: 2 },
@@ -152,7 +152,8 @@ async function addStarterPieces() {
     }));
     await putItem({
       id: newId('piece'), kind: 'piece', day: '', name: p.name, type: p.type, views,
-      count: p.count || 1, surface: Boolean(p.surface), lift: p.lift || 16, light: Boolean(p.light), createdAt: Date.now(),
+      count: p.count || 1, surface: Boolean(p.surface), lift: p.lift || 16, light: Boolean(p.light),
+      catSpot: Boolean(p.catSpot), catLift: p.catLift ?? 8, createdAt: Date.now(),
     });
   }
 }

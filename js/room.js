@@ -2,7 +2,7 @@
 // 16 x 16 pixel tiles, with a cat walking about and the light following the clock.
 //
 // Everything is saved as items (see db.js), so it all goes in your backup file:
-//   { id: "piece-...", kind: "piece", day: "", name, type, count, surface, lift, light,
+//   { id: "piece-...", kind: "piece", day: "", name, type, count, surface, lift, light, catSpot, catLift,
 //     views: [{ src, pw, ph, w, d }] }       one thing in your inventory. Each view is
 //                                            one way it can be turned: its picture
 //                                            (src, pw x ph pixels) and the tiles it
@@ -216,7 +216,7 @@ function drawList() {
   }
   wall.sort((a, b) => a.y - b.y);
   rugs.sort((a, b) => a.y - b.y);
-  standing.push({ y: catState.y, cat: true });
+  standing.push({ y: catSortY(), cat: true });
   standing.sort((a, b) => a.y - b.y);
   return [...wall, ...rugs, ...standing];
 }
@@ -324,7 +324,10 @@ function drawDayLight() {
 // --- The cat ---
 
 let catSheet = null;
-const catState = { x: 0, y: 0, tx: 0, ty: 0, path: [], mode: 'idle', anim: 'sitDown', animStart: 0, flip: false, until: 0, hearts: 0, placed: false };
+// on: the furniture the cat is sitting or sleeping on (a placed id), lift: how many
+// pixels up it sits there.
+const catState = { x: 0, y: 0, tx: 0, ty: 0, path: [], mode: 'idle', anim: 'sitDown', animStart: 0, flip: false, until: 0, hearts: 0, placed: false, on: null, onAt: '', lift: 0 };
+const HOP_TIME = 450;
 const CAT_SPEED = 22; // room pixels a second
 
 const tileCentre = (tx, ty) => ({ x: tx * TILE + TILE / 2, y: ty * TILE + 13 });
@@ -369,14 +372,123 @@ function findPath(from, to) {
 function placeCat() {
   const free = freeFloorTiles();
   const [tx, ty] = free.length ? free[Math.floor(Math.random() * free.length)] : [0, room.wallRows];
-  Object.assign(catState, { tx, ty, ...tileCentre(tx, ty), path: [], mode: 'idle', until: 0, placed: true });
+  Object.assign(catState, { tx, ty, ...tileCentre(tx, ty), path: [], mode: 'idle', until: 0, placed: true, on: null, lift: 0 });
+}
+
+// --- Furniture the cat sits and sleeps on (a piece marked "the cat can sit and
+// sleep on it"). The cat walks up next to it, hops on, and hops off again after.
+
+const placedAt = (p) => `${p.x},${p.y},${p.view || 0}`;
+const catSpots = () => placed.filter((p) => pieces.get(p.piece).catSpot && pieces.get(p.piece).type === 'furniture');
+
+// Drawn just in front of the furniture it's on, so it sits on top.
+function catSortY() {
+  const spotUnder = catState.on && placed.find((p) => p.id === catState.on);
+  if (!spotUnder) return catState.y;
+  const b = boxOf(spotUnder);
+  return (b.y + b.d) * TILE + 0.3;
+}
+
+// Free floor tiles beside a piece (not corners), the ones in front first.
+function besideTiles(p) {
+  const b = boxOf(p);
+  const blocked = blockedTiles();
+  const out = [];
+  for (let y = b.y - 1; y <= b.y + b.d; y++) for (let x = b.x - 1; x <= b.x + b.w; x++) {
+    const insideX = x >= b.x && x < b.x + b.w;
+    const insideY = y >= b.y && y < b.y + b.d;
+    if (insideX === insideY) continue; // the piece itself, or a corner
+    if (x < 0 || x >= room.cols || y < room.wallRows || y >= rows() || blocked.has(`${x},${y}`)) continue;
+    out.push([x, y]);
+  }
+  return out.sort((a, c) => c[1] - a[1]);
+}
+
+// Walks to the furniture, then hops on to sit or sleep. False if it can't get there.
+function goToSpot(spotPlaced, kind, now) {
+  const b = boxOf(spotPlaced);
+  let best = null;
+  for (const tile of besideTiles(spotPlaced)) {
+    const path = tile[0] === catState.tx && tile[1] === catState.ty ? [] : findPath([catState.tx, catState.ty], tile);
+    if (path && (!best || path.length < best.path.length)) best = { tile, path };
+  }
+  if (!best) return false;
+  // It settles on the front row of the furniture, in the middle.
+  const onTile = [b.x + Math.floor((b.w - 1) / 2), b.y + b.d - 1];
+  catState.goal = { spot: spotPlaced.id, tile: onTile, kind };
+  if (best.path.length) {
+    catState.after = 'hop';
+    startWalk(best.path, now);
+  } else {
+    hopOn(now);
+  }
+  return true;
+}
+
+function startHop(to, lift, now) {
+  catState.mode = 'hop';
+  catState.hop = { x0: catState.x, y0: catState.y, l0: catState.lift, x1: to.x, y1: to.y, l1: lift, start: now };
+  const dx = to.x - catState.x;
+  const dy = to.y - catState.y;
+  let key;
+  if (Math.abs(dx) > Math.abs(dy)) key = dx > 0 ? 'walkRight' : 'walkLeft';
+  else key = dy > 0 ? 'walkDown' : 'walkUp';
+  catState.flip = key === 'walkLeft';
+  setAnim(key, now);
+}
+
+function hopOn(now) {
+  const goal = catState.goal;
+  const spotPlaced = goal && placed.find((p) => p.id === goal.spot);
+  if (!spotPlaced) {
+    startRest('idle', now, 0);
+    return;
+  }
+  catState.on = spotPlaced.id;
+  catState.onAt = placedAt(spotPlaced);
+  const b = boxOf(spotPlaced);
+  const to = { x: (b.x + b.w / 2) * TILE, y: tileCentre(...goal.tile).y };
+  startHop(to, pieces.get(spotPlaced.piece).catLift ?? 8, now);
+}
+
+function hopOff(now) {
+  const spotPlaced = placed.find((p) => p.id === catState.on);
+  const exits = spotPlaced ? besideTiles(spotPlaced) : [];
+  catState.goal = null;
+  if (!exits.length) {
+    // Nowhere free to hop down to: stay a little longer.
+    startRest('sit', now, 0);
+    return;
+  }
+  const [tx, ty] = exits[0];
+  catState.exit = [tx, ty];
+  catState.on = null;
+  startHop(tileCentre(tx, ty), 0, now);
+}
+
+function finishHop(now, dark) {
+  const h = catState.hop;
+  Object.assign(catState, { x: h.x1, y: h.y1, lift: h.l1, hop: null });
+  if (catState.on && catState.goal) {
+    [catState.tx, catState.ty] = catState.goal.tile;
+    startRest(catState.goal.kind, now, dark);
+  } else {
+    if (catState.exit) [catState.tx, catState.ty] = catState.exit;
+    catState.exit = null;
+    startRest('idle', now, dark);
+  }
 }
 
 // What the cat does next: wander, sit and wash, or sleep. It sleeps more at night,
 // and likes a rug for it.
 function nextCatPlan(now, dark) {
+  if (catState.on) return hopOff(now);
   const r = Math.random();
   const sleepy = 0.12 + 0.65 * dark;
+  const spots = catSpots();
+  const someSpot = () => spots[Math.floor(Math.random() * spots.length)];
+  if (r < sleepy && spots.length && Math.random() < 0.75 && goToSpot(someSpot(), 'sleep', now)) return;
+  if (r >= sleepy && r < sleepy + 0.3 && spots.length && Math.random() < 0.5 && goToSpot(someSpot(), 'sit', now)) return;
   if (r < sleepy) {
     const rugTiles = [];
     for (const p of placed) {
@@ -427,14 +539,29 @@ function startRest(kind, now, dark) {
 let lastTick = 0;
 function moveCat(now, dark) {
   if (!catState.placed) placeCat();
+  // If the furniture it's on was moved or put away, the cat lands on the floor.
+  if (catState.on) {
+    const spotPlaced = placed.find((p) => p.id === catState.on);
+    if (!spotPlaced || placedAt(spotPlaced) !== catState.onAt || (held && held.from && held.from.id === catState.on)) placeCat();
+  }
   const dt = Math.min(0.1, (now - (lastTick || now)) / 1000);
   lastTick = now;
+  if (catState.mode === 'hop') {
+    const h = catState.hop;
+    const t = Math.min(1, (now - h.start) / HOP_TIME);
+    catState.x = h.x0 + (h.x1 - h.x0) * t;
+    catState.y = h.y0 + (h.y1 - h.y0) * t;
+    catState.lift = h.l0 + (h.l1 - h.l0) * t + 7 * Math.sin(Math.PI * t);
+    if (t >= 1) finishHop(now, dark);
+    return;
+  }
   if (catState.mode === 'walk') {
     const next = catState.path[0];
     if (!next) {
       const after = catState.after || 'idle';
       catState.after = null;
-      startRest(after, now, dark);
+      if (after === 'hop') hopOn(now);
+      else startRest(after, now, dark);
       return;
     }
     const goal = tileCentre(next[0], next[1]);
@@ -506,7 +633,7 @@ function drawCatFrame(g, sheet, frame, x, y, mirror) {
 }
 
 function catBox() {
-  return { x: Math.round(catState.x - cat.fw / 2), y: Math.round(catState.y - cat.fh + 3), w: cat.fw, h: cat.fh };
+  return { x: Math.round(catState.x - cat.fw / 2), y: Math.round(catState.y - catState.lift - cat.fh + 3), w: cat.fw, h: cat.fh };
 }
 
 function drawCat(now) {
@@ -547,6 +674,7 @@ function petCat(now) {
   if (catState.mode === 'walk') {
     catState.path = [];
     catState.after = null;
+    catState.goal = null;
     startRest('sit', now, 0);
   } else if (catState.mode !== 'sleep') {
     catState.until = Math.max(catState.until, now + 4000);
@@ -691,8 +819,11 @@ function placedCount(id) {
 }
 
 function catStatus() {
-  if (catState.mode === 'sleep') return `${cat.name} is asleep`;
-  if (catState.mode === 'walk') return `${cat.name} is wandering about`;
+  const spotPlaced = catState.on && catState.mode !== 'hop' && placed.find((p) => p.id === catState.on);
+  const where = spotPlaced ? ` on the ${pieces.get(spotPlaced.piece).name.toLowerCase()}` : '';
+  if (catState.mode === 'sleep') return `${cat.name} is asleep${where}`;
+  if (catState.mode === 'walk' || catState.mode === 'hop') return `${cat.name} is wandering about`;
+  if (where) return `${cat.name} is${where}`;
   return `${cat.name} is here`;
 }
 
@@ -821,6 +952,8 @@ function openPieceDetails(piece) {
     <label class="check"><input type="checkbox" name="surface"${piece.surface ? ' checked' : ''}><span>Things can go on top (like a table)</span></label>
     <label class="field"><span>Table height, in pixels <span class="muted">(how high things sit on it)</span></span><input name="lift" type="number" min="0" max="64" value="${piece.lift || 16}"></label>
     <label class="check"><input type="checkbox" name="light"${piece.light ? ' checked' : ''}><span>Gives light at night</span></label>
+    <label class="check"><input type="checkbox" name="catSpot"${piece.catSpot ? ' checked' : ''}><span>${escapeHtml(cat.name)} can sit and sleep on it</span></label>
+    <label class="field"><span>How high ${escapeHtml(cat.name)} sits on it, in pixels</span><input name="catLift" type="number" min="0" max="64" value="${piece.catLift ?? 8}"></label>
     <p><button class="text-button danger" type="submit" value="delete">Delete this piece</button></p>`,
   async (form, submitter) => {
     const action = submitter && submitter.value;
@@ -842,6 +975,7 @@ function openPieceDetails(piece) {
       ...piece, name: form.elements.name.value.trim() || piece.name, type: form.elements.type.value,
       count: Math.max(1, Number(form.elements.count.value) || 1), views,
       surface: form.elements.surface.checked, lift: Number(form.elements.lift.value) || 0, light: form.elements.light.checked,
+      catSpot: form.elements.catSpot.checked, catLift: Math.max(0, Number(form.elements.catLift.value) || 0),
     });
     pieces.set(saved.id, saved);
     showRoomPanel();

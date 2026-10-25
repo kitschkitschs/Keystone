@@ -59,7 +59,8 @@ function showRoomAdd() {
           <p class="muted">The tiles are what it stands on. A bookshelf can be 2 wide and 1 deep even if its picture is 3 tiles tall.</p>
           ${forPiece ? '' : `<label class="field"><span>How many you have</span><input name="count" type="number" min="1" max="99" value="1"></label>
           <label class="check"><input type="checkbox" name="surface"><span>Things can go on top (like a table)</span></label>
-          <label class="check"><input type="checkbox" name="light"><span>Gives light at night</span></label>`}
+          <label class="check"><input type="checkbox" name="light"><span>Gives light at night</span></label>
+          <label class="check"><input type="checkbox" name="catSpot"><span>The cat can sit and sleep on it</span></label>`}
           <p><button class="ink-button" type="submit">${forPiece ? 'Add this look' : 'Add to inventory'}</button></p>
         </form>
       </div>
@@ -265,13 +266,14 @@ $('cut-page').addEventListener('submit', async (event) => {
   const piece = await putItem({
     id: newId('piece'), kind: 'piece', day: '', name: form.elements.name.value.trim(), type, views: [view],
     count: Math.max(1, Number(form.elements.count.value) || 1), surface: form.elements.surface.checked, lift: 16,
-    light: form.elements.light.checked, createdAt: Date.now(),
+    light: form.elements.light.checked, catSpot: form.elements.catSpot.checked, catLift: 8, createdAt: Date.now(),
   });
   pieces.set(piece.id, piece);
   form.elements.name.value = '';
   form.elements.count.value = 1;
   form.elements.surface.checked = false;
   form.elements.light.checked = false;
+  form.elements.catSpot.checked = false;
   cut.box = null;
   cut.tilesTouched = false;
   drawCutSheet();
