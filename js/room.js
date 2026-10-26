@@ -35,9 +35,12 @@ let placed = [];
 let cat = defaultCat();
 
 let decorating = false;
-let held = null; // the piece in your hand: { piece, view, x, y, ox, oy, layer, from }
+// The piece in your hand: { piece, view, x, y, ox, oy, layer, from, riders }.
+// riders: the small things on a table you picked up, which move with it,
+// each { p, dx, dy } tiles from its corner.
+let held = null;
 let fine = false; // fine placement: arrows nudge a small piece by the pixel
-let inventoryFolder = null; // the set open in the inventory ('' for no set), or null for all the folders
+let inventoryFolder = null; // the tag the inventory shows: 'set:<name>' ('set:' for no set) or 'type:<type>', or null for everything
 let previewHour = null; // a chosen time of day, to try the light; null follows the clock
 
 const roomCanvas = $('room-canvas');
@@ -202,8 +205,9 @@ function spot(p) {
   const box = boxOf(p);
   let bottom = (box.y + box.d) * TILE;
   if (piece.type === 'small') {
-    const table = surfaceUnder(box.x, box.y, p.id);
-    if (table) bottom -= pieces.get(table.piece).lift || 16;
+    const table = p.riding ? null : surfaceUnder(box.x, box.y, p.id);
+    if (p.riding) bottom -= pieces.get(p.riding).lift || 16;
+    else if (table) bottom -= pieces.get(table.piece).lift || 16;
     bottom += p.oy || 0;
   }
   const ox = piece.type === 'small' ? p.ox || 0 : 0;
@@ -236,7 +240,7 @@ function drawList() {
   const rugs = [];
   const standing = [];
   for (const p of placed) {
-    if (held && held.from && held.from.id === p.id) continue;
+    if (held && held.from && (held.from.id === p.id || held.riders.some((r) => r.p.id === p.id))) continue;
     const piece = pieces.get(p.piece);
     const box = boxOf(p);
     if (piece.type === 'wall') wall.push({ y: box.y + box.d, p });
@@ -291,6 +295,7 @@ function drawRoom(now) {
     const ok = canPlace(held);
     const box = boxOf(held);
     drawPiece(held, ok ? 0.9 : 0.6);
+    for (const r of ridersAt(held)) drawPiece(r, ok ? 0.9 : 0.6);
     dashedBox(box, ok);
     if (pieces.get(held.piece).catSpot) drawSeatGhost(held);
   }
@@ -1132,17 +1137,23 @@ function callToPlay(toy) {
 
 function pickUp(p) {
   const piece = pieces.get(p.piece);
-  if (piece.surface && thingsOn(p).length) {
-    roomNote('Take the things off it first.');
-    return;
-  }
-  held = { piece: p.piece, view: p.view || 0, x: p.x, y: p.y, ox: p.ox || 0, oy: p.oy || 0, layer: p.layer || 0, from: p };
+  // Things on a table come along with it.
+  const riders = piece.surface && piece.type === 'furniture' ? thingsOn(p).map((r) => ({ p: r, dx: r.x - p.x, dy: r.y - p.y })) : [];
+  held = { piece: p.piece, view: p.view || 0, x: p.x, y: p.y, ox: p.ox || 0, oy: p.oy || 0, layer: p.layer || 0, from: p, riders };
   showRoomPanel();
+}
+
+// Where the things on a held table are now: on its tiles, kept on when it turns.
+function ridersAt(h) {
+  const box = boxOf(h);
+  return (h.riders || []).map(({ p, dx, dy }) => ({
+    ...p, x: h.x + Math.min(dx, box.w - 1), y: h.y + Math.min(dy, box.d - 1), riding: h.piece,
+  }));
 }
 
 function holdPiece(piece) {
   const [top, bottom] = rowsFor(piece.type);
-  held = { piece: piece.id, view: 0, x: 0, y: 0, ox: 0, oy: 0, layer: 0, from: null };
+  held = { piece: piece.id, view: 0, x: 0, y: 0, ox: 0, oy: 0, layer: 0, from: null, riders: [] };
   moveHeldTo({ x: (room.cols * TILE) / 2, y: ((top + bottom) / 2) * TILE });
   showRoomPanel();
 }
@@ -1153,6 +1164,10 @@ async function placeHeld() {
   if (pieces.get(held.piece).type === 'small') Object.assign(fields, { ox: held.ox, oy: held.oy, layer: held.layer });
   const item = await putItem(fields);
   placed = placed.filter((p) => p.id !== item.id).concat(item);
+  for (const { riding, ...rider } of ridersAt(held)) {
+    const moved = await putItem(rider);
+    placed = placed.map((p) => (p.id === moved.id ? moved : p));
+  }
   held = null;
   showRoomPanel();
   showBackupInfo();
@@ -1160,8 +1175,10 @@ async function placeHeld() {
 
 async function putAway() {
   if (held && held.from) {
-    await deleteItem(held.from.id);
-    placed = placed.filter((p) => p.id !== held.from.id);
+    // Things on it go back in the inventory too.
+    const gone = [held.from, ...held.riders.map((r) => r.p)].map((p) => p.id);
+    for (const id of gone) await deleteItem(id);
+    placed = placed.filter((p) => !gone.includes(p.id));
   }
   held = null;
   showRoomPanel();
@@ -1237,31 +1254,24 @@ function placeHeldTools() {
   tools.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
 }
 
-// The inventory: every unlocked piece, in a folder for each set, with how many
-// are left to place.
+// The inventory: every unlocked piece, with how many are left to place. Tags
+// along the top show just one set, or one kind of piece.
 function inventoryHtml() {
   const owned = [...pieces.values()].filter((p) => !p.locked).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-  const folders = new Map();
-  for (const p of owned) {
-    const set = p.set || '';
-    if (!folders.has(set)) folders.set(set, []);
-    folders.get(set).push(p);
-  }
-  if (inventoryFolder !== null && !folders.has(inventoryFolder)) inventoryFolder = null;
-  if (inventoryFolder === null) {
-    const names = [...folders.keys()].sort((a, b) => (a === '') - (b === '') || a.localeCompare(b));
-    return `<p id="inv-note" class="status" role="status"></p>
-      <div class="inventory">${names.map((name) => {
-        const first = folders.get(name)[0].views[0];
-        return `<button type="button" class="inv-tile inv-folder" data-inv-folder="${escapeHtml(name)}">
-          <img class="pixel" src="${first.src}" alt="" style="--pw: ${first.pw}; --ph: ${first.ph}">
-          <span class="inv-name">${name ? escapeHtml(name) : 'Not in a set'}</span><span class="inv-badge">${folders.get(name).length}</span></button>`;
-      }).join('')}</div>`;
-  }
-  return `<p class="inv-path"><button class="text-button" type="button" data-inv-folder-back>‹ Sets</button> <b>${inventoryFolder ? escapeHtml(inventoryFolder) : 'Not in a set'}</b></p>
+  const sets = [...new Set(owned.map((p) => p.set || ''))].sort((a, b) => (a === '') - (b === '') || a.localeCompare(b));
+  const types = PIECE_TYPES.filter(([key]) => owned.some((p) => p.type === key));
+  const tags = [
+    ...(sets.length > 1 ? sets.map((name) => [`set:${name}`, name ? escapeHtml(name) : 'Not in a set']) : []),
+    ...(types.length > 1 ? types.map(([key, name]) => [`type:${key}`, name]) : []),
+  ];
+  if (!tags.some(([value]) => value === inventoryFolder)) inventoryFolder = null;
+  const [by, value] = inventoryFolder === null ? [] : [inventoryFolder.slice(0, inventoryFolder.indexOf(':')), inventoryFolder.slice(inventoryFolder.indexOf(':') + 1)];
+  const shown = owned.filter((p) => !by || (by === 'set' ? p.set || '' : p.type) === value);
+  const tag = (value, label) => `<button type="button" class="inv-tag" data-inv-folder="${value === null ? '*' : escapeHtml(value)}" aria-pressed="${inventoryFolder === value}">${label}</button>`;
+  return `${tags.length ? `<div class="inv-tags">${tag(null, 'All')}${tags.map(([value, label]) => tag(value, label)).join('')}</div>` : ''}
     <p id="inv-note" class="status" role="status"></p>
     <div class="inventory">
-      ${folders.get(inventoryFolder).map((p) => {
+      ${shown.map((p) => {
         const left = (p.count || 1) - placedCount(p.id);
         const flat = p.type === 'wallpaper' || p.type === 'floor';
         const using = (p.type === 'wallpaper' && room.wallpaper === p.id) || (p.type === 'floor' && room.floor === p.id);
@@ -1294,8 +1304,9 @@ $('held-tools').addEventListener('pointerdown', (event) => event.stopPropagation
 $('gw-body').addEventListener('click', async (event) => {
   if (gameWindowKind !== 'inventory') return;
   const folder = event.target.closest('[data-inv-folder]');
-  if (folder || event.target.closest('[data-inv-folder-back]')) {
-    inventoryFolder = folder ? folder.dataset.invFolder : null;
+  if (folder) {
+    const value = folder.dataset.invFolder;
+    inventoryFolder = value === '*' ? null : value;
     drawGameWindow();
     return;
   }

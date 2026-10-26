@@ -112,7 +112,6 @@ function catLookHtml() {
     <div class="pile">${fam.map((q) => `<button type="button" class="pile-tile${q.locked ? ' locked' : ''}" data-cat-pick="${q.id}"${q.id === p.id ? ' aria-current="true"' : ''} aria-label="This colour">
       <img class="pixel" src="${q.views[0].src}" alt="" style="--pw: ${q.views[0].pw}; --ph: ${q.views[0].ph}"></button>`).join('')}</div>` : ''}
     <div class="buttons look-buttons">
-      <button class="text-button" type="button" data-gw="catalogue">Back to the catalogue</button>
       <button class="ink-button" type="button" data-cat-edit="${p.id}">Edit</button>
     </div>`;
 }
