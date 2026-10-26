@@ -1,5 +1,5 @@
-// map.js: your own tiles, and the garden's map painted with them (the Map page,
-// map-page.js, is where you make both).
+// map.js: your own tiles, and the room's and the garden's maps painted with
+// them (the Map page, map-page.js, is where you make them).
 //
 // A tile set is a tile sheet, with a sheet for each season. The tiles are cut
 // from it once: every season's sheet has the same layout, so a tile shows the
@@ -14,9 +14,12 @@
 //   { id: "tile-...", kind: "tile", day: "", set, x, y, w, h, frames: [[x, y]], fps, type, front, walk }
 //        x, y, w, h: where it is on the sheet, in pixels (whole tiles of 16).
 //        frames: more spots of the same size, played in turn (an animated tile).
-//        type: ground, soil, path, water, edge or decoration (see TILE_TYPES).
+//        type: ground, soil, path, water, edge, decoration or plant (see
+//        TILE_TYPES). A plant sways when a pet walks through it, and in the
+//        garden it's in front of a pet behind it and behind one in front.
 //        front: drawn in front of the pets (a canopy). walk: the pets can walk on it.
-//   { id: "map-garden", kind: "map", day: "", cols, rows, ground: [], detail: [], front: [] }
+//   { id: "map-garden" or "map-room", kind: "map", day: "", cols, rows, ground: [], detail: [], front: [] }
+//        the garden's map is the garden's size, the room's the room's.
 //        each layer a tile id (or "") for every tile of the map, row by row,
 //        with ":1", ":2" or ":3" after it when it's turned that many quarter
 //        turns, and "|" between them when tiles are stacked in one spot (the
@@ -30,6 +33,7 @@ const TILE_TYPES = [
   ['water', 'Water', false],
   ['edge', 'Edge', true],
   ['decoration', 'Decoration', false],
+  ['plant', 'Swaying plant', true],
 ];
 const MAP_LAYERS = [['ground', 'Ground'], ['detail', 'On the ground'], ['front', 'In front']];
 // The layer a tile goes on, from its type.
@@ -45,26 +49,54 @@ function seasonNow() {
 
 let tilesets = new Map();
 let tiles = new Map();
-let gardenMap = null;
+const maps = { room: null, garden: null };
 
 // Called by loadRoom (room.js) with every item.
 function loadMaps(items) {
   tilesets = new Map();
   tiles = new Map();
-  gardenMap = null;
+  maps.room = null;
+  maps.garden = null;
   for (const item of items) {
     if (item.deleted) continue;
     if (item.kind === 'tileset') tilesets.set(item.id, item);
     if (item.kind === 'tile') tiles.set(item.id, item);
-    if (item.kind === 'map' && item.id === 'map-garden') gardenMap = item;
+    if (item.kind === 'map' && item.id === 'map-garden') maps.garden = item;
+    if (item.kind === 'map' && item.id === 'map-room') maps.room = item;
   }
 }
 
-function blankMap() {
-  const n = gardenCols() * gardenRows();
-  return { id: 'map-garden', kind: 'map', day: '', cols: gardenCols(), rows: gardenRows(), ground: Array(n).fill(''), detail: Array(n).fill(''), front: Array(n).fill('') };
+// How big a map is: the room's size, or the garden's.
+const mapSize = (which) => (which === 'room' ? [room.cols, rows()] : [gardenCols(), gardenRows()]);
+function blankMap(which) {
+  const [cols, rows] = mapSize(which);
+  const n = cols * rows;
+  return { id: `map-${which}`, kind: 'map', day: '', cols, rows, ground: Array(n).fill(''), detail: Array(n).fill(''), front: Array(n).fill('') };
 }
-const saveMap = async () => { gardenMap = await putItem(gardenMap); };
+const saveMap = async (which) => { maps[which] = await putItem(maps[which]); };
+
+// A map that changed size keeps what's painted where it still fits.
+function resizedMap(which) {
+  const old = maps[which];
+  const map = blankMap(which);
+  if (!old) return map;
+  for (const [layer] of MAP_LAYERS) {
+    old[layer].forEach((id, i) => {
+      const x = i % old.cols;
+      const y = Math.floor(i / old.cols);
+      if (x < map.cols && y < map.rows) map[layer][y * map.cols + x] = id;
+    });
+  }
+  return map;
+}
+// Makes a map fit its size again, after the room or garden changed size.
+async function fitMap(which) {
+  const map = maps[which];
+  const [cols, rows] = mapSize(which);
+  if (!map || (map.cols === cols && map.rows === rows)) return;
+  maps[which] = resizedMap(which);
+  await saveMap(which);
+}
 
 // The sheet a tile set shows in a season.
 function sheetFor(set, season = seasonNow()) {
@@ -102,17 +134,18 @@ function drawTile(g, tile, x, y, now = performance.now(), season = seasonNow(), 
   g.restore();
 }
 
-const mapHere = () => Boolean(gardenMap && gardenMap.ground.some((v) => cellStack(v).length));
-const cellOf = (tx, ty) => (gardenMap && tx >= 0 && ty >= 0 && tx < gardenMap.cols && ty < gardenMap.rows ? ty * gardenMap.cols + tx : -1);
+// Whether a map has ground painted on it.
+const mapHere = (map) => Boolean(map && map.ground.some((v) => cellStack(v).length));
+const cellOf = (map, tx, ty) => (map && tx >= 0 && ty >= 0 && tx < map.cols && ty < map.rows ? ty * map.cols + tx : -1);
 
 // Every tile on one layer covering tx, ty, big ones and stacked ones too:
 // { at (the spot), k (where it is in the stack), tile, turn }, the last on top.
-function coveringAt(layer, tx, ty) {
+function coveringAt(map, layer, tx, ty) {
   const found = [];
-  if (!gardenMap) return found;
-  gardenMap[layer].forEach((value, at) => {
-    const x = at % gardenMap.cols;
-    const y = Math.floor(at / gardenMap.cols);
+  if (!map) return found;
+  map[layer].forEach((value, at) => {
+    const x = at % map.cols;
+    const y = Math.floor(at / map.cols);
     cellStack(value).forEach(({ tile, turn }, k) => {
       const [cols, rows] = footprint(tile, turn);
       if (tx >= x && tx < x + cols && ty >= y && ty < y + rows) found.push({ at, k, tile, turn });
@@ -122,38 +155,103 @@ function coveringAt(layer, tx, ty) {
 }
 
 // The tiles covering a spot on the map, on each layer.
-const tilesAt = (tx, ty) => MAP_LAYERS.flatMap(([layer]) => coveringAt(layer, tx, ty).map((one) => one.tile));
+const tilesAt = (map, tx, ty) => MAP_LAYERS.flatMap(([layer]) => coveringAt(map, layer, tx, ty).map((one) => one.tile));
 
 // Takes tiles off a layer: each { at, k } found by coveringAt.
-function takeOff(layer, found) {
+function takeOff(map, layer, found) {
   for (const at of new Set(found.map((one) => one.at))) {
     const gone = found.filter((one) => one.at === at).map((one) => one.k);
-    gardenMap[layer][at] = stackValue(cellStack(gardenMap[layer][at]).filter((_, k) => !gone.includes(k)));
+    map[layer][at] = stackValue(cellStack(map[layer][at]).filter((_, k) => !gone.includes(k)));
   }
 }
 
 // Puts a tile down: the ground holds one tile, the other layers stack.
-function putTile(layer, at, id, turn) {
+function putTile(map, layer, at, id, turn) {
   if (layer === 'ground') {
-    gardenMap[layer][at] = cellValue(id, turn);
+    map[layer][at] = cellValue(id, turn);
     return;
   }
-  const stack = cellStack(gardenMap[layer][at]).filter((one) => one.id !== id || one.turn !== turn);
-  gardenMap[layer][at] = stackValue([...stack, { id, turn }]);
+  const stack = cellStack(map[layer][at]).filter((one) => one.id !== id || one.turn !== turn);
+  map[layer][at] = stackValue([...stack, { id, turn }]);
 }
 
-const soilAt = (tx, ty) => tilesAt(tx, ty).some((t) => t.type === 'soil');
+const soilAt = (tx, ty) => tilesAt(maps.garden, tx, ty).some((t) => t.type === 'soil');
 const walkableAt = (tx, ty) => {
-  const here = tilesAt(tx, ty).filter((t) => !t.front);
+  const here = tilesAt(maps.garden, tx, ty).filter((t) => !t.front);
   return here.every((t) => t.walk !== false);
 };
 
-function drawMapLayer(g, layer, now) {
-  if (!gardenMap) return;
+// Draws a map layer. skipPlants leaves the swaying plants out, for drawing
+// them in among the pets instead (mapPlants).
+function drawMapLayer(g, map, layer, now, skipPlants = false) {
+  if (!map) return;
   const season = seasonNow();
-  gardenMap[layer].forEach((value, i) => {
-    for (const { tile, turn } of cellStack(value)) drawTile(g, tile, (i % gardenMap.cols) * TILE, Math.floor(i / gardenMap.cols) * TILE, now, season, turn);
+  map[layer].forEach((value, i) => {
+    for (const { tile, turn } of cellStack(value)) {
+      if (skipPlants && tile.type === 'plant') continue;
+      drawPlantOrTile(g, map, tile, i, now, season, turn);
+    }
   });
+}
+function drawPlantOrTile(g, map, tile, at, now, season, turn) {
+  const x = (at % map.cols) * TILE;
+  const y = Math.floor(at / map.cols) * TILE;
+  const lean = tile.type === 'plant' ? swayOf(map, at, now) : 0;
+  if (!lean) return drawTile(g, tile, x, y, now, season, turn);
+  // Leaning from its foot: the top moves most.
+  const [cols, rows] = footprint(tile, turn);
+  g.save();
+  g.translate(0, y + rows * TILE);
+  g.transform(1, 0, lean, 1, 0, 0);
+  drawTile(g, tile, x, -rows * TILE, now, season, turn);
+  g.restore();
+}
+// The swaying plants on a map's lower layers, to sort by depth with the pets:
+// [{ y (its foot), draw }].
+function mapPlants(map, now) {
+  if (!map) return [];
+  const season = seasonNow();
+  const out = [];
+  for (const layer of ['ground', 'detail']) {
+    map[layer].forEach((value, at) => {
+      for (const { tile, turn } of cellStack(value)) {
+        if (tile.type !== 'plant') continue;
+        const rows = footprint(tile, turn)[1];
+        out.push({ y: (Math.floor(at / map.cols) + rows) * TILE - 1, draw: () => drawPlantOrTile(wg, map, tile, at, now, season, turn) });
+      }
+    });
+  }
+  return out;
+}
+
+// Swaying: a plant starts to sway when a pet steps onto its tile, and settles
+// again in under a second.
+const SWAY_MS = 900;
+const swaying = new Map(); // "map id:spot" → when it started
+const petSpots = new Map(); // a pet's name → the tile it was on
+function swayOf(map, at, now) {
+  const start = swaying.get(`${map.id}:${at}`);
+  if (start === undefined) return 0;
+  const t = now - start;
+  if (t > SWAY_MS) {
+    swaying.delete(`${map.id}:${at}`);
+    return 0;
+  }
+  return 0.22 * Math.sin((t / 1000) * Math.PI * 2 * 3) * (1 - t / SWAY_MS);
+}
+// Called every frame with where each pet's feet are: { who, x, y }.
+function rustlePlants(map, feet, now) {
+  if (!map) return;
+  for (const { who, x, y } of feet) {
+    const tx = Math.floor(x / TILE);
+    const ty = Math.floor((y - 1) / TILE);
+    const spot = `${map.id}:${tx},${ty}`;
+    if (petSpots.get(who) === spot) continue;
+    petSpots.set(who, spot);
+    for (const layer of ['ground', 'detail', 'front']) {
+      for (const one of coveringAt(map, layer, tx, ty)) if (one.tile.type === 'plant') swaying.set(`${map.id}:${one.at}`, now);
+    }
+  }
 }
 
 // A tile as a little picture, for the Map page and the palette.

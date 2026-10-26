@@ -14,16 +14,19 @@
 // stove in the room to cook. Snacks can be given to the pets.
 //
 // Saved as items (all part of "Save game only", see sync.js):
-//   { id: "crop-...", kind: "crop", day: "", name, fw, fh, stages: [src], produce, hours, regrow, yield, price }
+//   { id: "crop-...", kind: "crop", day: "", name, fw, fh, stages: [src], produce, hours, regrow, rounds, yield, price }
 //        stages: its pictures from seed to ripe, fw x fh pixels each, standing
 //        on its plot. A crop that regrows has one more at the end: how it looks
 //        once it's been picked. produce: the picture of what you pick. hours: from
 //        planting to ripe. regrow: hours until it's ripe again after picking
-//        (0: it's planted again from seed). yield: how many each picking.
+//        (0: it's planted again from seed). rounds: how many pickings a crop
+//        that regrows gives before the last one clears its plot (0: no end).
+//        yield: how many each picking.
 //        price: coins each at the market.
 //   { id: "good-...", kind: "good", day: "", name, src, price }    sold at the market
 //   { id: "recipe-...", kind: "recipe", day: "", name, src, needs: [{ thing, n }], minutes, price }
-//   { id: "plot-<x>-<y>", kind: "plot", day: "", x, y, crop, plantedAt, ripeAt, regrown }
+//   { id: "plot-<x>-<y>", kind: "plot", day: "", x, y, crop, plantedAt, ripeAt, regrown, picks }
+//        picks: how many times it's been picked so far.
 //   { id: "garden", kind: "garden", day: "", cols, rows, wide, tall, grass, soil }
 //        cols, rows: the bed's size. wide, tall: the garden's own size in tiles
 //        (the room's, until you set it). grass, soil: floor pieces for its ground.
@@ -113,7 +116,6 @@ async function pickPlot(plot, now = Date.now()) {
   const again = againTime(crop);
   const times = 1 + Math.floor((now - plot.ripeAt) / again);
   const last = plot.ripeAt + (times - 1) * again;
-  const n = times * Math.max(1, Number(crop.yield) || 1);
   const regrows = Number(crop.regrow) > 0;
   if (!regrows) {
     // Picked once, and the plot is empty again.
@@ -122,8 +124,18 @@ async function pickPlot(plot, now = Date.now()) {
     await deleteItem(plot.id);
     return Math.max(1, Number(crop.yield) || 1);
   }
+  // Its last round: picked, and the plot is empty again.
+  const rounds = Math.round(Number(crop.rounds)) || 0;
+  const picks = plot.picks || 0;
+  const taken = rounds > 0 ? Math.max(1, Math.min(times, rounds - picks)) : times;
+  const n = taken * Math.max(1, Number(crop.yield) || 1);
   addThing(`crop:${crop.id}`, n);
-  const next = await putItem({ ...plot, ripeAt: last + again, regrown: true, pickedAt: last });
+  if (rounds > 0 && picks + taken >= rounds) {
+    plots.delete(plot.id);
+    await deleteItem(plot.id);
+    return n;
+  }
+  const next = await putItem({ ...plot, ripeAt: last + again, regrown: true, pickedAt: last, picks: picks + taken });
   plots.set(next.id, next);
   return n;
 }
@@ -211,17 +223,17 @@ function bed() {
   return { x: Math.floor((sceneCols() - cols) / 2), y: room.wallRows + 1, cols, rows: down };
 }
 const inBed = (tx, ty) => {
-  if (mapHere()) return soilAt(tx, ty);
+  if (mapHere(maps.garden)) return soilAt(tx, ty);
   const b = bed();
   return tx >= b.x && tx < b.x + b.cols && ty >= b.y && ty < b.y + b.rows;
 };
 // Somewhere a pet can stand: anywhere on the map that isn't water or in the way.
 function freeGardenSpot() {
-  const top = mapHere() ? 0 : room.wallRows;
+  const top = mapHere(maps.garden) ? 0 : room.wallRows;
   for (let tries = 0; tries < 40; tries++) {
     const tx = Math.floor(Math.random() * sceneCols());
     const ty = top + Math.floor(Math.random() * (sceneRows() - top));
-    if (!mapHere() || walkableAt(tx, ty)) return { x: tx * TILE + TILE / 2, y: ty * TILE + 13 };
+    if (!mapHere(maps.garden) || walkableAt(tx, ty)) return { x: tx * TILE + TILE / 2, y: ty * TILE + 13 };
   }
   return { x: (sceneCols() * TILE) / 2, y: (sceneRows() - 1) * TILE + 13 };
 }
@@ -234,9 +246,9 @@ function groundPicture(id) {
 }
 
 function drawGardenGround() {
-  if (mapHere()) {
-    drawMapLayer(wg, 'ground', performance.now());
-    drawMapLayer(wg, 'detail', performance.now());
+  if (mapHere(maps.garden)) {
+    drawMapLayer(wg, maps.garden, 'ground', performance.now(), true);
+    drawMapLayer(wg, maps.garden, 'detail', performance.now(), true);
     return;
   }
   const W = world.width;
@@ -296,13 +308,14 @@ const standAt = (plot) => ({ x: plot.x * TILE + TILE / 2, y: (plot.y + 1) * TILE
 
 function enterGarden() {
   scene = 'garden';
+  view.z = 1;
   sizeRoom();
   decorating = false;
   held = null;
   gardenPets = [{ who: 'cat' }, ...(duckHere() ? [{ who: 'duck' }] : [])].map((p, i) => {
     const b = bed();
     const tx = b.x - 1 + i * (b.cols + 1);
-    const at = mapHere() ? freeGardenSpot() : { x: Math.max(0, tx) * TILE + TILE / 2, y: (b.y + b.rows) * TILE + 11 };
+    const at = mapHere(maps.garden) ? freeGardenSpot() : { x: Math.max(0, tx) * TILE + TILE / 2, y: (b.y + b.rows) * TILE + 11 };
     return { ...p, ...at, mode: 'rest', anim: p.who === 'duck' ? 'sit' : 'sitDown', start: performance.now(), until: performance.now() + 1500 + i * 1200, flip: false, hearts: 0 };
   });
   showRoomPanel();
@@ -311,10 +324,14 @@ function enterGarden() {
 
 function leaveGarden() {
   scene = 'room';
+  pouchOpen = false;
+  plantAt = null;
   sowing = null;
+  view.z = 1;
   sizeRoom();
   showRoomPanel();
-  if (gameWindowKind === 'plant' || gameWindowKind === 'market') closeGameWindow();
+  showPouch();
+  if (gameWindowKind === 'market') closeGameWindow();
 }
 
 function setPetAnim(pet, key, now) {
@@ -489,13 +506,18 @@ function drawGarden(now) {
   wg.imageSmoothingEnabled = false;
   wg.clearRect(0, 0, world.width, world.height);
   drawGardenGround();
-  // Crops and pets by depth: a pet whose feet are on a crop's tile, or lower
-  // down, is in front of it; one further up is behind it.
+  // Crops, swaying plants and pets by depth: a pet whose feet are on a crop's
+  // tile, or lower down, is in front of it; one further up is behind it.
+  const map = mapHere(maps.garden) ? maps.garden : null;
+  rustlePlants(map, gardenPets.map((pet) => ({ who: `garden-${pet.who}`, x: pet.x, y: pet.y })), performance.now());
   const things = [
+    ...mapPlants(map, performance.now()),
     ...bedPlots().map((plot) => ({ y: plot.y * TILE + TILE / 2, draw: () => drawCrop(plot, Date.now()) })),
     ...gardenPets.filter((p) => sheetOf(p.who)).map((pet) => ({ y: pet.y, draw: () => drawGardenPet(pet, now) })),
   ];
   for (const thing of things.sort((a, b) => a.y - b.y)) thing.draw();
+  // The plot tapped to plant, waiting for a crop from the pouch.
+  if (pouchOpen && plantAt && sowing === null) dashedBox({ x: plantAt.x, y: plantAt.y, w: 1, d: 1 }, true);
   // Watering: drops falling on the plot while the duck dances.
   for (const pet of gardenPets) {
     const plot = pet.mode === 'water' && plots.get(pet.plot);
@@ -509,7 +531,7 @@ function drawGarden(now) {
     wg.globalAlpha = 1;
   }
   // Your map's tiles that go in front: a canopy over everything.
-  if (mapHere()) drawMapLayer(wg, 'front', now);
+  if (mapHere(maps.garden)) drawMapLayer(wg, maps.garden, 'front', now);
   drawDayLight(false);
   for (const pet of gardenPets) {
     const b = sheetOf(pet.who) && petBoxIn(pet);
@@ -530,9 +552,7 @@ function drawGarden(now) {
     wg.drawImage(img, Math.round(p.x - img.naturalWidth / 2), Math.round(p.y - img.naturalHeight - t * 14));
     wg.globalAlpha = 1;
   }
-  const g = roomCanvas.getContext('2d');
-  g.imageSmoothingEnabled = false;
-  g.drawImage(world, 0, 0, roomCanvas.width, roomCanvas.height);
+  blitWorld();
 }
 
 function heartUp(b, until, now) {
@@ -542,7 +562,7 @@ function heartUp(b, until, now) {
   wg.globalAlpha = 1;
 }
 
-// A tap in the garden: a pet gets a pat, a plot opens what to plant.
+// A tap in the garden: a pet gets a pat, a plot opens the seed pouch.
 let plantAt = null;
 function tapGarden(point) {
   const now = performance.now();
@@ -562,23 +582,84 @@ function tapGarden(point) {
   }
   if (!inBed(tx, ty)) return;
   plantAt = { x: tx, y: ty };
-  openGameWindow('plant');
+  openPouch();
 }
 
-// Sowing: a crop picked from the plant window stays in your hand, and every
-// empty plot you tap or drag across gets it ('' clears plots instead). The
-// seed button on the garden puts it away.
-let sowing = null;
+// The seed pouch: a row under the garden with every crop. Pick one and it
+// stays in your hand: every empty plot you tap or drag across gets it. ✕
+// digs plots up instead. The grid button plants every empty plot at once, and
+// ✓ puts the pouch away. A plot tapped first (plantAt) gets the crop you pick.
+let pouchOpen = false;
+let sowing = null; // the crop in your hand, '' digging up, null nothing
 let sowDrag = false;
+function openPouch() {
+  pouchOpen = true;
+  showHud();
+  showPouch();
+}
+function closePouch() {
+  pouchOpen = false;
+  plantAt = null;
+  stopSowing();
+}
 function startSowing(cropId) {
   sowing = cropId;
+  pouchOpen = true;
   showHud();
+  showPouch();
 }
 function stopSowing() {
   sowing = null;
   sowDrag = false;
   showHud();
+  showPouch();
 }
+const POUCH_ICONS = {
+  fill: '<svg viewBox="0 0 16 16"><rect x="1" y="1" width="4" height="4" fill="currentColor"/><rect x="6" y="1" width="4" height="4" fill="currentColor"/><rect x="11" y="1" width="4" height="4" fill="currentColor"/><rect x="1" y="6" width="4" height="4" fill="currentColor"/><rect x="6" y="6" width="4" height="4" fill="currentColor"/><rect x="11" y="6" width="4" height="4" fill="currentColor"/><rect x="1" y="11" width="4" height="4" fill="currentColor"/><rect x="6" y="11" width="4" height="4" fill="currentColor"/><rect x="11" y="11" width="4" height="4" fill="currentColor"/></svg>',
+};
+// Every spot in the bed with nothing growing.
+function emptyPlots() {
+  const out = [];
+  for (let y = 0; y < sceneRows(); y++) for (let x = 0; x < sceneCols(); x++) if (inBed(x, y) && !plotAt(x, y)) out.push([x, y]);
+  return out;
+}
+function showPouch() {
+  const pouch = $('seed-pouch');
+  pouch.hidden = !(scene === 'garden' && pouchOpen);
+  if (pouch.hidden) return;
+  const all = [...crops.values()];
+  const target = plantAt && plotAt(plantAt.x, plantAt.y);
+  pouch.innerHTML = `<div class="pouch-seeds">${all.map((c) => `<button type="button" class="held-button pouch-seed" data-sow="${c.id}" aria-pressed="${sowing === c.id}" aria-label="${escapeHtml(c.name)}" title="${escapeHtml(c.name)}"><img class="pixel" src="${c.produce || c.stages[c.stages.length - 1]}" alt=""></button>`).join('')}</div>
+    <div class="pouch-tools">
+      <button type="button" class="held-button" data-sow="" aria-pressed="${sowing === ''}" aria-label="Dig up" title="Dig up"${!target && !plots.size ? ' disabled' : ''}>✕</button>
+      ${sowing ? `<button type="button" class="held-button" data-pouch="fill" aria-label="Plant every empty plot" title="Plant every empty plot"${emptyPlots().length ? '' : ' disabled'}>${POUCH_ICONS.fill}</button>` : ''}
+      <button type="button" class="held-button place" data-pouch="close" aria-label="Done" title="Done">✓</button>
+    </div>`;
+}
+$('seed-pouch').addEventListener('click', async (event) => {
+  const sow = event.target.closest('[data-sow]');
+  if (sow) {
+    const id = sow.dataset.sow;
+    // The same one again puts it back in the pouch.
+    if (sowing === id) return stopSowing();
+    // A plot tapped first gets it straight away.
+    const at = plantAt;
+    plantAt = null;
+    if (at) {
+      const plot = plotAt(at.x, at.y);
+      if (id ? !plot || plot.crop !== id : plot) await plant(at.x, at.y, id);
+    }
+    return startSowing(id);
+  }
+  const action = event.target.closest('[data-pouch]')?.dataset.pouch;
+  if (action === 'fill' && sowing) {
+    for (const [x, y] of emptyPlots()) await plant(x, y, sowing);
+    if (navigator.vibrate) navigator.vibrate(10);
+    showPouch();
+  }
+  if (action === 'close') closePouch();
+});
+$('seed-pouch').addEventListener('pointerdown', (event) => event.stopPropagation());
 async function sowAt(point) {
   const tx = Math.floor(point.x / TILE);
   const ty = Math.floor(point.y / TILE);
@@ -586,6 +667,7 @@ async function sowAt(point) {
   const plot = plotAt(tx, ty);
   if (sowing === '' ? !plot : plot) return;
   await plant(tx, ty, sowing);
+  showPouch();
 }
 // Called by the room's pointer handlers (room.js) in the garden.
 function gardenDown(point, event) {
@@ -626,15 +708,6 @@ const thingImg = (src, size = 2) => (src ? `<img class="pixel" src="${src}" alt=
 const coinsHtml = (n) => `<span class="coins">${pixelIcon('coin')}<b>${n}</b></span>`;
 
 function farmWindowHtml(kind) {
-  if (kind === 'plant') {
-    const plot = plantAt && plotAt(plantAt.x, plantAt.y);
-    const all = [...crops.values()];
-    if (!all.length) return '';
-    return `<div class="thing-grid">
-      ${all.map((c) => `<button type="button" class="thing-tile${plot && plot.crop === c.id ? ' on' : ''}" data-plant="${c.id}" aria-label="${escapeHtml(c.name)}" title="${escapeHtml(c.name)}">${thingImg(c.produce || c.stages[c.stages.length - 1])}</button>`).join('')}
-      ${plot ? '<button type="button" class="thing-tile" data-plant="" aria-label="Clear" title="Clear"><span class="thing-x">✕</span></button>' : ''}
-    </div>`;
-  }
   if (kind === 'market') {
     const forSale = [...goods.values()];
     const sellable = Object.keys(pantry.has).map(thingOf).filter((t) => t && t.price > 0 && t.kind !== 'good');
@@ -676,7 +749,7 @@ function farmWindowHtml(kind) {
   return '';
 }
 
-const FARM_TITLES = { plant: 'Plant', market: 'Market', pantry: 'Pantry', stove: 'Stove' };
+const FARM_TITLES = { market: 'Market', pantry: 'Pantry', stove: 'Stove' };
 let pantryPick = null;
 
 async function drawFarmWindow(kind) {
@@ -699,15 +772,6 @@ setInterval(() => { if (gameWindow.open && gameWindowKind === 'stove') showCookT
 
 $('gw-body').addEventListener('click', async (event) => {
   if (!FARM_TITLES[gameWindowKind]) return;
-  const plantButton = event.target.closest('[data-plant]');
-  if (plantButton && plantAt) {
-    // The plot you tapped gets it now, and the crop stays in your hand for more.
-    const current = plotAt(plantAt.x, plantAt.y);
-    if (!current || current.crop !== plantButton.dataset.plant) await plant(plantAt.x, plantAt.y, plantButton.dataset.plant);
-    closeGameWindow();
-    startSowing(plantButton.dataset.plant);
-    return;
-  }
   const buy = event.target.closest('[data-buy]');
   if (buy) {
     const good = goods.get(buy.dataset.buy);

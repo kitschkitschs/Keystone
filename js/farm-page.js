@@ -30,7 +30,7 @@ async function showFarm() {
 function newDraft() {
   const kind = tabKind[farmTab];
   const base = { id: newId(kind), kind, day: '', name: '', isNew: true };
-  if (kind === 'crop') return { ...base, fw: 16, fh: 32, stages: [], produce: '', hours: 24, regrow: 0, yield: 1, price: 5 };
+  if (kind === 'crop') return { ...base, fw: 16, fh: 32, stages: [], produce: '', hours: 24, regrow: 0, rounds: 0, yield: 1, price: 5 };
   if (kind === 'good') return { ...base, src: '', price: 10 };
   return { ...base, src: '', needs: [], minutes: 30, price: 0 };
 }
@@ -83,6 +83,7 @@ function editorHtml() {
       <div class="cut-box">
         ${numberField('Hours to grow', 'hours', 'min="0.001" step="any"')}
         ${numberField('Regrows after (hours)', 'regrow', 'min="0" step="any"')}
+        ${Number(d.regrow) > 0 ? numberField('Rounds (0: no end)', 'rounds', 'min="0" max="999"') : ''}
         ${numberField('Each picking', 'yield', 'min="1" max="99"')}
         ${numberField('Price', 'price', 'min="0"')}
       </div>
@@ -138,6 +139,7 @@ async function saveFarmDraft() {
   if (d.kind === 'crop') {
     d.hours = Math.max(0.001, d.hours || 1);
     d.yield = Math.max(1, Math.round(d.yield) || 1);
+    d.rounds = Math.max(0, Math.round(d.rounds) || 0);
   }
   const saved = await putItem({ createdAt: Date.now(), ...d });
   tabMap().set(saved.id, saved);
@@ -177,8 +179,6 @@ function farmStatus(text) {
 function gardenFormHtml() {
   const floors = [...pieces.values()].filter((p) => p.type === 'floor');
   return `<div class="cut-box">
-      <label>Garden across <input type="number" id="garden-wide" min="6" max="40" value="${gardenCols()}"></label>
-      <label>Garden down <input type="number" id="garden-tall" min="${room.wallRows + 2}" max="30" value="${gardenRows()}"></label>
       <label>Bed across <input type="number" id="bed-cols" min="1" max="38" value="${garden.cols}"></label>
       <label>Bed down <input type="number" id="bed-rows" min="1" max="28" value="${garden.rows}"></label>
     </div>
@@ -193,7 +193,8 @@ function pickerHtml() {
   return `<div class="picker">
       <div class="inv-tags">
         ${pickerSheets.map((sheet, i) => `<span class="sheet-tag"><button type="button" class="inv-tag" data-pick-sheet="${i}" aria-pressed="${sheet.canvas === pickerSheet}">${escapeHtml(sheet.name)}</button><button type="button" class="text-button danger" data-unload-sheet="${i}" aria-label="Close ${escapeHtml(sheet.name)}" title="Close">✕</button></span>`).join('')}
-        <label class="inv-tag add-tag"><span>Open picture</span><input id="pick-file" type="file" accept="image/*" hidden></label>
+        <label class="inv-tag add-tag"><span>Open pictures</span><input id="pick-file" type="file" accept="image/*" multiple hidden></label>
+        <label class="inv-tag add-tag"><span>Open a folder</span><input id="pick-folder" type="file" webkitdirectory multiple hidden></label>
       </div>
       <div class="cut-box">
         <label>Width <input id="pick-fw" type="number" min="4" max="128" value="${picker.fw}"></label>
@@ -261,16 +262,27 @@ function usePicked() {
 }
 
 $('farm-page').addEventListener('change', async (event) => {
-  if (event.target.id === 'pick-file') {
-    const file = event.target.files[0];
-    if (!file) return;
-    try {
-      pickerSheet = pictureCanvas(await loadPicture(await readFileAsDataUrl(file)));
-      pickerSheets.push({ name: file.name.replace(/\.[^.]*$/, ''), canvas: pickerSheet });
-    } catch (error) {
-      farmStatus(error.message);
-      return;
+  // Rounds only matter for a crop that regrows.
+  if (event.target.dataset.f === 'regrow') {
+    readFarmFields();
+    return drawFarm();
+  }
+  if (event.target.id === 'pick-file' || event.target.id === 'pick-folder') {
+    const found = picturesIn(event.target.files);
+    event.target.value = '';
+    if (!found.length) return;
+    let first = null;
+    for (const { name, file } of found) {
+      try {
+        const canvas = pictureCanvas(await loadPicture(await readFileAsDataUrl(file)));
+        pickerSheets.push({ name, canvas });
+        first = first || canvas;
+      } catch (error) {
+        farmStatus(error.message);
+      }
     }
+    if (!first) return;
+    pickerSheet = first;
     picker.picked = [];
     readFarmFields();
     drawFarm();
@@ -384,18 +396,11 @@ $('farm-page').addEventListener('click', async (event) => {
   }
   if (action === 'garden') {
     const page = $('farm-page');
-    garden.wide = Math.max(6, Math.min(40, Math.round(Number($('garden-wide').value)) || gardenCols()));
-    garden.tall = Math.max(room.wallRows + 2, Math.min(30, Math.round(Number($('garden-tall').value)) || gardenRows()));
     garden.cols = Math.max(1, Math.min(38, Math.round(Number($('bed-cols').value)) || garden.cols));
     garden.rows = Math.max(1, Math.min(28, Math.round(Number($('bed-rows').value)) || garden.rows));
     garden.grass = page.querySelector('[name="grass"]:checked')?.value || '';
     garden.soil = page.querySelector('[name="soil"]:checked')?.value || '';
     await saveGarden();
-    // The map is the garden's size, so it grows and shrinks with it.
-    if (gardenMap && (gardenMap.cols !== gardenCols() || gardenMap.rows !== gardenRows())) {
-      gardenMap = resizedMap(gardenMap);
-      await saveMap();
-    }
     farmStatus('Saved.');
   }
 });

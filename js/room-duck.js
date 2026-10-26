@@ -152,7 +152,7 @@ function setDuckAnim(key, now) {
 function nextDuckPlan(now, dark) {
   if (duckState.on) return duckOff(now);
   // Bedtime: on furniture if it can get to some, or where it stands.
-  const spots = catSpots();
+  const spots = catSpots('duck');
   const someSpot = () => spots[Math.floor(Math.random() * spots.length)];
   if (dark > 0.6) {
     if (spots.length && duckGoTo(someSpot(), 'sleep', now)) return;
@@ -308,7 +308,7 @@ function dropDuck() {
   const now = performance.now();
   const feet = [Math.floor(duckState.x / TILE), Math.floor(duckState.y / TILE)];
   const under = pieceAt({ x: duckState.x, y: duckState.y - duck.fh / 2 + 3 });
-  const spotPlaced = catSpots().find((p) => p === under || overlaps(boxOf(p), { x: feet[0], y: feet[1], w: 1, d: 1 }));
+  const spotPlaced = catSpots('duck').find((p) => p === under || overlaps(boxOf(p), { x: feet[0], y: feet[1], w: 1, d: 1 }));
   if (spotPlaced) return duckOnto(spotPlaced, darkNow() > 0.4 ? 'sleep' : 'sit', now);
   let best = null;
   for (const [x, y] of freeFloorTiles()) {
