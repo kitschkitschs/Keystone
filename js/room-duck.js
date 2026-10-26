@@ -36,7 +36,7 @@ let duckSheet = null;
 // how many pixels up. goal: { spot, kind } while it's on its way to furniture.
 const duckState = {
   x: 0, y: 0, path: [], mode: 'stand', anim: 'walkDown', animStart: 0, face: 'walkDown', until: 0, placed: false,
-  hop: 0, last: 0, on: null, onAt: '', lift: 0, goal: null, jump: null, exit: null,
+  hop: 0, last: 0, on: null, onAt: '', lift: 0, goal: null, jump: null, exit: null, meet: false,
 };
 const DUCK_HOP_TIME = 400;
 const DUCK_SPEED = 14; // room pixels a second
@@ -118,7 +118,12 @@ function duckRest(kind, now, dark) {
 function finishDuckJump(now, dark) {
   const j = duckState.jump;
   Object.assign(duckState, { x: j.x1, y: j.y1, lift: j.l1, jump: null });
-  if (duckState.on && duckState.goal) return duckRest(duckState.goal.kind, now, dark);
+  if (duckState.on && duckState.goal) {
+    duckRest(duckState.goal.kind, now, dark);
+    // Next to the cat on the same furniture: a moment of hearts, if they're awake.
+    if (catState.on === duckState.on && duckState.mode === 'sit' && catState.mode === 'sit') startHearts(now);
+    return;
+  }
   if (duckState.exit) [duckState.tx, duckState.ty] = duckState.exit;
   duckState.exit = null;
   duckState.mode = 'stand';
@@ -143,6 +148,7 @@ function nextDuckPlan(now, dark) {
     if (spots.length && duckGoTo(someSpot(), 'sleep', now)) return;
     return duckRest('sleep', now, dark);
   }
+  if (Math.random() < 0.15 && duckVisitsCat(now)) return;
   if (spots.length && Math.random() < 0.12 && duckGoTo(someSpot(), Math.random() < 0.5 ? 'sit' : 'sleep', now)) return;
   const roll = Math.random();
   if (roll < 0.55) {
@@ -199,6 +205,8 @@ function moveDuck(now, dark) {
       const goal = duckState.goal && placed.find((p) => p.id === duckState.goal.spot);
       if (goal) return duckOnto(goal, duckState.goal.kind, now);
       duckState.goal = null;
+      if (duckState.meet && greet(now)) return;
+      duckState.meet = false;
       duckState.mode = 'stand';
       setDuckAnim(duckState.face, now);
       duckState.until = now + 1000 + Math.random() * 3000;
@@ -258,7 +266,7 @@ function duckSortY() {
 // --- Picking it up (the finger handling is shared with the cat, in room.js) ---
 
 function startCarryDuck(point) {
-  Object.assign(duckState, { mode: 'carried', path: [], goal: null, on: null, lift: 0, jump: null, exit: null, face: 'walkDown' });
+  Object.assign(duckState, { mode: 'carried', meet: false, path: [], goal: null, on: null, lift: 0, jump: null, exit: null, face: 'walkDown' });
   setDuckAnim('walkDown', performance.now());
   carryDuckTo(point);
   if (navigator.vibrate) navigator.vibrate(15);
@@ -303,6 +311,16 @@ function drawDuck(now) {
   wg.restore();
 }
 
+// Z's drifting up while it sleeps, like the cat's.
+function drawDuckZeds(now) {
+  if (!duckHere() || duckState.mode !== 'sleep') return;
+  const b = duckBox(now);
+  const t = ((now - duckState.animStart) / 2400) % 1;
+  wg.globalAlpha = Math.sin(t * Math.PI);
+  drawPixels(ZED, b.x + b.w / 2 + 3 + t * 3, b.y + 2 - t * 8, '#FFFFFF');
+  wg.globalAlpha = 1;
+}
+
 function onDuck(point) {
   if (!duckHere()) return false;
   const b = duckBox(performance.now());
@@ -318,4 +336,105 @@ function tapDuck(now) {
     duckState.until = now + 3000;
   }
   if (navigator.vibrate) navigator.vibrate(8);
+}
+
+// --- Friends: now and then the duck and the cat go up to each other, and
+// little hearts float up between them. They do it sitting together on
+// furniture too.
+
+const FRIEND_TIME = 4500;
+let friends = null; // { start, x, y } while hearts are floating up
+
+// Both on the floor, awake and not busy, so they can meet.
+function bothFree() {
+  if (!duckHere() || !catSheet || !catState.placed || !duckState.placed) return false;
+  const catFree = (catState.mode === 'idle' || catState.mode === 'sit') && !catState.on && !catState.stay;
+  return catFree && !duckState.on && ['stand', 'peck', 'sit'].includes(duckState.mode);
+}
+
+// The free tiles left and right of a pet: where the other one stands to say
+// hello. Two tiles over, as the cat is two tiles wide; one if that's all there is.
+function helloTiles(tx, ty) {
+  const free = new Set(freeFloorTiles().map(([x, y]) => `${x},${y}`));
+  const ok = (tiles) => tiles.filter(([x, y]) => free.has(`${x},${y}`));
+  const roomy = ok([[tx - 2, ty], [tx + 2, ty]]);
+  return roomy.length ? roomy : ok([[tx - 1, ty], [tx + 1, ty]]);
+}
+
+function shortestPath(from, tiles) {
+  let best = null;
+  for (const tile of tiles) {
+    const path = tile[0] === from[0] && tile[1] === from[1] ? [] : findPath(from, tile);
+    if (path && (!best || path.length < best.length)) best = path;
+  }
+  return best;
+}
+
+// The duck waddles over to the cat, who waits for it.
+function duckVisitsCat(now) {
+  if (!bothFree()) return false;
+  const path = shortestPath([duckState.tx, duckState.ty], helloTiles(catState.tx, catState.ty));
+  if (!path) return false;
+  catState.until = Math.max(catState.until, now + (path.length * TILE / DUCK_SPEED) * 1000 + 2000);
+  duckState.meet = true;
+  if (!path.length) return greet(now);
+  duckState.path = path;
+  duckState.mode = 'walk';
+  return true;
+}
+
+// The cat walks over to the duck, who waits for it.
+function catVisitsDuck(now) {
+  if (!bothFree()) return false;
+  const path = shortestPath([catState.tx, catState.ty], helloTiles(duckState.tx, duckState.ty));
+  if (!path) return false;
+  duckState.mode = 'stand';
+  duckState.path = [];
+  setDuckAnim(duckState.face, now);
+  duckState.until = now + (path.length * TILE / CAT_SPEED) * 1000 + 2000;
+  if (!path.length) return greet(now);
+  catState.after = 'meet';
+  startWalk(path, now);
+  return true;
+}
+
+// They're side by side: they face each other and the hearts start.
+function greet(now) {
+  duckState.meet = false;
+  const side = Math.abs(catState.y - duckState.y) < TILE && Math.abs(catState.x - duckState.x) < TILE * 2.6;
+  if (!side || catState.mode === 'carried' || duckState.mode === 'carried') return false;
+  duckState.mode = 'stand';
+  duckState.face = catState.x < duckState.x ? 'walkLeft' : 'walkRight';
+  setDuckAnim(duckState.face, now);
+  duckState.until = now + FRIEND_TIME + 500;
+  if (catState.mode !== 'sit') startRest('sit', now, 0);
+  catState.until = Math.max(catState.until, now + FRIEND_TIME + 1500);
+  startHearts(now);
+  return true;
+}
+
+function startHearts(now) {
+  const c = catBox();
+  const d = duckBox(now);
+  friends = { start: now, x: (c.x + c.w / 2 + d.x + d.w / 2) / 2, y: Math.min(c.y + 6, d.y) };
+}
+
+// A few small hearts, one after another, drifting up and fading.
+const SMALL_HEART = ['##.##', '#####', '.###.', '..#..'];
+function drawFriendHearts(now) {
+  if (!friends) return;
+  const age = now - friends.start;
+  if (age > FRIEND_TIME || catState.mode === 'carried' || duckState.mode === 'carried') {
+    friends = null;
+    return;
+  }
+  for (let i = 0; i < 4; i++) {
+    const t = (age - i * 800) / 1800;
+    if (t < 0 || t > 1) continue;
+    const sway = Math.sin(t * Math.PI * 2 + i) * 2;
+    wg.globalAlpha = Math.min(1, 2 - t * 2);
+    const shape = i % 2 ? SMALL_HEART : HEART;
+    drawPixels(shape, friends.x - shape[0].length / 2 + sway + (i % 2 ? 3 : -3), friends.y - t * 14, '#E0607A');
+  }
+  wg.globalAlpha = 1;
 }
