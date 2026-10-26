@@ -307,7 +307,6 @@ function drawRoom(now) {
     drawPiece(held, ok ? 0.9 : 0.6);
     for (const r of ridersAt(held)) drawPiece(r, ok ? 0.9 : 0.6);
     dashedBox(box, ok);
-    if (pieces.get(held.piece).catSpot) drawSeatGhost(held);
   }
 
   const g = roomCanvas.getContext('2d');
@@ -903,19 +902,6 @@ function drawCat(now) {
   const { frame, mirror } = catFrame(now);
   const b = catBox();
   drawCatFrame(wg, catSheet, frame, b.x, b.y, mirror);
-}
-
-// A see-through cat, sitting where it would sit on a piece: shown while you
-// place a piece the cat can sit on.
-function drawSeatGhost(spotPlaced) {
-  if (!catSheet) return;
-  const sit = animSetting('sitDown');
-  const seat = seatPoint(spotPlaced);
-  const x = seat.x;
-  const y = seat.y - seat.lift;
-  wg.globalAlpha = 0.6;
-  drawCatFrame(wg, catSheet, sit.start + Math.max(0, sit.count - 1), Math.round(x - cat.fw / 2), Math.round(y - cat.fh + 3), sit.mirror);
-  wg.globalAlpha = 1;
 }
 
 // Little pixel hearts when you pet the cat, and z's while it sleeps.
