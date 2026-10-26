@@ -203,6 +203,11 @@ function moveDuck(now, dark) {
     if (t >= 1) finishDuckJump(now, dark);
     return;
   }
+  if (duckState.mode === 'snuggle') {
+    // The cat's picked up: the duck shuffles back.
+    if (catState.mode === 'carried') duckState.snug.end = Math.min(duckState.snug.end, now + SNUG_IN);
+    return snuggle(now);
+  }
   if (duckState.mode === 'walk') {
     const next = duckState.path[0];
     if (!next) {
@@ -248,7 +253,8 @@ function duckFrame(now) {
   }
   const meta = DUCK_ANIMS.find((m) => m.key === duckState.anim);
   // Standing or held, it holds the first frame of the way it's facing.
-  let i = duckState.mode === 'stand' || duckState.mode === 'carried' ? 0 : Math.floor(((now - duckState.animStart) / 1000) * a.fps);
+  const shuffling = duckState.mode === 'snuggle' && duckState.x !== duckState.snug.x1;
+  let i = duckState.mode === 'stand' || duckState.mode === 'carried' || (duckState.mode === 'snuggle' && !shuffling) ? 0 : Math.floor(((now - duckState.animStart) / 1000) * a.fps);
   i = meta && meta.once ? Math.min(i, a.count - 1) : i % Math.max(1, a.count);
   return { frame: a.start + i, mirror };
 }
@@ -256,13 +262,15 @@ function duckFrame(now) {
 function duckBox(now) {
   const t = (now - duckState.hop) / 350;
   const lift = t >= 0 && t < 1 ? Math.round(4 * Math.sin(Math.PI * t)) : 0;
-  return { x: Math.round(duckState.x - duck.fw / 2), y: Math.round(duckState.y - duckState.lift - duck.fh + 3 - lift), w: duck.fw, h: duck.fh };
+  // Smooching, it leans in towards the cat as it hops.
+  const lean = duckState.mode === 'snuggle' && lift ? (duckState.face === 'walkLeft' ? -2 : 2) : 0;
+  return { x: Math.round(duckState.x - duck.fw / 2) + lean, y: Math.round(duckState.y - duckState.lift - duck.fh + 3 - lift), w: duck.fw, h: duck.fh };
 }
 
 // Drawn just in front of the furniture it's on, so it sits on top.
 function duckSortY() {
   const spotUnder = duckState.on && placed.find((p) => p.id === duckState.on);
-  if (!spotUnder) return duckState.y - 0.1;
+  if (!spotUnder) return duckState.y + (duckState.mode === 'snuggle' ? 0.1 : -0.1);
   const b = boxOf(spotUnder);
   return (b.y + b.d) * TILE + 0.35;
 }
@@ -270,7 +278,7 @@ function duckSortY() {
 // --- Picking it up (the finger handling is shared with the cat, in room.js) ---
 
 function startCarryDuck(point) {
-  Object.assign(duckState, { mode: 'carried', meet: false, path: [], goal: null, on: null, lift: 0, jump: null, exit: null, face: 'walkDown' });
+  Object.assign(duckState, { mode: 'carried', meet: false, snug: null, path: [], goal: null, on: null, lift: 0, jump: null, exit: null, face: 'walkDown' });
   setDuckAnim('walkDown', performance.now());
   carryDuckTo(point);
   if (navigator.vibrate) navigator.vibrate(15);
@@ -407,14 +415,40 @@ function greet(now) {
   duckState.meet = false;
   const side = Math.abs(catState.y - duckState.y) < TILE && Math.abs(catState.x - duckState.x) < TILE * 2.6;
   if (!side || catState.mode === 'carried' || duckState.mode === 'carried') return false;
-  duckState.mode = 'stand';
-  duckState.face = catState.x < duckState.x ? 'walkLeft' : 'walkRight';
+  // The duck shuffles right up against the cat for a cuddle, then back.
+  const dir = catState.x < duckState.x ? 1 : -1;
+  duckState.mode = 'snuggle';
+  duckState.face = dir > 0 ? 'walkLeft' : 'walkRight';
   setDuckAnim(duckState.face, now);
-  duckState.until = now + FRIEND_TIME + 500;
+  duckState.snug = { x0: duckState.x, x1: catState.x + dir * SNUG_GAP, start: now, end: now + SNUG_IN + FRIEND_TIME + SNUG_IN };
   if (catState.mode !== 'sit') startRest('sit', now, 0);
-  catState.until = Math.max(catState.until, now + FRIEND_TIME + 1500);
-  startHearts(now);
+  catState.until = Math.max(catState.until, duckState.snug.end + 1000);
   return true;
+}
+
+const SNUG_GAP = 9; // pixels between the cat's middle and the duck's, cuddled up
+const SNUG_IN = 700; // how long the shuffle in (and out) takes
+
+function snuggle(now) {
+  const s = duckState.snug;
+  const age = now - s.start;
+  const left = s.end - now;
+  if (left <= 0) {
+    duckState.x = s.x0;
+    duckState.snug = null;
+    duckState.mode = 'stand';
+    duckState.until = now + 1500 + Math.random() * 2000;
+    return;
+  }
+  const t = Math.min(1, age / SNUG_IN, left / SNUG_IN);
+  duckState.x = s.x0 + (s.x1 - s.x0) * t;
+  if (t < 1) return;
+  // Cuddled up: a smooch now and then, a little hop towards the cat.
+  if (!friends) startHearts(now);
+  if (now > (s.kiss || 0)) {
+    duckState.hop = now;
+    s.kiss = now + 1100;
+  }
 }
 
 function startHearts(now) {
