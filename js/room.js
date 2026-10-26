@@ -2,7 +2,7 @@
 // 16 x 16 pixel tiles, with a cat walking about and the light following the clock.
 //
 // Everything is saved as items (see db.js), so it all goes in your backup file:
-//   { id: "piece-...", kind: "piece", day: "", name, type, count, surface, lift, light, catSpot, catLift,
+//   { id: "piece-...", kind: "piece", day: "", name, type, count, surface, lift, light, catSpot, catLift, toy,
 //     views: [{ src, pw, ph, w, d }] }       one thing in your inventory. Each view is
 //                                            one way it can be turned: its picture
 //                                            (src, pw x ph pixels) and the tiles it
@@ -192,8 +192,18 @@ function drawPiece(p, alpha = 1) {
   const img = picture(v.src);
   if (!img) return;
   const s = spot(p);
+  let bx = 0;
+  let by = 0;
+  // A toy the cat just batted wobbles.
+  if (toyBump && toyBump.id === p.id) {
+    const t = (performance.now() - toyBump.at) / 450;
+    if (t < 1) {
+      bx = Math.round(Math.sin(t * Math.PI * 3) * 2 * (1 - t));
+      by = -Math.round(3 * Math.sin(Math.PI * t));
+    }
+  }
   wg.globalAlpha = alpha;
-  wg.drawImage(img, s.x, s.y);
+  wg.drawImage(img, s.x + bx, s.y + by);
   wg.globalAlpha = 1;
 }
 
@@ -216,7 +226,7 @@ function drawList() {
   }
   wall.sort((a, b) => a.y - b.y);
   rugs.sort((a, b) => a.y - b.y);
-  standing.push({ y: catSortY(), cat: true });
+  if (catState.mode !== 'carried') standing.push({ y: catSortY(), cat: true });
   standing.sort((a, b) => a.y - b.y);
   return [...wall, ...rugs, ...standing];
 }
@@ -234,6 +244,15 @@ function drawRoom(now) {
   for (const thing of drawList()) {
     if (thing.cat) drawCat(now);
     else drawPiece(thing.p);
+  }
+
+  if (catState.mode === 'carried') {
+    // Where the cat will land: furniture it can sit on, or a floor tile.
+    const target = catDropTarget();
+    const b = target.spot ? boxOf(target.spot) : { x: target.tile[0], y: target.tile[1], w: 1, d: 1 };
+    wg.fillStyle = 'rgba(90, 200, 120, 0.4)';
+    wg.fillRect(b.x * TILE, b.y * TILE, b.w * TILE, b.d * TILE);
+    drawCat(now);
   }
 
   const light = drawDayLight();
@@ -325,8 +344,10 @@ function drawDayLight() {
 
 let catSheet = null;
 // on: the furniture the cat is sitting or sleeping on (a placed id), lift: how many
-// pixels up it sits there.
-const catState = { x: 0, y: 0, tx: 0, ty: 0, path: [], mode: 'idle', anim: 'sitDown', animStart: 0, flip: false, until: 0, hearts: 0, placed: false, on: null, onAt: '', lift: 0 };
+// pixels up it sits there. mode is idle, walk, sit, sleep, hop, play or carried
+// (in your hand). still: holds the first frame of the animation (crouching to pounce,
+// or dangling in your hand). stay: put down while you decorate, so it stays put.
+const catState = { x: 0, y: 0, tx: 0, ty: 0, path: [], mode: 'idle', anim: 'sitDown', animStart: 0, flip: false, until: 0, hearts: 0, placed: false, on: null, onAt: '', lift: 0, still: false, stay: false, fast: false, play: null, wantToy: null };
 const HOP_TIME = 450;
 const CAT_SPEED = 22; // room pixels a second
 
@@ -406,16 +427,13 @@ function besideTiles(p) {
 
 // Walks to the furniture, then hops on to sit or sleep. False if it can't get there.
 function goToSpot(spotPlaced, kind, now) {
-  const b = boxOf(spotPlaced);
   let best = null;
   for (const tile of besideTiles(spotPlaced)) {
     const path = tile[0] === catState.tx && tile[1] === catState.ty ? [] : findPath([catState.tx, catState.ty], tile);
     if (path && (!best || path.length < best.path.length)) best = { tile, path };
   }
   if (!best) return false;
-  // It settles on the front row of the furniture, in the middle.
-  const onTile = [b.x + Math.floor((b.w - 1) / 2), b.y + b.d - 1];
-  catState.goal = { spot: spotPlaced.id, tile: onTile, kind };
+  catState.goal = { spot: spotPlaced.id, tile: seatTile(spotPlaced), kind };
   if (best.path.length) {
     catState.after = 'hop';
     startWalk(best.path, now);
@@ -451,6 +469,12 @@ function hopOn(now) {
   startHop(to, pieces.get(spotPlaced.piece).catLift ?? 8, now);
 }
 
+// The tile the cat settles on, on the front row of the furniture, in the middle.
+function seatTile(spotPlaced) {
+  const b = boxOf(spotPlaced);
+  return [b.x + Math.floor((b.w - 1) / 2), b.y + b.d - 1];
+}
+
 function hopOff(now) {
   const spotPlaced = placed.find((p) => p.id === catState.on);
   const exits = spotPlaced ? besideTiles(spotPlaced) : [];
@@ -475,14 +499,28 @@ function finishHop(now, dark) {
   } else {
     if (catState.exit) [catState.tx, catState.ty] = catState.exit;
     catState.exit = null;
-    startRest('idle', now, dark);
+    startRest(catState.landKind || 'idle', now, dark);
+    catState.landKind = null;
   }
 }
 
 // What the cat does next: wander, sit and wash, or sleep. It sleeps more at night,
 // and likes a rug for it.
 function nextCatPlan(now, dark) {
+  catState.stay = false;
   if (catState.on) return hopOff(now);
+  if (catState.wantToy) {
+    const toy = floorToys().find((p) => p.id === catState.wantToy);
+    catState.wantToy = null;
+    if (toy && goPlay(toy, now)) return;
+  }
+  // Now and then, in the day: play with a toy, or a dash about the room.
+  const playful = 0.22 * (1 - dark);
+  if (Math.random() < playful) {
+    const toys = floorToys();
+    if (toys.length && Math.random() < 0.7 && goPlay(toys[Math.floor(Math.random() * toys.length)], now)) return;
+    if (zoom(now)) return;
+  }
   const r = Math.random();
   const sleepy = 0.12 + 0.65 * dark;
   const spots = catSpots();
@@ -517,6 +555,129 @@ function nextCatPlan(now, dark) {
   return startRest('sit', now, dark);
 }
 
+// --- Playing. A toy is a piece marked "a toy the cat plays with", on the floor
+// (not on a table). The cat crouches, pounces at it and backs off, a few times.
+
+function floorToys() {
+  return placed.filter((p) => {
+    const piece = pieces.get(p.piece);
+    if (!piece.toy || piece.type === 'wall' || (held && held.from && held.from.id === p.id)) return false;
+    return !(piece.type === 'small' && surfaceUnder(p.x, p.y, p.id));
+  });
+}
+
+function goPlay(toy, now) {
+  let best = null;
+  for (const tile of besideTiles(toy)) {
+    const path = tile[0] === catState.tx && tile[1] === catState.ty ? [] : findPath([catState.tx, catState.ty], tile);
+    if (path && (!best || path.length < best.length)) best = path;
+  }
+  if (!best) return false;
+  catState.play = { toy: toy.id };
+  if (best.length) {
+    catState.after = 'play';
+    startWalk(best, now);
+  } else {
+    startPlay(now);
+  }
+  return true;
+}
+
+function toyCentre(toy) {
+  const b = boxOf(toy);
+  return { x: (b.x + b.w / 2) * TILE, y: (b.y + b.d) * TILE - 3 };
+}
+
+function faceTowards(x, y, now) {
+  const dx = x - catState.x;
+  const dy = y - catState.y;
+  let key;
+  if (Math.abs(dx) > Math.abs(dy)) key = dx > 0 ? 'walkRight' : 'walkLeft';
+  else key = dy > 0 ? 'walkDown' : 'walkUp';
+  catState.flip = key === 'walkLeft';
+  setAnim(key, now);
+}
+
+function startPlay(now) {
+  const toy = catState.play && placed.find((p) => p.id === catState.play.toy);
+  if (!toy) {
+    catState.play = null;
+    startRest('sit', now, 0);
+    return;
+  }
+  catState.mode = 'play';
+  catState.play = { toy: toy.id, left: 3 + Math.floor(Math.random() * 3), home: { x: catState.x, y: catState.y } };
+  crouch(now);
+}
+
+function crouch(now) {
+  const pl = catState.play;
+  const toy = placed.find((p) => p.id === pl.toy);
+  const c = toyCentre(toy);
+  faceTowards(c.x, c.y, now);
+  catState.still = true;
+  Object.assign(pl, { phase: 'crouch', start: now, until: now + 500 + Math.random() * 1000 });
+}
+
+let toyBump = null; // the toy the cat just batted: { id, at }
+const POUNCE_TIME = 260;
+const BACK_TIME = 420;
+
+function playCat(now, dark) {
+  const pl = catState.play;
+  const toy = floorToys().find((p) => p.id === pl.toy);
+  if (!toy) {
+    Object.assign(catState, { x: pl.home.x, y: pl.home.y, lift: 0, still: false, play: null });
+    startRest('sit', now, dark);
+    return;
+  }
+  const c = toyCentre(toy);
+  const near = { x: pl.home.x + (c.x - pl.home.x) * 0.7, y: pl.home.y + (c.y - pl.home.y) * 0.7 };
+  if (pl.phase === 'crouch') {
+    if (now < pl.until) return;
+    catState.still = false;
+    Object.assign(pl, { phase: 'pounce', start: now });
+  }
+  if (pl.phase === 'pounce') {
+    const t = Math.min(1, (now - pl.start) / POUNCE_TIME);
+    catState.x = pl.home.x + (near.x - pl.home.x) * t;
+    catState.y = pl.home.y + (near.y - pl.home.y) * t;
+    catState.lift = 6 * Math.sin(Math.PI * t);
+    if (t >= 1) {
+      toyBump = { id: toy.id, at: now };
+      Object.assign(pl, { phase: 'back', start: now });
+    }
+    return;
+  }
+  if (pl.phase === 'back') {
+    const t = Math.min(1, (now - pl.start) / BACK_TIME);
+    catState.x = near.x + (pl.home.x - near.x) * t;
+    catState.y = near.y + (pl.home.y - near.y) * t;
+    catState.lift = 0;
+    if (t < 1) return;
+    pl.left--;
+    if (pl.left > 0) return crouch(now);
+    catState.play = null;
+    startRest('sit', now, dark);
+  }
+}
+
+// A dash across the room, twice as fast.
+function zoom(now) {
+  const free = freeFloorTiles();
+  for (let tries = 0; tries < 8 && free.length; tries++) {
+    const goal = free[Math.floor(Math.random() * free.length)];
+    const path = findPath([catState.tx, catState.ty], goal);
+    if (path && path.length >= 5) {
+      catState.fast = true;
+      catState.after = 'sit';
+      startWalk(path, now);
+      return true;
+    }
+  }
+  return false;
+}
+
 function startWalk(path, now) {
   catState.mode = 'walk';
   catState.path = path;
@@ -539,6 +700,7 @@ function startRest(kind, now, dark) {
 let lastTick = 0;
 function moveCat(now, dark) {
   if (!catState.placed) placeCat();
+  if (catState.mode === 'carried') return;
   // If the furniture it's on was moved or put away, the cat lands on the floor.
   if (catState.on) {
     const spotPlaced = placed.find((p) => p.id === catState.on);
@@ -555,12 +717,15 @@ function moveCat(now, dark) {
     if (t >= 1) finishHop(now, dark);
     return;
   }
+  if (catState.mode === 'play') return playCat(now, dark);
   if (catState.mode === 'walk') {
     const next = catState.path[0];
     if (!next) {
       const after = catState.after || 'idle';
       catState.after = null;
+      catState.fast = false;
       if (after === 'hop') hopOn(now);
+      else if (after === 'play') startPlay(now);
       else startRest(after, now, dark);
       return;
     }
@@ -568,7 +733,7 @@ function moveCat(now, dark) {
     const dx = goal.x - catState.x;
     const dy = goal.y - catState.y;
     const dist = Math.hypot(dx, dy);
-    const step = CAT_SPEED * dt;
+    const step = CAT_SPEED * (catState.fast ? 2.6 : 1) * dt;
     if (dist <= step) {
       Object.assign(catState, goal);
       [catState.tx, catState.ty] = next;
@@ -591,7 +756,11 @@ function moveCat(now, dark) {
     else if (catState.anim === 'groom' && now - catState.animStart > 2600) setAnim('sitDown', now - 60000);
   }
   if (catState.mode === 'sleep' && catState.anim === 'lieDown' && animDone(now)) setAnim('sleep', now);
-  if (now > catState.until) nextCatPlan(now, dark);
+  if (now > catState.until) {
+    // Put down while you decorate: it stays where you put it until you're done.
+    if (catState.stay && decorating) catState.until = now + 4000;
+    else nextCatPlan(now, dark);
+  }
 }
 
 function animSetting(key) {
@@ -612,7 +781,7 @@ function animDone(now) {
 function catFrame(now) {
   const a = animSetting(catState.anim);
   const meta = CAT_ANIMS.find((m) => m.key === catState.anim);
-  let i = Math.floor(((now - catState.animStart) / 1000) * a.fps);
+  let i = catState.still ? 0 : Math.floor(((now - catState.animStart) / 1000) * a.fps * (catState.fast ? 2 : 1));
   i = meta && meta.once ? Math.min(i, a.count - 1) : i % Math.max(1, a.count);
   return { frame: a.start + i, mirror: a.mirror };
 }
@@ -671,17 +840,20 @@ function drawCatExtras(now) {
 function petCat(now) {
   catState.hearts = now + 1600;
   if (navigator.vibrate) navigator.vibrate(10);
-  if (catState.mode === 'walk') {
+  if (catState.mode === 'walk' && !catState.fast && catState.after !== 'play' && catState.after !== 'hop') {
     catState.path = [];
     catState.after = null;
     catState.goal = null;
     startRest('sit', now, 0);
-  } else if (catState.mode !== 'sleep') {
+  } else if (catState.mode === 'sit' || catState.mode === 'idle') {
     catState.until = Math.max(catState.until, now + 4000);
   }
 }
 
 // --- The loop that draws the room while it's on screen ---
+
+// How dark it is in the room, from 0 (day) to 1 (night).
+const darkNow = () => Math.max(0, Math.min(1, (lightAt(hourNow()).amount - 0.25) / 0.47));
 
 let roomRunning = false;
 function roomFrame(now) {
@@ -689,8 +861,7 @@ function roomFrame(now) {
     roomRunning = false;
     return;
   }
-  const dark = Math.max(0, Math.min(1, (lightAt(hourNow()).amount - 0.25) / 0.47));
-  moveCat(now, dark);
+  moveCat(now, darkNow());
   drawRoom(now);
   requestAnimationFrame(roomFrame);
 }
@@ -736,30 +907,132 @@ function pieceAt(point) {
   return null;
 }
 
+function onCat(point) {
+  if (!catSheet) return false;
+  const b = catBox();
+  return point.x >= b.x - 4 && point.x <= b.x + b.w + 4 && point.y >= b.y && point.y <= b.y + b.h;
+}
+
+// --- Picking up the cat: hold it, or drag it, and put it down somewhere else.
+
+let press = null; // a finger on the cat: { last, timer, carrying }
+
+function startCarry() {
+  press.carrying = true;
+  clearTimeout(press.timer);
+  Object.assign(catState, {
+    mode: 'carried', path: [], goal: null, after: null, hop: null, play: null, on: null, lift: 0,
+    fast: false, wantToy: null, exit: null,
+  });
+  setAnim('walkDown', performance.now());
+  catState.still = true;
+  carryTo(press.last);
+  if (navigator.vibrate) navigator.vibrate(15);
+}
+
+// The cat hangs from your finger by its middle.
+function carryTo(point) {
+  catState.x = Math.max(0, Math.min(world.width, point.x));
+  catState.y = Math.max(cat.fh / 2, Math.min(world.height, point.y + cat.fh / 2 - 3));
+}
+
+// Where the cat lands if you let go now: furniture it can sit on (under your
+// finger or its feet), or the nearest free floor tile.
+function catDropTarget() {
+  const feet = [Math.floor(catState.x / TILE), Math.floor(catState.y / TILE)];
+  const finger = { x: catState.x, y: catState.y - cat.fh / 2 + 3 };
+  const under = pieceAt(finger);
+  const spotPlaced = catSpots().find((p) => p === under || overlaps(boxOf(p), { x: feet[0], y: feet[1], w: 1, d: 1 }));
+  if (spotPlaced) return { spot: spotPlaced };
+  let best = null;
+  for (const [x, y] of freeFloorTiles()) {
+    const d = (x - feet[0]) ** 2 + (y - feet[1]) ** 2;
+    if (!best || d < best.d) best = { tile: [x, y], d };
+  }
+  return { tile: best ? best.tile : [0, room.wallRows] };
+}
+
+function dropCat() {
+  const now = performance.now();
+  const target = catDropTarget();
+  catState.still = false;
+  catState.stay = decorating;
+  if (target.spot) {
+    const tile = seatTile(target.spot);
+    const b = boxOf(target.spot);
+    catState.goal = { spot: target.spot.id, tile, kind: darkNow() > 0.4 ? 'sleep' : 'sit' };
+    catState.on = target.spot.id;
+    catState.onAt = placedAt(target.spot);
+    startHop({ x: (b.x + b.w / 2) * TILE, y: tileCentre(...tile).y }, pieces.get(target.spot.piece).catLift ?? 8, now);
+  } else {
+    catState.exit = target.tile;
+    catState.landKind = 'sit';
+    startHop(tileCentre(...target.tile), 0, now);
+  }
+}
+
 let dragging = false;
 roomCanvas.addEventListener('pointerdown', (event) => {
-  if (!held) return;
+  const point = toRoom(event);
+  if (!held) {
+    if (!onCat(point)) return;
+    roomCanvas.setPointerCapture(event.pointerId);
+    press = { first: point, last: point, carrying: false };
+    press.timer = setTimeout(() => { if (press && !press.carrying) startCarry(); }, 300);
+    return;
+  }
   dragging = true;
   roomCanvas.setPointerCapture(event.pointerId);
-  moveHeldTo(toRoom(event));
+  moveHeldTo(point);
 });
 roomCanvas.addEventListener('pointermove', (event) => {
   if (dragging) moveHeldTo(toRoom(event));
+  if (!press) return;
+  press.last = toRoom(event);
+  if (press.carrying) carryTo(press.last);
+  else if (Math.hypot(press.last.x - press.first.x, press.last.y - press.first.y) > 4) startCarry();
 });
+function letGoOfCat() {
+  clearTimeout(press.timer);
+  if (press.carrying) dropCat();
+  else petCat(performance.now());
+  press = null;
+}
+roomCanvas.addEventListener('pointercancel', () => { if (press) letGoOfCat(); });
 roomCanvas.addEventListener('pointerup', (event) => {
   if (dragging) {
     dragging = false;
     return;
   }
+  if (press) {
+    letGoOfCat();
+    return;
+  }
   const point = toRoom(event);
+  const p = pieceAt(point);
   if (decorating) {
-    const p = pieceAt(point);
     if (p) pickUp(p);
     return;
   }
-  const b = catBox();
-  if (point.x >= b.x - 4 && point.x <= b.x + b.w + 4 && point.y >= b.y && point.y <= b.y + b.h) petCat(performance.now());
+  // Tap a toy and the cat comes to play with it.
+  if (p && floorToys().includes(p)) callToPlay(p);
 });
+
+function callToPlay(toy) {
+  const now = performance.now();
+  if (catState.mode === 'sleep') {
+    roomNote(`${cat.name} is asleep.`);
+    return;
+  }
+  if (catState.mode === 'play' || catState.mode === 'hop') return;
+  if (catState.on) {
+    catState.wantToy = toy.id;
+    hopOff(now);
+    return;
+  }
+  Object.assign(catState, { path: [], goal: null, after: null, fast: false });
+  if (!goPlay(toy, now)) roomNote(`${cat.name} can't get to it.`);
+}
 
 function pickUp(p) {
   const piece = pieces.get(p.piece);
@@ -822,6 +1095,8 @@ function catStatus() {
   const spotPlaced = catState.on && catState.mode !== 'hop' && placed.find((p) => p.id === catState.on);
   const where = spotPlaced ? ` on the ${pieces.get(spotPlaced.piece).name.toLowerCase()}` : '';
   if (catState.mode === 'sleep') return `${cat.name} is asleep${where}`;
+  if (catState.mode === 'carried') return `${cat.name} is in your arms`;
+  if (catState.mode === 'play') return `${cat.name} is playing`;
   if (catState.mode === 'walk' || catState.mode === 'hop') return `${cat.name} is wandering about`;
   if (where) return `${cat.name} is${where}`;
   return `${cat.name} is here`;
@@ -954,6 +1229,7 @@ function openPieceDetails(piece) {
     <label class="check"><input type="checkbox" name="light"${piece.light ? ' checked' : ''}><span>Gives light at night</span></label>
     <label class="check"><input type="checkbox" name="catSpot"${piece.catSpot ? ' checked' : ''}><span>${escapeHtml(cat.name)} can sit and sleep on it</span></label>
     <label class="field"><span>How high ${escapeHtml(cat.name)} sits on it, in pixels</span><input name="catLift" type="number" min="0" max="64" value="${piece.catLift ?? 8}"></label>
+    <label class="check"><input type="checkbox" name="toy"${piece.toy ? ' checked' : ''}><span>A toy ${escapeHtml(cat.name)} plays with (on the floor)</span></label>
     <p><button class="text-button danger" type="submit" value="delete">Delete this piece</button></p>`,
   async (form, submitter) => {
     const action = submitter && submitter.value;
@@ -976,6 +1252,7 @@ function openPieceDetails(piece) {
       count: Math.max(1, Number(form.elements.count.value) || 1), views,
       surface: form.elements.surface.checked, lift: Number(form.elements.lift.value) || 0, light: form.elements.light.checked,
       catSpot: form.elements.catSpot.checked, catLift: Math.max(0, Number(form.elements.catLift.value) || 0),
+      toy: form.elements.toy.checked,
     });
     pieces.set(saved.id, saved);
     showRoomPanel();
@@ -1004,8 +1281,18 @@ function openRoomSettings() {
     <label class="check"><input type="checkbox" name="clock"${previewHour === null ? ' checked' : ''}><span>Follow the clock</span></label>
     <label class="field"><span>Or try a time of day: <b id="hour-word">${timeWord(hour)}</b></span>
       <input name="hour" type="range" min="0" max="23.75" step="0.25" value="${hour}"></label>
-    <p class="muted">Trying a time only lasts until the app closes.</p>`,
-  async (form) => {
+    <p class="muted">Trying a time only lasts until the app closes.</p>
+    <h3>Starter pieces</h3>
+    <p><button class="text-button" type="submit" value="starter">Add the starter pieces you don't have</button></p>`,
+  async (form, submitter) => {
+    if (submitter && submitter.value === 'starter') {
+      submitter.disabled = true;
+      const added = await addStarterPieces();
+      await loadRoom();
+      showRoomPanel();
+      roomNote(added ? `Added ${added} starter piece${added === 1 ? '' : 's'}.` : 'You have all the starter pieces already.');
+      return true;
+    }
     const size = (name, min, max) => Math.max(min, Math.min(max, Math.round(Number(form.elements[name].value)) || room[name]));
     room.cols = size('cols', 6, 24);
     room.wallRows = size('wallRows', 1, 6);

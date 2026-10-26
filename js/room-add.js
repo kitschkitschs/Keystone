@@ -35,12 +35,7 @@ function showRoomAdd() {
         <p class="muted">Tap one corner of a piece, then the opposite corner.</p>
         <div id="cut-scroll" class="cut-scroll"><canvas id="cut-canvas" class="pixel"></canvas></div>
         <div class="cut-tools">
-          <button class="text-button" type="button" data-cut="clear">Make background see-through</button>
           <button class="text-button" type="button" data-cut="trim">Trim empty edges</button>
-        </div>
-        <div class="cut-tools">
-          <label class="muted">Picture enlarged by <input id="cut-shrink" type="number" min="2" max="16" value="2" class="small-num"></label>
-          <button class="text-button" type="button" data-cut="shrink">Shrink it back</button>
         </div>
         <div class="cut-box">
           <label>Left <input type="number" min="0" data-box="0"></label>
@@ -60,7 +55,8 @@ function showRoomAdd() {
           ${forPiece ? '' : `<label class="field"><span>How many you have</span><input name="count" type="number" min="1" max="99" value="1"></label>
           <label class="check"><input type="checkbox" name="surface"><span>Things can go on top (like a table)</span></label>
           <label class="check"><input type="checkbox" name="light"><span>Gives light at night</span></label>
-          <label class="check"><input type="checkbox" name="catSpot"><span>The cat can sit and sleep on it</span></label>`}
+          <label class="check"><input type="checkbox" name="catSpot"><span>The cat can sit and sleep on it</span></label>
+          <label class="check"><input type="checkbox" name="toy"><span>A toy the cat plays with</span></label>`}
           <p><button class="ink-button" type="submit">${forPiece ? 'Add this look' : 'Add to inventory'}</button></p>
         </form>
       </div>
@@ -198,20 +194,6 @@ $('cut-page').addEventListener('click', async (event) => {
     cut.zoom = Math.max(1, Math.min(12, cut.zoom + (action === 'in' ? 1 : -1)));
     drawCutSheet();
   }
-  if (action === 'clear') {
-    makeBackgroundSeeThrough(cut.sheet);
-    drawCutSheet();
-    showCutBox();
-  }
-  if (action === 'shrink') {
-    cut.sheet = shrinkPicture(cut.sheet, Number($('cut-shrink').value) || 2);
-    cut.box = null;
-    cut.corner = null;
-    fitCutZoom();
-    drawCutSheet();
-    showCutBox();
-    $('cut-status').textContent = `Now ${cut.sheet.width} × ${cut.sheet.height} pixels.`;
-  }
   if (action === 'trim' && cut.box) {
     cut.box = trimBox(cut.sheet, cut.box);
     cut.tilesTouched = false;
@@ -266,7 +248,7 @@ $('cut-page').addEventListener('submit', async (event) => {
   const piece = await putItem({
     id: newId('piece'), kind: 'piece', day: '', name: form.elements.name.value.trim(), type, views: [view],
     count: Math.max(1, Number(form.elements.count.value) || 1), surface: form.elements.surface.checked, lift: 16,
-    light: form.elements.light.checked, catSpot: form.elements.catSpot.checked, catLift: 8, createdAt: Date.now(),
+    light: form.elements.light.checked, catSpot: form.elements.catSpot.checked, catLift: 8, toy: form.elements.toy.checked, createdAt: Date.now(),
   });
   pieces.set(piece.id, piece);
   form.elements.name.value = '';
@@ -274,6 +256,7 @@ $('cut-page').addEventListener('submit', async (event) => {
   form.elements.surface.checked = false;
   form.elements.light.checked = false;
   form.elements.catSpot.checked = false;
+  form.elements.toy.checked = false;
   cut.box = null;
   cut.tilesTouched = false;
   drawCutSheet();
@@ -314,14 +297,6 @@ function showCatPage() {
         <label class="ink-button"><span>Choose a sprite sheet</span><input id="cat-file" type="file" accept="image/*" hidden></label>
         <button class="text-button" type="button" data-cat="placeholder">Use the placeholder cat</button>
       </div>
-      <div class="cut-tools">
-        <button class="text-button" type="button" data-cat="clear">Make background see-through</button>
-      </div>
-      <div class="cut-tools">
-        <label class="muted">Picture enlarged by <input id="cat-shrink" type="number" min="2" max="16" value="2" class="small-num"></label>
-        <button class="text-button" type="button" data-cat="shrink">Shrink it back</button>
-      </div>
-      <p class="muted">Use these for a screenshot: a JPG has a solid background, and a screenshot is often bigger than the real picture.</p>
       <p id="cat-status" class="status" role="status"></p>
       <div class="cut-box">
         <label>Frame width <input id="cat-fw" type="number" min="4" max="256" value="${catDraft.fw}"></label>
@@ -462,17 +437,6 @@ $('cat-page').addEventListener('click', async (event) => {
     catDraft.fh = 32;
     catDraft.anims = defaultCat().anims;
     showCatPage();
-  }
-  if (action === 'shrink' && catDraftSheet) {
-    catDraftSheet = shrinkPicture(catDraftSheet, Number($('cat-shrink').value) || 2);
-    catDraft.src = '';
-    drawCatSheet();
-    $('cat-status').textContent = `Now ${catDraftSheet.width} × ${catDraftSheet.height} pixels: ${Math.floor(catDraftSheet.width / catDraft.fw)} frames across.`;
-  }
-  if (action === 'clear' && catDraftSheet) {
-    makeBackgroundSeeThrough(catDraftSheet);
-    catDraft.src = '';
-    drawCatSheet();
   }
   if (action === 'save') {
     // A sheet from your phone is saved inside the app, so it's in your backup.
