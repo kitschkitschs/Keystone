@@ -26,6 +26,7 @@ clock. The Insight page shows habits and health over time.
 | `js/sample.js` | Made-up data, for "Show sample data" in the menu. |
 | `js/room.js` | The room: the tile grid, placing and moving pieces, the cat, day and night. |
 | `js/room-add.js` | Cutting your own pieces from a picture, and setting up the cat's sprite sheet. |
+| `js/room-pieces.js` | The Pieces page: every piece in a list, to name them, sort them into sets and set up several at once. |
 | `js/room-draw.js` | A pixel drawing page for making your own pieces. |
 | `js/room-gacha.js` | The gacha machine that unlocks pieces, and the catalogue of everything there is to collect. |
 | `js/room-hud.js` | The game's buttons on the room, and its pop-up windows. |

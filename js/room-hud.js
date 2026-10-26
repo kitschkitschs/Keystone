@@ -1,5 +1,5 @@
 // room-hud.js: the game's own buttons, on the room itself, and the pop-up
-// windows they open (Gachapon, the catalogue, the workshop).
+// windows they open (the inventory, Gachapon, the catalogue, the workshop).
 
 // --- Little pixel icons, drawn from rows of letters ---
 
@@ -14,6 +14,8 @@ const HUD_ICONS = {
     '..kaaaaaak..', '..kayyaaak..', '..kayykkak..', '..kaaakkak..', '..kddddddk..', '..kkkkkkkk..'],
   catalogue: ['..kkkkkkkkk.', '..kbbbbbbbk.', '..kbcccccbk.', '..kbbbbbbbk.', '..kbbbbbbbk.', '..kbbyybbbk.',
     '..kbbbbbbbk.', '..kbbbbbbbk.', '..kkkkkkkkk.', '..kccccccck.', '..kkkkkkkkk.', '............'],
+  inventory: ['............', '..kkkkkkkk..', '.kwwwwwwwwk.', '.kwwwwwwwwk.', 'kkkkkkkkkkkk', 'kwwwwyywwwwk',
+    'kwwwwyywwwwk', 'kwwwwwwwwwwk', 'kwwwwwwwwwwk', 'kkkkkkkkkkkk', '............', '............'],
   workshop: ['............', '....kkkk....', '....k..k....', '.kkkkkkkkkk.', '.kwwwwwwwwk.', '.kwwwwwwwwk.',
     '.kkkkyykkkk.', '.kwwwyywwwk.', '.kwwwwwwwwk.', '.kwwwwwwwwk.', '.kkkkkkkkkk.', '............'],
   clock: ['...kkkkkk...', '..kcccccck..', '.kcccckccck.', '.kcccckccck.', '.kcccckccck.', '.kcccckkkck.',
@@ -56,6 +58,7 @@ function showHud() {
   const lightName = previewHour === null ? 'Clock' : LIGHT_STEPS.find(([hour]) => hour === previewHour)?.[1] || timeWord(previewHour);
   const buttons = [
     ['decorate', decorating ? 'Done decorating' : 'Decorate', 'decorate'],
+    ['inventory', 'Inventory', 'inventory'],
     ['gacha', 'Gachapon', 'gacha'],
     ['catalogue', 'Catalogue', 'catalogue'],
     ['light', `Light: ${lightName}`, lightIcon()],
@@ -70,8 +73,13 @@ $('room-hud').addEventListener('click', async (event) => {
   const key = button.dataset.hud;
   if (key === 'decorate') {
     decorating = !decorating;
-    if (!decorating) { editingPieces = false; held = null; }
+    if (!decorating) held = null;
     showRoomPanel();
+  }
+  if (key === 'inventory') {
+    decorating = true;
+    showRoomPanel();
+    openGameWindow('inventory');
   }
   if (key === 'gacha') openGacha();
   if (key === 'catalogue') openGameWindow('catalogue');
@@ -100,17 +108,18 @@ function openGameWindow(kind) {
 function drawGameWindow() {
   const kind = gameWindowKind;
   if (kind === 'gacha') return drawGacha();
-  const titles = { catalogue: 'Catalogue', workshop: 'Workshop' };
+  const titles = { inventory: 'Inventory', catalogue: 'Catalogue', workshop: 'Workshop' };
   $('gw-title').textContent = titles[kind] || '';
+  if (kind === 'inventory') $('gw-body').innerHTML = inventoryHtml();
   if (kind === 'catalogue') {
     $('gw-body').innerHTML = catalogueHtml([...pieces.values()]) || '<p class="muted">Nothing to collect yet. Add pieces in the workshop.</p>';
   }
   if (kind === 'workshop') {
     $('gw-body').innerHTML = `
       <div class="workshop">
-        <button type="button" class="ws-button" data-ws="add"><b>Add pieces</b><span>Cut pieces from a picture or a sheet</span></button>
+        <button type="button" class="ws-button" data-ws="add"><b>Cut pieces</b><span>From a picture or a whole sprite sheet</span></button>
         <button type="button" class="ws-button" data-ws="draw"><b>Draw</b><span>Draw a piece pixel by pixel</span></button>
-        <button type="button" class="ws-button" data-ws="edit"><b>Edit pieces</b><span>Rename, change or delete your pieces</span></button>
+        <button type="button" class="ws-button" data-ws="pieces"><b>Pieces</b><span>Name them, sort them into sets, and set them up</span></button>
         <button type="button" class="ws-button" data-ws="cat"><b>${escapeHtml(cat.name)}</b><span>Name and sprite sheet</span></button>
         <button type="button" class="ws-button" data-ws="room"><b>Room</b><span>Size, light and starter pieces</span></button>
       </div>`;
@@ -138,11 +147,7 @@ $('gw-body').addEventListener('click', async (event) => {
     if (action === 'draw') { drawFor = null; goTo('draw'); }
     if (action === 'cat') goTo('cat');
     if (action === 'room') openRoomSettings();
-    if (action === 'edit') {
-      decorating = true;
-      editingPieces = true;
-      showRoomPanel();
-    }
+    if (action === 'pieces') goTo('pieces');
     return;
   }
   if (event.target.closest('[data-gw="catalogue"]')) openGameWindow('catalogue');

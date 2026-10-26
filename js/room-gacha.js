@@ -77,11 +77,11 @@ function catalogueHtml(all) {
 
 function catalogueTile(p) {
   const v = p.views[0];
-  return `<div class="cat-tile${p.locked ? ' locked' : ''}">
+  return `<button type="button" class="cat-tile${p.locked ? ' locked' : ''}" data-cat-piece="${p.id}" aria-label="Edit ${escapeHtml(p.name)}">
     <img class="pixel" src="${v.src}" alt="" style="--pw: ${v.pw}; --ph: ${v.ph}">
     <span class="inv-name">${p.locked ? '?' : escapeHtml(p.name)}</span>
     ${p.rarity && p.rarity !== 'common' ? `<span class="cat-rarity ${p.rarity}">${rarityName(p.rarity)}</span>` : ''}
-  </div>`;
+  </button>`;
 }
 
 // --- Turning the handle ---
@@ -124,6 +124,15 @@ function turning(now) {
   gacha.phase = 'capsule';
   drawGacha();
 }
+
+// Tap a piece in the catalogue to edit it, locked or not. The window shows what
+// changed once the editing sheet closes.
+$('gw-body').addEventListener('click', (event) => {
+  const tile = event.target.closest('[data-cat-piece]');
+  const piece = tile && pieces.get(tile.dataset.catPiece);
+  if (piece) openPieceDetails(piece);
+});
+$('sheet').addEventListener('close', () => { if (gameWindowKind === 'catalogue') drawGameWindow(); });
 
 $('gw-body').addEventListener('click', async (event) => {
   const button = event.target.closest('[data-gacha]');
