@@ -1,6 +1,7 @@
 // room-pieces.js: the Pieces page. Every piece in one list. Pick several to give
 // them the same set and settings at once, or tap one for everything about it
 // (openPieceDetails in room.js). Pieces cut from a sheet land here, all picked.
+// The colours of one piece share a row: picking it picks them all.
 
 // filter: 'all', 'new' (just added), 'none' (not in a set) or 'set:<name>'.
 const org = { filter: 'all', picked: new Set(), justAdded: [], note: '' };
@@ -27,19 +28,32 @@ function shownPieces() {
   return all;
 }
 
-function pieceTags(p) {
+// The shown pieces, a row for each piece and its colours, the first colour first.
+function shownRows() {
+  const rows = new Map();
+  for (const p of shownPieces()) {
+    const root = pieces.get(familyOf(p)) ? familyOf(p) : p.id;
+    if (!rows.has(root)) rows.set(root, []);
+    rows.get(root).push(p);
+  }
+  return [...rows.values()].map((row) => row.sort((a, b) => (a.family ? 1 : 0) - (b.family ? 1 : 0)));
+}
+
+function pieceTags(p, colours) {
   const tags = [(PIECE_TYPES.find(([key]) => key === p.type) || PIECE_TYPES[0])[1]];
   if (p.rarity && p.rarity !== 'common') tags.push(rarityName(p.rarity));
-  if (p.family && pieces.get(p.family)) tags.push('a colour');
+  if (colours > 1) tags.push(`${colours} colours`);
   if (p.locked) tags.push('in the machine');
   return tags.map(escapeHtml).join(' · ');
 }
 
 function drawPieces() {
   const shown = shownPieces();
+  const rows = shownRows();
   // Only pieces on screen stay picked.
   org.picked = new Set([...org.picked].filter((id) => shown.some((p) => p.id === id)));
   const n = org.picked.size;
+  const rowPicked = (row) => row.every((p) => org.picked.has(p.id));
   const sets = setNames();
   const option = (value, label) => `<option value="${escapeHtml(value)}"${org.filter === value ? ' selected' : ''}>${escapeHtml(label)}</option>`;
   const count = (list) => list.length;
@@ -60,19 +74,23 @@ function drawPieces() {
         </select>
         <button class="text-button" type="button" data-org="cut">Cut more</button>
       </div>
-      ${shown.length ? `<label class="check org-all"><input type="checkbox" id="org-all"${n && n === shown.length ? ' checked' : ''}><span>Pick all ${shown.length}</span></label>
-      <ul class="org-list">${shown.map((p) => `<li class="org-row${org.picked.has(p.id) ? ' picked' : ''}">
-        <input type="checkbox" data-pick="${p.id}" aria-label="Pick this piece"${org.picked.has(p.id) ? ' checked' : ''}>
+      ${rows.length ? `<label class="check org-all"><input type="checkbox" id="org-all"${n && n === shown.length ? ' checked' : ''}><span>Pick all ${rows.length}</span></label>
+      <ul class="org-list">${rows.map((row) => {
+        const p = row[0];
+        return `<li class="org-row${rowPicked(row) ? ' picked' : ''}">
+        <input type="checkbox" data-pick="${row.map((q) => q.id).join(' ')}" aria-label="Pick this piece"${rowPicked(row) ? ' checked' : ''}>
         <button type="button" class="org-thumb" data-open="${p.id}" aria-label="Everything about this piece"><img class="pixel" src="${p.views[0].src}" alt="" style="--pw: ${p.views[0].pw}; --ph: ${p.views[0].ph}"></button>
         <div class="org-main">
           <span class="org-name">${p.set ? escapeHtml(pieceLabel(p)) : '<span class="muted">Not in a set</span>'}</span>
-          <span class="org-tags">${pieceTags(p)}</span>
+          <span class="org-tags">${pieceTags(p, row.length)}</span>
+          ${row.length > 1 ? `<span class="org-colours">${row.slice(1).map((q) => `<button type="button" class="org-colour" data-open="${q.id}" aria-label="This colour"><img class="pixel" src="${q.views[0].src}" alt="" style="--pw: ${q.views[0].pw}; --ph: ${q.views[0].ph}"></button>`).join('')}</span>` : ''}
         </div>
         <button type="button" class="text-button org-more" data-open="${p.id}">More</button>
-      </li>`).join('')}</ul>` : '<p class="muted">No pieces here.</p>'}
+      </li>`;
+      }).join('')}</ul>` : '<p class="muted">No pieces here.</p>'}
     </div>
     <div class="org-actions"${n ? '' : ' hidden'}>
-      <span class="grow"><b>${n}</b> picked</span>
+      <span class="grow"><b>${rows.filter(rowPicked).length || n}</b> picked</span>
       <button class="ink-button" type="button" data-org="change">Change</button>
       <button class="text-button" type="button" data-org="colours">Colours</button>
       <button class="text-button danger" type="button" data-org="delete">Delete</button>
@@ -94,8 +112,10 @@ $('pieces-page').addEventListener('change', async (event) => {
     drawPieces();
   }
   if (t.dataset.pick) {
-    if (t.checked) org.picked.add(t.dataset.pick);
-    else org.picked.delete(t.dataset.pick);
+    for (const id of t.dataset.pick.split(' ')) {
+      if (t.checked) org.picked.add(id);
+      else org.picked.delete(id);
+    }
     drawPieces();
   }
 });
@@ -195,9 +215,10 @@ function openBulkChange() {
 function openColours() {
   const list = pickedPieces();
   const cuttable = list.filter((p) => p.sheet && p.views.some((v) => v.box));
+  const firsts = list.filter((p) => !list.some((q) => q.id === p.family));
   openSheet('Colours', `
-    ${list.length > 1 ? `<h3>Colours of one piece</h3>
-    <div class="field"><span>The first colour</span>${pieceRadios('original', list, list[0].id)}</div>
+    ${firsts.length > 1 ? `<h3>Colours of one piece</h3>
+    <div class="field"><span>The first colour</span>${pieceRadios('original', firsts, firsts[0].id)}</div>
     <p><button class="ink-button" type="submit" value="group">Group them as colours</button></p>` : ''}
     ${cuttable.length ? `<h3>Cut other colours</h3>
     <label class="ink-button"><span>Choose the other colours</span><input id="org-colour-files" type="file" accept="image/*" multiple hidden></label>` : ''}`,

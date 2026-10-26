@@ -1502,6 +1502,10 @@ sheetForm.addEventListener('input', (event) => {
   if (['w0', 'd0', 'catSpot', 'surface', 'light'].includes(event.target.name)) drawPreviews();
 });
 
+// What all the colours of a piece share. Each colour keeps its own pictures,
+// how many you have, its rarity and whether it's still in the machine.
+const SHARED_SETTINGS = ['type', 'set', 'surface', 'lift', 'light', 'lightX', 'lightY', 'catSpot', 'catLift', 'catShift', 'toy'];
+
 function openPieceDetails(piece) {
   const views = piece.views.map((v, i) => `<div class="view-row">
       <img class="pixel" src="${v.src}" alt="" style="--pw: ${v.pw}; --ph: ${v.ph}">
@@ -1573,6 +1577,16 @@ function openPieceDetails(piece) {
       locked: form.elements.locked.checked,
     });
     pieces.set(saved.id, saved);
+    // Its colours are the same piece, so they get the same settings (unless it
+    // just joined other colours, which keep theirs).
+    for (const other of family === (piece.family || '') ? [...pieces.values()] : []) {
+      if (other.id === saved.id || familyOf(other) !== familyOf(saved)) continue;
+      const shared = {};
+      for (const key of SHARED_SETTINGS) shared[key] = saved[key];
+      const otherViews = other.views.map((v, i) => (saved.views[i] ? { ...v, w: saved.views[i].w, d: saved.views[i].d } : v));
+      const moved = await putItem({ ...other, ...shared, views: otherViews });
+      pieces.set(moved.id, moved);
+    }
     if (action === 'addview' || (action && action.startsWith('recut'))) {
       closeGameWindow();
       if (action === 'addview') cutForPiece(saved.id, null);
