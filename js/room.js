@@ -3,6 +3,10 @@
 //
 // Everything is saved as items (see db.js), so it all goes in your backup file:
 //   { id: "piece-...", kind: "piece", day: "", name, type, count, surface, lift, light, catSpot, catLift, toy,
+//     set, family, rarity, locked,           set: the furniture set it belongs to. family: the
+//                                            piece it's a colour of (its id), so colours sit
+//                                            together in the catalogue. locked: still in the
+//                                            gacha machine (see room-gacha.js).
 //     views: [{ src, pw, ph, w, d }] }       one thing in your inventory. Each view is
 //                                            one way it can be turned: its picture
 //                                            (src, pw x ph pixels) and the tiles it
@@ -567,10 +571,14 @@ function floorToys() {
 }
 
 function goPlay(toy, now) {
+  // It likes to pounce from the side, so the crouch faces the toy.
+  const row = boxOf(toy).y + boxOf(toy).d - 1;
   let best = null;
+  let bestScore = Infinity;
   for (const tile of besideTiles(toy)) {
     const path = tile[0] === catState.tx && tile[1] === catState.ty ? [] : findPath([catState.tx, catState.ty], tile);
-    if (path && (!best || path.length < best.length)) best = path;
+    const score = path ? path.length + (tile[1] === row ? 0 : 4) : Infinity;
+    if (score < bestScore) { best = path; bestScore = score; }
   }
   if (!best) return false;
   catState.play = { toy: toy.id };
@@ -610,13 +618,18 @@ function startPlay(now) {
   crouch(now);
 }
 
+// Crouches low (the stretch frames), facing the toy, then wiggles before the pounce.
 function crouch(now) {
   const pl = catState.play;
   const toy = placed.find((p) => p.id === pl.toy);
   const c = toyCentre(toy);
-  faceTowards(c.x, c.y, now);
-  catState.still = true;
-  Object.assign(pl, { phase: 'crouch', start: now, until: now + 500 + Math.random() * 1000 });
+  catState.flip = c.x < catState.x - 2 || (Math.abs(c.x - catState.x) <= 2 && catState.flip);
+  catState.anim = 'crouch';
+  catState.animStart = now;
+  catState.still = false;
+  const a = cat.anims.crouch;
+  const down = (a.count / a.fps) * 1000;
+  Object.assign(pl, { phase: 'crouch', start: now, wiggleAt: now + down + 300 + Math.random() * 500, until: now + down + 900 + Math.random() * 900 });
 }
 
 let toyBump = null; // the toy the cat just batted: { id, at }
@@ -634,8 +647,11 @@ function playCat(now, dark) {
   const c = toyCentre(toy);
   const near = { x: pl.home.x + (c.x - pl.home.x) * 0.7, y: pl.home.y + (c.y - pl.home.y) * 0.7 };
   if (pl.phase === 'crouch') {
+    // A little wiggle just before it goes.
+    catState.wiggle = now > pl.wiggleAt ? Math.round(Math.sin(now / 45)) : 0;
     if (now < pl.until) return;
-    catState.still = false;
+    catState.wiggle = 0;
+    faceTowards(c.x, c.y, now);
     Object.assign(pl, { phase: 'pounce', start: now });
   }
   if (pl.phase === 'pounce') {
@@ -724,6 +740,7 @@ function moveCat(now, dark) {
       const after = catState.after || 'idle';
       catState.after = null;
       catState.fast = false;
+      catState.creep = false;
       if (after === 'hop') hopOn(now);
       else if (after === 'play') startPlay(now);
       else startRest(after, now, dark);
@@ -733,7 +750,9 @@ function moveCat(now, dark) {
     const dx = goal.x - catState.x;
     const dy = goal.y - catState.y;
     const dist = Math.hypot(dx, dy);
-    const step = CAT_SPEED * (catState.fast ? 2.6 : 1) * dt;
+    // Creeping up on a toy: the last two tiles, slowly.
+    catState.creep = catState.after === 'play' && catState.path.length <= 2;
+    const step = CAT_SPEED * (catState.fast ? 2.6 : catState.creep ? 0.4 : 1) * dt;
     if (dist <= step) {
       Object.assign(catState, goal);
       [catState.tx, catState.ty] = next;
@@ -767,6 +786,8 @@ function animSetting(key) {
   const a = cat.anims[key];
   // "Walking left" can be "walking right", turned around.
   if (key === 'walkLeft' && a.flip) return { ...cat.anims.walkRight, mirror: true };
+  // Crouching faces the toy, whichever way the frames were drawn.
+  if (key === 'crouch') return { ...a, mirror: catState.flip !== Boolean(a.facesLeft) };
   // After walking left, the cat lies down facing left too.
   return { ...a, mirror: catState.flip && (key === 'lieDown' || key === 'sleep') };
 }
@@ -781,7 +802,7 @@ function animDone(now) {
 function catFrame(now) {
   const a = animSetting(catState.anim);
   const meta = CAT_ANIMS.find((m) => m.key === catState.anim);
-  let i = catState.still ? 0 : Math.floor(((now - catState.animStart) / 1000) * a.fps * (catState.fast ? 2 : 1));
+  let i = catState.still ? 0 : Math.floor(((now - catState.animStart) / 1000) * a.fps * (catState.fast ? 2 : catState.creep ? 0.5 : 1));
   i = meta && meta.once ? Math.min(i, a.count - 1) : i % Math.max(1, a.count);
   return { frame: a.start + i, mirror: a.mirror };
 }
@@ -802,7 +823,7 @@ function drawCatFrame(g, sheet, frame, x, y, mirror) {
 }
 
 function catBox() {
-  return { x: Math.round(catState.x - cat.fw / 2), y: Math.round(catState.y - catState.lift - cat.fh + 3), w: cat.fw, h: cat.fh };
+  return { x: Math.round(catState.x - cat.fw / 2) + (catState.wiggle || 0), y: Math.round(catState.y - catState.lift - cat.fh + 3), w: cat.fw, h: cat.fh };
 }
 
 function drawCat(now) {
@@ -1108,6 +1129,7 @@ function showRoomPanel() {
   $('room-light').textContent = previewHour === null ? 'Clock' : LIGHT_STEPS.find(([hour]) => hour === previewHour)?.[1] || timeWord(previewHour);
   if (!decorating) {
     bar.innerHTML = `<span class="grow muted" id="room-status">${escapeHtml(catStatus())}, ${timeWord(hourNow())}.</span>
+      <button class="text-button" type="button" data-room="gacha">Gachapon</button>
       <button class="ink-button" type="button" data-room="decorate">Decorate</button>`;
     panel.innerHTML = '';
     return;
@@ -1124,7 +1146,7 @@ function showRoomPanel() {
   }
   const tabs = [['all', 'All'], ...PIECE_TYPES.map(([key, name]) => [key, name])];
   const list = [...pieces.values()]
-    .filter((p) => inventoryTab === 'all' || p.type === inventoryTab)
+    .filter((p) => !p.locked && (inventoryTab === 'all' || p.type === inventoryTab))
     .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   panel.innerHTML = `
     ${sampleMode ? '<p class="muted">Sample data is on, so changes to the room are only kept until you turn it off.</p>' : ''}
@@ -1176,6 +1198,7 @@ async function roomButton(event) {
   if (action === 'away') putAway();
   if (action === 'add') { cutFor = null; goTo('room-add'); }
   if (action === 'cat') goTo('cat');
+  if (action === 'gacha') goTo('gacha');
   if (action === 'draw') { drawFor = null; goTo('draw'); }
   if (action === 'edit') { editingPieces = !editingPieces; showRoomPanel(); }
   if (action === 'settings') openRoomSettings();
@@ -1208,6 +1231,15 @@ function pieceTypeChoices(current) {
   return `<label class="field"><span>What it is</span><select name="type">${PIECE_TYPES.map(([key, name]) => `<option value="${key}"${key === current ? ' selected' : ''}>${name}</option>`).join('')}</select></label>`;
 }
 
+// Pieces this one can be a colour of: the first of each colour family, but not itself.
+function colourChoices(piece) {
+  const own = familyOf(piece);
+  return [...pieces.values()]
+    .filter((p) => !p.family && p.id !== piece.id && p.id !== own)
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((p) => `<option value="${p.id}"${piece.family === p.id ? ' selected' : ''}>${escapeHtml(p.name)}</option>`).join('');
+}
+
 // New pieces from the cutter's pile, waiting to be named and set up one by one.
 let setupQueue = [];
 
@@ -1226,6 +1258,12 @@ function openPieceDetails(piece) {
     <label class="field"><span>Name</span><input name="name" type="text" value="${escapeHtml(piece.name)}" required autocomplete="off"></label>
     ${pieceTypeChoices(piece.type)}
     <label class="field"><span>How many you have</span><input name="count" type="number" min="1" max="99" value="${piece.count || 1}"></label>
+    <h3>Collecting</h3>
+    <label class="field"><span>Set <span class="muted">(blank for none)</span></span><input name="set" type="text" value="${escapeHtml(piece.set || '')}" list="set-names" autocomplete="off"></label>
+    <datalist id="set-names">${[...new Set([...pieces.values()].map((p) => p.set).filter(Boolean))].map((name) => `<option value="${escapeHtml(name)}">`).join('')}</datalist>
+    <label class="field"><span>A colour of</span><select name="family"><option value="">Nothing, it's its own piece</option>${colourChoices(piece)}</select></label>
+    <label class="field"><span>Rarity</span><select name="rarity">${RARITIES.map(([key, name]) => `<option value="${key}"${(piece.rarity || 'common') === key ? ' selected' : ''}>${name}</option>`).join('')}</select></label>
+    <label class="check"><input type="checkbox" name="locked"${piece.locked ? ' checked' : ''}><span>Locked in the gacha machine</span></label>
     <h3>Looks and tiles</h3>
     <p class="muted">Each look is one way the piece can be turned. The tiles are what it stands on.</p>
     ${views}
@@ -1262,6 +1300,15 @@ function openPieceDetails(piece) {
       showRoomPanel();
       return goNext();
     }
+    // Joining a colour family: pieces that were colours of this one come along.
+    const family = form.elements.family.value;
+    if (family && family !== (piece.family || '')) {
+      for (const other of pieces.values()) {
+        if (other.family !== piece.id) continue;
+        const moved = await putItem({ ...other, family });
+        pieces.set(moved.id, moved);
+      }
+    }
     const views = piece.views.map((v, i) => ({ ...v, w: Number(form.elements[`w${i}`].value) || 1, d: Number(form.elements[`d${i}`].value) || 1 }));
     if (action && action.startsWith('unview-')) views.splice(Number(action.slice(7)), 1);
     const saved = await putItem({
@@ -1269,7 +1316,8 @@ function openPieceDetails(piece) {
       count: Math.max(1, Number(form.elements.count.value) || 1), views,
       surface: form.elements.surface.checked, lift: Number(form.elements.lift.value) || 0, light: form.elements.light.checked,
       catSpot: form.elements.catSpot.checked, catLift: Math.max(0, Number(form.elements.catLift.value) || 0),
-      toy: form.elements.toy.checked,
+      toy: form.elements.toy.checked, set: form.elements.set.value.trim(), family, rarity: form.elements.rarity.value,
+      locked: form.elements.locked.checked,
     });
     pieces.set(saved.id, saved);
     showRoomPanel();

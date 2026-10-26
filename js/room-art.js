@@ -53,11 +53,14 @@ const CAT_ANIMS = [
   { key: 'groom', name: 'Washing', start: 20, count: 4, fps: 4 },
   { key: 'lieDown', name: 'Lying down', start: 24, count: 4, fps: 5, once: true },
   { key: 'sleep', name: 'Sleeping', start: 28, count: 2, fps: 1.5 },
+  // Not one of Stardew's own: point it at the stretch frames. The cat crouches
+  // like this before it pounces on a toy.
+  { key: 'crouch', name: 'Crouching to pounce', start: 24, count: 2, fps: 5, once: true, canFaceLeft: true },
 ];
 
 function defaultCat() {
   const anims = {};
-  for (const a of CAT_ANIMS) anims[a.key] = { start: a.start, count: a.count, fps: a.fps, flip: false };
+  for (const a of CAT_ANIMS) anims[a.key] = { start: a.start, count: a.count, fps: a.fps, flip: false, facesLeft: false };
   return { id: 'cat', kind: 'cat', day: '', name: 'Pip', src: 'room-art/cat.png', fw: 32, fh: 32, anims };
 }
 

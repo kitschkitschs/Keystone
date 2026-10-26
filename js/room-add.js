@@ -61,7 +61,8 @@ function showRoomAdd() {
           <label class="check"><input type="checkbox" name="surface"><span>Things can go on top (like a table)</span></label>
           <label class="check"><input type="checkbox" name="light"><span>Gives light at night</span></label>
           <label class="check"><input type="checkbox" name="catSpot"><span>The cat can sit and sleep on it</span></label>
-          <label class="check"><input type="checkbox" name="toy"><span>A toy the cat plays with</span></label>`}
+          <label class="check"><input type="checkbox" name="toy"><span>A toy the cat plays with</span></label>
+          <label class="check"><input type="checkbox" name="locked" checked><span>Put it in the gacha machine, to unlock</span></label>`}
           <p><button class="ink-button" type="submit">${forPiece ? 'Add this look' : 'Add to inventory'}</button></p>
         </form>
       </div>
@@ -306,7 +307,7 @@ $('cut-page').addEventListener('submit', async (event) => {
   const piece = await putItem({
     id: newId('piece'), kind: 'piece', day: '', name: form.elements.name.value.trim(), type, views: [view],
     count: Math.max(1, Number(form.elements.count.value) || 1), surface: form.elements.surface.checked, lift: 16,
-    light: form.elements.light.checked, catSpot: form.elements.catSpot.checked, catLift: 8, toy: form.elements.toy.checked, createdAt: Date.now(),
+    light: form.elements.light.checked, catSpot: form.elements.catSpot.checked, catLift: 8, toy: form.elements.toy.checked, locked: form.elements.locked.checked, createdAt: Date.now(),
   });
   pieces.set(piece.id, piece);
   form.elements.name.value = '';
@@ -319,7 +320,7 @@ $('cut-page').addEventListener('submit', async (event) => {
   cut.tilesTouched = false;
   drawCutSheet();
   showCutBox();
-  $('cut-status').textContent = `Added ${piece.name}. Box the next piece, or tap Done.`;
+  $('cut-status').textContent = piece.locked ? `${piece.name} went into the gacha machine. Box the next piece, or tap Done.` : `Added ${piece.name}. Box the next piece, or tap Done.`;
   $('cut-page').scrollIntoView();
   showBackupInfo();
 });
@@ -404,7 +405,7 @@ async function addPile() {
     const view = { src: kept.src, pw, ph, w: small ? 1 : Math.max(1, Math.round(pw / TILE)), d: 1 };
     const piece = await putItem({
       id: newId('piece'), kind: 'piece', day: '', name: `${base} ${++n}`, type: small ? 'small' : 'furniture', views: [view],
-      count: 1, surface: false, lift: 16, light: false, catSpot: false, catLift: 8, toy: false, createdAt: Date.now() + n,
+      count: 1, surface: false, lift: 16, light: false, catSpot: false, catLift: 8, toy: false, locked: true, createdAt: Date.now() + n,
     });
     pieces.set(piece.id, piece);
     ids.push(piece.id);
@@ -469,6 +470,7 @@ function showCatPage() {
               <label>Speed <input type="number" min="0.5" max="24" step="0.5" data-set="fps" value="${s.fps}"></label>
             </div>
             ${a.canFlip ? `<label class="check"><input type="checkbox" data-set="flip"${s.flip ? ' checked' : ''}><span>Use walking right, turned around</span></label>` : ''}
+            ${a.canFaceLeft ? `<label class="check"><input type="checkbox" data-set="facesLeft"${s.facesLeft ? ' checked' : ''}><span>These frames face left</span></label>` : ''}
           </div>
         </div>`;
       }).join('')}</div>
