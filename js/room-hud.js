@@ -127,6 +127,7 @@ function drawGameWindow() {
   const titles = { inventory: 'Inventory', catalogue: 'Catalogue', workshop: 'Workshop' };
   $('gw-title').textContent = titles[kind] || '';
   if (kind === 'inventory') $('gw-body').innerHTML = inventoryHtml();
+  if (kind === 'look') $('gw-body').innerHTML = catLookHtml();
   if (kind === 'catalogue') {
     $('gw-body').innerHTML = catalogueHtml([...pieces.values()]) || '<p class="muted">Nothing to collect yet. Add pieces in the workshop.</p>';
   }

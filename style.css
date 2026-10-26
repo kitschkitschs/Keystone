@@ -351,7 +351,7 @@ input:focus-visible, button:focus-visible, summary:focus-visible, select:focus-v
 .inv-badge { position: absolute; top: 4px; right: 6px; font-size: 10.5px; color: var(--muted); }
 .inv-plus { margin: auto 0; font-family: var(--serif); font-size: 30px; line-height: 1; color: var(--muted); }
 .room-more { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
-.view-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 13px; }
+.view-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 13px; }
 .view-row img { width: calc(var(--pw) * 2px); max-width: 64px; max-height: 64px; object-fit: contain; }
 .view-row input { width: 56px; }
 .cut-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
@@ -417,11 +417,19 @@ html.dark .draw-preview { background: repeating-conic-gradient(#2A2436 0 25%, #3
 .cat-family.colours { padding: 3px; border: 1px dashed var(--rule); border-radius: 10px; }
 .cat-tile { font: inherit; color: inherit; cursor: pointer; position: relative; display: grid; justify-items: center; align-content: end; gap: 2px; width: 72px; min-height: 76px; padding: 6px 4px; border: 1px solid var(--rule); border-radius: 8px; background: var(--paper); }
 .cat-tile img { max-width: 60px; max-height: 52px; width: calc(var(--pw) * 2px); height: auto; object-fit: contain; }
-.cat-tile.locked img { filter: brightness(0); opacity: 0.22; }
+.cat-colours { position: absolute; top: 3px; left: 3px; display: flex; align-items: center; gap: 1px; font-size: 9px; line-height: 1; color: #7A6660; }
+.cat-colours i { width: 5px; height: 5px; border-radius: 50%; background: #D99A93; }
+.cat-colours i + i { background: #8FA6C2; }
+.cat-colours i + i + i { background: #A9BE8C; margin-right: 2px; }
+.cat-lock { position: absolute; bottom: 2px; right: 3px; font-size: 10px; opacity: 0.6; }
+.pile-tile[aria-current="true"] { border-color: #3E9B5A; box-shadow: inset 0 0 0 1px #3E9B5A; }
+.look-big { display: grid; place-items: center; min-height: 140px; padding: 12px; border-radius: 8px; background: #FFFAF0; border: 1px solid #E2D3B8; }
+.look-facts { margin: 8px 0 0; text-align: center; font-size: 13px; color: #7A6660; }
+.look-buttons { justify-content: space-between; margin-top: 12px; }
+html.dark .look-big { background: #1E1A2A; border-color: #3A3249; }
 .cat-tile .inv-name { font-size: 11px; text-align: center; overflow-wrap: anywhere; }
 .cat-rarity { position: absolute; top: 3px; right: 3px; font-size: 9px; padding: 0 4px; border-radius: 6px; background: #8FA6C2; color: #fff; }
 .cat-rarity.special { background: #C9A23F; }
-html.dark .cat-tile.locked img { filter: brightness(0) invert(1); opacity: 0.18; }
 
 /* The game's buttons, on the room's wall (room-hud.js). */
 .room-hud { position: absolute; top: 6px; right: 6px; display: flex; gap: 5px; }
