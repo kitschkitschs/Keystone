@@ -48,6 +48,9 @@ function drawGacha() {
 }
 
 // --- The catalogue ---
+// One tile per piece: its colours fold into it, with a marker when there are
+// more. Tap a tile for a closer look at it and its colours. For now every piece
+// shows its real picture, locked or not, with a little lock on the locked ones.
 
 function catalogueHtml(all) {
   if (!all.length) return '';
@@ -57,7 +60,6 @@ function catalogueHtml(all) {
     const set = (p.set || '').trim();
     if (!sets.has(set)) sets.set(set, new Map());
     const families = sets.get(set);
-    // Colours of one piece sit together, under the first one's family.
     const key = familyOf(p);
     if (!families.has(key)) families.set(key, []);
     families.get(key).push(p);
@@ -69,18 +71,57 @@ function catalogueHtml(all) {
       const members = families.flat();
       return `<section class="cat-set">
         <h3>${name ? escapeHtml(name) : 'Not in a set'} <span class="muted">${members.filter((p) => !p.locked).length} of ${members.length}</span></h3>
-        <div class="cat-grid">${families.map((fam) => `<div class="cat-family${fam.length > 1 ? ' colours' : ''}">${fam.map(catalogueTile).join('')}</div>`).join('')}</div>
+        <div class="cat-grid">${families.map(catalogueTile).join('')}</div>
       </section>`;
     }).join('')}`;
 }
 
-function catalogueTile(p) {
+// The piece a family shows as: the first one collected, or else the first.
+const familyFace = (fam) => fam.find((p) => !p.locked) || fam[0];
+
+function catalogueTile(fam) {
+  const p = familyFace(fam);
   const v = p.views[0];
-  return `<button type="button" class="cat-tile${p.locked ? ' locked' : ''}" data-cat-piece="${p.id}" aria-label="Edit this piece">
+  const locked = fam.every((q) => q.locked);
+  return `<button type="button" class="cat-tile" data-cat-family="${familyOf(p)}" aria-label="A closer look${fam.length > 1 ? `, ${fam.length} colours` : ''}">
     <img class="pixel" src="${v.src}" alt="" style="--pw: ${v.pw}; --ph: ${v.ph}">
-    ${p.set ? '' : `<span class="inv-name">${p.locked ? '?' : escapeHtml(p.name)}</span>`}
+    ${p.set ? '' : `<span class="inv-name">${escapeHtml(p.name)}</span>`}
     ${p.rarity && p.rarity !== 'common' ? `<span class="cat-rarity ${p.rarity}">${rarityName(p.rarity)}</span>` : ''}
+    ${fam.length > 1 ? `<span class="cat-colours" title="${fam.length} colours"><i></i><i></i><i></i>${fam.length}</span>` : ''}
+    ${locked ? '<span class="cat-lock" title="Still in the machine">&#128274;</span>' : ''}
   </button>`;
+}
+
+// A closer look: one piece big, with its colours underneath to switch between.
+const catLook = { family: '', piece: '' };
+
+function familyMembers(root) {
+  return [...pieces.values()].filter((p) => familyOf(p) === root).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+}
+
+function catLookHtml() {
+  const fam = familyMembers(catLook.family);
+  const p = pieces.get(catLook.piece) || familyFace(fam);
+  if (!p) return '<p class="muted">This piece is gone.</p>';
+  const v = p.views[0];
+  const zoom = Math.max(1, Math.min(6, Math.floor(200 / Math.max(v.pw, v.ph))));
+  $('gw-title').textContent = pieceLabel(p);
+  return `
+    <div class="look-big"><img class="pixel" src="${v.src}" alt="" style="width: ${v.pw * zoom}px; height: ${v.ph * zoom}px"></div>
+    <p class="look-facts">${escapeHtml((PIECE_TYPES.find(([key]) => key === p.type) || PIECE_TYPES[0])[1])} · ${rarityName(p.rarity)} · ${p.locked ? 'still in the machine' : 'collected'}</p>
+    ${fam.length > 1 ? `<h3 class="cat-h">${fam.length} colours</h3>
+    <div class="pile">${fam.map((q) => `<button type="button" class="pile-tile${q.locked ? ' locked' : ''}" data-cat-pick="${q.id}"${q.id === p.id ? ' aria-current="true"' : ''} aria-label="This colour">
+      <img class="pixel" src="${q.views[0].src}" alt="" style="--pw: ${q.views[0].pw}; --ph: ${q.views[0].ph}"></button>`).join('')}</div>` : ''}
+    <div class="buttons look-buttons">
+      <button class="text-button" type="button" data-gw="catalogue">Back to the catalogue</button>
+      <button class="ink-button" type="button" data-cat-edit="${p.id}">Edit</button>
+    </div>`;
+}
+
+function openCatLook(root, id = '') {
+  catLook.family = root;
+  catLook.piece = id;
+  openGameWindow('look');
 }
 
 // --- Turning the handle ---
@@ -127,11 +168,16 @@ function turning(now) {
 // Tap a piece in the catalogue to edit it, locked or not. The window shows what
 // changed once the editing sheet closes.
 $('gw-body').addEventListener('click', (event) => {
-  const tile = event.target.closest('[data-cat-piece]');
-  const piece = tile && pieces.get(tile.dataset.catPiece);
+  const tile = event.target.closest('[data-cat-family]');
+  if (tile) return openCatLook(tile.dataset.catFamily);
+  const pick = event.target.closest('[data-cat-pick]');
+  if (pick) return openCatLook(catLook.family, pick.dataset.catPick);
+  const edit = event.target.closest('[data-cat-edit]');
+  const piece = edit && pieces.get(edit.dataset.catEdit);
   if (piece) openPieceDetails(piece);
 });
-$('sheet').addEventListener('close', () => { if (gameWindowKind === 'catalogue') drawGameWindow(); });
+// Back from editing: the window shows what changed.
+$('sheet').addEventListener('close', () => { if (gameWindowKind === 'catalogue' || gameWindowKind === 'look') drawGameWindow(); });
 
 $('gw-body').addEventListener('click', async (event) => {
   const button = event.target.closest('[data-gacha]');

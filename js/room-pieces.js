@@ -65,7 +65,7 @@ function drawPieces() {
         <input type="checkbox" data-pick="${p.id}" aria-label="Pick this piece"${org.picked.has(p.id) ? ' checked' : ''}>
         <button type="button" class="org-thumb" data-open="${p.id}" aria-label="Everything about this piece"><img class="pixel" src="${p.views[0].src}" alt="" style="--pw: ${p.views[0].pw}; --ph: ${p.views[0].ph}"></button>
         <div class="org-main">
-          <span class="org-name">${p.set ? escapeHtml(p.set) : '<span class="muted">Not in a set</span>'}</span>
+          <span class="org-name">${p.set ? escapeHtml(pieceLabel(p)) : '<span class="muted">Not in a set</span>'}</span>
           <span class="org-tags">${pieceTags(p)}</span>
         </div>
         <button type="button" class="text-button org-more" data-open="${p.id}">More</button>
@@ -259,8 +259,9 @@ async function cutColours(list, files) {
       if (!views.length) { skipped++; continue; }
       const copy = { ...piece };
       delete copy.unlockedAt;
+      const colour = colourWord(file.name, piece.sheet);
       const saved = await putItem({
-        ...copy, id: newId('piece'), name: `${piece.name} (${colourWord(file.name, piece.sheet)})`, views, family: familyOf(piece),
+        ...copy, id: newId('piece'), name: `${piece.name} (${colour})`, colour, views, family: familyOf(piece),
         sheet: file.name.replace(/\.[^.]*$/, ''), locked: true, createdAt: Date.now() + ids.length,
       });
       pieces.set(saved.id, saved);

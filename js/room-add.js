@@ -7,7 +7,22 @@
 
 // --- Cutting pieces ---
 
-let cutFor = null; // a piece's id when adding a turned look to it
+// Cutting for a piece you already have: { id, view }. view is the look to cut
+// again, or null to add a new turned look.
+let cutFor = null;
+
+// Starts cutting for a piece. Cutting again opens its own sheet, if that's the
+// picture already in the cutter, with the old box ready.
+function cutForPiece(id, view) {
+  cutFor = { id, view };
+  const piece = pieces.get(id);
+  cut.boxes = [];
+  cut.corner = null;
+  const old = view !== null && piece.views[view].box;
+  if (cut.sheet && old && piece.sheet && piece.sheet === sheetName()) cut.boxes = [[...old]];
+  else if (view !== null) cut.note = piece.sheet ? `Choose ${piece.sheet}, the sheet it was cut from.` : 'Choose the picture it was cut from.';
+  goTo('room-add');
+}
 // sheet: the picture, as a canvas. boxes: the pieces boxed on it so far, each
 // [x, y, width, height]. corner: the first corner of a box being drawn.
 // name: what the picture is called (its file name).
@@ -23,14 +38,16 @@ function setNameFrom(name) {
 }
 
 function showRoomAdd() {
-  const forPiece = cutFor && pieces.get(cutFor);
+  const forPiece = cutFor && pieces.get(cutFor.id);
+  const again = forPiece && cutFor.view !== null;
   $('cut-page').innerHTML = `
     <header class="plain-head">
-      <div class="date"><div class="date-line">Room</div><h1 class="weekday">${forPiece ? 'Add a turned look' : 'Cut pieces'}</h1></div>
+      <div class="date"><div class="date-line">Room</div><h1 class="weekday">${again ? 'Cut again' : forPiece ? 'Add a turned look' : 'Cut pieces'}</h1></div>
       <button class="ink-button" type="button" data-cut="done">Done</button>
     </header>
     <div class="side">
-      <p class="muted">${forPiece ? `Box the picture of this piece turned another way.`
+      <p class="muted">${again ? 'Box the piece again. The new picture replaces the old one, everywhere it stands in the room.'
+        : forPiece ? 'Box the picture of this piece turned another way.'
         : 'Choose a picture: one piece, or a whole sheet. Box the pieces, then add them. You name and set them up next, all together.'}
         The picture needs a see-through background, like a PNG.</p>
       <div class="buttons">
@@ -103,8 +120,9 @@ function showBoxed() {
   if (!el) return;
   const n = cut.boxes.length;
   if (cutFor) {
+    const again = cutFor.view !== null;
     el.innerHTML = n ? `<div class="cut-preview"><img class="pixel" src="${cutBox(cut.sheet, cut.boxes[0])}" alt="" style="--pw: ${cut.boxes[0][2]}; --ph: ${cut.boxes[0][3]}"></div>
-      <p><button class="ink-button" type="button" data-cut="look">Add this turned look</button></p>` : '';
+      <p><button class="ink-button" type="button" data-cut="look">${again ? 'Use this cut' : 'Add this turned look'}</button></p>` : '';
     return;
   }
   el.innerHTML = n ? `
@@ -135,8 +153,11 @@ async function useCutPicture(src, name) {
   cut.corner = null;
   $('cut-work').hidden = false;
   fitCutZoom();
+  // Cutting a piece again: its old box, if it fits this picture.
+  const old = cutFor && cutFor.view !== null && pieces.get(cutFor.id).views[cutFor.view].box;
+  if (old && old[0] + old[2] <= cut.sheet.width && old[1] + old[3] <= cut.sheet.height) cut.boxes = [[...old]];
   // A single piece is boxed straight away.
-  if (cut.sheet.width <= 64 && cut.sheet.height <= 64) cut.boxes = [trimBox(cut.sheet, [0, 0, cut.sheet.width, cut.sheet.height])];
+  else if (cut.sheet.width <= 64 && cut.sheet.height <= 64) cut.boxes = [trimBox(cut.sheet, [0, 0, cut.sheet.width, cut.sheet.height])];
   drawCutSheet();
   showBoxed();
   $('cut-status').textContent = `${name}, ${cut.sheet.width} × ${cut.sheet.height} pixels.`;
@@ -189,7 +210,7 @@ $('cut-page').addEventListener('click', async (event) => {
     drawCutSheet();
     showBoxed();
   }
-  if (action === 'look') await addTurnedLook();
+  if (action === 'look') await (cutFor.view === null ? addTurnedLook() : useNewCut());
 });
 
 // Tapping on the sheet: two corners make a box. A tap inside a box takes it out.
@@ -247,8 +268,22 @@ $('cut-page').addEventListener('submit', async (event) => {
   showPiecesFor(ids);
 });
 
+// Cutting again: the look gets the new picture and box, and keeps its tiles.
+async function useNewCut() {
+  const piece = pieces.get(cutFor.id);
+  const box = cut.boxes[0];
+  const [, , pw, ph] = box;
+  const views = piece.views.map((v, i) => (i === cutFor.view ? { ...v, src: cutBox(cut.sheet, box), pw, ph, box: [...box] } : v));
+  const saved = await putItem({ ...piece, views, sheet: piece.sheet || sheetName() });
+  pieces.set(saved.id, saved);
+  cutFor = null;
+  cut.boxes = [];
+  goTo('home');
+  openPieceDetails(saved);
+}
+
 async function addTurnedLook() {
-  const piece = pieces.get(cutFor);
+  const piece = pieces.get(cutFor.id);
   const box = cut.boxes[0];
   const [, , pw, ph] = box;
   // Turned, it stands on its tiles the other way round.

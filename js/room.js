@@ -1251,8 +1251,13 @@ function pieceTypeChoices(current) {
   return `<label class="field"><span>What it is</span><select name="type">${PIECE_TYPES.map(([key, name]) => `<option value="${key}"${key === current ? ' selected' : ''}>${name}</option>`).join('')}</select></label>`;
 }
 
-// Pieces go by their set's name; only pieces outside a set show their own.
-const pieceLabel = (p) => p.set || p.name;
+// Pieces go by their set's name, with the colour after it for a colour copy:
+// "Cottage (blue)". Only pieces outside a set show their own name.
+function pieceLabel(p) {
+  if (!p.set) return p.name;
+  const colour = p.colour || (p.family && (p.name.match(/\(([^)]+)\)$/) || [])[1]);
+  return colour ? `${p.set} (${colour})` : p.set;
+}
 
 // Pieces to pick between, as their pictures: a radio button each.
 function pieceRadios(name, list, current, none) {
@@ -1264,11 +1269,10 @@ function pieceRadios(name, list, current, none) {
 const setNames = () => [...new Set([...pieces.values()].map((p) => p.set).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
 // Pieces this one can be a colour of: the first of each colour family in the
-// same set, but not itself.
+// same set (its own family's too), but not itself.
 function colourChoices(piece) {
-  const own = familyOf(piece);
   return [...pieces.values()]
-    .filter((p) => !p.family && p.id !== piece.id && p.id !== own && (p.set || '') === (piece.set || ''))
+    .filter((p) => !p.family && p.id !== piece.id && (p.set || '') === (piece.set || ''))
     .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 }
 
@@ -1339,6 +1343,7 @@ function openPieceDetails(piece) {
       <img class="pixel" src="${v.src}" alt="" style="--pw: ${v.pw}; --ph: ${v.ph}">
       <label>Wide <input type="number" name="w${i}" min="1" max="12" value="${v.w}"></label>
       <label>Deep <input type="number" name="d${i}" min="1" max="12" value="${v.d}"></label>
+      <button class="text-button" type="submit" value="recut-${i}">Cut again</button>
       <button class="text-button" type="submit" value="draw-${i}">Draw</button>
       ${i ? `<button class="text-button danger" type="submit" value="unview-${i}">Remove</button>` : ''}
     </div>`).join('');
@@ -1410,10 +1415,9 @@ function openPieceDetails(piece) {
       drawFor = { piece: saved.id, view: Number(action.slice(5)) };
       closeGameWindow();
       goTo('draw');
-    } else if (action === 'addview') {
-      cutFor = saved.id;
+    } else if (action === 'addview' || (action && action.startsWith('recut-'))) {
       closeGameWindow();
-      goTo('room-add');
+      cutForPiece(saved.id, action === 'addview' ? null : Number(action.slice(6)));
     } else if (action && action.startsWith('unview-')) {
       openPieceDetails(saved);
       return false;
