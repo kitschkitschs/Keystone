@@ -513,3 +513,6 @@ html.dark .sheet.game-window h3, html.dark .sheet.game-window .field { color: #C
 .cut-group-head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--muted); }
 .cut-pick-actions { position: sticky; bottom: 70px; padding: 8px; border-radius: 12px; background: var(--paper); box-shadow: 0 4px 16px var(--shadow); }
 #inv-note:empty { display: none; }
+.seat-whos { display: flex; gap: 6px; justify-content: center; margin: 4px 0; }
+.seat-who { padding: 4px 12px; border-radius: 999px; border: 1px solid var(--rule); }
+.seat-who.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
