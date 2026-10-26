@@ -16,13 +16,13 @@
   <!-- ===== The room: the home page. Drawn by room.js. ===== -->
   <section id="room" class="view" aria-label="Room">
     <div class="top-bar">
-      <span class="top-left"><button id="room-light" class="light-button" type="button" aria-label="Time of day for the light">Clock</button></span>
+      <span class="top-left"></span>
       <span></span>
       <span class="top-right"><button class="icon-button open-menu" type="button" aria-label="Menu"></button></span>
     </div>
     <!-- The room and the bar under it stay in view while the inventory scrolls. -->
     <div class="room-top">
-      <div class="room-stage"><canvas id="room-canvas" class="pixel"></canvas></div>
+      <div class="room-stage"><canvas id="room-canvas" class="pixel"></canvas><div id="room-hud" class="room-hud"></div></div>
       <p id="room-note" class="room-note side" role="status" hidden></p>
       <div id="room-bar" class="room-bar side"></div>
     </div>
@@ -42,11 +42,6 @@
   <!-- ===== The cat's sprite sheet. Drawn by room-add.js. ===== -->
   <section id="cat" class="view" aria-label="Cat" hidden>
     <div id="cat-page"></div>
-  </section>
-
-  <!-- ===== The gacha machine and the catalogue. Drawn by room-gacha.js. ===== -->
-  <section id="gacha" class="view" aria-label="Gacha" hidden>
-    <div id="gacha-page"></div>
   </section>
 
   <!-- ===== Every colour in the app. Drawn by colours.js. ===== -->
@@ -145,6 +140,12 @@
   </div>
 
   <!-- ===== One-off sheets (room pieces, room size, habit options, colours). Filled in by the page that opens them. ===== -->
+  <!-- The game's pop-up window: Gachapon, the catalogue, the workshop. Drawn by room-hud.js. -->
+  <dialog id="game-window" class="game-window" aria-labelledby="gw-title">
+    <div class="gw-head"><h2 id="gw-title"></h2><button type="button" class="gw-close" data-gw-close aria-label="Close">×</button></div>
+    <div id="gw-body" class="gw-body"></div>
+  </dialog>
+
   <dialog id="sheet" class="sheet">
     <form id="sheet-form" method="dialog"></form>
   </dialog>
@@ -166,5 +167,6 @@
   <script src="js/room-add.js"></script>
   <script src="js/room-draw.js"></script>
   <script src="js/room-gacha.js"></script>
+  <script src="js/room-hud.js"></script>
 </body>
 </html>

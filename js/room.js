@@ -1126,11 +1126,9 @@ function catStatus() {
 function showRoomPanel() {
   const bar = $('room-bar');
   const panel = $('room-panel');
-  $('room-light').textContent = previewHour === null ? 'Clock' : LIGHT_STEPS.find(([hour]) => hour === previewHour)?.[1] || timeWord(previewHour);
+  showHud();
   if (!decorating) {
-    bar.innerHTML = `<span class="grow muted" id="room-status">${escapeHtml(catStatus())}, ${timeWord(hourNow())}.</span>
-      <button class="text-button" type="button" data-room="gacha">Gachapon</button>
-      <button class="ink-button" type="button" data-room="decorate">Decorate</button>`;
+    bar.innerHTML = `<span class="grow muted" id="room-status">${escapeHtml(catStatus())}, ${timeWord(hourNow())}.</span>`;
     panel.innerHTML = '';
     return;
   }
@@ -1167,9 +1165,6 @@ function showRoomPanel() {
       <p><button class="ink-button" type="button" data-room="starter">Add the starter pieces</button></p>`}
     <div class="buttons room-more">
       <button class="text-button" type="button" data-room="edit" aria-pressed="${editingPieces}">${editingPieces ? 'Stop editing pieces' : 'Edit pieces'}</button>
-      <button class="text-button" type="button" data-room="settings">Room</button>
-      <button class="text-button" type="button" data-room="draw">Draw</button>
-      <button class="text-button" type="button" data-room="cat">Cat</button>
     </div>
     ${editingPieces ? '<p class="muted">Tap a piece above to rename it, change it, or delete it.</p>' : ''}`;
 }
@@ -1197,11 +1192,7 @@ async function roomButton(event) {
   if (action === 'cancel') { held = null; showRoomPanel(); }
   if (action === 'away') putAway();
   if (action === 'add') { cutFor = null; goTo('room-add'); }
-  if (action === 'cat') goTo('cat');
-  if (action === 'gacha') goTo('gacha');
-  if (action === 'draw') { drawFor = null; goTo('draw'); }
   if (action === 'edit') { editingPieces = !editingPieces; showRoomPanel(); }
-  if (action === 'settings') openRoomSettings();
   if (action === 'starter') {
     button.disabled = true;
     await addStarterPieces();
@@ -1385,14 +1376,8 @@ function openRoomSettings() {
   });
 }
 
-// The light button at the top: follow the clock, or pick a time of day to see
-// the room in. A picked time lasts until the app closes.
+// The light button on the room (room-hud.js) steps through these.
 const LIGHT_STEPS = [[null, 'Clock'], [10, 'Day'], [18, 'Evening'], [22.5, 'Night']];
-$('room-light').addEventListener('click', () => {
-  const i = LIGHT_STEPS.findIndex(([hour]) => hour === previewHour);
-  previewHour = LIGHT_STEPS[(i + 1) % LIGHT_STEPS.length][0];
-  showRoomPanel();
-});
 
 // --- Showing the page ---
 
