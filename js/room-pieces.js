@@ -134,6 +134,7 @@ function openBulkChange() {
     <h3>Collecting</h3>
     <label class="field"><span>Set</span><select name="setChoice">${keep}${setNames().map((s) => `<option value="set:${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}<option value="new">A new set…</option><option value="none">Not in a set</option></select></label>
     <label class="field" id="bulk-new-set" hidden><span>New set's name</span><input name="newSet" type="text" autocomplete="off"></label>
+<label class="field"><span>Colour <span class="muted">(shown after the set's name)</span></span><input name="colour" type="text" value="" autocomplete="off" placeholder="Keep as is"></label>
     <label class="field"><span>Rarity</span><select name="rarity">${keep}${RARITIES.map(([key, name]) => `<option value="${key}">${name}</option>`).join('')}</select></label>
     <label class="field"><span>Gacha machine</span><select name="locked">${keep}<option value="yes">Locked in the machine</option><option value="no">Unlocked</option></select></label>
     <h3>What they are</h3>
@@ -163,6 +164,7 @@ function openBulkChange() {
       if (choice === 'new') change.set = newSet;
       if (choice === 'none') change.set = '';
       if (choice.startsWith('set:')) change.set = choice.slice(4);
+      if (form.elements.colour.value.trim()) change.colour = form.elements.colour.value.trim();
       if (form.elements.rarity.value) change.rarity = form.elements.rarity.value;
       if (form.elements.type.value) change.type = form.elements.type.value;
       if (count) change.count = count;

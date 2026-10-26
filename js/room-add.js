@@ -133,6 +133,7 @@ function showBoxed() {
     <form id="cut-form">
       <label class="field"><span>Set</span><input name="set" type="text" value="${escapeHtml(setNameFrom(sheetName()))}" list="cut-set-names" autocomplete="off" placeholder="Not in a set"></label>
       <datalist id="cut-set-names">${[...new Set([...pieces.values()].map((p) => p.set).filter(Boolean))].map((s) => `<option value="${escapeHtml(s)}">`).join('')}</datalist>
+      <label class="field"><span>Colour <span class="muted">(if the sheet is one colour of a set)</span></span><input name="colour" type="text" autocomplete="off" placeholder="None"></label>
       <label class="check"><input type="checkbox" name="locked" checked><span>Put them in the gacha machine, to unlock</span></label>
       <div class="buttons">
         <button class="ink-button" type="submit">Add ${n} ${n === 1 ? 'piece' : 'pieces'}</button>
@@ -258,7 +259,7 @@ $('cut-page').addEventListener('submit', async (event) => {
     const piece = await putItem({
       id: newId('piece'), kind: 'piece', day: '', name: `${base} ${ids.length + 1}`, type: small ? 'small' : 'furniture', views: [view],
       count: 1, surface: false, lift: 16, light: false, catSpot: false, catLift: 8, toy: false,
-      set, sheet: sheetName(), locked: form.elements.locked.checked, createdAt: start + ids.length,
+      set, colour: form.elements.colour.value.trim(), sheet: sheetName(), locked: form.elements.locked.checked, createdAt: start + ids.length,
     });
     pieces.set(piece.id, piece);
     ids.push(piece.id);

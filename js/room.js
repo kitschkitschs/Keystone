@@ -1255,9 +1255,11 @@ function pieceTypeChoices(current) {
 // "Cottage (blue)". Only pieces outside a set show their own name.
 function pieceLabel(p) {
   if (!p.set) return p.name;
-  const colour = p.colour || (p.family && (p.name.match(/\(([^)]+)\)$/) || [])[1]);
+  const colour = pieceColour(p);
   return colour ? `${p.set} (${colour})` : p.set;
 }
+// Copies cut before pieces kept their colour have it at the end of their name.
+const pieceColour = (p) => p.colour ?? ((p.family && (p.name.match(/\(([^)]+)\)$/) || [])[1]) || '');
 
 // Pieces to pick between, as their pictures: a radio button each.
 function pieceRadios(name, list, current, none) {
@@ -1355,6 +1357,7 @@ function openPieceDetails(piece) {
     <label class="field"><span>Set</span><input name="set" type="text" value="${escapeHtml(piece.set || '')}" list="set-names" autocomplete="off" placeholder="Not in a set"></label>
     <datalist id="set-names">${setNames().map((name) => `<option value="${escapeHtml(name)}">`).join('')}</datalist>
     <div class="field"><span>A colour of</span>${pieceRadios('family', colourChoices(piece), piece.family, 'None')}</div>
+<label class="field"><span>Colour <span class="muted">(shown after the set's name)</span></span><input name="colour" type="text" value="${escapeHtml(pieceColour(piece))}" autocomplete="off" placeholder="None"></label>
     <label class="field"><span>Rarity</span><select name="rarity">${RARITIES.map(([key, name]) => `<option value="${key}"${(piece.rarity || 'common') === key ? ' selected' : ''}>${name}</option>`).join('')}</select></label>
     <label class="check"><input type="checkbox" name="locked"${piece.locked ? ' checked' : ''}><span>Locked in the gacha machine</span></label>
     <h3>Looks and tiles</h3>
@@ -1407,7 +1410,7 @@ function openPieceDetails(piece) {
       surface: form.elements.surface.checked, lift: Number(form.elements.lift.value) || 0, light: form.elements.light.checked,
       catSpot: form.elements.catSpot.checked, catLift: Math.max(0, Number(form.elements.catLift.value) || 0),
       catShift: Math.round(Number(form.elements.catShift.value) || 0),
-      toy: form.elements.toy.checked, set: form.elements.set.value.trim(), family, rarity: form.elements.rarity.value,
+      toy: form.elements.toy.checked, set: form.elements.set.value.trim(), colour: form.elements.colour.value.trim(), family, rarity: form.elements.rarity.value,
       locked: form.elements.locked.checked,
     });
     pieces.set(saved.id, saved);
