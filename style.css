@@ -333,9 +333,18 @@ input:focus-visible, button:focus-visible, summary:focus-visible, select:focus-v
 .room-stage { position: relative; width: fit-content; margin: 0 auto; }
 #room-canvas { display: block; touch-action: none; }
 .room-note { margin: 10px 0 0; font-size: 13.5px; }
-.room-bar { display: flex; align-items: center; gap: 6px; min-height: 60px; padding-top: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--rule); }
-.room-bar .grow { flex: 1; font-size: 14px; line-height: 1.3; }
-.room-bar .ink-button:disabled { opacity: 0.35; }
+/* Small buttons by the piece you're placing (room.js). */
+.held-tools { position: absolute; top: 0; left: 0; display: grid; gap: 4px; justify-items: center; pointer-events: none; }
+.held-tools[hidden] { display: none; }
+.held-row { display: flex; gap: 4px; pointer-events: auto; }
+.held-button { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 2px solid #3B2C2A; border-radius: 6px;
+  background: #FBF4E6; color: #3B2C2A; font-size: 15px; line-height: 1; box-shadow: inset 0 -2px 0 #E2D3B8, 0 2px 0 rgba(59, 44, 42, 0.3); }
+.held-button svg { width: 15px; height: 15px; }
+.held-button.place { background: #A9C49A; box-shadow: inset 0 -2px 0 #86A577, 0 2px 0 rgba(59, 44, 42, 0.3); }
+.held-button:disabled { opacity: 0.4; }
+.held-button[aria-pressed="true"] { background: #D99A93; box-shadow: inset 0 -2px 0 #B97872, 0 2px 0 rgba(59, 44, 42, 0.3); }
+html.dark .held-button { background: #3A3249; color: #F2E8DA; border-color: #120F1A; box-shadow: inset 0 -2px 0 #2A2436, 0 2px 0 rgba(0, 0, 0, 0.4); }
+html.dark .held-button.place { background: #5E7A52; }
 .inv-path { display: flex; align-items: center; gap: 6px; margin: 0; }
 .inventory { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; padding: 12px 0; }
 .inv-tile {

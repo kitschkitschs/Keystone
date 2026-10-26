@@ -20,11 +20,10 @@
       <span></span>
       <span class="top-right"><button class="icon-button open-menu" type="button" aria-label="Menu"></button></span>
     </div>
-    <!-- The room and the bar under it stay in view while the inventory scrolls. -->
+    <!-- The room stays in view while the page scrolls. -->
     <div class="room-top">
-      <div class="room-stage"><canvas id="room-canvas" class="pixel"></canvas><div id="room-hud" class="room-hud"></div></div>
+      <div class="room-stage"><canvas id="room-canvas" class="pixel"></canvas><div id="room-hud" class="room-hud"></div><div id="held-tools" class="held-tools" hidden></div></div>
       <p id="room-note" class="room-note side" role="status" hidden></p>
-      <div id="room-bar" class="room-bar side"></div>
     </div>
   </section>
 
