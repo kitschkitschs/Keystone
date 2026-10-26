@@ -10,13 +10,15 @@
 //     sheet                                  the picture it was cut from, and each view's
 //                                            box on it, so other colours of that sheet can
 //                                            be cut the same way (see room-add.js).
-//     views: [{ src, pw, ph, w, d }] }       one thing in your inventory. Each view is
+//     views: [{ src, pw, ph, w, d, on }] }   one thing in your inventory. Each view is
 //                                            one way it can be turned: its picture
 //                                            (src, pw x ph pixels) and the tiles it
-//                                            stands on (w wide, d deep).
-//   { id: "placed-...", kind: "placed", day: "", piece, view, x, y }
+//                                            stands on (w wide, d deep). A lamp's
+//                                            on: { src, pw, ph, box } is its lit look.
+//   { id: "placed-...", kind: "placed", day: "", piece, view, x, y, lit }
 //                                            one piece standing in the room, with the
-//                                            top-left tile it stands on.
+//                                            top-left tile it stands on. lit: a lamp
+//                                            that's switched on.
 //   { id: "room", kind: "room", day: "", cols, wallRows, floorRows, wallpaper, floor }
 //   { id: "cat", kind: "cat", day: "", name, src, fw, fh, anims }   see room-art.js
 //
@@ -82,6 +84,11 @@ function picture(src) {
 
 const rows = () => room.wallRows + room.floorRows;
 const viewOf = (piece, i) => piece.views[i] || piece.views[0];
+// The picture a placed piece shows: a lamp that's switched on shows its on look.
+function lookOf(p) {
+  const v = viewOf(pieces.get(p.piece), p.view);
+  return p.lit && v.on ? v.on : v;
+}
 
 // The tiles a piece stands on.
 function boxOf({ piece: pieceId, view, x, y }) {
@@ -187,7 +194,7 @@ function surfaceBg(id, x, y, w, h, plain) {
 // Where a placed piece's picture goes, in room pixels.
 function spot(p) {
   const piece = pieces.get(p.piece);
-  const v = viewOf(piece, p.view);
+  const v = lookOf(p);
   const box = boxOf(p);
   let bottom = (box.y + box.d) * TILE;
   if (piece.type === 'small') {
@@ -198,8 +205,7 @@ function spot(p) {
 }
 
 function drawPiece(p, alpha = 1) {
-  const v = viewOf(pieces.get(p.piece), p.view);
-  const img = picture(v.src);
+  const img = picture(lookOf(p).src);
   if (!img) return;
   const s = spot(p);
   let bx = 0;
@@ -350,7 +356,7 @@ function drawDayLight() {
     wg.globalCompositeOperation = 'screen';
     for (const p of placed) {
       const piece = pieces.get(p.piece);
-      if (!piece.light) continue;
+      if (!piece.light || !p.lit) continue;
       const s = spot(p);
       const cx = s.x + s.w / 2 + (piece.lightX || 0);
       const cy = s.y + s.h * 0.35 + (piece.lightY || 0);
@@ -965,7 +971,7 @@ function solidAt(img, x, y) {
 function pieceAt(point) {
   const list = drawList().filter((t) => !t.cat).reverse();
   for (const { p } of list) {
-    const img = picture(viewOf(pieces.get(p.piece), p.view).src);
+    const img = picture(lookOf(p).src);
     const s = spot(p);
     if (img && solidAt(img, point.x - s.x, point.y - s.y)) return p;
   }
@@ -1079,9 +1085,16 @@ roomCanvas.addEventListener('pointerup', (event) => {
     if (p) pickUp(p);
     return;
   }
-  // Tap a toy and the cat comes to play with it.
+  // Tap a toy and the cat comes to play with it. Tap a lamp to switch it.
   if (p && floorToys().includes(p)) callToPlay(p);
+  else if (p && pieces.get(p.piece).light) switchLamp(p);
 });
+
+async function switchLamp(p) {
+  const item = await putItem({ ...p, lit: !p.lit });
+  placed = placed.map((one) => (one.id === item.id ? item : one));
+  if (navigator.vibrate) navigator.vibrate(10);
+}
 
 function callToPlay(toy) {
   const now = performance.now();
@@ -1118,7 +1131,7 @@ function holdPiece(piece) {
 
 async function placeHeld() {
   if (!held || !canPlace(held)) return;
-  const item = await putItem({ id: held.from ? held.from.id : newId('placed'), kind: 'placed', day: '', piece: held.piece, view: held.view, x: held.x, y: held.y });
+  const item = await putItem({ id: held.from ? held.from.id : newId('placed'), kind: 'placed', day: '', piece: held.piece, view: held.view, x: held.x, y: held.y, lit: Boolean(held.from && held.from.lit) });
   placed = placed.filter((p) => p.id !== item.id).concat(item);
   held = null;
   showRoomPanel();
@@ -1369,7 +1382,9 @@ async function drawGlowPreview() {
   const { g, form, v, img, pic, left, top, c } = f;
   g.fillStyle = '#2E2A40';
   g.fillRect(left, top, c.width, c.height);
-  if (img) g.drawImage(img, pic.x, pic.y);
+  const on = v.on && (await loadPicture(v.on.src).catch(() => null));
+  if (on) g.drawImage(on, pic.x + Math.floor((v.pw - v.on.pw) / 2), pic.y + v.ph - v.on.ph);
+  else if (img) g.drawImage(img, pic.x, pic.y);
   const cx = pic.x + v.pw / 2 + (Number(form.lightX.value) || 0);
   const cy = pic.y + v.ph * 0.35 + (Number(form.lightY.value) || 0);
   g.globalCompositeOperation = 'screen';
@@ -1424,6 +1439,8 @@ function openPieceDetails(piece) {
       <label>Wide <input type="number" name="w${i}" min="1" max="12" value="${v.w}"></label>
       <label>Deep <input type="number" name="d${i}" min="1" max="12" value="${v.d}"></label>
       <button class="text-button" type="submit" value="recut-${i}">Cut again</button>
+      ${piece.light ? `${v.on ? `<img class="pixel" src="${v.on.src}" alt="On" style="--pw: ${v.on.pw}; --ph: ${v.on.ph}">` : ''}
+        <button class="text-button" type="submit" value="recuton-${i}">${v.on ? 'Cut on look again' : 'Cut on look'}</button>` : ''}
       ${i ? `<button class="text-button danger" type="submit" value="unview-${i}">Remove</button>` : ''}
     </div>`).join('');
   previewPiece = piece;
@@ -1487,9 +1504,10 @@ function openPieceDetails(piece) {
       locked: form.elements.locked.checked,
     });
     pieces.set(saved.id, saved);
-    if (action === 'addview' || (action && action.startsWith('recut-'))) {
+    if (action === 'addview' || (action && action.startsWith('recut'))) {
       closeGameWindow();
-      cutForPiece(saved.id, action === 'addview' ? null : Number(action.slice(6)));
+      if (action === 'addview') cutForPiece(saved.id, null);
+      else cutForPiece(saved.id, Number(action.split('-')[1]), action.startsWith('recuton-'));
     } else if (action && action.startsWith('unview-')) {
       openPieceDetails(saved);
       return false;
