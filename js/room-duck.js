@@ -143,6 +143,8 @@ function setDuckAnim(key, now) {
   if (duckState.anim !== key) {
     duckState.anim = key;
     duckState.animStart = now;
+    // Sitting down, it settles for a while before it looks around.
+    if (key === 'sit') Object.assign(duckState, { nextGlance: 0, glanceUntil: 0 });
   }
 }
 
@@ -243,6 +245,12 @@ function moveDuck(now, dark) {
     setDuckAnim(key, now);
     return;
   }
+  // Sitting, it keeps still, and now and then looks the other way for a bit.
+  if (duckState.mode === 'sit' && now > (duckState.nextGlance || 0)) {
+    const looking = now < (duckState.glanceUntil || 0);
+    if (!looking && duckState.nextGlance) duckState.glanceUntil = now + 1500 + Math.random() * 2000;
+    duckState.nextGlance = (looking ? duckState.glanceUntil : now) + 4000 + Math.random() * 6000;
+  }
   // Asleep, it wakes when it gets light.
   if (duckState.mode === 'sleep' && dark > 0.5) return;
   if (now > duckState.until) nextDuckPlan(now, dark);
@@ -256,6 +264,8 @@ function duckFrame(now) {
     mirror = true;
   }
   const meta = DUCK_ANIMS.find((m) => m.key === duckState.anim);
+  // Sitting, it holds still on the first frame, turned the other way while it looks around.
+  if (duckState.anim === 'sit') return { frame: a.start, mirror: a.flip !== (now < (duckState.glanceUntil || 0)) };
   // Standing or held, it holds the first frame of the way it's facing.
   const shuffling = duckState.mode === 'snuggle' && duckState.x !== duckState.snug.x1;
   let i = duckState.mode === 'stand' || duckState.mode === 'carried' || (duckState.mode === 'snuggle' && !shuffling) ? 0 : Math.floor(((now - duckState.animStart) / 1000) * a.fps);
