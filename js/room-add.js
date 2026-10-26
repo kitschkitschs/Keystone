@@ -26,7 +26,26 @@ function cutForPiece(id, view) {
 // sheet: the picture, as a canvas. boxes: the pieces boxed on it so far, each
 // [x, y, width, height]. corner: the first corner of a box being drawn.
 // name: what the picture is called (its file name).
-const cut = { sheet: null, boxes: [], corner: null, zoom: 2, snap: true, name: '', note: '' };
+const cut = { sheet: null, boxes: [], corner: null, zoom: 2, snap: true, name: '', note: '', groups: [], picked: new Set() };
+
+// Boxes can be grouped before adding: { kind: 'turns', boxes } become one piece
+// with a look for each turn; { kind: 'colours', boxes } become pieces grouped
+// as colours, each named with box.colour. The first box picked comes first.
+function cutGroups() {
+  cut.groups = cut.groups
+    .map((group) => ({ ...group, boxes: group.boxes.filter((box) => cut.boxes.includes(box)) }))
+    .filter((group) => group.boxes.length > 1);
+  for (const box of cut.picked) if (!cut.boxes.includes(box)) cut.picked.delete(box);
+  return cut.groups;
+}
+const groupOf = (box) => cutGroups().find((group) => group.boxes.includes(box));
+
+function groupPicked(kind) {
+  const boxes = [...cut.picked];
+  cut.groups = cutGroups().map((group) => ({ ...group, boxes: group.boxes.filter((box) => !cut.picked.has(box)) }));
+  cut.groups.push({ kind, boxes });
+  cut.picked.clear();
+}
 
 // The name pieces from this picture remember, or '' for a drawing.
 const sheetName = () => (cut.name && cut.name !== 'Drawing' ? cut.name : '');
@@ -63,7 +82,7 @@ function showRoomAdd() {
           <button class="text-button" type="button" data-cut="in" aria-label="Zoom in">+</button>
           <label class="check"><input id="cut-snap" type="checkbox"${cut.snap ? ' checked' : ''}><span>Snap to tiles</span></label>
         </div>
-        <p class="muted">Tap two opposite corners to box a piece${forPiece ? '' : ', or find them all at once. Tap a box again to take it out'}. Empty edges are trimmed off.</p>
+        <p class="muted">Tap two opposite corners to box a piece${forPiece ? '' : ', or find them all at once. Tap a box to pick it'}. Empty edges are trimmed off.</p>
         ${forPiece ? '' : '<p><button class="text-button" type="button" data-cut="find">Find all pieces</button></p>'}
         <div id="cut-scroll" class="cut-scroll"><canvas id="cut-canvas" class="pixel"></canvas></div>
         <div id="cut-boxed"></div>
@@ -101,11 +120,16 @@ function drawCutSheet() {
   const step = TILE * cut.zoom;
   for (let x = step; x < c.width; x += step) g.fillRect(x, 0, 1, c.height);
   for (let y = step; y < c.height; y += step) g.fillRect(0, y, c.width, 1);
-  g.strokeStyle = '#3E9B5A';
   g.lineWidth = 2;
   for (const box of cut.boxes) {
     const [x, y, w, h] = box.map((n) => n * cut.zoom);
+    const group = !cutFor && groupOf(box);
+    g.strokeStyle = !group ? '#3E9B5A' : group.kind === 'turns' ? '#2F7FD0' : '#9A5FB0';
     g.strokeRect(x + 1, y + 1, w - 2, h - 2);
+    if (cut.picked.has(box)) {
+      g.fillStyle = 'rgba(47, 127, 208, 0.25)';
+      g.fillRect(x, y, w, h);
+    }
   }
   if (cut.corner) {
     g.fillStyle = '#2F7FD0';
@@ -125,21 +149,49 @@ function showBoxed() {
       <p><button class="ink-button" type="button" data-cut="look">${again ? 'Use this cut' : 'Add this turned look'}</button></p>` : '';
     return;
   }
+  // What's typed in the form so far stays when the list is drawn again.
+  const old = $('cut-form');
+  const kept = old && { set: old.elements.set.value, colour: old.elements.colour.value, locked: old.elements.locked.checked };
+  const groups = cutGroups();
+  const grouped = new Set(groups.flatMap((group) => group.boxes));
+  const count = n - groups.filter((group) => group.kind === 'turns').reduce((sum, group) => sum + group.boxes.length - 1, 0);
+  const tile = (box, colour) => {
+    const i = cut.boxes.indexOf(box);
+    return `<div class="cut-tile"><button type="button" class="pile-tile" data-cut="pick" data-i="${i}" aria-pressed="${cut.picked.has(box)}" aria-label="Pick piece ${i + 1}">
+      <img class="pixel" src="${cutBox(cut.sheet, box)}" alt="" style="--pw: ${box[2]}; --ph: ${box[3]}"></button>
+      ${colour ? `<input class="cut-colour" type="text" data-colour-i="${i}" value="${escapeHtml(box.colour || '')}" placeholder="Colour" aria-label="Colour" autocomplete="off">` : ''}</div>`;
+  };
+  const p = cut.picked.size;
   el.innerHTML = n ? `
     <h3 class="cat-h">${n} boxed</h3>
-    <div class="pile">${cut.boxes.map((box, i) => `<button type="button" class="pile-tile" data-cut="unbox" data-i="${i}" aria-label="Take piece ${i + 1} out">
-      <img class="pixel" src="${cutBox(cut.sheet, box)}" alt="" style="--pw: ${box[2]}; --ph: ${box[3]}"></button>`).join('')}</div>
-    <p class="muted">Tap one to take it out.</p>
+    <p class="muted">Tap pieces to pick them. Pick a piece's turns, or its colours, and group them; the first you pick comes first.</p>
+    ${groups.map((group, g) => `<div class="cut-group ${group.kind}">
+      <div class="cut-group-head"><span>${group.kind === 'turns' ? 'Turns of one piece' : 'Colours of one piece'}</span>
+        <button class="text-button" type="button" data-cut="ungroup" data-g="${g}">Separate</button></div>
+      <div class="pile">${group.boxes.map((box) => tile(box, group.kind === 'colours')).join('')}</div>
+    </div>`).join('')}
+    <div class="pile">${cut.boxes.filter((box) => !grouped.has(box)).map((box) => tile(box, false)).join('')}</div>
+    <div class="buttons cut-pick-actions"${p ? '' : ' hidden'}>
+      <button class="text-button" type="button" data-cut="turns"${p > 1 ? '' : ' disabled'}>Turns of one piece</button>
+      <button class="text-button" type="button" data-cut="colours"${p > 1 ? '' : ' disabled'}>Colours of one piece</button>
+      <button class="text-button danger" type="button" data-cut="unpick">Take out</button>
+    </div>
     <form id="cut-form">
       <label class="field"><span>Set</span><input name="set" type="text" value="${escapeHtml(setNameFrom(sheetName()))}" list="cut-set-names" autocomplete="off" placeholder="Not in a set"></label>
-      <datalist id="cut-set-names">${[...new Set([...pieces.values()].map((p) => p.set).filter(Boolean))].map((s) => `<option value="${escapeHtml(s)}">`).join('')}</datalist>
+      <datalist id="cut-set-names">${[...new Set([...pieces.values()].map((q) => q.set).filter(Boolean))].map((name) => `<option value="${escapeHtml(name)}">`).join('')}</datalist>
       <label class="field"><span>Colour <span class="muted">(if the sheet is one colour of a set)</span></span><input name="colour" type="text" autocomplete="off" placeholder="None"></label>
       <label class="check"><input type="checkbox" name="locked" checked><span>Put them in the gacha machine, to unlock</span></label>
       <div class="buttons">
-        <button class="ink-button" type="submit">Add ${n} ${n === 1 ? 'piece' : 'pieces'}</button>
+        <button class="ink-button" type="submit">Add ${count} ${count === 1 ? 'piece' : 'pieces'}</button>
         <button class="text-button" type="button" data-cut="clear">Clear</button>
       </div>
     </form>` : '';
+  const form = $('cut-form');
+  if (kept && form) {
+    form.elements.set.value = kept.set;
+    form.elements.colour.value = kept.colour;
+    form.elements.locked.checked = kept.locked;
+  }
 }
 
 async function useCutPicture(src, name) {
@@ -172,6 +224,7 @@ $('cut-page').addEventListener('change', async (event) => {
     await useCutPicture(await readFileAsDataUrl(file), file.name.replace(/\.[^.]*$/, ''));
   }
   if (event.target.id === 'cut-snap') cut.snap = event.target.checked;
+  if (event.target.dataset.colourI) cut.boxes[Number(event.target.dataset.colourI)].colour = event.target.value.trim();
 });
 
 $('cut-page').addEventListener('click', async (event) => {
@@ -201,8 +254,18 @@ $('cut-page').addEventListener('click', async (event) => {
     $('cut-status').textContent = whole ? 'The whole picture came out as one piece. Finding pieces needs a see-through gap between them.'
       : found.length ? `Found ${found.length}. Pieces touching each other come out as one box: take it out and box them by hand.` : 'No new pieces found.';
   }
-  if (action === 'unbox') {
-    cut.boxes.splice(Number(button.dataset.i), 1);
+  if (action === 'pick') {
+    const box = cut.boxes[Number(button.dataset.i)];
+    if (cut.picked.has(box)) cut.picked.delete(box);
+    else cut.picked.add(box);
+  }
+  if (action === 'turns' || action === 'colours') groupPicked(action);
+  if (action === 'ungroup') cut.groups.splice(Number(button.dataset.g), 1);
+  if (action === 'unpick') {
+    cut.boxes = cut.boxes.filter((box) => !cut.picked.has(box));
+    cut.picked.clear();
+  }
+  if (['pick', 'turns', 'colours', 'ungroup', 'unpick'].includes(action)) {
     drawCutSheet();
     showBoxed();
   }
@@ -214,7 +277,7 @@ $('cut-page').addEventListener('click', async (event) => {
   if (action === 'look') await (cutFor.view === null ? addTurnedLook() : useNewCut());
 });
 
-// Tapping on the sheet: two corners make a box. A tap inside a box takes it out.
+// Tapping on the sheet: two corners make a box. A tap inside a box picks it.
 $('cut-page').addEventListener('pointerup', (event) => {
   if (event.target.id !== 'cut-canvas') return;
   const r = event.target.getBoundingClientRect();
@@ -222,7 +285,9 @@ $('cut-page').addEventListener('pointerup', (event) => {
   const py = Math.floor(((event.clientY - r.top) / r.height) * cut.sheet.height);
   const inside = !cut.corner && !cutFor && cut.boxes.findIndex(([x, y, w, h]) => px >= x && px < x + w && py >= y && py < y + h);
   if (inside !== false && inside >= 0) {
-    cut.boxes.splice(inside, 1);
+    const box = cut.boxes[inside];
+    if (cut.picked.has(box)) cut.picked.delete(box);
+    else cut.picked.add(box);
   } else {
     const unit = cut.snap ? TILE : 1;
     const sx = Math.floor(px / unit) * unit;
@@ -249,22 +314,53 @@ $('cut-page').addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.target;
   const set = form.elements.set.value.trim();
+  const colour = form.elements.colour.value.trim();
   const base = set || 'Piece';
   const start = Date.now();
   const ids = [];
-  for (const box of cut.boxes) {
+  const groups = cutGroups();
+  const viewOf = (box, first) => {
     const [, , pw, ph] = box;
     const small = pw <= TILE && ph <= TILE;
-    const view = { src: cutBox(cut.sheet, box), pw, ph, w: small ? 1 : Math.max(1, Math.round(pw / TILE)), d: 1, box: [...box] };
+    const w = small ? 1 : Math.max(1, Math.round(pw / TILE));
+    // A turn stands on its tiles the other way round.
+    return { src: cutBox(cut.sheet, box), pw, ph, w: first ? first.d : w, d: first ? first.w : 1, box: [...box] };
+  };
+  const add = async (boxes, extra) => {
+    const [first, ...turns] = boxes;
+    const view = viewOf(first);
+    const small = first[2] <= TILE && first[3] <= TILE;
     const piece = await putItem({
-      id: newId('piece'), kind: 'piece', day: '', name: `${base} ${ids.length + 1}`, type: small ? 'small' : 'furniture', views: [view],
+      id: newId('piece'), kind: 'piece', day: '', name: `${base} ${ids.length + 1}`, type: small ? 'small' : 'furniture',
+      views: [view, ...turns.map((box) => viewOf(box, view))],
       count: 1, surface: false, lift: 16, light: false, catSpot: false, catLift: 8, toy: false,
-      set, colour: form.elements.colour.value.trim(), sheet: sheetName(), locked: form.elements.locked.checked, createdAt: start + ids.length,
+      set, colour, sheet: sheetName(), locked: form.elements.locked.checked, createdAt: start + ids.length, ...extra,
     });
     pieces.set(piece.id, piece);
     ids.push(piece.id);
+    return piece;
+  };
+  const done = new Set();
+  for (const box of cut.boxes) {
+    if (done.has(box)) continue;
+    const group = groupOf(box);
+    if (!group) {
+      await add([box]);
+    } else if (group.kind === 'turns') {
+      await add(group.boxes);
+    } else {
+      let root = null;
+      for (const one of group.boxes) {
+        // The sheet's colour is the first one's, unless it's named here.
+        const piece = await add([one], { colour: one.colour || (root ? '' : colour), family: root ? root.id : '' });
+        root = root || piece;
+      }
+    }
+    for (const one of group ? group.boxes : [box]) done.add(one);
   }
   cut.boxes = [];
+  cut.groups = [];
+  cut.picked.clear();
   showBackupInfo();
   showPiecesFor(ids);
 });

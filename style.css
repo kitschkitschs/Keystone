@@ -398,7 +398,6 @@ html.dark .draw-preview { background: repeating-conic-gradient(#2A2436 0 25%, #3
 .radio-tile input { position: absolute; opacity: 0; pointer-events: none; }
 .radio-tile:has(input:checked) { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
 .radio-tile .muted { font-size: 13px; }
-.pile-tile[aria-pressed="false"] { opacity: 0.35; border-style: dashed; }
 .pile-tile[aria-pressed="true"] { border-color: #3E9B5A; box-shadow: inset 0 0 0 1px #3E9B5A; }
 .cut-preview img { width: calc(var(--pw) * 3px); max-width: 100%; height: auto; }
 
@@ -496,3 +495,11 @@ html.dark .sheet.game-window h3, html.dark .sheet.game-window .field { color: #C
 .seat-setup canvas { background: var(--paper); border-radius: 4px; }
 .seat-lift { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; justify-content: center; font-size: 14px; }
 .seat-lift input { width: 64px; }
+
+/* Grouping boxes in the cutter (room-add.js). */
+.cut-tile { display: grid; gap: 4px; justify-items: center; }
+.cut-colour { width: 64px; padding: 3px 5px; font-size: 12px; }
+.cut-group { margin: 8px 0; padding: 8px 10px 2px; border: 1px dashed #2F7FD0; border-radius: 10px; }
+.cut-group.colours { border-color: #9A5FB0; }
+.cut-group-head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--muted); }
+.cut-pick-actions { position: sticky; bottom: 70px; padding: 8px; border-radius: 12px; background: var(--paper); box-shadow: 0 4px 16px var(--shadow); }
