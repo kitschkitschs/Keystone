@@ -1208,7 +1208,12 @@ function pieceTypeChoices(current) {
   return `<label class="field"><span>What it is</span><select name="type">${PIECE_TYPES.map(([key, name]) => `<option value="${key}"${key === current ? ' selected' : ''}>${name}</option>`).join('')}</select></label>`;
 }
 
+// New pieces from the cutter's pile, waiting to be named and set up one by one.
+let setupQueue = [];
+
 function openPieceDetails(piece) {
+  const inQueue = setupQueue.indexOf(piece.id);
+  const nextId = inQueue >= 0 ? setupQueue[inQueue + 1] : null;
   const views = piece.views.map((v, i) => `<div class="view-row">
       <img class="pixel" src="${v.src}" alt="" style="--pw: ${v.pw}; --ph: ${v.ph}">
       <label>Wide <input type="number" name="w${i}" min="1" max="12" value="${v.w}"></label>
@@ -1216,7 +1221,8 @@ function openPieceDetails(piece) {
       <button class="text-button" type="submit" value="draw-${i}">Draw</button>
       ${i ? `<button class="text-button danger" type="submit" value="unview-${i}">Remove</button>` : ''}
     </div>`).join('');
-  openSheet('Piece', `
+  openSheet(inQueue >= 0 ? `New piece ${inQueue + 1} of ${setupQueue.length}` : 'Piece', `
+    ${inQueue >= 0 ? `<div class="cut-preview"><img class="pixel" src="${piece.views[0].src}" alt="" style="--pw: ${piece.views[0].pw}; --ph: ${piece.views[0].ph}"></div>` : ''}
     <label class="field"><span>Name</span><input name="name" type="text" value="${escapeHtml(piece.name)}" required autocomplete="off"></label>
     ${pieceTypeChoices(piece.type)}
     <label class="field"><span>How many you have</span><input name="count" type="number" min="1" max="99" value="${piece.count || 1}"></label>
@@ -1230,9 +1236,20 @@ function openPieceDetails(piece) {
     <label class="check"><input type="checkbox" name="catSpot"${piece.catSpot ? ' checked' : ''}><span>${escapeHtml(cat.name)} can sit and sleep on it</span></label>
     <label class="field"><span>How high ${escapeHtml(cat.name)} sits on it, in pixels</span><input name="catLift" type="number" min="0" max="64" value="${piece.catLift ?? 8}"></label>
     <label class="check"><input type="checkbox" name="toy"${piece.toy ? ' checked' : ''}><span>A toy ${escapeHtml(cat.name)} plays with (on the floor)</span></label>
-    <p><button class="text-button danger" type="submit" value="delete">Delete this piece</button></p>`,
+    <p><button class="text-button danger" type="submit" value="delete">Delete this piece</button></p>
+    ${nextId ? '<p><button class="ink-button" type="submit" value="next">Save and set up the next one</button></p>' : ''}`,
   async (form, submitter) => {
     const action = submitter && submitter.value;
+    // Leaving the queue (deleting or drawing) still lets you carry on with the next one.
+    const goNext = () => {
+      const next = nextId && pieces.get(nextId);
+      if (next) {
+        openPieceDetails(next);
+        return false;
+      }
+      setupQueue = [];
+      return true;
+    };
     if (action === 'delete') {
       const inRoom = placed.filter((p) => p.piece === piece.id);
       if (!confirm(inRoom.length ? `Delete ${piece.name}? The ${inRoom.length} in the room go too.` : `Delete ${piece.name}?`)) return false;
@@ -1243,7 +1260,7 @@ function openPieceDetails(piece) {
       await deleteItem(piece.id);
       await loadRoom();
       showRoomPanel();
-      return true;
+      return goNext();
     }
     const views = piece.views.map((v, i) => ({ ...v, w: Number(form.elements[`w${i}`].value) || 1, d: Number(form.elements[`d${i}`].value) || 1 }));
     if (action && action.startsWith('unview-')) views.splice(Number(action.slice(7)), 1);
@@ -1265,7 +1282,10 @@ function openPieceDetails(piece) {
     } else if (action && action.startsWith('unview-')) {
       openPieceDetails(saved);
       return false;
+    } else if (action === 'next') {
+      return goNext();
     }
+    if (inQueue >= 0) setupQueue = [];
     return true;
   });
 }

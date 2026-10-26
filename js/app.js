@@ -48,7 +48,8 @@ function openSheet(title, html, onSubmit, saveWord = 'Save') {
       <button class="text-button" type="button" data-close>Cancel</button>
       <button class="ink-button" type="submit">${saveWord}</button></div>`;
   sheetSubmit = onSubmit;
-  sheet.showModal();
+  // A sheet can open the next one straight from its own Save.
+  if (!sheet.open) sheet.showModal();
 }
 sheetForm.addEventListener('submit', async (event) => {
   event.preventDefault();

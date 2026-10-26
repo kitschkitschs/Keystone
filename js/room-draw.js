@@ -440,6 +440,8 @@ async function useDrawing() {
   cut.box = [0, 0, draw.w, draw.h];
   cut.corner = null;
   cut.tilesTouched = false;
+  cut.pile = [];
+  cut.name = 'Drawing';
   cutFor = null;
   cut.note = 'Your drawing. Give it a name and add it to the inventory.';
   goTo('room-add');
