@@ -2,13 +2,18 @@
 // farmer's market's goods and recipes, and set up the garden's bed. Pictures
 // are picked from a sprite sheet: open the picture, set the frame size, and
 // tap the frames. A crop's growing stages are tapped in order, seed first.
+// Every sheet you open stays open (while the app is) as a tag above the
+// picture, and each kind of picture goes back to the sheet it was last picked
+// from: the crops' sheet for growing stages, the harvest sheet for what you pick.
 // What everything is, and how it's saved: see farm.js.
 
 let farmTab = 'crops'; // crops, goods, recipes or garden
 let farmDraft = null; // the crop, good or recipe being edited
 // Picking frames from a picture: { what (the draft's field), many, fw, fh, picked: [[col, row]] }
 let picker = null;
-let pickerSheet = null; // the last picture opened, kept while the app is open
+let pickerSheets = []; // every picture opened: { name, canvas }, kept while the app is open
+let pickerSheet = null; // the one showing
+const sheetForWhat = {}; // the sheet each kind of picture (stages, produce, src) was last picked from
 const PICK_SIZES = { stages: [16, 32], produce: [16, 16], src: [16, 16] };
 
 const FARM_TABS = [['crops', 'Crops'], ['goods', 'Market'], ['recipes', 'Recipes'], ['garden', 'Garden']];
@@ -186,7 +191,10 @@ function gardenFormHtml() {
 
 function pickerHtml() {
   return `<div class="picker">
-      <div class="buttons"><label class="ink-button"><span>Open picture</span><input id="pick-file" type="file" accept="image/*" hidden></label></div>
+      <div class="inv-tags">
+        ${pickerSheets.map((sheet, i) => `<button type="button" class="inv-tag" data-pick-sheet="${i}" aria-pressed="${sheet.canvas === pickerSheet}">${escapeHtml(sheet.name)}</button>`).join('')}
+        <label class="inv-tag add-tag"><span>Open picture</span><input id="pick-file" type="file" accept="image/*" hidden></label>
+      </div>
       <div class="cut-box">
         <label>Width <input id="pick-fw" type="number" min="4" max="128" value="${picker.fw}"></label>
         <label>Height <input id="pick-fh" type="number" min="4" max="128" value="${picker.fh}"></label>
@@ -234,6 +242,7 @@ function openPicker(what) {
   readFarmFields();
   const [fw, fh] = what === 'stages' && farmDraft.fw ? [farmDraft.fw, farmDraft.fh] : PICK_SIZES[what];
   picker = { what, many: what === 'stages', fw, fh, picked: [] };
+  if (sheetForWhat[what]) pickerSheet = sheetForWhat[what];
   drawFarm();
   const side = document.querySelector('.farm-side');
   if (side && !isWide()) side.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -246,6 +255,7 @@ function usePicked() {
   if (picker.what === 'stages') Object.assign(farmDraft, { stages: picker.picked.map(cut), fw, fh });
   else farmDraft[picker.what] = cut(picker.picked[0]);
   PICK_SIZES[picker.what] = [fw, fh];
+  sheetForWhat[picker.what] = pickerSheet;
   picker = null;
   drawFarm();
 }
@@ -256,6 +266,7 @@ $('farm-page').addEventListener('change', async (event) => {
     if (!file) return;
     try {
       pickerSheet = pictureCanvas(await loadPicture(await readFileAsDataUrl(file)));
+      pickerSheets.push({ name: file.name.replace(/\.[^.]*$/, ''), canvas: pickerSheet });
     } catch (error) {
       farmStatus(error.message);
       return;
@@ -293,6 +304,14 @@ $('farm-page').addEventListener('click', async (event) => {
     drawFarm();
     const again = document.querySelector('.pick-scroll');
     if (again) { again.scrollLeft = left; again.scrollTop = top; }
+    return;
+  }
+  const sheet = event.target.closest('[data-pick-sheet]');
+  if (sheet && picker) {
+    pickerSheet = pickerSheets[Number(sheet.dataset.pickSheet)].canvas;
+    picker.picked = [];
+    readFarmFields();
+    drawFarm();
     return;
   }
   const tab = event.target.closest('[data-farm-tab]');
