@@ -1364,7 +1364,7 @@ async function tapPiece(piece) {
 // --- Sheets: a piece's details, and the room's size and light ---
 
 function pieceTypeChoices(current) {
-  return `<label class="field"><span>What it is</span><select name="type">${PIECE_TYPES.map(([key, name]) => `<option value="${key}"${key === current ? ' selected' : ''}>${name}</option>`).join('')}</select></label>`;
+  return `<label class="field"><span>Kind</span><select name="type">${PIECE_TYPES.map(([key, name]) => `<option value="${key}"${key === current ? ' selected' : ''}>${name}</option>`).join('')}</select></label>`;
 }
 
 // Pieces go by their set's name; only pieces outside a set show their own.
@@ -1584,36 +1584,40 @@ function openPieceDetails(piece) {
   previewPiece = piece;
   seatWho = 'cat';
   openSheet('Piece', `
-    ${pieceTypeChoices(piece.type)}
-    <label class="field"><span>How many you have</span><input name="count" type="number" min="1" max="99" value="${piece.count || 1}"></label>
-    <h3>Collecting</h3>
-    <label class="field"><span>Set</span><input name="set" type="text" value="${escapeHtml(piece.set || '')}" list="set-names" autocomplete="off" placeholder="Not in a set"></label>
-    <datalist id="set-names">${setNames().map((name) => `<option value="${escapeHtml(name)}">`).join('')}</datalist>
-    <div class="field"><span>A colour of</span>${pieceRadios('family', colourChoices(piece), piece.family, 'None')}</div>
-    <label class="field"><span>Rarity</span><select name="rarity">${RARITIES.map(([key, name]) => `<option value="${key}"${(piece.rarity || 'common') === key ? ' selected' : ''}>${name}</option>`).join('')}</select></label>
-    <label class="check"><input type="checkbox" name="locked"${piece.locked ? ' checked' : ''}><span>Locked in the gacha machine</span></label>
+    <div class="piece-cols"><div class="piece-col">
     <h3>Looks and tiles</h3>
     ${views}
     <p><button class="text-button" type="submit" value="addview">Add a turned look</button></p>
+    <h3>What it is</h3>
+    ${pieceTypeChoices(piece.type)}
+    <label class="field"><span>Set</span><input name="set" type="text" value="${escapeHtml(piece.set || '')}" list="set-names" autocomplete="off" placeholder="Not in a set"></label>
+    <datalist id="set-names">${setNames().map((name) => `<option value="${escapeHtml(name)}">`).join('')}</datalist>
+    <div class="field"><span>A colour of</span>${pieceRadios('family', colourChoices(piece), piece.family, 'None')}</div>
+    <h3>Gachapon</h3>
+    <label class="field"><span>Rarity</span><select name="rarity">${RARITIES.map(([key, name]) => `<option value="${key}"${(piece.rarity || 'common') === key ? ' selected' : ''}>${name}</option>`).join('')}</select></label>
+    <label class="check"><input type="checkbox" name="locked"${piece.locked ? ' checked' : ''}><span>Locked in the gacha machine</span></label>
+    </div><div class="piece-col">
     <h3>In the room</h3>
     <label class="check"><input type="checkbox" name="surface"${piece.surface ? ' checked' : ''}><span>Things can go on top</span></label>
     <div class="preview-setup top-setup"${piece.surface ? '' : ' hidden'}>
       <canvas id="top-preview" class="pixel" width="1" height="1" aria-label="Something on top of it"></canvas>
       ${nudgeHtml('top', piece)}
     </div>
+    <label class="check"><input type="checkbox" name="light"${piece.light ? ' checked' : ''}><span>Gives light at night</span></label>
+    <div class="preview-setup glow-setup"${piece.light ? '' : ' hidden'}>
+      <canvas id="glow-preview" class="pixel" width="1" height="1" aria-label="Its light"></canvas>
+      ${nudgeHtml('glow', piece)}
+    </div>
+    <label class="check"><input type="checkbox" name="stove"${piece.stove ? ' checked' : ''}><span>A stove to cook on</span></label>
+    <h3>Pets</h3>
     <label class="check"><input type="checkbox" name="catSpot"${piece.catSpot ? ' checked' : ''}><span>${escapeHtml(cat.name)} can sit and sleep on it</span></label>
     <div class="preview-setup seat-setup"${piece.catSpot ? '' : ' hidden'}>
       <canvas id="seat-preview" class="pixel" width="1" height="1" aria-label="${escapeHtml(cat.name)} sitting on it"></canvas>
       ${seatWhoHtml()}
       ${nudgeHtml('seat', piece)}
     </div>
-    <label class="check"><input type="checkbox" name="light"${piece.light ? ' checked' : ''}><span>Gives light at night</span></label>
-    <div class="preview-setup glow-setup"${piece.light ? '' : ' hidden'}>
-      <canvas id="glow-preview" class="pixel" width="1" height="1" aria-label="Its light"></canvas>
-      ${nudgeHtml('glow', piece)}
-    </div>
     <label class="check"><input type="checkbox" name="toy"${piece.toy ? ' checked' : ''}><span>A toy ${escapeHtml(cat.name)} plays with (on the floor)</span></label>
-    <label class="check"><input type="checkbox" name="stove"${piece.stove ? ' checked' : ''}><span>A stove to cook on</span></label>
+    </div></div>
     <p><button class="text-button danger" type="submit" value="delete">Delete this piece</button></p>`,
   async (form, submitter) => {
     const action = submitter && submitter.value;
@@ -1636,7 +1640,7 @@ function openPieceDetails(piece) {
     if (action && action.startsWith('unview-')) views.splice(Number(action.slice(7)), 1);
     const saved = await putItem({
       ...piece, type: form.elements.type.value,
-      count: Math.max(1, Number(form.elements.count.value) || 1), views,
+      views,
       surface: form.elements.surface.checked, lift: Number(form.elements.lift.value) || 0, light: form.elements.light.checked,
       catSpot: form.elements.catSpot.checked, catLift: Math.max(0, Number(form.elements.catLift.value) || 0),
       catShift: Math.round(Number(form.elements.catShift.value) || 0),

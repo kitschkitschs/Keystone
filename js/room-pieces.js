@@ -151,23 +151,27 @@ function openBulkChange() {
   const yesNo = (name, label) => `<label class="field"><span>${label}</span><select name="${name}">${keep}<option value="yes">Yes</option><option value="no">No</option></select></label>`;
   openSheet(`Change ${list.length} ${list.length === 1 ? 'piece' : 'pieces'}`, `
     <div class="pile">${list.slice(0, 12).map((p) => `<span class="pile-tile"><img class="pixel" src="${p.views[0].src}" alt="" style="--pw: ${p.views[0].pw}; --ph: ${p.views[0].ph}"></span>`).join('')}${list.length > 12 ? `<span class="muted">and ${list.length - 12} more</span>` : ''}</div>
-    <h3>Collecting</h3>
-    <label class="field"><span>Set</span><select name="setChoice">${keep}${setNames().map((s) => `<option value="set:${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}<option value="new">A new set…</option><option value="none">Not in a set</option></select></label>
-    <label class="field" id="bulk-new-set" hidden><span>New set's name</span><input name="newSet" type="text" autocomplete="off"></label>
-<label class="field"><span>Rarity</span><select name="rarity">${keep}${RARITIES.map(([key, name]) => `<option value="${key}">${name}</option>`).join('')}</select></label>
-    <label class="field"><span>Gacha machine</span><select name="locked">${keep}<option value="yes">Locked in the machine</option><option value="no">Unlocked</option></select></label>
+    <div class="piece-cols"><div class="piece-col">
     <h3>What they are</h3>
     <label class="field"><span>Kind</span><select name="type">${keep}${PIECE_TYPES.map(([key, name]) => `<option value="${key}">${name}</option>`).join('')}</select></label>
     <div class="cut-box">
       <label>Tiles wide <input name="w" type="number" min="1" max="12" placeholder="Keep"></label>
       <label>Tiles deep <input name="d" type="number" min="1" max="12" placeholder="Keep"></label>
-      <label>How many <input name="count" type="number" min="1" max="99" placeholder="Keep"></label>
     </div>
+    <label class="field"><span>Set</span><select name="setChoice">${keep}${setNames().map((s) => `<option value="set:${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}<option value="new">A new set…</option><option value="none">Not in a set</option></select></label>
+    <label class="field" id="bulk-new-set" hidden><span>New set's name</span><input name="newSet" type="text" autocomplete="off"></label>
+    <h3>Gachapon</h3>
+    <label class="field"><span>Rarity</span><select name="rarity">${keep}${RARITIES.map(([key, name]) => `<option value="${key}">${name}</option>`).join('')}</select></label>
+    <label class="field"><span>Gacha machine</span><select name="locked">${keep}<option value="yes">Locked in the machine</option><option value="no">Unlocked</option></select></label>
+    </div><div class="piece-col">
     <h3>In the room</h3>
     ${yesNo('surface', 'Things can go on top')}
-    ${yesNo('catSpot', `${escapeHtml(cat.name)} can sit and sleep on them`)}
     ${yesNo('light', 'Give light at night')}
-    ${yesNo('toy', `Toys ${escapeHtml(cat.name)} plays with`)}`,
+    ${yesNo('stove', 'Stoves to cook on')}
+    <h3>Pets</h3>
+    ${yesNo('catSpot', `${escapeHtml(cat.name)} can sit and sleep on them`)}
+    ${yesNo('toy', `Toys ${escapeHtml(cat.name)} plays with`)}
+    </div></div>`,
   async (form) => {
     const choice = form.elements.setChoice.value;
     const newSet = form.elements.newSet.value.trim();
@@ -176,7 +180,7 @@ function openBulkChange() {
       return false;
     }
     const num = (name) => (form.elements[name].value === '' ? null : Math.max(1, Math.round(Number(form.elements[name].value)) || 1));
-    const [w, d, count] = [num('w'), num('d'), num('count')];
+    const [w, d] = [num('w'), num('d')];
     const flag = (name, piece) => (form.elements[name].value === '' ? piece[name] : form.elements[name].value === 'yes');
     for (const piece of list) {
       const change = { ...piece };
@@ -185,8 +189,7 @@ function openBulkChange() {
       if (choice.startsWith('set:')) change.set = choice.slice(4);
       if (form.elements.rarity.value) change.rarity = form.elements.rarity.value;
       if (form.elements.type.value) change.type = form.elements.type.value;
-      if (count) change.count = count;
-      for (const name of ['locked', 'surface', 'catSpot', 'light', 'toy']) change[name] = Boolean(flag(name, piece));
+      for (const name of ['locked', 'surface', 'catSpot', 'light', 'toy', 'stove']) change[name] = Boolean(flag(name, piece));
       // Tiles: the first look as given, and turned looks the other way round.
       if (w || d) {
         change.views = piece.views.map((v, i) => {
