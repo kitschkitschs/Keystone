@@ -525,14 +525,35 @@ function findPieces(canvas) {
   return boxes.sort((a, b) => Math.floor(a[1] / TILE) - Math.floor(b[1] / TILE) || a[0] - b[0]);
 }
 
-// --- The cat page ---
+// --- The cat page, which sets up the duck too ---
 
+let petKind = 'cat'; // which one the page sets up: 'cat' or 'duck'
 let catDraft = null;
 let catDraftSheet = null;
+const petAnims = () => (petKind === 'duck' ? DUCK_ANIMS : CAT_ANIMS);
+
+// The breeds to pick from: yours, and for the cat the placeholder cat too.
+const PLACEHOLDER_BREED = 'placeholder';
+function petBreeds() {
+  const own = breeds.filter((b) => b.pet === petKind).sort((a, b) => a.name.localeCompare(b.name));
+  if (petKind !== 'cat') return own;
+  const d = defaultCat();
+  return [{ id: PLACEHOLDER_BREED, pet: 'cat', name: 'Placeholder', src: d.src, fw: d.fw, fh: d.fh, anims: d.anims }, ...own];
+}
 
 async function showCatSetup() {
   await loadRoom();
-  catDraft = JSON.parse(JSON.stringify(cat));
+  catDraft = JSON.parse(JSON.stringify(petKind === 'duck' ? duck || defaultDuck() : cat));
+  // A sheet from before there were breeds becomes one.
+  if (catDraft.src && !catDraft.breed) {
+    const same = petBreeds().find((b) => b.src === catDraft.src);
+    if (same) catDraft.breed = same.id;
+    else {
+      const breed = { id: newId('breed'), kind: 'breed', day: '', pet: petKind, name: petKind === 'duck' ? 'Duck' : 'Cat', src: catDraft.src, fw: catDraft.fw, fh: catDraft.fh, anims: catDraft.anims };
+      breeds.push(await putItem(breed));
+      catDraft.breed = breed.id;
+    }
+  }
   try {
     catDraftSheet = pictureCanvas(await loadPicture(catDraft.src));
   } catch {
@@ -541,20 +562,50 @@ async function showCatSetup() {
   showCatPage();
 }
 
+// Switching breed: its sheet, frame size and animations.
+async function useBreed(breed) {
+  try {
+    catDraftSheet = pictureCanvas(await loadPicture(breed.src));
+  } catch (error) {
+    $('cat-status').textContent = error.message;
+    return;
+  }
+  Object.assign(catDraft, { breed: breed.id, src: breed.src, fw: breed.fw, fh: breed.fh, anims: JSON.parse(JSON.stringify(breed.anims)) });
+  showCatPage();
+}
+
+// Each breed's first frame, for its button.
+async function drawBreedThumbs() {
+  for (const c of document.querySelectorAll('[data-breed-thumb]')) {
+    const breed = petBreeds().find((b) => b.id === c.dataset.breedThumb);
+    const img = breed && (await loadPicture(breed.src).catch(() => null));
+    if (!img) continue;
+    c.width = breed.fw;
+    c.height = breed.fh;
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    const first = breed.anims.walkDown ? breed.anims.walkDown.start : 0;
+    const across = Math.max(1, Math.floor(img.naturalWidth / breed.fw));
+    g.drawImage(img, (first % across) * breed.fw, Math.floor(first / across) * breed.fh, breed.fw, breed.fh, 0, 0, breed.fw, breed.fh);
+  }
+}
+
 // Draws the cat page from the draft.
 function showCatPage() {
   $('cat-page').innerHTML = `
     <header class="plain-head">
-      <div class="date"><div class="date-line">Room</div><h1 class="weekday">Cat</h1></div>
+      <div class="date"><div class="date-line">Room</div><h1 class="weekday">${petKind === 'duck' ? 'Duck' : 'Cat'}</h1></div>
       <button class="ink-button" type="button" data-cat="save">Save</button>
     </header>
     <div class="side">
       <label class="field"><span>Name</span><input id="cat-name" type="text" value="${escapeHtml(catDraft.name)}" autocomplete="off"></label>
-      <h3 class="cat-h">Sprite sheet</h3>
-      <p class="muted">A picture with every frame of the cat in a grid, like Stardew Valley's pets: 4 frames across, 32 × 32 pixels each.</p>
+      <h3 class="cat-h">Breeds</h3>
+      <div class="breeds">${petBreeds().map((b) => `<button type="button" class="breed" data-breed="${b.id}"${catDraft.breed === b.id ? ' aria-current="true"' : ''}>
+        <canvas class="pixel" data-breed-thumb="${b.id}" width="1" height="1"></canvas><span>${escapeHtml(b.name)}</span></button>`).join('')}</div>
       <div class="buttons">
-        <label class="ink-button"><span>Choose a sprite sheet</span><input id="cat-file" type="file" accept="image/*" hidden></label>
-        <button class="text-button" type="button" data-cat="placeholder">Use the placeholder cat</button>
+        <label class="ink-button"><span>Add breeds</span><input id="cat-file" type="file" accept="image/*" multiple hidden></label>
+        ${catDraft.breed && catDraft.breed !== PLACEHOLDER_BREED ? '<button class="text-button danger" type="button" data-cat="unbreed">Remove this breed</button>' : ''}
+        ${petKind === 'duck' && duck ? '<button class="text-button danger" type="button" data-cat="remove">Remove the duck</button>' : ''}
       </div>
       <p id="cat-status" class="status" role="status"></p>
       <div class="cut-box">
@@ -564,7 +615,7 @@ function showCatPage() {
       <p class="muted">The numbers on the sheet are frame numbers. Each animation starts at one frame and plays the ones after it.</p>
       <div class="cut-scroll"><canvas id="cat-sheet" class="pixel"></canvas></div>
       <h3 class="cat-h">Animations</h3>
-      <div id="cat-anims">${CAT_ANIMS.map((a) => {
+      <div id="cat-anims">${petAnims().map((a) => {
         const s = catDraft.anims[a.key];
         return `<div class="anim-row" data-anim="${a.key}">
           <canvas class="pixel anim-preview" data-preview="${a.key}"></canvas>
@@ -584,6 +635,7 @@ function showCatPage() {
     </div>`;
   drawCatSheet();
   startCatPreviews();
+  drawBreedThumbs();
 }
 
 function drawCatSheet() {
@@ -629,7 +681,7 @@ function startCatPreviews() {
     }
     for (const c of document.querySelectorAll('[data-preview]')) {
       const key = c.dataset.preview;
-      const meta = CAT_ANIMS.find((m) => m.key === key);
+      const meta = petAnims().find((m) => m.key === key);
       let s = catDraft.anims[key];
       const mirror = key === 'walkLeft' && s.flip;
       if (mirror) s = catDraft.anims.walkRight;
@@ -672,36 +724,81 @@ $('cat-page').addEventListener('input', (event) => {
 });
 
 $('cat-page').addEventListener('change', async (event) => {
-  if (event.target.id !== 'cat-file' || !event.target.files[0]) return;
-  const file = event.target.files[0];
+  if (event.target.id !== 'cat-file' || !event.target.files.length) return;
+  const files = [...event.target.files];
   event.target.value = '';
-  try {
-    catDraftSheet = pictureCanvas(await loadPicture(await readFileAsDataUrl(file)));
-  } catch (error) {
-    $('cat-status').textContent = error.message;
-    return;
+  // Each sheet is a breed, named after its file, laid out like the one showing.
+  let last = null;
+  for (const file of files) {
+    let sheet;
+    try {
+      sheet = pictureCanvas(await loadPicture(await readFileAsDataUrl(file)));
+    } catch (error) {
+      $('cat-status').textContent = error.message;
+      continue;
+    }
+    last = await putItem({
+      id: newId('breed'), kind: 'breed', day: '', pet: petKind, name: setNameFrom(file.name.replace(/\.[^.]*$/, '')) || 'Breed',
+      src: sheet.toDataURL('image/png'), fw: catDraft.fw, fh: catDraft.fh, anims: JSON.parse(JSON.stringify(catDraft.anims)),
+    });
+    breeds.push(last);
   }
-  catDraft.src = '';
-  drawCatSheet();
-  $('cat-status').textContent = `${file.name}, ${catDraftSheet.width} × ${catDraftSheet.height} pixels: ${Math.floor(catDraftSheet.width / catDraft.fw)} frames across.`;
+  if (last) await useBreed(last);
+  showBackupInfo();
 });
 
+// The breed keeps the frame size and animations set up for it.
+async function saveBreedSettings() {
+  const i = breeds.findIndex((b) => b.id === catDraft.breed);
+  if (i < 0) return;
+  breeds[i] = await putItem({ ...breeds[i], fw: catDraft.fw, fh: catDraft.fh, anims: catDraft.anims });
+}
+
 $('cat-page').addEventListener('click', async (event) => {
+  const breedButton = event.target.closest('[data-breed]');
+  if (breedButton) {
+    const breed = petBreeds().find((b) => b.id === breedButton.dataset.breed);
+    if (breed) await useBreed(breed);
+    return;
+  }
   const button = event.target.closest('[data-cat]');
   if (!button) return;
   const action = button.dataset.cat;
-  if (action === 'placeholder') {
-    catDraftSheet = pictureCanvas(await loadPicture('room-art/cat.png'));
-    catDraft.src = 'room-art/cat.png';
-    catDraft.fw = 32;
-    catDraft.fh = 32;
-    catDraft.anims = defaultCat().anims;
-    showCatPage();
+  if (action === 'unbreed') {
+    const gone = breeds.find((b) => b.id === catDraft.breed);
+    if (!gone || !confirm(`Remove ${gone.name}?`)) return;
+    await deleteItem(gone.id);
+    breeds = breeds.filter((b) => b !== gone);
+    const next = petBreeds()[0];
+    if (next) await useBreed(next);
+    else {
+      Object.assign(catDraft, { breed: '', src: '' });
+      catDraftSheet = null;
+      showCatPage();
+    }
+    showBackupInfo();
+  }
+  if (action === 'remove') {
+    if (!confirm('Remove the duck?')) return;
+    await deleteItem('duck');
+    goTo('home');
+    showBackupInfo();
   }
   if (action === 'save') {
     // A sheet from your phone is saved inside the app, so it's in your backup.
-    const src = catDraft.src || (catDraftSheet ? catDraftSheet.toDataURL('image/png') : 'room-art/cat.png');
-    await putItem({ ...catDraft, id: 'cat', kind: 'cat', day: '', src });
+    if (petKind === 'duck') {
+      if (!catDraftSheet) {
+        $('cat-status').textContent = 'Choose a sprite sheet first.';
+        return;
+      }
+      await saveBreedSettings();
+      await putItem({ ...catDraft, id: 'duck', kind: 'duck', day: '' });
+      goTo('home');
+      showBackupInfo();
+      return;
+    }
+    await saveBreedSettings();
+    await putItem({ ...catDraft, id: 'cat', kind: 'cat', day: '', src: catDraft.src || 'room-art/cat.png' });
     catState.placed = false;
     goTo('home');
     showBackupInfo();

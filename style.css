@@ -375,6 +375,11 @@ html.dark .inv-tag[aria-pressed="true"] { background: #8A5A6A; }
 .cut-preview { display: grid; place-items: center; min-height: 20px; padding: 10px; margin: 6px 0 12px; border-radius: 10px;
   background: repeating-conic-gradient(#E9E4DE 0 25%, #F7F4F0 0 50%) 0 0 / 16px 16px; }
 .cat-h { margin: 22px 0 6px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 400; }
+.breeds { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.breed { display: grid; justify-items: center; gap: 4px; padding: 8px 4px; border: 1px solid var(--rule); border-radius: 10px; background: var(--paper); color: var(--ink); font-size: 12px; }
+.breed canvas { width: 48px; height: 48px; object-fit: contain; }
+.breed span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.breed[aria-current="true"] { border: 2px solid var(--ink); }
 .anim-row { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--rule); }
 .anim-preview { flex: none; width: 64px; height: 64px; border-radius: 10px; background: #F2EEE9; }
 .anim-body { flex: 1; font-size: 14px; }
