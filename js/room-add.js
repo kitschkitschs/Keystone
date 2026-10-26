@@ -208,7 +208,7 @@ function showBoxed() {
       <button class="text-button danger" type="button" data-cut="unpick">Take out</button>
     </div>
     <form id="cut-form">
-      <label class="check"><input type="checkbox" name="locked"${locked ? ' checked' : ''}><span>Locked in the gacha machine</span></label>
+      <label class="check"><input type="checkbox" name="locked"${locked ? ' checked' : ''}><span>Comes from the gacha machine</span></label>
       <div class="buttons">
         <button class="ink-button" type="submit">Add ${count} ${count === 1 ? 'piece' : 'pieces'}</button>
         <button class="text-button" type="button" data-cut="clear">Clear</button>
@@ -438,7 +438,8 @@ async function useNewCut() {
   pieces.set(saved.id, saved);
   cutFor = null;
   cut.boxes = [];
-  goTo('home');
+  // Back to the Pieces page in the Workshop, where pieces are edited.
+  goTo('pieces');
   openPieceDetails(saved);
 }
 

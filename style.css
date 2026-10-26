@@ -586,3 +586,10 @@ html.wide .farm-layout { display: grid; grid-template-columns: minmax(0, 1fr) mi
 html.wide .farm-side { position: sticky; top: 12px; }
 html.wide .pick-scroll { max-height: calc(100vh - 300px); }
 .pick-slot { min-width: 64px; }
+/* The piece editor: on a computer, its looks on the left and what it does in the room on the right. */
+.piece-col > h3:first-child { margin-top: 0; }
+html.wide .sheet:has(.piece-cols) { width: min(1040px, calc(100% - 48px)); }
+html.wide .piece-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 40px; align-items: start; }
+.piece-col + .piece-col { margin-top: 18px; }
+html.wide .piece-col + .piece-col { margin-top: 0; }
+.held-button.swatch img { width: 20px; height: 20px; object-fit: contain; image-rendering: pixelated; }
