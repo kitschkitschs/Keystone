@@ -351,8 +351,7 @@ function nextGardenPlan(pet, now, dark) {
 const onPlot = (plot) => ({ x: plot.x * TILE + TILE / 2, y: (plot.y + 1) * TILE - 1 });
 
 const PICK_CROUCH = 450;
-const PICK_POUNCE = 260;
-const PICK_BACK = 420;
+const PICK_POUNCE = 320;
 
 function moveGarden(now, dark) {
   for (const pet of gardenPets) {
@@ -417,7 +416,7 @@ function moveGarden(now, dark) {
   }
 }
 
-// The cat's pounce on a ripe plot: crouch, leap onto it (and pick it), back off.
+// The cat's pounce on a ripe plot: crouch, then leap onto its tile and pick it.
 function pickMove(pet, now) {
   const plot = plots.get(pet.plot);
   const at = plot ? onPlot(plot) : pet.home;
@@ -427,20 +426,14 @@ function pickMove(pet, now) {
     Object.assign(pet, { phase: 'pounce', jumpAt: now });
     setPetAnim(pet, pet.flip ? 'walkLeft' : 'walkRight', now);
   }
-  if (pet.phase === 'pounce') {
-    const t = Math.min(1, (now - pet.jumpAt) / PICK_POUNCE);
-    pet.x = pet.home.x + (at.x - pet.home.x) * 0.8 * t;
-    pet.lift = 6 * Math.sin(Math.PI * t);
-    if (t < 1) return;
-    if (plot && isRipe(plot)) harvestInView(plot, now);
-    Object.assign(pet, { phase: 'back', jumpAt: now, lift: 0 });
-    return;
-  }
-  const t = Math.min(1, (now - pet.jumpAt) / PICK_BACK);
-  const from = pet.home.x + (at.x - pet.home.x) * 0.8;
-  pet.x = from + (pet.home.x - from) * t;
+  const t = Math.min(1, (now - pet.jumpAt) / PICK_POUNCE);
+  pet.x = pet.home.x + (at.x - pet.home.x) * t;
+  pet.y = pet.home.y + (at.y - pet.home.y) * t;
+  pet.lift = 6 * Math.sin(Math.PI * t);
   if (t < 1) return;
-  Object.assign(pet, { phase: undefined, plot: null, mode: 'rest' });
+  if (plot && isRipe(plot)) harvestInView(plot, now);
+  // It stays where it landed, on the crop's tile, for a little sit.
+  Object.assign(pet, { phase: undefined, plot: null, mode: 'rest', lift: 0 });
   setPetAnim(pet, 'sitDown', now);
   pet.until = now + 1200 + Math.random() * 2000;
 }
@@ -496,9 +489,13 @@ function drawGarden(now) {
   wg.imageSmoothingEnabled = false;
   wg.clearRect(0, 0, world.width, world.height);
   drawGardenGround();
-  // The pets go in front of the crops, so they never get lost among them.
-  for (const plot of bedPlots().sort((a, b) => a.y - b.y)) drawCrop(plot, Date.now());
-  for (const pet of gardenPets.filter((p) => sheetOf(p.who)).sort((a, b) => a.y - b.y)) drawGardenPet(pet, now);
+  // Crops and pets by depth: a pet whose feet are on a crop's tile, or lower
+  // down, is in front of it; one further up is behind it.
+  const things = [
+    ...bedPlots().map((plot) => ({ y: plot.y * TILE + TILE / 2, draw: () => drawCrop(plot, Date.now()) })),
+    ...gardenPets.filter((p) => sheetOf(p.who)).map((pet) => ({ y: pet.y, draw: () => drawGardenPet(pet, now) })),
+  ];
+  for (const thing of things.sort((a, b) => a.y - b.y)) thing.draw();
   // Watering: drops falling on the plot while the duck dances.
   for (const pet of gardenPets) {
     const plot = pet.mode === 'water' && plots.get(pet.plot);
