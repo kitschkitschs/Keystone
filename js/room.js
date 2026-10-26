@@ -15,10 +15,13 @@
 //                                            (src, pw x ph pixels) and the tiles it
 //                                            stands on (w wide, d deep). A lamp's
 //                                            on: { src, pw, ph, box } is its lit look.
-//   { id: "placed-...", kind: "placed", day: "", piece, view, x, y, lit }
+//   { id: "placed-...", kind: "placed", day: "", piece, view, x, y, lit, ox, oy, layer }
 //                                            one piece standing in the room, with the
 //                                            top-left tile it stands on. lit: a lamp
-//                                            that's switched on.
+//                                            that's switched on. A small piece can be
+//                                            nudged ox, oy pixels off its tile, and
+//                                            layer puts it in front of (higher) or
+//                                            behind (lower) others on the same tile.
 //   { id: "room", kind: "room", day: "", cols, wallRows, floorRows, wallpaper, floor }
 //   { id: "cat", kind: "cat", day: "", name, src, fw, fh, anims }   see room-art.js
 //
@@ -32,7 +35,8 @@ let placed = [];
 let cat = defaultCat();
 
 let decorating = false;
-let held = null; // the piece in your hand: { piece, view, x, y, from }
+let held = null; // the piece in your hand: { piece, view, x, y, ox, oy, layer, from }
+let fine = false; // fine placement: arrows nudge a small piece by the pixel
 let inventoryFolder = null; // the set open in the inventory ('' for no set), or null for all the folders
 let previewHour = null; // a chosen time of day, to try the light; null follows the clock
 
@@ -120,7 +124,7 @@ function canPlace(h) {
     if (h.from && other.id === h.from.id) continue;
     if (!overlaps(box, boxOf(other))) continue;
     const type = pieces.get(other.piece).type;
-    if (type === piece.type) return false;
+    if (type === piece.type && type !== 'small') return false;
     if (piece.type === 'furniture' && type === 'small' && !piece.surface) return false;
     if (piece.type === 'small' && type === 'furniture' && !pieces.get(other.piece).surface) return false;
   }
@@ -200,8 +204,10 @@ function spot(p) {
   if (piece.type === 'small') {
     const table = surfaceUnder(box.x, box.y, p.id);
     if (table) bottom -= pieces.get(table.piece).lift || 16;
+    bottom += p.oy || 0;
   }
-  return { x: box.x * TILE + Math.floor((box.w * TILE - v.pw) / 2), y: bottom - v.ph, w: v.pw, h: v.ph };
+  const ox = piece.type === 'small' ? p.ox || 0 : 0;
+  return { x: box.x * TILE + Math.floor((box.w * TILE - v.pw) / 2) + ox, y: bottom - v.ph, w: v.pw, h: v.ph };
 }
 
 function drawPiece(p, alpha = 1) {
@@ -237,7 +243,9 @@ function drawList() {
     else if (piece.type === 'rug') rugs.push({ y: box.y + box.d, p });
     else if (piece.type === 'small') {
       const table = surfaceUnder(box.x, box.y, p.id);
-      standing.push({ y: table ? (boxOf(table).y + boxOf(table).d) * TILE + 0.2 : (box.y + 1) * TILE - 0.5, p });
+      // On the same tile, the layer decides first, then which is further forward.
+      const nudge = (p.layer || 0) * 0.02 + (p.oy || 0) * 0.001;
+      standing.push({ y: (table ? (boxOf(table).y + boxOf(table).d) * TILE + 0.25 : (box.y + 1) * TILE - 0.5) + nudge, p });
     } else standing.push({ y: (box.y + box.d) * TILE, p });
   }
   wall.sort((a, b) => a.y - b.y);
@@ -342,6 +350,10 @@ function timeWord(hour) {
   return 'night';
 }
 
+// A lamp's glow: how far it reaches, and how strong it is from the middle out.
+const GLOW_R = 38;
+const GLOW = [[0, 0.38], [0.35, 0.14], [1, 0]];
+
 // Returns how dark it is, from 0 (day) to 1 (night).
 function drawDayLight() {
   const { colour, amount } = lightAt(hourNow());
@@ -360,12 +372,10 @@ function drawDayLight() {
       const s = spot(p);
       const cx = s.x + s.w / 2 + (piece.lightX || 0);
       const cy = s.y + s.h * 0.35 + (piece.lightY || 0);
-      const glow = wg.createRadialGradient(cx, cy, 0, cx, cy, 44);
-      glow.addColorStop(0, `rgba(255, 210, 140, ${0.75 * dark})`);
-      glow.addColorStop(0.4, `rgba(255, 190, 120, ${0.3 * dark})`);
-      glow.addColorStop(1, 'rgba(255, 190, 120, 0)');
+      const glow = wg.createRadialGradient(cx, cy, 0, cx, cy, GLOW_R);
+      for (const [at, a] of GLOW) glow.addColorStop(at, `rgba(255, 200, 135, ${a * dark})`);
       wg.fillStyle = glow;
-      wg.fillRect(cx - 44, cy - 44, 88, 88);
+      wg.fillRect(cx - GLOW_R, cy - GLOW_R, GLOW_R * 2, GLOW_R * 2);
     }
   }
   wg.globalCompositeOperation = 'source-over';
@@ -436,6 +446,9 @@ const catSpots = () => placed.filter((p) => pieces.get(p.piece).catSpot && piece
 
 // Drawn just in front of the furniture it's on, so it sits on top.
 function catSortY() {
+  // Playing, the cat stays in front of its toy.
+  const toy = catState.play && placed.find((p) => p.id === catState.play.toy);
+  if (toy) return Math.max(catState.y, (boxOf(toy).y + 1) * TILE);
   const spotUnder = catState.on && placed.find((p) => p.id === catState.on);
   if (!spotUnder) return catState.y;
   const b = boxOf(spotUnder);
@@ -841,6 +854,10 @@ function catFrame(now) {
   const meta = CAT_ANIMS.find((m) => m.key === catState.anim);
   let i = catState.still ? 0 : Math.floor(((now - catState.animStart) / 1000) * a.fps * (catState.fast ? 2 : catState.creep ? 0.5 : 1));
   i = meta && meta.once ? Math.min(i, a.count - 1) : i % Math.max(1, a.count);
+  // Sleeping stretched out, it breathes: its last two lying-down frames, slowly.
+  if (catState.anim === 'lieDown' && catState.stretch && catState.mode === 'sleep' && a.count > 1 && animDone(now)) {
+    i = a.count - 2 + (Math.floor(((now - catState.animStart) / 1000) * 1.5) % 2);
+  }
   return { frame: a.start + i, mirror: a.mirror };
 }
 
@@ -959,6 +976,7 @@ function moveHeldTo(point) {
   held.y = Math.max(top, Math.min(bottom - box.d, Math.round(point.y / TILE - box.d / 2)));
   const place = document.querySelector('[data-room="place"]');
   if (place) place.disabled = !canPlace(held);
+  placeHeldTools();
 }
 
 // The piece under a finger: the picture's own pixels count, not its see-through edges.
@@ -1118,20 +1136,22 @@ function pickUp(p) {
     roomNote('Take the things off it first.');
     return;
   }
-  held = { piece: p.piece, view: p.view || 0, x: p.x, y: p.y, from: p };
+  held = { piece: p.piece, view: p.view || 0, x: p.x, y: p.y, ox: p.ox || 0, oy: p.oy || 0, layer: p.layer || 0, from: p };
   showRoomPanel();
 }
 
 function holdPiece(piece) {
   const [top, bottom] = rowsFor(piece.type);
-  held = { piece: piece.id, view: 0, x: 0, y: 0, from: null };
+  held = { piece: piece.id, view: 0, x: 0, y: 0, ox: 0, oy: 0, layer: 0, from: null };
   moveHeldTo({ x: (room.cols * TILE) / 2, y: ((top + bottom) / 2) * TILE });
   showRoomPanel();
 }
 
 async function placeHeld() {
   if (!held || !canPlace(held)) return;
-  const item = await putItem({ id: held.from ? held.from.id : newId('placed'), kind: 'placed', day: '', piece: held.piece, view: held.view, x: held.x, y: held.y, lit: Boolean(held.from && held.from.lit) });
+  const fields = { id: held.from ? held.from.id : newId('placed'), kind: 'placed', day: '', piece: held.piece, view: held.view, x: held.x, y: held.y, lit: Boolean(held.from && held.from.lit) };
+  if (pieces.get(held.piece).type === 'small') Object.assign(fields, { ox: held.ox, oy: held.oy, layer: held.layer });
+  const item = await putItem(fields);
   placed = placed.filter((p) => p.id !== item.id).concat(item);
   held = null;
   showRoomPanel();
@@ -1169,21 +1189,52 @@ function placedCount(id) {
   return placed.filter((p) => p.piece === id).length;
 }
 
-// The bar under the room, only while you hold a piece: its buttons. Your pieces
-// are in the inventory window (room-hud.js).
+// Small buttons by the piece in your hand. Fine placement adds arrows that
+// nudge a small piece by the pixel, and buttons to put it in front or behind.
+const HELD_ICONS = {
+  front: '<svg viewBox="0 0 16 16"><rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="currentColor"/><rect x="5" y="5" width="10" height="10" fill="currentColor"/></svg>',
+  back: '<svg viewBox="0 0 16 16"><rect x="5" y="5" width="10" height="10" fill="currentColor"/><rect x="1.5" y="1.5" width="9" height="9" fill="#FBF4E6" stroke="currentColor"/></svg>',
+  fine: '<svg viewBox="0 0 16 16"><path d="M8 1 5.5 4h5zM8 15l-2.5-3h5zM1 8l3-2.5v5zM15 8l-3-2.5v5z" fill="currentColor"/><rect x="7" y="4" width="2" height="8" fill="currentColor"/><rect x="4" y="7" width="8" height="2" fill="currentColor"/></svg>',
+};
 function showRoomPanel() {
-  const bar = $('room-bar');
+  const tools = $('held-tools');
   showHud();
   if (gameWindowKind === 'inventory') drawGameWindow();
-  bar.hidden = !(decorating && held);
-  if (bar.hidden) return;
-  if (held) {
-    const piece = pieces.get(held.piece);
-    bar.innerHTML = `<span class="grow"></span>
-      ${piece.views.length > 1 ? '<button class="text-button" type="button" data-room="turn">Turn</button>' : ''}
-      ${held.from ? '<button class="text-button" type="button" data-room="away">Put away</button>' : '<button class="text-button" type="button" data-room="cancel">Cancel</button>'}
-      <button class="ink-button" type="button" data-room="place"${canPlace(held) ? '' : ' disabled'}>Place</button>`;
-  }
+  if (!held) fine = false;
+  tools.hidden = !(decorating && held);
+  if (tools.hidden) return;
+  const piece = pieces.get(held.piece);
+  const small = piece.type === 'small';
+  if (!small) fine = false;
+  const button = (action, label, glyph, extra = '') => `<button class="held-button${extra}" type="button" data-room="${action}" aria-label="${label}" title="${label}">${glyph}</button>`;
+  tools.innerHTML = `<div class="held-row">
+      ${button('cancel', 'Cancel', '✕')}
+      ${held.from ? button('away', 'Put away', '⤓') : ''}
+      ${piece.views.length > 1 ? button('turn', 'Turn', '↻') : ''}
+      ${small ? `<button class="held-button" type="button" data-room="fine" aria-label="Fine placement" title="Fine placement" aria-pressed="${fine}">${HELD_ICONS.fine}</button>` : ''}
+      ${button('place', 'Place', '✓', ' place')}
+    </div>
+    ${fine ? `<div class="held-row">
+      ${button('nudge:-1:0', 'Left', '←')}${button('nudge:0:-1', 'Up', '↑')}${button('nudge:0:1', 'Down', '↓')}${button('nudge:1:0', 'Right', '→')}
+      ${button('layer:1', 'In front', HELD_ICONS.front)}${button('layer:-1', 'Behind', HELD_ICONS.back)}
+    </div>` : ''}`;
+  tools.querySelector('[data-room="place"]').disabled = !canPlace(held);
+  placeHeldTools();
+}
+
+// The buttons sit under the piece, or above it near the bottom of the room.
+function placeHeldTools() {
+  const tools = $('held-tools');
+  if (!held || tools.hidden) return;
+  const s = spot(held);
+  const box = boxOf(held);
+  const k = roomCanvas.clientWidth / world.width;
+  const below = Math.max(s.y + s.h, (box.y + box.d) * TILE) * k + 6;
+  const room = roomCanvas.clientHeight;
+  const h = tools.offsetHeight;
+  const top = below + h <= room ? below : Math.max(0, Math.min(s.y, box.y * TILE) * k - h - 6);
+  const left = Math.max(0, Math.min(roomCanvas.clientWidth - tools.offsetWidth, (s.x + s.w / 2) * k - tools.offsetWidth / 2));
+  tools.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
 }
 
 // The inventory: every unlocked piece, in a folder for each set, with how many
@@ -1221,15 +1272,24 @@ function inventoryHtml() {
     </div>`;
 }
 
-$('room-bar').addEventListener('click', (event) => {
+$('held-tools').addEventListener('click', (event) => {
   const button = event.target.closest('[data-room]');
-  if (!button) return;
-  const action = button.dataset.room;
+  if (!button || !held) return;
+  const [action, dx, dy] = button.dataset.room.split(':');
   if (action === 'place') placeHeld();
   if (action === 'turn') turnHeld();
   if (action === 'cancel') { held = null; showRoomPanel(); }
   if (action === 'away') putAway();
+  if (action === 'fine') { fine = !fine; showRoomPanel(); }
+  if (action === 'nudge') {
+    held.ox = Math.max(-15, Math.min(15, held.ox + Number(dx)));
+    held.oy = Math.max(-15, Math.min(15, held.oy + Number(dy)));
+    placeHeldTools();
+  }
+  if (action === 'layer') held.layer = Math.max(-9, Math.min(9, held.layer + Number(dx)));
 });
+// The buttons don't move the piece: taps on them stay off the room.
+$('held-tools').addEventListener('pointerdown', (event) => event.stopPropagation());
 
 $('gw-body').addEventListener('click', async (event) => {
   if (gameWindowKind !== 'inventory') return;
@@ -1388,12 +1448,10 @@ async function drawGlowPreview() {
   const cx = pic.x + v.pw / 2 + (Number(form.lightX.value) || 0);
   const cy = pic.y + v.ph * 0.35 + (Number(form.lightY.value) || 0);
   g.globalCompositeOperation = 'screen';
-  const glow = g.createRadialGradient(cx, cy, 0, cx, cy, 44);
-  glow.addColorStop(0, 'rgba(255, 210, 140, 0.75)');
-  glow.addColorStop(0.4, 'rgba(255, 190, 120, 0.3)');
-  glow.addColorStop(1, 'rgba(255, 190, 120, 0)');
+  const glow = g.createRadialGradient(cx, cy, 0, cx, cy, GLOW_R);
+  for (const [at, a] of GLOW) glow.addColorStop(at, `rgba(255, 200, 135, ${a})`);
   g.fillStyle = glow;
-  g.fillRect(cx - 44, cy - 44, 88, 88);
+  g.fillRect(cx - GLOW_R, cy - GLOW_R, GLOW_R * 2, GLOW_R * 2);
   g.globalCompositeOperation = 'source-over';
   g.fillStyle = '#FFFFFF';
   g.fillRect(Math.round(cx) - 1, Math.round(cy), 3, 1);
