@@ -66,7 +66,7 @@ function duckSeat(spotPlaced) {
   const b = boxOf(spotPlaced);
   const seat = seatPoint(spotPlaced);
   const shift = piece.duckShift ?? (piece.catShift || 0) + 10;
-  return { x: (b.x + b.w / 2) * TILE + shift, y: seat.y, lift: piece.duckLift ?? seat.lift };
+  return { x: (b.x + b.w / 2) * TILE + shift + (spotPlaced.ox || 0), y: seat.y, lift: piece.duckLift !== undefined ? piece.duckLift - (spotPlaced.oy || 0) : seat.lift };
 }
 
 function duckJump(to, lift, now) {
