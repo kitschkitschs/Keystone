@@ -64,9 +64,15 @@ function cutGroups() {
 }
 const groupOf = (box) => cutGroups().find((group) => group.boxes.includes(box));
 
+// Picking a box from a group of the same kind adds the others to that group.
 function groupPicked(kind) {
-  const boxes = [...cut.picked];
-  cut.groups = cutGroups().map((group) => ({ ...group, boxes: group.boxes.filter((box) => !cut.picked.has(box)) }));
+  const joining = kind === 'lamp' ? null : cutGroups().find((group) => group.kind === kind && group.boxes.some((box) => cut.picked.has(box)));
+  addToGroup(kind, joining);
+}
+function addToGroup(kind, target) {
+  const boxes = [...(target ? target.boxes : []), ...[...cut.picked].filter((box) => !target || !target.boxes.includes(box))];
+  // Groups never share boxes, so the target is the one holding its first box.
+  cut.groups = cutGroups().filter((group) => !target || !group.boxes.includes(target.boxes[0])).map((group) => ({ ...group, boxes: group.boxes.filter((box) => !cut.picked.has(box)) }));
   cut.groups.push({ kind, boxes });
   cut.picked.clear();
 }
@@ -190,6 +196,8 @@ function showBoxed() {
     <div class="pile">${cut.boxes.filter((box) => !grouped.has(box)).map(tile).join('')}</div>
     ${groups.map((group, g) => `<div class="cut-group ${group.kind}">
       <div class="cut-group-head"><span>${{ turns: 'Turns', colours: 'Colours', lamp: 'Off and on' }[group.kind]}</span>
+        <span class="spacer"></span>
+        ${group.kind !== 'lamp' && [...cut.picked].some((box) => !group.boxes.includes(box)) ? `<button class="text-button" type="button" data-cut="join" data-g="${g}">Add picked</button>` : ''}
         <button class="text-button" type="button" data-cut="ungroup" data-g="${g}">Separate</button></div>
       <div class="pile">${group.boxes.map(tile).join('')}</div>
     </div>`).join('')}
@@ -282,7 +290,11 @@ $('cut-page').addEventListener('click', async (event) => {
     if (cut.picked.has(box)) cut.picked.delete(box);
     else cut.picked.add(box);
   }
-  if (['turns', 'colours', 'lamp', 'ungroup', 'unpick', 'clear'].includes(action)) saveCutUndo();
+  if (['turns', 'colours', 'lamp', 'join', 'ungroup', 'unpick', 'clear'].includes(action)) saveCutUndo();
+  if (action === 'join') {
+    const target = cutGroups()[Number(button.dataset.g)];
+    addToGroup(target.kind, target);
+  }
   if (['turns', 'colours', 'lamp'].includes(action)) groupPicked(action);
   if (action === 'ungroup') cut.groups.splice(Number(button.dataset.g), 1);
   if (action === 'unpick') {
@@ -290,7 +302,7 @@ $('cut-page').addEventListener('click', async (event) => {
     cut.picked.clear();
   }
   if (action === 'clear') cut.boxes = [];
-  if (['pick', 'turns', 'colours', 'lamp', 'ungroup', 'unpick', 'clear'].includes(action)) {
+  if (['pick', 'turns', 'colours', 'lamp', 'join', 'ungroup', 'unpick', 'clear'].includes(action)) {
     drawCutSheet();
     showBoxed();
   }

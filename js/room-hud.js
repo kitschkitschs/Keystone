@@ -114,15 +114,26 @@ $('room-hud').addEventListener('click', async (event) => {
 
 const gameWindow = $('game-window');
 let gameWindowKind = null;
+// The windows to go back to, when one opened from inside another.
+let gameWindowTrail = [];
 
 function openGameWindow(kind) {
+  if (!gameWindow.open) gameWindowTrail = [];
+  else if (gameWindowTrail.includes(kind)) gameWindowTrail = gameWindowTrail.slice(0, gameWindowTrail.indexOf(kind));
+  else if (gameWindowKind && gameWindowKind !== kind) gameWindowTrail.push(gameWindowKind);
   gameWindowKind = kind;
   drawGameWindow();
   if (!gameWindow.open) gameWindow.showModal();
 }
 
+function gameWindowBack() {
+  gameWindowKind = gameWindowTrail.pop();
+  drawGameWindow();
+}
+
 function drawGameWindow() {
   const kind = gameWindowKind;
+  $('gw-back').hidden = !gameWindowTrail.length;
   if (kind === 'gacha') return drawGacha();
   const titles = { inventory: 'Inventory', catalogue: 'Catalogue', workshop: 'Workshop' };
   $('gw-title').textContent = titles[kind] || '';
@@ -146,12 +157,15 @@ function closeGameWindow() {
   if (gameWindow.open) gameWindow.close();
 }
 gameWindow.addEventListener('close', () => {
+  // Closed and opened again straight away: it's showing something new.
+  if (gameWindow.open) return;
   gameWindowKind = null;
   if (gacha.phase !== 'turning') gacha.phase = 'ready';
 });
 // A tap outside the window closes it.
 gameWindow.addEventListener('click', (event) => {
   if (event.target === gameWindow || event.target.closest('[data-gw-close]')) closeGameWindow();
+  if (event.target.closest('#gw-back')) gameWindowBack();
 });
 
 $('gw-body').addEventListener('click', async (event) => {
