@@ -1,4 +1,5 @@
-// room-gacha.js: the gacha machine and the catalogue.
+// room-gacha.js: the gacha machine and the catalogue, shown in the room's pop-up
+// window (see room-hud.js).
 //
 // A piece marked "locked" (see room.js) is inside the machine: it isn't in your
 // inventory until you turn the handle and it comes out. Pulls are free for now,
@@ -13,18 +14,18 @@ const rarityName = (key) => (RARITIES.find(([k]) => k === key) || RARITIES[0])[1
 // tap to open) or open (the prize is showing).
 const gacha = { phase: 'ready', prize: null, start: 0 };
 
-async function showGacha() {
-  await loadRoom();
+function openGacha() {
   if (gacha.phase === 'turning') gacha.phase = 'capsule';
-  drawGachaPage();
+  openGameWindow('gacha');
 }
 
 const lockedPieces = () => [...pieces.values()].filter((p) => p.locked);
 const familyOf = (p) => p.family || p.id;
 
-function drawGachaPage() {
+// Draws the machine in the pop-up window (see room-hud.js).
+function drawGacha() {
+  if (gameWindowKind !== 'gacha') return;
   const inside = lockedPieces().length;
-  const all = [...pieces.values()];
   const prize = gacha.prize && pieces.get(gacha.prize);
   let action;
   if (gacha.phase === 'capsule') action = '<button class="ink-button" type="button" data-gacha="open">Open the capsule</button>';
@@ -37,18 +38,13 @@ function drawGachaPage() {
       ${inside ? '<button class="ink-button" type="button" data-gacha="pull">Turn the handle again</button>' : ''}`;
   } else if (gacha.phase === 'turning') action = '';
   else action = inside ? '<button class="ink-button" type="button" data-gacha="pull">Turn the handle</button>' : '';
-  $('gacha-page').innerHTML = `
-    <header class="plain-head">
-      <div class="date"><div class="date-line">Room</div><h1 class="weekday">Gachapon</h1></div>
-      <button class="ink-button" type="button" data-gacha="done">Done</button>
-    </header>
-    <div class="side">
-      <div class="machine-wrap"><canvas id="gacha-machine" class="pixel" width="48" height="64"></canvas></div>
-      <p class="muted machine-note">${inside ? `${inside} ${inside === 1 ? 'thing' : 'things'} inside. Free to turn while we try it out.`
-        : 'Empty: everything is collected. Pieces you add go in here.'}</p>
-      <div class="machine-action">${action}</div>
-      ${catalogueHtml(all)}
-    </div>`;
+  $('gw-title').textContent = 'Gachapon';
+  $('gw-body').innerHTML = `
+    <div class="machine-wrap"><canvas id="gacha-machine" class="pixel" width="48" height="64"></canvas></div>
+    <p class="muted machine-note">${inside ? `${inside} ${inside === 1 ? 'thing' : 'things'} inside. Free to turn while we try it out.`
+      : 'Empty: everything is collected. Pieces you add go in here.'}</p>
+    <div class="machine-action">${action}</div>
+    <p class="machine-more"><button class="text-button" type="button" data-gw="catalogue">See the catalogue</button></p>`;
   drawMachine(performance.now());
 }
 
@@ -68,7 +64,7 @@ function catalogueHtml(all) {
     families.get(key).push(p);
   }
   const names = [...sets.keys()].sort((a, b) => (a === '') - (b === '') || a.localeCompare(b));
-  return `<h2 class="cat-h">Catalogue · ${got} of ${all.length} collected</h2>
+  return `<p class="muted cat-count">${got} of ${all.length} collected</p>
     ${names.map((name) => {
       const families = [...sets.get(name).values()];
       const members = families.flat();
@@ -112,38 +108,34 @@ async function pull() {
   pieces.set(saved.id, saved);
   showBackupInfo();
   Object.assign(gacha, { phase: 'turning', prize: saved.id, start: performance.now() });
-  drawGachaPage();
+  drawGacha();
   if (navigator.vibrate) navigator.vibrate([10, 60, 10, 60, 10]);
   requestAnimationFrame(turning);
 }
 
 const TURN_TIME = 1400;
 function turning(now) {
-  if (gacha.phase !== 'turning' || currentView() !== 'gacha') return;
+  if (gacha.phase !== 'turning' || gameWindowKind !== 'gacha') return;
   drawMachine(now);
   if (now - gacha.start < TURN_TIME) {
     requestAnimationFrame(turning);
     return;
   }
   gacha.phase = 'capsule';
-  drawGachaPage();
+  drawGacha();
 }
 
-$('gacha-page').addEventListener('click', async (event) => {
+$('gw-body').addEventListener('click', async (event) => {
   const button = event.target.closest('[data-gacha]');
   if (!button) return;
   const action = button.dataset.gacha;
-  if (action === 'done') {
-    if (gacha.phase !== 'turning') gacha.phase = 'ready';
-    goTo('home');
-  }
   if (action === 'pull') {
     button.disabled = true;
     await pull();
   }
   if (action === 'open') {
     gacha.phase = 'open';
-    drawGachaPage();
+    drawGacha();
   }
 });
 
