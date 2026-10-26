@@ -166,8 +166,10 @@ function sizeRoom() {
   world.width = W;
   world.height = H;
   const dpr = window.devicePixelRatio || 1;
-  const space = Math.min(480, document.documentElement.clientWidth) * dpr;
-  scale = Math.max(1, Math.floor(space / W));
+  // On a computer the room gets the space left of the game's window, and fits the screen's height.
+  const across = isWide() ? document.documentElement.clientWidth - 520 : Math.min(480, document.documentElement.clientWidth);
+  const down = isWide() ? window.innerHeight - 52 - 64 - 40 : Infinity;
+  scale = Math.max(1, Math.floor(Math.min((across * dpr) / W, (down * dpr) / H)));
   roomCanvas.width = W * scale;
   roomCanvas.height = H * scale;
   roomCanvas.style.width = `${(W * scale) / dpr}px`;
@@ -1341,7 +1343,8 @@ async function tapPiece(piece) {
     $('inv-note').textContent = 'All in the room.';
     return;
   }
-  closeGameWindow();
+  // On a computer the inventory stays open beside the room.
+  if (!isWide()) closeGameWindow();
   holdPiece(piece);
 }
 
@@ -1706,4 +1709,5 @@ async function showRoom() {
   await loadRoom();
   showRoomPanel();
   startRoomLoop();
+  dockGameWindow();
 }

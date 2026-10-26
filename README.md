@@ -54,6 +54,10 @@ and `updatedAt`, the time it last changed. Deleting an item keeps it with
 - **Save to file** opens Android's share menu with a file named like
   `keystone-2026-10-23-1415.txt`. Send it to Proton Drive. Every save is a new
   file, so each one is also a backup. On a PC, the file downloads instead.
+- **Save game only** saves just the room game (pieces, the room and what's in it,
+  the pets and their breeds) as `keystone-game-….txt`. Load it on the other device
+  like any backup: it merges the same way, so game changes made on the computer
+  carry over to the phone without touching anything else.
 - **Load from file**: download the newest backup from Proton Drive, then pick it
   from Downloads. The app compares each item with what's already there and keeps
   whichever copy changed most recently. Loading an older file never wipes newer data.

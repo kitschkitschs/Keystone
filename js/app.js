@@ -77,6 +77,19 @@ sheetForm.addEventListener('input', (event) => {
   if (event.target.name === 'colour') for (const b of sheetForm.querySelectorAll('[data-colour]')) b.setAttribute('aria-pressed', 'false');
 });
 
+// --- A computer-sized screen ---
+// There, the room game is laid out for editing (style.css, html.wide): the
+// game's window stays open beside the room, and the cutter and Pieces pages use
+// the width.
+const wideQuery = matchMedia('(min-width: 1000px)');
+const isWide = () => wideQuery.matches;
+document.documentElement.classList.toggle('wide', isWide());
+wideQuery.addEventListener('change', () => {
+  document.documentElement.classList.toggle('wide', isWide());
+  if (typeof closeGameWindow === 'function') closeGameWindow();
+  showView();
+});
+
 // --- Moving between pages ---
 // Each page has its own place in the phone's history (#health, #insight...), so the back button works.
 
@@ -215,20 +228,22 @@ remindersOnButton.addEventListener('click', async () => {
 const syncStatus = $('sync-status');
 const loadInput = $('load-input');
 
-$('save-button').addEventListener('click', async () => {
+async function saveFile(gameOnly) {
   syncStatus.textContent = '';
   if (sampleMode) {
     syncStatus.textContent = 'Turn sample data off first, so your backup holds your own days.';
     return;
   }
   try {
-    const saved = await saveBackup();
+    const saved = await saveBackup(gameOnly);
     syncStatus.textContent = saved ? 'Saved.' : 'Not saved.';
   } catch (error) {
     syncStatus.textContent = `Couldn't save: ${error.message}`;
   }
   showBackupInfo();
-});
+}
+$('save-button').addEventListener('click', () => saveFile(false));
+$('save-game-button').addEventListener('click', () => saveFile(true));
 
 loadInput.addEventListener('change', async () => {
   const file = loadInput.files[0];

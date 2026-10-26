@@ -5,26 +5,33 @@
 // even though what's inside is JSON. Each file is named by date and time,
 // so every save doubles as a backup.
 //
+// Save game only: the same, with just the room game in it (pieces, the room and
+// what's in it, the pets and their breeds). Loading it merges like any backup,
+// so game changes made on the computer carry over to the phone.
+//
 // Load: reads a file you picked (for example from Downloads) and merges it
 // into this device, item by item. The newer copy of each item wins, so an
 // older file can never wipe newer data.
 
 const FILE_FORMAT = 'keystone-backup';
 const FILE_FORMAT_VERSION = 1;
+const GAME_KINDS = ['piece', 'placed', 'room', 'cat', 'duck', 'breed'];
 
-// "keystone-2026-10-23-1415.txt"
-function backupFileName(date = new Date()) {
+// "keystone-2026-10-23-1415.txt", or "keystone-game-2026-10-23-1415.txt"
+function backupFileName(gameOnly, date = new Date()) {
   const hh = String(date.getHours()).padStart(2, '0');
   const mm = String(date.getMinutes()).padStart(2, '0');
-  return `keystone-${todayKey(date)}-${hh}${mm}.txt`;
+  return `keystone-${gameOnly ? 'game-' : ''}${todayKey(date)}-${hh}${mm}.txt`;
 }
 
-async function buildBackupText() {
+async function buildBackupText(gameOnly) {
+  const items = await getAllItems();
   const backup = {
     format: FILE_FORMAT,
     version: FILE_FORMAT_VERSION,
     savedAt: new Date().toISOString(),
-    items: await getAllItems(),
+    ...(gameOnly ? { part: 'game' } : {}),
+    items: gameOnly ? items.filter((item) => GAME_KINDS.includes(item.kind)) : items,
   };
   return JSON.stringify(backup, null, 1);
 }
@@ -37,9 +44,9 @@ function onPhone() {
 }
 
 // Returns true if the file was shared or downloaded, false if you cancelled.
-async function saveBackup() {
-  const text = await buildBackupText();
-  const name = backupFileName();
+async function saveBackup(gameOnly = false) {
+  const text = await buildBackupText(gameOnly);
+  const name = backupFileName(gameOnly);
   const file = new File([text], name, { type: 'text/plain' });
 
   if (onPhone() && navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -58,7 +65,8 @@ async function saveBackup() {
     setTimeout(() => URL.revokeObjectURL(link.href), 10000);
   }
 
-  await setMeta('lastSavedAt', Date.now());
+  // Only a whole backup counts for the "last saved" reminder.
+  if (!gameOnly) await setMeta('lastSavedAt', Date.now());
   return true;
 }
 
