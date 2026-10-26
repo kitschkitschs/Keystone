@@ -2,7 +2,7 @@
 // 16 x 16 pixel tiles, with a cat walking about and the light following the clock.
 //
 // Everything is saved as items (see db.js), so it all goes in your backup file:
-//   { id: "piece-...", kind: "piece", day: "", name, type, count, surface, lift, light, catSpot, catLift, toy,
+//   { id: "piece-...", kind: "piece", day: "", name, type, count, surface, lift, light, catSpot, catLift, catShift, toy,
 //     set, family, rarity, locked,           set: the furniture set it belongs to. family: the
 //                                            piece it's a colour of (its id), so colours sit
 //                                            together in the catalogue. locked: still in the
@@ -477,15 +477,22 @@ function hopOn(now) {
   }
   catState.on = spotPlaced.id;
   catState.onAt = placedAt(spotPlaced);
-  const b = boxOf(spotPlaced);
-  const to = { x: (b.x + b.w / 2) * TILE, y: tileCentre(...goal.tile).y };
-  startHop(to, pieces.get(spotPlaced.piece).catLift ?? 8, now);
+  const seat = seatPoint(spotPlaced);
+  startHop({ x: seat.x, y: seat.y }, seat.lift, now);
 }
 
 // The tile the cat settles on, on the front row of the furniture, in the middle.
 function seatTile(spotPlaced) {
   const b = boxOf(spotPlaced);
   return [b.x + Math.floor((b.w - 1) / 2), b.y + b.d - 1];
+}
+
+// Where the cat sits on a piece, in room pixels: the middle of its tiles, moved
+// by the piece's own seat settings (catShift sideways, catLift up).
+function seatPoint(spotPlaced) {
+  const piece = pieces.get(spotPlaced.piece);
+  const b = boxOf(spotPlaced);
+  return { x: (b.x + b.w / 2) * TILE + (piece.catShift || 0), y: tileCentre(...seatTile(spotPlaced)).y, lift: piece.catLift ?? 8 };
 }
 
 function hopOff(now) {
@@ -847,9 +854,9 @@ function drawCat(now) {
 function drawSeatGhost(spotPlaced) {
   if (!catSheet) return;
   const sit = animSetting('sitDown');
-  const b = boxOf(spotPlaced);
-  const x = (b.x + b.w / 2) * TILE;
-  const y = tileCentre(...seatTile(spotPlaced)).y - (pieces.get(spotPlaced.piece).catLift ?? 8);
+  const seat = seatPoint(spotPlaced);
+  const x = seat.x;
+  const y = seat.y - seat.lift;
   wg.globalAlpha = 0.6;
   drawCatFrame(wg, catSheet, sit.start + Math.max(0, sit.count - 1), Math.round(x - cat.fw / 2), Math.round(y - cat.fh + 3), sit.mirror);
   wg.globalAlpha = 1;
@@ -1002,11 +1009,11 @@ function dropCat() {
   catState.stay = decorating;
   if (target.spot) {
     const tile = seatTile(target.spot);
-    const b = boxOf(target.spot);
     catState.goal = { spot: target.spot.id, tile, kind: darkNow() > 0.4 ? 'sleep' : 'sit' };
     catState.on = target.spot.id;
     catState.onAt = placedAt(target.spot);
-    startHop({ x: (b.x + b.w / 2) * TILE, y: tileCentre(...tile).y }, pieces.get(target.spot.piece).catLift ?? 8, now);
+    const seat = seatPoint(target.spot);
+    startHop({ x: seat.x, y: seat.y }, seat.lift, now);
   } else {
     catState.exit = target.tile;
     catState.landKind = 'sit';
@@ -1259,6 +1266,55 @@ async function deletePieces(ids) {
 }
 
 // Everything about one piece. Opened from the Pieces page (room-pieces.js).
+// The piece with the cat sitting on it, as it will look in the room, so the
+// seat height can be set by eye. Redrawn as the tiles or the height change.
+let seatPiece = null;
+async function drawSeatPreview() {
+  const c = $('seat-preview');
+  if (!c || !seatPiece) return;
+  const form = sheetForm.elements;
+  const v = seatPiece.views[0];
+  const w = Math.max(1, Number(form.w0.value) || v.w) * TILE;
+  const d = Math.max(1, Number(form.d0.value) || v.d) * TILE;
+  const lift = Math.max(0, Number(form.catLift.value) || 0);
+  const shift = Number(form.catShift.value) || 0;
+  const img = await loadPicture(v.src).catch(() => null);
+  const pic = { x: Math.floor((w - v.pw) / 2), y: d - v.ph };
+  const seat = { x: Math.round(w / 2 + shift - cat.fw / 2), y: Math.round(d - TILE + 13 - lift - cat.fh + 3) };
+  const left = Math.min(0, pic.x, seat.x) - 4;
+  const top = Math.min(0, pic.y, seat.y) - 4;
+  c.width = Math.max(w, pic.x + v.pw, seat.x + cat.fw) - left + 4;
+  c.height = Math.max(d, pic.y + v.ph) - top + 4;
+  const zoom = Math.max(1, Math.min(4, Math.floor(260 / c.width)));
+  c.style.width = `${c.width * zoom}px`;
+  c.style.height = `${c.height * zoom}px`;
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  g.translate(-left, -top);
+  // The tiles it stands on, faintly.
+  g.fillStyle = 'rgba(90, 200, 120, 0.25)';
+  g.fillRect(0, 0, w, d);
+  if (img) g.drawImage(img, pic.x, pic.y);
+  if (catSheet) {
+    const sit = animSetting('sitDown');
+    drawCatFrame(g, catSheet, sit.start + Math.max(0, sit.count - 1), seat.x, seat.y, sit.mirror);
+  }
+}
+
+sheetForm.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-lift], [data-shift]');
+  if (!button) return;
+  const [name, by, low, high] = button.dataset.lift ? ['catLift', button.dataset.lift, 0, 64] : ['catShift', button.dataset.shift, -64, 64];
+  const input = sheetForm.elements[name];
+  input.value = Math.max(low, Math.min(high, (Number(input.value) || 0) + Number(by)));
+  drawSeatPreview();
+});
+sheetForm.addEventListener('input', (event) => {
+  if (!$('seat-preview')) return;
+  if (event.target.name === 'catSpot') sheetForm.querySelector('.seat-setup').hidden = !event.target.checked;
+  if (['catLift', 'catShift', 'w0', 'd0', 'catSpot'].includes(event.target.name)) drawSeatPreview();
+});
+
 function openPieceDetails(piece) {
   const views = piece.views.map((v, i) => `<div class="view-row">
       <img class="pixel" src="${v.src}" alt="" style="--pw: ${v.pw}; --ph: ${v.ph}">
@@ -1267,6 +1323,7 @@ function openPieceDetails(piece) {
       <button class="text-button" type="submit" value="draw-${i}">Draw</button>
       ${i ? `<button class="text-button danger" type="submit" value="unview-${i}">Remove</button>` : ''}
     </div>`).join('');
+  seatPiece = piece;
   openSheet('Piece', `
     <label class="field"><span>Name</span><input name="name" type="text" value="${escapeHtml(piece.name)}" required autocomplete="off"></label>
     ${pieceTypeChoices(piece.type)}
@@ -1285,7 +1342,20 @@ function openPieceDetails(piece) {
     <label class="check"><input type="checkbox" name="surface"${piece.surface ? ' checked' : ''}><span>Things can go on top (like a table)</span></label>
     <label class="field"><span>Table height, in pixels <span class="muted">(how high things sit on it)</span></span><input name="lift" type="number" min="0" max="64" value="${piece.lift || 16}"></label>
     <label class="check"><input type="checkbox" name="catSpot"${piece.catSpot ? ' checked' : ''}><span>${escapeHtml(cat.name)} can sit and sleep on it</span></label>
-    <label class="field"><span>How high ${escapeHtml(cat.name)} sits on it, in pixels</span><input name="catLift" type="number" min="0" max="64" value="${piece.catLift ?? 8}"></label>
+    <div class="seat-setup"${piece.catSpot ? '' : ' hidden'}>
+      <canvas id="seat-preview" class="pixel" width="1" height="1" aria-label="${escapeHtml(cat.name)} sitting on it"></canvas>
+      <p class="muted">Move ${escapeHtml(cat.name)} to where they should sit, one pixel at a time.</p>
+      <div class="seat-lift">
+        <button class="text-button" type="button" data-shift="-1">Left</button>
+        <button class="text-button" type="button" data-shift="1">Right</button>
+        <input name="catShift" type="number" min="-64" max="64" value="${piece.catShift || 0}" aria-label="Pixels to the right">
+      </div>
+      <div class="seat-lift">
+        <button class="text-button" type="button" data-lift="1">Higher</button>
+        <button class="text-button" type="button" data-lift="-1">Lower</button>
+        <input name="catLift" type="number" min="0" max="64" value="${piece.catLift ?? 8}" aria-label="Pixels up">
+      </div>
+    </div>
     <label class="check"><input type="checkbox" name="light"${piece.light ? ' checked' : ''}><span>Gives light at night</span></label>
     <label class="check"><input type="checkbox" name="toy"${piece.toy ? ' checked' : ''}><span>A toy ${escapeHtml(cat.name)} plays with (on the floor)</span></label>
     <p><button class="text-button danger" type="submit" value="delete">Delete this piece</button></p>`,
@@ -1313,6 +1383,7 @@ function openPieceDetails(piece) {
       count: Math.max(1, Number(form.elements.count.value) || 1), views,
       surface: form.elements.surface.checked, lift: Number(form.elements.lift.value) || 0, light: form.elements.light.checked,
       catSpot: form.elements.catSpot.checked, catLift: Math.max(0, Number(form.elements.catLift.value) || 0),
+      catShift: Math.round(Number(form.elements.catShift.value) || 0),
       toy: form.elements.toy.checked, set: form.elements.set.value.trim(), family, rarity: form.elements.rarity.value,
       locked: form.elements.locked.checked,
     });
@@ -1331,6 +1402,7 @@ function openPieceDetails(piece) {
     }
     return true;
   });
+  drawSeatPreview();
 }
 
 function openRoomSettings() {
