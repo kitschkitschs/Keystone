@@ -148,6 +148,7 @@ function drawGameWindow() {
         <button type="button" class="ws-button" data-ws="add"><b>Cut pieces</b></button>
         <button type="button" class="ws-button" data-ws="pieces"><b>Pieces</b></button>
         <button type="button" class="ws-button" data-ws="cat"><b>${escapeHtml(cat.name)}</b></button>
+        <button type="button" class="ws-button" data-ws="duck"><b>${duck ? escapeHtml(duck.name) : 'Duck'}</b></button>
         <button type="button" class="ws-button" data-ws="room"><b>Room</b></button>
       </div>`;
   }
@@ -174,7 +175,10 @@ $('gw-body').addEventListener('click', async (event) => {
     const action = ws.dataset.ws;
     closeGameWindow();
     if (action === 'add') { cutFor = null; goTo('room-add'); }
-    if (action === 'cat') goTo('cat');
+    if (action === 'cat' || action === 'duck') {
+      petKind = action;
+      goTo('cat');
+    }
     if (action === 'room') openRoomSettings();
     if (action === 'pieces') goTo('pieces');
     return;

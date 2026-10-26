@@ -22,6 +22,7 @@
 //                                            nudged ox, oy pixels off its tile, and
 //                                            layer puts it in front of (higher) or
 //                                            behind (lower) others on the same tile.
+//   { id: "breed-...", kind: "breed", ... }           a cat's or duck's sprite sheet (room-duck.js)
 //   { id: "room", kind: "room", day: "", cols, wallRows, floorRows, wallpaper, floor }
 //   { id: "cat", kind: "cat", day: "", name, src, fw, fh, anims }   see room-art.js
 //
@@ -53,11 +54,16 @@ async function loadRoom() {
   pieces = new Map();
   placed = [];
   cat = defaultCat();
+  duck = null;
+  duckSheet = null;
+  breeds = [];
   for (const item of await getAllItems()) {
     if (item.deleted) continue;
     if (item.kind === 'piece') pieces.set(item.id, item);
     if (item.kind === 'placed') placed.push(item);
     if (item.kind === 'room') Object.assign(room, item);
+    if (item.kind === 'duck' && item.src) loadDuck(item);
+    if (item.kind === 'breed') breeds.push(item);
     if (item.kind === 'cat') {
       cat = { ...defaultCat(), ...item, anims: { ...defaultCat().anims, ...item.anims } };
       // The crouch first started at frame 24 by mistake: the stretch frames are 30 and 31.
@@ -255,6 +261,7 @@ function drawList() {
   wall.sort((a, b) => a.y - b.y);
   rugs.sort((a, b) => a.y - b.y);
   if (catState.mode !== 'carried') standing.push({ y: catSortY(), cat: true });
+  if (duckHere()) standing.push({ y: duckState.y - 0.1, duck: true });
   standing.sort((a, b) => a.y - b.y);
   return [...wall, ...rugs, ...standing];
 }
@@ -271,6 +278,7 @@ function drawRoom(now) {
 
   for (const thing of drawList()) {
     if (thing.cat) drawCat(now);
+    else if (thing.duck) drawDuck(now);
     else drawPiece(thing.p);
   }
 
@@ -951,6 +959,7 @@ function roomFrame(now) {
     return;
   }
   moveCat(now, darkNow());
+  moveDuck(now, darkNow());
   drawRoom(now);
   requestAnimationFrame(roomFrame);
 }
@@ -988,7 +997,7 @@ function solidAt(img, x, y) {
   return x >= 0 && y >= 0 && x < d.width && y < d.height && d.data[(Math.floor(y) * d.width + Math.floor(x)) * 4 + 3] > 0;
 }
 function pieceAt(point) {
-  const list = drawList().filter((t) => !t.cat).reverse();
+  const list = drawList().filter((t) => t.p).reverse();
   for (const { p } of list) {
     const img = picture(lookOf(p).src);
     const s = spot(p);
@@ -1104,8 +1113,9 @@ roomCanvas.addEventListener('pointerup', (event) => {
     if (p) pickUp(p);
     return;
   }
-  // Tap a toy and the cat comes to play with it. Tap a lamp to switch it.
-  if (p && floorToys().includes(p)) callToPlay(p);
+  // Tap the duck and it hops. Tap a toy and the cat comes to play with it. Tap a lamp to switch it.
+  if (onDuck(point)) tapDuck(performance.now());
+  else if (p && floorToys().includes(p)) callToPlay(p);
   else if (p && pieces.get(p.piece).light) switchLamp(p);
 });
 
