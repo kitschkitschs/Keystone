@@ -33,6 +33,7 @@ const STARTER_PIECES = [
   { name: 'Teacup', type: 'small', boxes: [[240, 0, 16, 16]], w: 1, d: 1 },
   { name: 'Little plant', type: 'small', boxes: [[208, 16, 16, 16]], w: 1, d: 1 },
   { name: 'Books', type: 'small', boxes: [[224, 16, 16, 16]], w: 1, d: 1 },
+  { name: 'Ball of yarn', type: 'small', boxes: [[240, 16, 16, 16]], w: 1, d: 1, toy: true },
   { name: 'Rose rug', type: 'rug', boxes: [[64, 32, 48, 32]], w: 3, d: 2 },
   { name: 'Sage stripes', type: 'wallpaper', boxes: [[112, 32, 16, 48]], w: 1, d: 3 },
   { name: 'Cream flowers', type: 'wallpaper', boxes: [[128, 32, 16, 48]], w: 1, d: 3 },
@@ -98,39 +99,6 @@ function cutBox(canvas, [x, y, w, h]) {
   return c.toDataURL('image/png');
 }
 
-// Makes the top-left pixel's colour see-through everywhere, for pictures saved
-// with a solid background (like a JPG). A little give, since JPGs smudge colours.
-function makeBackgroundSeeThrough(canvas, give = 48) {
-  const g = canvas.getContext('2d');
-  const data = g.getImageData(0, 0, canvas.width, canvas.height);
-  const d = data.data;
-  const [r0, g0, b0] = [d[0], d[1], d[2]];
-  for (let i = 0; i < d.length; i += 4) {
-    if (Math.abs(d[i] - r0) + Math.abs(d[i + 1] - g0) + Math.abs(d[i + 2] - b0) <= give) d[i + 3] = 0;
-  }
-  g.putImageData(data, 0, 0);
-}
-
-// Shrinks a picture that was saved bigger than its real pixels (every pixel
-// drawn as a block of n x n), by taking the middle of each block.
-function shrinkPicture(canvas, n) {
-  const w = Math.max(1, Math.round(canvas.width / n));
-  const h = Math.max(1, Math.round(canvas.height / n));
-  const from = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  const g = c.getContext('2d');
-  const to = g.createImageData(w, h);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const sx = Math.min(canvas.width - 1, Math.floor((x + 0.5) * n));
-    const sy = Math.min(canvas.height - 1, Math.floor((y + 0.5) * n));
-    for (let k = 0; k < 4; k++) to.data[(y * w + x) * 4 + k] = from.data[(sy * canvas.width + sx) * 4 + k];
-  }
-  g.putImageData(to, 0, 0);
-  return c;
-}
-
 // The smallest box inside `box` that still holds every visible pixel.
 function trimBox(canvas, [x, y, w, h]) {
   const d = canvas.getContext('2d').getImageData(x, y, w, h).data;
@@ -142,9 +110,13 @@ function trimBox(canvas, [x, y, w, h]) {
   return [x + x0, y + y0, x1 - x0 + 1, y1 - y0 + 1];
 }
 
+// Adds the starter pieces you don't have yet (by name). Returns how many it added.
 async function addStarterPieces() {
   const sheet = pictureCanvas(await loadPicture('room-art/starter.png'));
+  const have = new Set((await getAllItems()).filter((i) => i.kind === 'piece' && !i.deleted).map((i) => i.name));
+  let added = 0;
   for (const p of STARTER_PIECES) {
+    if (have.has(p.name)) continue;
     const views = p.boxes.map((box, i) => ({
       src: cutBox(sheet, box), pw: box[2], ph: box[3],
       // A turned piece swaps how wide and deep it stands.
@@ -153,7 +125,9 @@ async function addStarterPieces() {
     await putItem({
       id: newId('piece'), kind: 'piece', day: '', name: p.name, type: p.type, views,
       count: p.count || 1, surface: Boolean(p.surface), lift: p.lift || 16, light: Boolean(p.light),
-      catSpot: Boolean(p.catSpot), catLift: p.catLift ?? 8, createdAt: Date.now(),
+      catSpot: Boolean(p.catSpot), catLift: p.catLift ?? 8, toy: Boolean(p.toy), createdAt: Date.now(),
     });
+    added++;
   }
+  return added;
 }
