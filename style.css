@@ -615,3 +615,4 @@ html.wide .map-layout { display: grid; grid-template-columns: 360px minmax(0, 1f
 html.wide .tiles-layout { grid-template-columns: minmax(0, 1fr) 380px; }
 html.wide .map-tools { position: sticky; top: 12px; }
 html.wide .sheet-wrap { max-height: calc(100vh - 260px); }
+html.wide #map-canvas { width: auto; height: calc(100vh - 260px); max-width: 100%; object-fit: contain; }
