@@ -454,7 +454,7 @@ html.dark .look-big { background: #1E1A2A; border-color: #3A3249; }
 .gw-head:has(.gw-back:not([hidden])) { padding-left: 8px; }
 .gw-head h2 { flex: 1; margin: 0; font-family: var(--serif); font-weight: 500; font-size: 20px; color: #3B2C2A; }
 .gw-close { width: 34px; height: 34px; padding: 0; border: 2px solid #3B2C2A; border-radius: 6px; background: #F6EEDC; font-size: 22px; line-height: 1; color: #3B2C2A; }
-.gw-body { overflow: auto; padding: 12px 16px 18px; }
+.gw-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 12px 16px 18px; }
 .game-window .muted { color: #7A6660; }
 .game-window .ink-button { background: #3B2C2A; color: #F6EEDC; }
 .game-window .text-button { color: #3B2C2A; }
@@ -522,7 +522,7 @@ html.wide #page { max-width: none; }
 html.wide #insight, html.wide #colours { max-width: 480px; margin: 0 auto; }
 /* The room on the left, the game's window kept open on the right. */
 html.wide #room .room-top { padding: 12px 480px 0 24px; }
-html.wide #game-window { position: fixed; inset: 64px 24px calc(var(--bar) + 20px) auto; width: 440px; max-height: none; margin: 0; z-index: 5; }
+html.wide #game-window { position: fixed; inset: 64px 24px calc(var(--bar) + 20px) auto; width: 440px; height: auto; max-height: none; margin: 0; z-index: 5; }
 html.wide .sheet { width: min(640px, calc(100% - 48px)); margin-top: 40px; }
 /* The cutter, Pieces and pet pages use the width. */
 html.wide #room-add, html.wide #pieces, html.wide #cat { max-width: 1280px; margin: 0 auto; }
