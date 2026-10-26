@@ -859,10 +859,6 @@ function catFrame(now) {
   const meta = CAT_ANIMS.find((m) => m.key === catState.anim);
   let i = catState.still ? 0 : Math.floor(((now - catState.animStart) / 1000) * a.fps * (catState.fast ? 2 : catState.creep ? 0.5 : 1));
   i = meta && meta.once ? Math.min(i, a.count - 1) : i % Math.max(1, a.count);
-  // Sleeping stretched out, it breathes: its last two lying-down frames, slowly.
-  if (catState.anim === 'lieDown' && catState.stretch && catState.mode === 'sleep' && a.count > 1 && animDone(now)) {
-    i = a.count - 2 + (Math.floor(((now - catState.animStart) / 1000) * 1.5) % 2);
-  }
   return { frame: a.start + i, mirror: a.mirror };
 }
 
