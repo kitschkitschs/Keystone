@@ -438,7 +438,8 @@ async function useNewCut() {
   pieces.set(saved.id, saved);
   cutFor = null;
   cut.boxes = [];
-  goTo('home');
+  // Back to the Pieces page in the Workshop, where pieces are edited.
+  goTo('pieces');
   openPieceDetails(saved);
 }
 

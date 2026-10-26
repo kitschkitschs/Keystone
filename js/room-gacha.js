@@ -110,10 +110,7 @@ function catLookHtml() {
     <p class="look-facts">${escapeHtml((PIECE_TYPES.find(([key]) => key === p.type) || PIECE_TYPES[0])[1])} · ${rarityName(p.rarity)} · ${p.locked ? 'still in the machine' : 'collected'}</p>
     ${fam.length > 1 ? `<h3 class="cat-h">${fam.length} colours</h3>
     <div class="pile">${fam.map((q) => `<button type="button" class="pile-tile${q.locked ? ' locked' : ''}" data-cat-pick="${q.id}"${q.id === p.id ? ' aria-current="true"' : ''} aria-label="This colour">
-      <img class="pixel" src="${q.views[0].src}" alt="" style="--pw: ${q.views[0].pw}; --ph: ${q.views[0].ph}"></button>`).join('')}</div>` : ''}
-    <div class="buttons look-buttons">
-      <button class="ink-button" type="button" data-cat-edit="${p.id}">Edit</button>
-    </div>`;
+      <img class="pixel" src="${q.views[0].src}" alt="" style="--pw: ${q.views[0].pw}; --ph: ${q.views[0].ph}"></button>`).join('')}</div>` : ''}`;
 }
 
 function openCatLook(root, id = '') {
@@ -163,19 +160,14 @@ function turning(now) {
   drawGacha();
 }
 
-// Tap a piece in the catalogue to edit it, locked or not. The window shows what
-// changed once the editing sheet closes.
+// Tap a piece in the catalogue for a closer look. Pieces are edited in the
+// Workshop (Pieces), not here.
 $('gw-body').addEventListener('click', (event) => {
   const tile = event.target.closest('[data-cat-family]');
   if (tile) return openCatLook(tile.dataset.catFamily);
   const pick = event.target.closest('[data-cat-pick]');
-  if (pick) return openCatLook(catLook.family, pick.dataset.catPick);
-  const edit = event.target.closest('[data-cat-edit]');
-  const piece = edit && pieces.get(edit.dataset.catEdit);
-  if (piece) openPieceDetails(piece);
+  if (pick) openCatLook(catLook.family, pick.dataset.catPick);
 });
-// Back from editing: the window shows what changed.
-$('sheet').addEventListener('close', () => { if (gameWindowKind === 'catalogue' || gameWindowKind === 'look') drawGameWindow(); });
 
 $('gw-body').addEventListener('click', async (event) => {
   const button = event.target.closest('[data-gacha]');
