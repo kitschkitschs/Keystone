@@ -164,8 +164,8 @@ function blockedTiles() {
 
 let scale = 1;
 function sizeRoom() {
-  const W = room.cols * TILE;
-  const H = rows() * TILE;
+  const W = sceneCols() * TILE;
+  const H = sceneRows() * TILE;
   world.width = W;
   world.height = H;
   const dpr = window.devicePixelRatio || 1;
@@ -1134,7 +1134,8 @@ roomCanvas.addEventListener('pointerup', (event) => {
   }
   // Tap a toy and the cat comes to play with it. Tap a lamp to switch it.
   if (p && floorToys().includes(p)) callToPlay(p);
-  else if (p && pieces.get(p.piece).stove) openGameWindow('stove');
+  // With the wand, a tap on the stove finishes what's cooking.
+  else if (p && pieces.get(p.piece).stove) { if (wand && kitchen.recipe) finishCooking(); else openGameWindow('stove'); }
   else if (p && pieces.get(p.piece).light) switchLamp(p);
 });
 

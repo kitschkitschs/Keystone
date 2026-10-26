@@ -50,6 +50,7 @@ const APP_FILES = [
   'js/room-duck.js',
   'js/map.js',
   'js/farm.js',
+  'js/wand.js',
   'js/room-pieces.js',
   'js/farm-page.js',
   'js/map-page.js',

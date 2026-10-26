@@ -46,6 +46,8 @@ const HUD_ICONS = {
     '.kyywyyyk...', '.kywyyykk...', '.kwykkk.....', '.kw.........', 'kw..........', '............'],
   winter: ['.....b......', '...b.b.b....', '....bbb.....', '.b...b...b..', '..b..b..b...', 'bbbbbbbbbbb.',
     '..b..b..b...', '.b...b...b..', '....bbb.....', '...b.b.b....', '.....b......', '............'],
+  wand: ['......k.....', '.....kyk....', '..k.kyyyk.k.', '...kyyyyyk..', '..k.kyyyk.k.', '.....kyk....',
+    '.....kk.....', '....kwk.....', '...kwk......', '..kwk.......', '.kwk........', '.kk.........'],
   night: ['............', '....kkkk....', '...kyyyk....', '..kyyyk.....', '..kyyk......', '..kyyk......',
     '..kyyk......', '..kyyyk.....', '...kyyyk....', '....kkkk....', '............', '............'],
 };
@@ -183,6 +185,11 @@ function drawGameWindow() {
   $('gw-back').hidden = !gameWindowTrail.length;
   if (kind === 'gacha') return drawGacha();
   if (FARM_TITLES[kind]) return drawFarmWindow(kind);
+  if (kind === 'wand') {
+    $('gw-title').textContent = 'Wand';
+    $('gw-body').innerHTML = wandHtml();
+    return;
+  }
   const titles = { inventory: 'Inventory', catalogue: 'Catalogue', workshop: 'Workshop' };
   $('gw-title').textContent = titles[kind] || '';
   if (kind === 'inventory') $('gw-body').innerHTML = inventoryHtml();
@@ -200,6 +207,7 @@ function drawGameWindow() {
         <button type="button" class="ws-button" data-ws="farm"><b>Farm</b></button>
         <button type="button" class="ws-button" data-ws="map"><b>Map</b></button>
         <button type="button" class="ws-button" data-ws="room"><b>Room</b></button>
+        <button type="button" class="ws-button${wand ? ' on' : ''}" data-ws="wand" aria-pressed="${wand}"><b>Wand</b></button>
       </div>`;
   }
 }
@@ -224,6 +232,7 @@ $('gw-body').addEventListener('click', async (event) => {
   const ws = event.target.closest('[data-ws]');
   if (ws) {
     const action = ws.dataset.ws;
+    if (action === 'wand') return openGameWindow('wand');
     closeGameWindow();
     if (action === 'add') { cutFor = null; goTo('room-add'); }
     if (action === 'cat' || action === 'duck') {

@@ -71,7 +71,7 @@ function editorHtml() {
   if (d.kind === 'crop') {
     return `${name}
       <div class="field"><span>Growing</span><div class="stage-row">
-        ${d.stages.map((src) => `<img class="pixel stage-pic" src="${src}" alt="">`).join('')}
+        ${d.stages.map((src, i) => `<span class="frame-pic"><img class="pixel stage-pic" src="${src}" alt="">${Number(d.regrow) > 0 && d.stages.length > 1 && i === d.stages.length - 1 ? '<small class="muted">Picked</small>' : ''}</span>`).join('')}
         ${slot('', 'stages', 'Pick the stages')}
       </div></div>
       <div class="field"><span>Harvest</span><div class="stage-row">${slot(d.produce, 'produce', 'Pick the harvest')}</div></div>
@@ -172,8 +172,10 @@ function farmStatus(text) {
 function gardenFormHtml() {
   const floors = [...pieces.values()].filter((p) => p.type === 'floor');
   return `<div class="cut-box">
-      <label>Bed across <input type="number" id="bed-cols" min="1" max="22" value="${garden.cols}"></label>
-      <label>Bed down <input type="number" id="bed-rows" min="1" max="14" value="${garden.rows}"></label>
+      <label>Garden across <input type="number" id="garden-wide" min="6" max="40" value="${gardenCols()}"></label>
+      <label>Garden down <input type="number" id="garden-tall" min="${room.wallRows + 2}" max="30" value="${gardenRows()}"></label>
+      <label>Bed across <input type="number" id="bed-cols" min="1" max="38" value="${garden.cols}"></label>
+      <label>Bed down <input type="number" id="bed-rows" min="1" max="28" value="${garden.rows}"></label>
     </div>
     ${floors.length ? `<div class="field"><span>Grass</span>${pieceRadios('grass', floors, garden.grass, 'Plain')}</div>
     <div class="field"><span>Soil</span>${pieceRadios('soil', floors, garden.soil, 'Plain')}</div>` : ''}
@@ -352,11 +354,18 @@ $('farm-page').addEventListener('click', async (event) => {
   }
   if (action === 'garden') {
     const page = $('farm-page');
-    garden.cols = Math.max(1, Math.min(22, Math.round(Number($('bed-cols').value)) || garden.cols));
-    garden.rows = Math.max(1, Math.min(14, Math.round(Number($('bed-rows').value)) || garden.rows));
+    garden.wide = Math.max(6, Math.min(40, Math.round(Number($('garden-wide').value)) || gardenCols()));
+    garden.tall = Math.max(room.wallRows + 2, Math.min(30, Math.round(Number($('garden-tall').value)) || gardenRows()));
+    garden.cols = Math.max(1, Math.min(38, Math.round(Number($('bed-cols').value)) || garden.cols));
+    garden.rows = Math.max(1, Math.min(28, Math.round(Number($('bed-rows').value)) || garden.rows));
     garden.grass = page.querySelector('[name="grass"]:checked')?.value || '';
     garden.soil = page.querySelector('[name="soil"]:checked')?.value || '';
     await saveGarden();
+    // The map is the garden's size, so it grows and shrinks with it.
+    if (gardenMap && (gardenMap.cols !== gardenCols() || gardenMap.rows !== gardenRows())) {
+      gardenMap = resizedMap(gardenMap);
+      await saveMap();
+    }
     farmStatus('Saved.');
   }
 });
