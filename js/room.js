@@ -59,6 +59,7 @@ async function loadRoom() {
   breeds = [];
   const items = await getAllItems();
   loadFarm(items);
+  loadMaps(items);
   for (const item of items) {
     if (item.deleted) continue;
     if (item.kind === 'piece') pieces.set(item.id, item);
@@ -1392,14 +1393,6 @@ function pieceRadios(name, list, current, none) {
 
 const setNames = () => [...new Set([...pieces.values()].map((p) => p.set).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
-// Pieces this one can be a colour of: the first of each colour family in the
-// same set (its own family's too), but not itself.
-function colourChoices(piece) {
-  return [...pieces.values()]
-    .filter((p) => !p.family && p.id !== piece.id && (p.set || '') === (piece.set || ''))
-    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-}
-
 // Deletes pieces, and any of them standing in the room.
 async function deletePieces(ids) {
   for (const id of ids) {
@@ -1605,7 +1598,6 @@ function openPieceDetails(piece) {
     ${pieceTypeChoices(piece.type)}
     <label class="field"><span>Set</span><input name="set" type="text" value="${escapeHtml(piece.set || '')}" list="set-names" autocomplete="off" placeholder="Not in a set"></label>
     <datalist id="set-names">${setNames().map((name) => `<option value="${escapeHtml(name)}">`).join('')}</datalist>
-    <div class="field"><span>A colour of</span>${pieceRadios('family', colourChoices(piece), piece.family, 'None')}</div>
     <h3>Gachapon</h3>
     <label class="field"><span>Rarity</span><select name="rarity">${RARITIES.map(([key, name]) => `<option value="${key}"${(piece.rarity || 'common') === key ? ' selected' : ''}>${name}</option>`).join('')}</select></label>
     <label class="check"><input type="checkbox" name="locked"${fromMachine(piece) ? ' checked' : ''}><span>Comes from the gacha machine</span></label>
@@ -1640,15 +1632,8 @@ function openPieceDetails(piece) {
       await deletePieces([piece.id]);
       return true;
     }
-    // Joining a colour family: pieces that were colours of this one come along.
-    const family = form.elements.family.value;
-    if (family && family !== (piece.family || '')) {
-      for (const other of pieces.values()) {
-        if (other.family !== piece.id) continue;
-        const moved = await putItem({ ...other, family });
-        pieces.set(moved.id, moved);
-      }
-    }
+    // Colours are grouped on the Pieces page (Colours), not here.
+    const family = piece.family || '';
     const views = piece.views.map((v, i) => ({ ...v, w: Number(form.elements[`w${i}`].value) || 1, d: Number(form.elements[`d${i}`].value) || 1 }));
     if (action && action.startsWith('unview-')) views.splice(Number(action.slice(7)), 1);
     const saved = await putItem(setFromMachine({
@@ -1662,9 +1647,8 @@ function openPieceDetails(piece) {
       toy: form.elements.toy.checked, stove: form.elements.stove.checked, set: form.elements.set.value.trim(), family, rarity: form.elements.rarity.value,
     }, form.elements.locked.checked));
     pieces.set(saved.id, saved);
-    // Its colours are the same piece, so they get the same settings (unless it
-    // just joined other colours, which keep theirs).
-    for (const other of family === (piece.family || '') ? [...pieces.values()] : []) {
+    // Its colours are the same piece, so they get the same settings.
+    for (const other of pieces.values()) {
       if (other.id === saved.id || familyOf(other) !== familyOf(saved)) continue;
       const shared = {};
       for (const key of SHARED_SETTINGS) shared[key] = saved[key];
