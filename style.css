@@ -477,10 +477,11 @@ html.dark .sheet.game-window h3, html.dark .sheet.game-window .field { color: #C
   margin: 12px var(--side) 0; padding: 8px 8px 8px 14px; border: 1px solid var(--rule); border-radius: 14px; background: var(--paper); box-shadow: 0 4px 18px var(--shadow); }
 .org-actions .grow { flex: 1; font-size: 14px; }
 .sheet .pile-tile { width: 44px; height: 44px; }
-.seat-setup { display: grid; gap: 8px; justify-items: center; margin: 4px 0 12px; }
-.seat-setup canvas { background: var(--paper); border-radius: 4px; }
-.seat-lift { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; justify-content: center; font-size: 14px; }
-.seat-lift input { width: 64px; }
+.preview-setup { display: grid; gap: 8px; justify-items: center; margin: 4px 0 12px; }
+.preview-setup[hidden] { display: none; }
+.preview-setup canvas { background: var(--paper); border-radius: 4px; image-rendering: pixelated; }
+.nudges { display: flex; gap: 6px; justify-content: center; }
+.nudge { width: 40px; height: 40px; padding: 0; font-size: 18px; line-height: 1; }
 
 /* Grouping boxes in the cutter (room-add.js). */
 .cut-group { margin: 8px 0; padding: 8px 10px 2px; border: 1px dashed #2F7FD0; border-radius: 10px; }
