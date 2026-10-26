@@ -27,6 +27,7 @@ clock. The Insight page shows habits and health over time.
 | `js/room.js` | The room: the tile grid, placing and moving pieces, the cat, day and night. |
 | `js/room-add.js` | Cutting your own pieces from a picture, and setting up the cat's sprite sheet. |
 | `js/room-draw.js` | A pixel drawing page for making your own pieces. |
+| `js/room-gacha.js` | The gacha machine that unlocks pieces, and the catalogue of everything there is to collect. |
 | `js/room-art.js` | The placeholder pieces, the cat's standard sheet layout, and picture helpers. |
 | `room-art/` | Placeholder art drawn for Keystone: `starter.png` (furniture) and `cat.png` (a grey tabby, Stardew pet layout). |
 | `js/app.js` | Moves between pages, and connects the menu to the files above. |

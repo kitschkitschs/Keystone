@@ -7,7 +7,9 @@
 // --- Cutting pieces ---
 
 let cutFor = null; // a piece's id when adding a turned look to it
-const cut = { sheet: null, box: null, corner: null, zoom: 2, snap: true, tilesTouched: false, typeTouched: false };
+// pile: boxes kept to add all at once, each { box, src, on }. name: what the picture
+// is called, for naming pieces added from the pile.
+const cut = { sheet: null, box: null, corner: null, zoom: 2, snap: true, tilesTouched: false, typeTouched: false, pile: [], name: '' };
 
 function showRoomAdd() {
   const forPiece = cutFor && pieces.get(cutFor);
@@ -32,11 +34,14 @@ function showRoomAdd() {
           <button class="text-button" type="button" data-cut="in" aria-label="Zoom in">+</button>
           <label class="check"><input id="cut-snap" type="checkbox"${cut.snap ? ' checked' : ''}><span>Snap to tiles</span></label>
         </div>
-        <p class="muted">Tap one corner of a piece, then the opposite corner.</p>
+        <p class="muted">Tap one corner of a piece, then the opposite corner.${forPiece ? '' : ' Or find every piece on the sheet at once.'}</p>
         <div id="cut-scroll" class="cut-scroll"><canvas id="cut-canvas" class="pixel"></canvas></div>
         <div class="cut-tools">
           <button class="text-button" type="button" data-cut="trim">Trim empty edges</button>
+          ${forPiece ? '' : `<button class="text-button" type="button" data-cut="keep">Keep this box</button>
+          <button class="text-button" type="button" data-cut="find">Find all pieces</button>`}
         </div>
+        <div id="cut-pile" hidden></div>
         <div class="cut-box">
           <label>Left <input type="number" min="0" data-box="0"></label>
           <label>Top <input type="number" min="0" data-box="1"></label>
@@ -56,7 +61,8 @@ function showRoomAdd() {
           <label class="check"><input type="checkbox" name="surface"><span>Things can go on top (like a table)</span></label>
           <label class="check"><input type="checkbox" name="light"><span>Gives light at night</span></label>
           <label class="check"><input type="checkbox" name="catSpot"><span>The cat can sit and sleep on it</span></label>
-          <label class="check"><input type="checkbox" name="toy"><span>A toy the cat plays with</span></label>`}
+          <label class="check"><input type="checkbox" name="toy"><span>A toy the cat plays with</span></label>
+          <label class="check"><input type="checkbox" name="locked" checked><span>Put it in the gacha machine, to unlock</span></label>`}
           <p><button class="ink-button" type="submit">${forPiece ? 'Add this look' : 'Add to inventory'}</button></p>
         </form>
       </div>
@@ -67,6 +73,7 @@ function showRoomAdd() {
     drawCutSheet();
     showCutBox();
   }
+  showPile();
 }
 
 function fitCutZoom() {
@@ -99,6 +106,13 @@ function drawCutSheet() {
     g.fillRect(x, y, w, h);
     g.strokeStyle = '#2F7FD0';
     g.lineWidth = 2;
+    g.strokeRect(x + 1, y + 1, w - 2, h - 2);
+  }
+  // Kept boxes: green while they're in, faint once you've left them out.
+  for (const kept of cut.pile) {
+    const [x, y, w, h] = kept.box.map((n) => n * cut.zoom);
+    g.strokeStyle = kept.on ? '#3E9B5A' : 'rgba(61, 52, 50, 0.3)';
+    g.lineWidth = kept.on ? 2 : 1;
     g.strokeRect(x + 1, y + 1, w - 2, h - 2);
   }
   if (cut.corner) {
@@ -146,6 +160,8 @@ async function useCutPicture(src, status) {
   }
   cut.box = null;
   cut.corner = null;
+  cut.pile = [];
+  showPile();
   $('cut-work').hidden = false;
   fitCutZoom();
   // A single piece is boxed straight away.
@@ -160,6 +176,7 @@ $('cut-page').addEventListener('change', async (event) => {
     const file = event.target.files[0];
     event.target.value = '';
     await useCutPicture(await readFileAsDataUrl(file), '');
+    cut.name = file.name.replace(/\.[^.]*$/, '');
     if (cut.sheet) $('cut-status').textContent = `${file.name}, ${cut.sheet.width} × ${cut.sheet.height} pixels.`;
   }
   if (event.target.id === 'cut-snap') cut.snap = event.target.checked;
@@ -188,11 +205,45 @@ $('cut-page').addEventListener('click', async (event) => {
     drawFor = null;
     goTo('draw');
   }
-  if (action === 'starter') await useCutPicture('room-art/starter.png', 'The starter sheet. Box a piece to try it.');
+  if (action === 'starter') {
+    await useCutPicture('room-art/starter.png', 'The starter sheet. Box a piece to try it.');
+    cut.name = 'Starter';
+  }
+  if (action === 'pile') {
+    const kept = cut.pile[Number(button.dataset.i)];
+    kept.on = !kept.on;
+    drawCutSheet();
+    showPile();
+  }
+  if (action === 'clearpile') {
+    cut.pile = [];
+    drawCutSheet();
+    showPile();
+  }
+  if (action === 'addall') await addPile();
   if (!cut.sheet) return;
   if (action === 'in' || action === 'out') {
     cut.zoom = Math.max(1, Math.min(12, cut.zoom + (action === 'in' ? 1 : -1)));
     drawCutSheet();
+  }
+  if (action === 'keep' && cut.box) {
+    keepBox(cut.box);
+    cut.box = null;
+    cut.corner = null;
+    drawCutSheet();
+    showCutBox();
+    showPile();
+  }
+  if (action === 'find') {
+    const found = findPieces(cut.sheet).filter((box) => !cut.pile.some((kept) => kept.box.join() === box.join()));
+    for (const box of found) keepBox(box);
+    drawCutSheet();
+    showPile();
+    if (cut.pile.length === 1 && cut.pile[0].box[2] === cut.sheet.width && cut.pile[0].box[3] === cut.sheet.height) {
+      $('cut-status').textContent = 'The whole picture came out as one piece. Finding pieces needs a see-through background between them.';
+    } else {
+      $('cut-status').textContent = found.length ? `Found ${found.length}. Tap any you don't want, on the sheet or below.` : 'No new pieces found.';
+    }
   }
   if (action === 'trim' && cut.box) {
     cut.box = trimBox(cut.sheet, cut.box);
@@ -211,6 +262,14 @@ $('cut-page').addEventListener('pointerup', (event) => {
   const unit = cut.snap ? TILE : 1;
   const sx = Math.floor(px / unit) * unit;
   const sy = Math.floor(py / unit) * unit;
+  // A tap inside a kept box leaves it out, or puts it back in.
+  const kept = !cut.corner && cut.pile.find((k) => px >= k.box[0] && px < k.box[0] + k.box[2] && py >= k.box[1] && py < k.box[1] + k.box[3]);
+  if (kept) {
+    kept.on = !kept.on;
+    drawCutSheet();
+    showPile();
+    return;
+  }
   if (!cut.corner) {
     cut.corner = [sx, sy];
     cut.box = [sx, sy, Math.min(unit, cut.sheet.width - sx), Math.min(unit, cut.sheet.height - sy)];
@@ -248,7 +307,7 @@ $('cut-page').addEventListener('submit', async (event) => {
   const piece = await putItem({
     id: newId('piece'), kind: 'piece', day: '', name: form.elements.name.value.trim(), type, views: [view],
     count: Math.max(1, Number(form.elements.count.value) || 1), surface: form.elements.surface.checked, lift: 16,
-    light: form.elements.light.checked, catSpot: form.elements.catSpot.checked, catLift: 8, toy: form.elements.toy.checked, createdAt: Date.now(),
+    light: form.elements.light.checked, catSpot: form.elements.catSpot.checked, catLift: 8, toy: form.elements.toy.checked, locked: form.elements.locked.checked, createdAt: Date.now(),
   });
   pieces.set(piece.id, piece);
   form.elements.name.value = '';
@@ -261,10 +320,104 @@ $('cut-page').addEventListener('submit', async (event) => {
   cut.tilesTouched = false;
   drawCutSheet();
   showCutBox();
-  $('cut-status').textContent = `Added ${piece.name}. Box the next piece, or tap Done.`;
+  $('cut-status').textContent = piece.locked ? `${piece.name} went into the gacha machine. Box the next piece, or tap Done.` : `Added ${piece.name}. Box the next piece, or tap Done.`;
   $('cut-page').scrollIntoView();
   showBackupInfo();
 });
+
+// --- Many pieces at once: keep boxes in a pile, then add them all and set each
+// one up afterwards.
+
+function keepBox(box) {
+  cut.pile.push({ box, src: cutBox(cut.sheet, box), on: true });
+}
+
+function showPile() {
+  const el = $('cut-pile');
+  if (!el) return;
+  el.hidden = !cut.pile.length;
+  const on = cut.pile.filter((k) => k.on).length;
+  el.innerHTML = cut.pile.length ? `
+    <h3 class="cat-h">Kept: ${on} of ${cut.pile.length}</h3>
+    <div class="pile">${cut.pile.map((k, i) => `<button type="button" class="pile-tile" data-cut="pile" data-i="${i}" aria-pressed="${k.on}" aria-label="Piece ${i + 1}">
+      <img class="pixel" src="${k.src}" alt="" style="--pw: ${k.box[2]}; --ph: ${k.box[3]}"></button>`).join('')}</div>
+    <div class="buttons">
+      <button class="ink-button" type="button" data-cut="addall"${on ? '' : ' disabled'}>Add ${on} to inventory</button>
+      <button class="text-button" type="button" data-cut="clearpile">Clear</button>
+    </div>
+    <p class="muted">They're added with a first guess at their tiles. You name and set up each one straight after.</p>` : '';
+}
+
+// Every separate picture on a sheet: groups of touching pixels that aren't
+// see-through. Boxes that overlap are joined, so loose bits stay with their piece.
+function findPieces(canvas) {
+  const w = canvas.width;
+  const h = canvas.height;
+  const d = canvas.getContext('2d').getImageData(0, 0, w, h).data;
+  const seen = new Uint8Array(w * h);
+  let boxes = [];
+  const stack = [];
+  for (let start = 0; start < w * h; start++) {
+    if (seen[start] || d[start * 4 + 3] === 0) continue;
+    let x0 = w, y0 = h, x1 = -1, y1 = -1, count = 0;
+    seen[start] = 1;
+    stack.push(start);
+    while (stack.length) {
+      const i = stack.pop();
+      const x = i % w;
+      const y = (i - x) / w;
+      count++;
+      x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const j = ny * w + nx;
+        if (!seen[j] && d[j * 4 + 3] > 0) { seen[j] = 1; stack.push(j); }
+      }
+    }
+    if (count >= 6) boxes.push([x0, y0, x1, y1]);
+  }
+  for (let joined = true; joined;) {
+    joined = false;
+    outer: for (let a = 0; a < boxes.length; a++) for (let b = a + 1; b < boxes.length; b++) {
+      const [p, q] = [boxes[a], boxes[b]];
+      if (p[0] <= q[2] && q[0] <= p[2] && p[1] <= q[3] && q[1] <= p[3]) {
+        boxes[a] = [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.max(p[2], q[2]), Math.max(p[3], q[3])];
+        boxes.splice(b, 1);
+        joined = true;
+        break outer;
+      }
+    }
+  }
+  // In reading order: row by row (rows of tiles), left to right.
+  boxes = boxes.map(([x0, y0, x1, y1]) => [x0, y0, x1 - x0 + 1, y1 - y0 + 1]);
+  return boxes.sort((a, b) => Math.floor(a[1] / TILE) - Math.floor(b[1] / TILE) || a[0] - b[0]);
+}
+
+async function addPile() {
+  const base = cut.name || 'Piece';
+  const ids = [];
+  let n = 0;
+  for (const kept of cut.pile.filter((k) => k.on)) {
+    const [, , pw, ph] = kept.box;
+    const small = pw <= TILE && ph <= TILE;
+    const view = { src: kept.src, pw, ph, w: small ? 1 : Math.max(1, Math.round(pw / TILE)), d: 1 };
+    const piece = await putItem({
+      id: newId('piece'), kind: 'piece', day: '', name: `${base} ${++n}`, type: small ? 'small' : 'furniture', views: [view],
+      count: 1, surface: false, lift: 16, light: false, catSpot: false, catLift: 8, toy: false, locked: true, createdAt: Date.now() + n,
+    });
+    pieces.set(piece.id, piece);
+    ids.push(piece.id);
+  }
+  cut.pile = [];
+  drawCutSheet();
+  showPile();
+  showBackupInfo();
+  $('cut-status').textContent = `Added ${ids.length}. You can change them any time in Edit pieces.`;
+  setupQueue = ids;
+  if (ids.length) openPieceDetails(pieces.get(ids[0]));
+}
 
 // --- The cat page ---
 
@@ -317,6 +470,7 @@ function showCatPage() {
               <label>Speed <input type="number" min="0.5" max="24" step="0.5" data-set="fps" value="${s.fps}"></label>
             </div>
             ${a.canFlip ? `<label class="check"><input type="checkbox" data-set="flip"${s.flip ? ' checked' : ''}><span>Use walking right, turned around</span></label>` : ''}
+            ${a.canFaceLeft ? `<label class="check"><input type="checkbox" data-set="facesLeft"${s.facesLeft ? ' checked' : ''}><span>These frames face left</span></label>` : ''}
           </div>
         </div>`;
       }).join('')}</div>
