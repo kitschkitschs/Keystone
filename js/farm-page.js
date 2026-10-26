@@ -192,7 +192,7 @@ function gardenFormHtml() {
 function pickerHtml() {
   return `<div class="picker">
       <div class="inv-tags">
-        ${pickerSheets.map((sheet, i) => `<button type="button" class="inv-tag" data-pick-sheet="${i}" aria-pressed="${sheet.canvas === pickerSheet}">${escapeHtml(sheet.name)}</button>`).join('')}
+        ${pickerSheets.map((sheet, i) => `<span class="sheet-tag"><button type="button" class="inv-tag" data-pick-sheet="${i}" aria-pressed="${sheet.canvas === pickerSheet}">${escapeHtml(sheet.name)}</button><button type="button" class="text-button danger" data-unload-sheet="${i}" aria-label="Close ${escapeHtml(sheet.name)}" title="Close">✕</button></span>`).join('')}
         <label class="inv-tag add-tag"><span>Open picture</span><input id="pick-file" type="file" accept="image/*" hidden></label>
       </div>
       <div class="cut-box">
@@ -304,6 +304,17 @@ $('farm-page').addEventListener('click', async (event) => {
     drawFarm();
     const again = document.querySelector('.pick-scroll');
     if (again) { again.scrollLeft = left; again.scrollTop = top; }
+    return;
+  }
+  // Done with a sheet: it's closed, and forgotten by the pictures it was for.
+  const unload = event.target.closest('[data-unload-sheet]');
+  if (unload) {
+    const [gone] = pickerSheets.splice(Number(unload.dataset.unloadSheet), 1);
+    for (const what of Object.keys(sheetForWhat)) if (sheetForWhat[what] === gone.canvas) delete sheetForWhat[what];
+    if (pickerSheet === gone.canvas) pickerSheet = pickerSheets.length ? pickerSheets[pickerSheets.length - 1].canvas : null;
+    if (picker) picker.picked = [];
+    readFarmFields();
+    drawFarm();
     return;
   }
   const sheet = event.target.closest('[data-pick-sheet]');

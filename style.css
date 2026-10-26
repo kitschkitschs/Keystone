@@ -597,6 +597,8 @@ html.wide .piece-col + .piece-col { margin-top: 0; }
 /* The Map page (map-page.js). */
 .season-tags { margin-bottom: 10px; }
 .add-tag { cursor: pointer; }
+.sheet-tag { display: inline-flex; align-items: center; gap: 2px; }
+.sheet-tag .text-button { padding: 2px 4px; }
 .tile-grid { grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); }
 .tile-grid .thing-tile { min-height: 52px; }
 .tile-filters { display: flex; gap: 8px; margin: 6px 0 2px; }
