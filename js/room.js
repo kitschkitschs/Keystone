@@ -57,7 +57,9 @@ async function loadRoom() {
   duck = null;
   duckSheet = null;
   breeds = [];
-  for (const item of await getAllItems()) {
+  const items = await getAllItems();
+  loadFarm(items);
+  for (const item of items) {
     if (item.deleted) continue;
     if (item.kind === 'piece') pieces.set(item.id, item);
     if (item.kind === 'placed') placed.push(item);
@@ -297,6 +299,8 @@ function drawRoom(now) {
   drawCatExtras(now, light);
   drawFriendHearts(now);
   drawDuckZeds(now);
+  drawDuckTreat(now);
+  drawSteam(now);
 
   if (held) {
     // A faint tile grid while placing, then the piece, outlined in white where
@@ -370,8 +374,8 @@ function timeWord(hour) {
 const GLOW_R = 38;
 const GLOW = [[0, 0.38], [0.35, 0.14], [1, 0]];
 
-// Returns how dark it is, from 0 (day) to 1 (night).
-function drawDayLight() {
+// Returns how dark it is, from 0 (day) to 1 (night). The garden has no lamps.
+function drawDayLight(lamps = true) {
   const { colour, amount } = lightAt(hourNow());
   if (amount <= 0.01) return 0;
   wg.globalCompositeOperation = 'multiply';
@@ -380,7 +384,7 @@ function drawDayLight() {
   wg.fillRect(0, 0, world.width, world.height);
   wg.globalAlpha = 1;
   const dark = Math.max(0, Math.min(1, (amount - 0.25) / 0.47));
-  if (dark > 0) {
+  if (dark > 0 && lamps) {
     wg.globalCompositeOperation = 'screen';
     for (const p of placed) {
       const piece = pieces.get(p.piece);
@@ -957,9 +961,15 @@ function roomFrame(now) {
     roomRunning = false;
     return;
   }
-  moveCat(now, darkNow());
-  moveDuck(now, darkNow());
-  drawRoom(now);
+  farmTick(now);
+  if (scene === 'garden') {
+    moveGarden(now, darkNow());
+    drawGarden(now);
+  } else {
+    moveCat(now, darkNow());
+    moveDuck(now, darkNow());
+    drawRoom(now);
+  }
   requestAnimationFrame(roomFrame);
 }
 function startRoomLoop() {
@@ -1072,6 +1082,7 @@ function dropCat() {
 
 let dragging = false;
 roomCanvas.addEventListener('pointerdown', (event) => {
+  if (scene === 'garden') return;
   const point = toRoom(event);
   if (!held) {
     // Both under the finger: the one in front.
@@ -1114,6 +1125,7 @@ roomCanvas.addEventListener('pointerup', (event) => {
     return;
   }
   const point = toRoom(event);
+  if (scene === 'garden') return tapGarden(point);
   const p = pieceAt(point);
   if (decorating) {
     if (p) pickUp(p);
@@ -1121,6 +1133,7 @@ roomCanvas.addEventListener('pointerup', (event) => {
   }
   // Tap a toy and the cat comes to play with it. Tap a lamp to switch it.
   if (p && floorToys().includes(p)) callToPlay(p);
+  else if (p && pieces.get(p.piece).stove) openGameWindow('stove');
   else if (p && pieces.get(p.piece).light) switchLamp(p);
 });
 
@@ -1556,7 +1569,7 @@ sheetForm.addEventListener('input', (event) => {
 
 // What all the colours of a piece share. Each colour keeps its own pictures,
 // how many you have, its rarity and whether it's still in the machine.
-const SHARED_SETTINGS = ['type', 'set', 'surface', 'lift', 'light', 'lightX', 'lightY', 'catSpot', 'catLift', 'catShift', 'duckShift', 'duckLift', 'toy'];
+const SHARED_SETTINGS = ['type', 'set', 'surface', 'lift', 'light', 'lightX', 'lightY', 'catSpot', 'catLift', 'catShift', 'duckShift', 'duckLift', 'toy', 'stove'];
 
 function openPieceDetails(piece) {
   const views = piece.views.map((v, i) => `<div class="view-row">
@@ -1600,6 +1613,7 @@ function openPieceDetails(piece) {
       ${nudgeHtml('glow', piece)}
     </div>
     <label class="check"><input type="checkbox" name="toy"${piece.toy ? ' checked' : ''}><span>A toy ${escapeHtml(cat.name)} plays with (on the floor)</span></label>
+    <label class="check"><input type="checkbox" name="stove"${piece.stove ? ' checked' : ''}><span>A stove to cook on</span></label>
     <p><button class="text-button danger" type="submit" value="delete">Delete this piece</button></p>`,
   async (form, submitter) => {
     const action = submitter && submitter.value;
@@ -1628,7 +1642,7 @@ function openPieceDetails(piece) {
       catShift: Math.round(Number(form.elements.catShift.value) || 0),
       duckShift: Math.round(Number(form.elements.duckShift.value) || 0), duckLift: Math.max(0, Number(form.elements.duckLift.value) || 0),
       lightX: Number(form.elements.lightX.value) || 0, lightY: Number(form.elements.lightY.value) || 0,
-      toy: form.elements.toy.checked, set: form.elements.set.value.trim(), family, rarity: form.elements.rarity.value,
+      toy: form.elements.toy.checked, stove: form.elements.stove.checked, set: form.elements.set.value.trim(), family, rarity: form.elements.rarity.value,
       locked: form.elements.locked.checked,
     });
     pieces.set(saved.id, saved);

@@ -15,7 +15,7 @@
 
 const FILE_FORMAT = 'keystone-backup';
 const FILE_FORMAT_VERSION = 1;
-const GAME_KINDS = ['piece', 'placed', 'room', 'cat', 'duck', 'breed'];
+const GAME_KINDS = ['piece', 'placed', 'room', 'cat', 'duck', 'breed', 'crop', 'good', 'recipe', 'plot', 'garden', 'pantry', 'kitchen'];
 
 // "keystone-2026-10-23-1415.txt", or "keystone-game-2026-10-23-1415.txt"
 function backupFileName(gameOnly, date = new Date()) {
