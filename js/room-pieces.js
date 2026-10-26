@@ -43,7 +43,7 @@ function pieceTags(p, colours) {
   const tags = [(PIECE_TYPES.find(([key]) => key === p.type) || PIECE_TYPES[0])[1]];
   if (p.rarity && p.rarity !== 'common') tags.push(rarityName(p.rarity));
   if (colours > 1) tags.push(`${colours} colours`);
-  if (p.locked) tags.push('in the machine');
+  if (fromMachine(p)) tags.push(collected(p) ? `from the machine ×${copiesOf(p)}` : 'in the machine');
   return tags.map(escapeHtml).join(' · ');
 }
 
@@ -162,7 +162,7 @@ function openBulkChange() {
     <label class="field" id="bulk-new-set" hidden><span>New set's name</span><input name="newSet" type="text" autocomplete="off"></label>
     <h3>Gachapon</h3>
     <label class="field"><span>Rarity</span><select name="rarity">${keep}${RARITIES.map(([key, name]) => `<option value="${key}">${name}</option>`).join('')}</select></label>
-    <label class="field"><span>Gacha machine</span><select name="locked">${keep}<option value="yes">Locked in the machine</option><option value="no">Unlocked</option></select></label>
+    <label class="field"><span>Gacha machine</span><select name="locked">${keep}<option value="yes">Comes from the machine</option><option value="no">Yours already</option></select></label>
     </div><div class="piece-col">
     <h3>In the room</h3>
     ${yesNo('surface', 'Things can go on top')}
@@ -189,7 +189,8 @@ function openBulkChange() {
       if (choice.startsWith('set:')) change.set = choice.slice(4);
       if (form.elements.rarity.value) change.rarity = form.elements.rarity.value;
       if (form.elements.type.value) change.type = form.elements.type.value;
-      for (const name of ['locked', 'surface', 'catSpot', 'light', 'toy', 'stove']) change[name] = Boolean(flag(name, piece));
+      for (const name of ['surface', 'catSpot', 'light', 'toy', 'stove']) change[name] = Boolean(flag(name, piece));
+      if (form.elements.locked.value) Object.assign(change, setFromMachine(change, form.elements.locked.value === 'yes'));
       // Tiles: the first look as given, and turned looks the other way round.
       if (w || d) {
         change.views = piece.views.map((v, i) => {
@@ -280,6 +281,7 @@ async function cutColours(list, files) {
       if (!views.length) { skipped++; continue; }
       const copy = { ...piece };
       delete copy.unlockedAt;
+      delete copy.got;
       const saved = await putItem({
         ...copy, id: newId('piece'), name: `${piece.name} (${colourWord(file.name, piece.sheet)})`, views, family: familyOf(piece),
         sheet: file.name.replace(/\.[^.]*$/, ''), locked: true, createdAt: Date.now() + ids.length,

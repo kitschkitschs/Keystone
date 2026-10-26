@@ -1,8 +1,11 @@
 // room-gacha.js: the gacha machine and the catalogue, shown in the room's pop-up
 // window (see room-hud.js).
 //
-// A piece marked "locked" (see room.js) is inside the machine: it isn't in your
-// inventory until you turn the handle and it comes out. Pulls are free for now,
+// A piece marked "locked" (see room.js) comes from the machine: it isn't in your
+// inventory until you turn the handle and it comes out. It stays in the machine
+// after that, and every time it comes out again you get one more copy of it
+// (piece.got). Owning any colour of a piece lets you place it in all its
+// colours: the copies count for the whole family. Pulls are free for now,
 // while we try it out. The catalogue shows everything there is to collect, by set,
 // with colours of the same piece side by side. Locked ones show as silhouettes.
 
@@ -19,19 +22,33 @@ function openGacha() {
   openGameWindow('gacha');
 }
 
-const lockedPieces = () => [...pieces.values()].filter((p) => p.locked);
 const familyOf = (p) => p.family || p.id;
+// Pieces pulled before copies were counted were unlocked, with unlockedAt.
+const fromMachine = (p) => Boolean(p.locked || p.unlockedAt);
+const copiesOf = (p) => (fromMachine(p) ? p.got ?? (p.unlockedAt ? 1 : 0) : p.count || 1);
+const collected = (p) => copiesOf(p) > 0;
+const machinePieces = () => [...pieces.values()].filter(fromMachine);
+const familyCopies = (root) => familyMembers(root).reduce((n, p) => n + copiesOf(p), 0);
+const familyPlaced = (root) => placed.filter((p) => pieces.has(p.piece) && familyOf(pieces.get(p.piece)) === root).length;
+// In or out of the machine, from a tick box: out of it, a piece is simply yours.
+function setFromMachine(piece, yes) {
+  if (yes) return { ...piece, locked: true };
+  const out = { ...piece, locked: false };
+  delete out.unlockedAt;
+  delete out.got;
+  return out;
+}
 
 // Draws the machine in the pop-up window (see room-hud.js).
 function drawGacha() {
   if (gameWindowKind !== 'gacha') return;
-  const inside = lockedPieces().length;
+  const inside = machinePieces().length;
   const prize = gacha.prize && pieces.get(gacha.prize);
   let action;
   if (gacha.phase === 'open' && prize) {
     action = `<div class="prize">
         <img class="pixel" src="${prize.views[0].src}" alt="" style="--pw: ${prize.views[0].pw}; --ph: ${prize.views[0].ph}">
-        <p><b>${escapeHtml(pieceLabel(prize))}</b> <span class="muted">· ${rarityName(prize.rarity)}</span></p>
+        <p><b>${escapeHtml(pieceLabel(prize))}</b> <span class="muted">· ${rarityName(prize.rarity)}${copiesOf(prize) > 1 ? ` · ×${copiesOf(prize)}` : ''}</span></p>
       </div>
       ${inside ? '<button class="ink-button" type="button" data-gacha="pull">Turn the handle again</button>' : ''}`;
   } else if (gacha.phase === 'turning') action = '';
@@ -53,7 +70,7 @@ function drawGacha() {
 
 function catalogueHtml(all) {
   if (!all.length) return '';
-  const got = all.filter((p) => !p.locked).length;
+  const got = all.filter(collected).length;
   const sets = new Map();
   for (const p of [...all].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))) {
     const set = (p.set || '').trim();
@@ -69,19 +86,19 @@ function catalogueHtml(all) {
       const families = [...sets.get(name).values()];
       const members = families.flat();
       return `<section class="cat-set">
-        <h3>${name ? escapeHtml(name) : 'Not in a set'} <span class="muted">${members.filter((p) => !p.locked).length} of ${members.length}</span></h3>
+        <h3>${name ? escapeHtml(name) : 'Not in a set'} <span class="muted">${members.filter(collected).length} of ${members.length}</span></h3>
         <div class="cat-grid">${families.map(catalogueTile).join('')}</div>
       </section>`;
     }).join('')}`;
 }
 
 // The piece a family shows as: the first one collected, or else the first.
-const familyFace = (fam) => fam.find((p) => !p.locked) || fam[0];
+const familyFace = (fam) => fam.find(collected) || fam[0];
 
 function catalogueTile(fam) {
   const p = familyFace(fam);
   const v = p.views[0];
-  const locked = fam.every((q) => q.locked);
+  const locked = !fam.some(collected);
   return `<button type="button" class="cat-tile" data-cat-family="${familyOf(p)}" aria-label="A closer look${fam.length > 1 ? `, ${fam.length} colours` : ''}">
     <img class="pixel" src="${v.src}" alt="" style="--pw: ${v.pw}; --ph: ${v.ph}">
     ${p.set ? '' : `<span class="inv-name">${escapeHtml(p.name)}</span>`}
@@ -107,9 +124,9 @@ function catLookHtml() {
   $('gw-title').textContent = pieceLabel(p);
   return `
     <div class="look-big"><img class="pixel" src="${v.src}" alt="" style="width: ${v.pw * zoom}px; height: ${v.ph * zoom}px"></div>
-    <p class="look-facts">${escapeHtml((PIECE_TYPES.find(([key]) => key === p.type) || PIECE_TYPES[0])[1])} · ${rarityName(p.rarity)} · ${p.locked ? 'still in the machine' : 'collected'}</p>
+    <p class="look-facts">${escapeHtml((PIECE_TYPES.find(([key]) => key === p.type) || PIECE_TYPES[0])[1])} · ${rarityName(p.rarity)} · ${collected(p) ? `collected${copiesOf(p) > 1 ? ` ×${copiesOf(p)}` : ''}` : 'still in the machine'}</p>
     ${fam.length > 1 ? `<h3 class="cat-h">${fam.length} colours</h3>
-    <div class="pile">${fam.map((q) => `<button type="button" class="pile-tile${q.locked ? ' locked' : ''}" data-cat-pick="${q.id}"${q.id === p.id ? ' aria-current="true"' : ''} aria-label="This colour">
+    <div class="pile">${fam.map((q) => `<button type="button" class="pile-tile${collected(q) ? '' : ' locked'}" data-cat-pick="${q.id}"${q.id === p.id ? ' aria-current="true"' : ''} aria-label="This colour">
       <img class="pixel" src="${q.views[0].src}" alt="" style="--pw: ${q.views[0].pw}; --ph: ${q.views[0].ph}"></button>`).join('')}</div>` : ''}`;
 }
 
@@ -123,7 +140,7 @@ function openCatLook(root, id = '') {
 
 // Picks a rarity first (only ones still in the machine), then a piece of that rarity.
 function pickPrize() {
-  const pool = lockedPieces();
+  const pool = machinePieces();
   const present = RARITIES.filter(([key]) => pool.some((p) => (p.rarity || 'common') === key));
   let roll = Math.random() * present.reduce((sum, [, , w]) => sum + w, 0);
   let rarity = present[0][0];
@@ -136,10 +153,10 @@ function pickPrize() {
 }
 
 async function pull() {
-  if (!lockedPieces().length) return;
+  if (!machinePieces().length) return;
   const prize = pickPrize();
   // Saved straight away, so closing the app mid-turn never loses it.
-  const saved = await putItem({ ...prize, locked: false, unlockedAt: Date.now() });
+  const saved = await putItem({ ...prize, got: copiesOf(prize) + 1, unlockedAt: prize.unlockedAt || Date.now() });
   pieces.set(saved.id, saved);
   showBackupInfo();
   Object.assign(gacha, { phase: 'turning', prize: saved.id, start: performance.now() });
@@ -202,7 +219,7 @@ function drawMachine(now) {
   const turning = gacha.phase === 'turning';
   const t = turning ? Math.min(1, (now - gacha.start) / TURN_TIME) : 0;
   const prize = gacha.prize && pieces.get(gacha.prize);
-  const empty = !lockedPieces().length && gacha.phase === 'ready';
+  const empty = !machinePieces().length && gacha.phase === 'ready';
 
   // The dome, with capsules inside.
   disc(g, 24, 20, 18, MACHINE.line);

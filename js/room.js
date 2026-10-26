@@ -5,7 +5,7 @@
 //   { id: "piece-...", kind: "piece", day: "", name, type, count, surface, lift, light, catSpot, catLift, catShift, duckShift, duckLift, lightX, lightY, toy,
 //     set, family, rarity, locked,           set: the furniture set it belongs to. family: the
 //                                            piece it's a colour of (its id), so colours sit
-//                                            together in the catalogue. locked: still in the
+//                                            together in the catalogue. locked: comes from the
 //                                            gacha machine (see room-gacha.js).
 //     sheet                                  the picture it was cut from, and each view's
 //                                            box on it, so other colours of that sheet can
@@ -1208,6 +1208,15 @@ async function putAway() {
   showRoomPanel();
 }
 
+// Steps the piece in your hand to its next colour.
+function colourHeld() {
+  const fam = familyMembers(familyOf(pieces.get(held.piece)));
+  const next = fam[(fam.findIndex((p) => p.id === held.piece) + 1) % fam.length];
+  held.piece = next.id;
+  held.view = Math.min(held.view, next.views.length - 1);
+  showRoomPanel();
+}
+
 function turnHeld() {
   const piece = pieces.get(held.piece);
   held.view = (held.view + 1) % piece.views.length;
@@ -1224,10 +1233,6 @@ function roomNote(text) {
   note.hidden = false;
   clearTimeout(noteTimer);
   noteTimer = setTimeout(() => { note.hidden = true; }, 3500);
-}
-
-function placedCount(id) {
-  return placed.filter((p) => p.piece === id).length;
 }
 
 // Small buttons by the piece in your hand. Fine placement adds arrows that
@@ -1252,6 +1257,7 @@ function showRoomPanel() {
       ${button('cancel', 'Cancel', '✕')}
       ${held.from ? button('away', 'Put away', '⤓') : ''}
       ${piece.views.length > 1 ? button('turn', 'Turn', '↻') : ''}
+      ${familyMembers(familyOf(piece)).length > 1 ? `<button class="held-button swatch" type="button" data-room="colour" aria-label="Colour" title="Colour"><img class="pixel" src="${piece.views[0].src}" alt=""></button>` : ''}
       <button class="held-button" type="button" data-room="fine" aria-label="Fine placement" title="Fine placement" aria-pressed="${fine}">${HELD_ICONS.fine}</button>
       ${button('place', 'Place', '✓', ' place')}
     </div>
@@ -1279,10 +1285,11 @@ function placeHeldTools() {
   tools.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
 }
 
-// The inventory: every unlocked piece, with how many are left to place. Tags
-// along the top show just one set, or one kind of piece.
+// The inventory: a tile for each piece you have, its colours together, with how
+// many are left to place. Tags along the top show just one set, or one kind of piece.
 function inventoryHtml() {
-  const owned = [...pieces.values()].filter((p) => !p.locked).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  const roots = [...new Set([...pieces.values()].map(familyOf))].filter((root) => familyCopies(root) > 0);
+  const owned = roots.map((root) => familyFace(familyMembers(root))).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   const sets = [...new Set(owned.map((p) => p.set || ''))].sort((a, b) => (a === '') - (b === '') || a.localeCompare(b));
   const types = PIECE_TYPES.filter(([key]) => owned.some((p) => p.type === key));
   const tags = [
@@ -1297,12 +1304,13 @@ function inventoryHtml() {
     <p id="inv-note" class="status" role="status"></p>
     <div class="inventory">
       ${shown.map((p) => {
-        const left = (p.count || 1) - placedCount(p.id);
+        const left = familyCopies(familyOf(p)) - familyPlaced(familyOf(p));
         const flat = p.type === 'wallpaper' || p.type === 'floor';
-        const using = (p.type === 'wallpaper' && room.wallpaper === p.id) || (p.type === 'floor' && room.floor === p.id);
+        const using = flat && pieces.has(room[p.type]) && familyOf(pieces.get(room[p.type])) === familyOf(p);
+        const shown = using ? pieces.get(room[p.type]) : p;
         const badge = flat ? (using ? '✓' : '') : left > 0 ? `${left}` : '0';
         return `<button type="button" class="inv-tile${!flat && left <= 0 ? ' used' : ''}${using ? ' using' : ''}" data-piece="${p.id}">
-          <img class="pixel" src="${p.views[0].src}" alt="" style="--pw: ${p.views[0].pw}; --ph: ${p.views[0].ph}">${badge ? `<span class="inv-badge">${badge}</span>` : ''}</button>`;
+          <img class="pixel" src="${shown.views[0].src}" alt="" style="--pw: ${shown.views[0].pw}; --ph: ${shown.views[0].ph}">${badge ? `<span class="inv-badge">${badge}</span>` : ''}</button>`;
       }).join('')}
     </div>`;
 }
@@ -1313,6 +1321,7 @@ $('held-tools').addEventListener('click', (event) => {
   const [action, dx, dy] = button.dataset.room.split(':');
   if (action === 'place') placeHeld();
   if (action === 'turn') turnHeld();
+  if (action === 'colour') colourHeld();
   if (action === 'cancel') { held = null; showRoomPanel(); }
   if (action === 'away') putAway();
   if (action === 'fine') { fine = !fine; showRoomPanel(); }
@@ -1343,16 +1352,20 @@ $('gw-body').addEventListener('click', async (event) => {
   if (tile) return tapPiece(pieces.get(tile.dataset.piece));
 });
 
-// A piece tapped in the inventory: wallpaper and floors go straight on, anything
-// else goes in your hand to place.
+// A piece tapped in the inventory: wallpaper and floors go straight on, and
+// tapping again steps through their colours, then takes them off. Anything else
+// goes in your hand to place.
 async function tapPiece(piece) {
+  const root = familyOf(piece);
   if (piece.type === 'wallpaper' || piece.type === 'floor') {
-    room[piece.type] = room[piece.type] === piece.id ? '' : piece.id;
+    const fam = familyMembers(root);
+    const now = fam.findIndex((p) => p.id === room[piece.type]);
+    room[piece.type] = now < 0 ? piece.id : now + 1 < fam.length ? fam[now + 1].id : '';
     await saveRoomSettings();
     showRoomPanel();
     return;
   }
-  if ((piece.count || 1) - placedCount(piece.id) <= 0) {
+  if (familyCopies(root) - familyPlaced(root) <= 0) {
     $('inv-note').textContent = 'All in the room.';
     return;
   }
@@ -1595,7 +1608,7 @@ function openPieceDetails(piece) {
     <div class="field"><span>A colour of</span>${pieceRadios('family', colourChoices(piece), piece.family, 'None')}</div>
     <h3>Gachapon</h3>
     <label class="field"><span>Rarity</span><select name="rarity">${RARITIES.map(([key, name]) => `<option value="${key}"${(piece.rarity || 'common') === key ? ' selected' : ''}>${name}</option>`).join('')}</select></label>
-    <label class="check"><input type="checkbox" name="locked"${piece.locked ? ' checked' : ''}><span>Locked in the gacha machine</span></label>
+    <label class="check"><input type="checkbox" name="locked"${fromMachine(piece) ? ' checked' : ''}><span>Comes from the gacha machine</span></label>
     </div><div class="piece-col">
     <h3>In the room</h3>
     <label class="check"><input type="checkbox" name="surface"${piece.surface ? ' checked' : ''}><span>Things can go on top</span></label>
@@ -1638,7 +1651,7 @@ function openPieceDetails(piece) {
     }
     const views = piece.views.map((v, i) => ({ ...v, w: Number(form.elements[`w${i}`].value) || 1, d: Number(form.elements[`d${i}`].value) || 1 }));
     if (action && action.startsWith('unview-')) views.splice(Number(action.slice(7)), 1);
-    const saved = await putItem({
+    const saved = await putItem(setFromMachine({
       ...piece, type: form.elements.type.value,
       views,
       surface: form.elements.surface.checked, lift: Number(form.elements.lift.value) || 0, light: form.elements.light.checked,
@@ -1647,8 +1660,7 @@ function openPieceDetails(piece) {
       duckShift: Math.round(Number(form.elements.duckShift.value) || 0), duckLift: Math.max(0, Number(form.elements.duckLift.value) || 0),
       lightX: Number(form.elements.lightX.value) || 0, lightY: Number(form.elements.lightY.value) || 0,
       toy: form.elements.toy.checked, stove: form.elements.stove.checked, set: form.elements.set.value.trim(), family, rarity: form.elements.rarity.value,
-      locked: form.elements.locked.checked,
-    });
+    }, form.elements.locked.checked));
     pieces.set(saved.id, saved);
     // Its colours are the same piece, so they get the same settings (unless it
     // just joined other colours, which keep theirs).

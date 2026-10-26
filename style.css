@@ -592,3 +592,4 @@ html.wide .sheet:has(.piece-cols) { width: min(1040px, calc(100% - 48px)); }
 html.wide .piece-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 40px; align-items: start; }
 .piece-col + .piece-col { margin-top: 18px; }
 html.wide .piece-col + .piece-col { margin-top: 0; }
+.held-button.swatch img { width: 20px; height: 20px; object-fit: contain; image-rendering: pixelated; }
