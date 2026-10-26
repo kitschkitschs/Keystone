@@ -109,7 +109,10 @@ function duckOff(now) {
   duckState.goal = null;
   duckState.on = null;
   if (!exits.length) return placeDuck();
-  duckState.exit = exits[exits.length - 1];
+  // Down in front (the tiles in front come first), and drawn in front of the
+  // furniture until it lands.
+  duckState.exit = exits[0];
+  duckState.leaving = spotPlaced.id;
   duckJump(tileCentre(...duckState.exit), 0, now);
 }
 
@@ -130,6 +133,7 @@ function finishDuckJump(now, dark) {
   }
   if (duckState.exit) [duckState.tx, duckState.ty] = duckState.exit;
   duckState.exit = null;
+  duckState.leaving = null;
   duckState.mode = 'stand';
   setDuckAnim(duckState.face, now);
   duckState.until = now + 1500 + Math.random() * 2000;
@@ -269,7 +273,7 @@ function duckBox(now) {
 
 // Drawn just in front of the furniture it's on, so it sits on top.
 function duckSortY() {
-  const spotUnder = duckState.on && placed.find((p) => p.id === duckState.on);
+  const spotUnder = placed.find((p) => p.id === (duckState.on || (duckState.mode === 'hop' && duckState.leaving)));
   if (!spotUnder) return duckState.y + (duckState.mode === 'snuggle' ? 0.1 : -0.1);
   const b = boxOf(spotUnder);
   return (b.y + b.d) * TILE + 0.35;
@@ -278,7 +282,7 @@ function duckSortY() {
 // --- Picking it up (the finger handling is shared with the cat, in room.js) ---
 
 function startCarryDuck(point) {
-  Object.assign(duckState, { mode: 'carried', meet: false, snug: null, path: [], goal: null, on: null, lift: 0, jump: null, exit: null, face: 'walkDown' });
+  Object.assign(duckState, { mode: 'carried', meet: false, snug: null, leaving: null, path: [], goal: null, on: null, lift: 0, jump: null, exit: null, face: 'walkDown' });
   setDuckAnim('walkDown', performance.now());
   carryDuckTo(point);
   if (navigator.vibrate) navigator.vibrate(15);
