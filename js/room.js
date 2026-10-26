@@ -18,10 +18,10 @@
 //   { id: "placed-...", kind: "placed", day: "", piece, view, x, y, lit, ox, oy, layer }
 //                                            one piece standing in the room, with the
 //                                            top-left tile it stands on. lit: a lamp
-//                                            that's switched on. A small piece can be
-//                                            nudged ox, oy pixels off its tile, and
+//                                            that's switched on. Any piece can be
+//                                            nudged ox, oy pixels off its tiles, and
 //                                            layer puts it in front of (higher) or
-//                                            behind (lower) others on the same tile.
+//                                            behind (lower) others in the same row.
 //   { id: "breed-...", kind: "breed", ... }           a cat's or duck's sprite sheet (room-duck.js)
 //   { id: "room", kind: "room", day: "", cols, wallRows, floorRows, wallpaper, floor }
 //   { id: "cat", kind: "cat", day: "", name, src, fw, fh, anims }   see room-art.js
@@ -209,14 +209,19 @@ function spot(p) {
   const piece = pieces.get(p.piece);
   const v = lookOf(p);
   const box = boxOf(p);
-  let bottom = (box.y + box.d) * TILE;
+  let bottom = (box.y + box.d) * TILE + (p.oy || 0);
+  let ox = p.ox || 0;
   if (piece.type === 'small') {
+    // On a table, it moves with the table's own nudge too.
     const table = p.riding ? null : surfaceUnder(box.x, box.y, p.id);
-    if (p.riding) bottom -= pieces.get(p.riding).lift || 16;
-    else if (table) bottom -= pieces.get(table.piece).lift || 16;
-    bottom += p.oy || 0;
+    if (p.riding) {
+      bottom -= (pieces.get(p.riding).lift || 16) - (p.rideOy || 0);
+      ox += p.rideOx || 0;
+    } else if (table) {
+      bottom -= (pieces.get(table.piece).lift || 16) - (table.oy || 0);
+      ox += table.ox || 0;
+    }
   }
-  const ox = piece.type === 'small' ? p.ox || 0 : 0;
   return { x: box.x * TILE + Math.floor((box.w * TILE - v.pw) / 2) + ox, y: bottom - v.ph, w: v.pw, h: v.ph };
 }
 
@@ -249,14 +254,14 @@ function drawList() {
     if (held && held.from && (held.from.id === p.id || held.riders.some((r) => r.p.id === p.id))) continue;
     const piece = pieces.get(p.piece);
     const box = boxOf(p);
-    if (piece.type === 'wall') wall.push({ y: box.y + box.d, p });
-    else if (piece.type === 'rug') rugs.push({ y: box.y + box.d, p });
+    // In the same row, the layer decides first, then which is further forward.
+    const nudge = (p.layer || 0) * 0.02 + (p.oy || 0) * 0.001;
+    if (piece.type === 'wall') wall.push({ y: box.y + box.d + nudge, p });
+    else if (piece.type === 'rug') rugs.push({ y: box.y + box.d + nudge, p });
     else if (piece.type === 'small') {
       const table = surfaceUnder(box.x, box.y, p.id);
-      // On the same tile, the layer decides first, then which is further forward.
-      const nudge = (p.layer || 0) * 0.02 + (p.oy || 0) * 0.001;
       standing.push({ y: (table ? (boxOf(table).y + boxOf(table).d) * TILE + 0.25 : (box.y + 1) * TILE - 0.5) + nudge, p });
-    } else standing.push({ y: (box.y + box.d) * TILE, p });
+    } else standing.push({ y: (box.y + box.d) * TILE + nudge, p });
   }
   wall.sort((a, b) => a.y - b.y);
   rugs.sort((a, b) => a.y - b.y);
@@ -457,7 +462,7 @@ function placeCat() {
 // --- Furniture the cat sits and sleeps on (a piece marked "the cat can sit and
 // sleep on it"). The cat walks up next to it, hops on, and hops off again after.
 
-const placedAt = (p) => `${p.x},${p.y},${p.view || 0}`;
+const placedAt = (p) => `${p.x},${p.y},${p.view || 0},${p.ox || 0},${p.oy || 0}`;
 const catSpots = () => placed.filter((p) => pieces.get(p.piece).catSpot && pieces.get(p.piece).type === 'furniture');
 
 // Drawn just in front of the furniture it's on, so it sits on top.
@@ -540,7 +545,7 @@ function seatTile(spotPlaced) {
 function seatPoint(spotPlaced) {
   const piece = pieces.get(spotPlaced.piece);
   const b = boxOf(spotPlaced);
-  return { x: (b.x + b.w / 2) * TILE + (piece.catShift || 0), y: tileCentre(...seatTile(spotPlaced)).y, lift: piece.catLift ?? 8 };
+  return { x: (b.x + b.w / 2) * TILE + (piece.catShift || 0) + (spotPlaced.ox || 0), y: tileCentre(...seatTile(spotPlaced)).y, lift: (piece.catLift ?? 8) - (spotPlaced.oy || 0) };
 }
 
 function hopOff(now) {
@@ -1167,7 +1172,7 @@ function pickUp(p) {
 function ridersAt(h) {
   const box = boxOf(h);
   return (h.riders || []).map(({ p, dx, dy }) => ({
-    ...p, x: h.x + Math.min(dx, box.w - 1), y: h.y + Math.min(dy, box.d - 1), riding: h.piece,
+    ...p, x: h.x + Math.min(dx, box.w - 1), y: h.y + Math.min(dy, box.d - 1), riding: h.piece, rideOx: h.ox, rideOy: h.oy,
   }));
 }
 
@@ -1181,10 +1186,10 @@ function holdPiece(piece) {
 async function placeHeld() {
   if (!held || !canPlace(held)) return;
   const fields = { id: held.from ? held.from.id : newId('placed'), kind: 'placed', day: '', piece: held.piece, view: held.view, x: held.x, y: held.y, lit: Boolean(held.from && held.from.lit) };
-  if (pieces.get(held.piece).type === 'small') Object.assign(fields, { ox: held.ox, oy: held.oy, layer: held.layer });
+  if (held.ox || held.oy || held.layer) Object.assign(fields, { ox: held.ox, oy: held.oy, layer: held.layer });
   const item = await putItem(fields);
   placed = placed.filter((p) => p.id !== item.id).concat(item);
-  for (const { riding, ...rider } of ridersAt(held)) {
+  for (const { riding, rideOx, rideOy, ...rider } of ridersAt(held)) {
     const moved = await putItem(rider);
     placed = placed.map((p) => (p.id === moved.id ? moved : p));
   }
@@ -1227,10 +1232,12 @@ function placedCount(id) {
 }
 
 // Small buttons by the piece in your hand. Fine placement adds arrows that
-// nudge a small piece by the pixel, and buttons to put it in front or behind.
+// nudge the piece by the pixel, buttons to put it in front or behind, and one
+// to put it back square on its tiles.
 const HELD_ICONS = {
   front: '<svg viewBox="0 0 16 16"><rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="currentColor"/><rect x="5" y="5" width="10" height="10" fill="currentColor"/></svg>',
   back: '<svg viewBox="0 0 16 16"><rect x="5" y="5" width="10" height="10" fill="currentColor"/><rect x="1.5" y="1.5" width="9" height="9" fill="#FBF4E6" stroke="currentColor"/></svg>',
+  reset: '<svg viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="11" height="11" fill="none" stroke="currentColor" stroke-dasharray="2 1"/><rect x="6" y="6" width="4" height="4" fill="currentColor"/></svg>',
   fine: '<svg viewBox="0 0 16 16"><path d="M8 1 5.5 4h5zM8 15l-2.5-3h5zM1 8l3-2.5v5zM15 8l-3-2.5v5z" fill="currentColor"/><rect x="7" y="4" width="2" height="8" fill="currentColor"/><rect x="4" y="7" width="8" height="2" fill="currentColor"/></svg>',
 };
 function showRoomPanel() {
@@ -1241,19 +1248,18 @@ function showRoomPanel() {
   tools.hidden = !(decorating && held);
   if (tools.hidden) return;
   const piece = pieces.get(held.piece);
-  const small = piece.type === 'small';
-  if (!small) fine = false;
   const button = (action, label, glyph, extra = '') => `<button class="held-button${extra}" type="button" data-room="${action}" aria-label="${label}" title="${label}">${glyph}</button>`;
   tools.innerHTML = `<div class="held-row">
       ${button('cancel', 'Cancel', '✕')}
       ${held.from ? button('away', 'Put away', '⤓') : ''}
       ${piece.views.length > 1 ? button('turn', 'Turn', '↻') : ''}
-      ${small ? `<button class="held-button" type="button" data-room="fine" aria-label="Fine placement" title="Fine placement" aria-pressed="${fine}">${HELD_ICONS.fine}</button>` : ''}
+      <button class="held-button" type="button" data-room="fine" aria-label="Fine placement" title="Fine placement" aria-pressed="${fine}">${HELD_ICONS.fine}</button>
       ${button('place', 'Place', '✓', ' place')}
     </div>
     ${fine ? `<div class="held-row">
       ${button('nudge:-1:0', 'Left', '←')}${button('nudge:0:-1', 'Up', '↑')}${button('nudge:0:1', 'Down', '↓')}${button('nudge:1:0', 'Right', '→')}
       ${button('layer:1', 'In front', HELD_ICONS.front)}${button('layer:-1', 'Behind', HELD_ICONS.back)}
+      ${button('reset', 'Back on its tiles', HELD_ICONS.reset)}
     </div>` : ''}`;
   tools.querySelector('[data-room="place"]').disabled = !canPlace(held);
   placeHeldTools();
@@ -1317,6 +1323,10 @@ $('held-tools').addEventListener('click', (event) => {
     placeHeldTools();
   }
   if (action === 'layer') held.layer = Math.max(-9, Math.min(9, held.layer + Number(dx)));
+  if (action === 'reset') {
+    Object.assign(held, { ox: 0, oy: 0, layer: 0 });
+    placeHeldTools();
+  }
 });
 // The buttons don't move the piece: taps on them stay off the room.
 $('held-tools').addEventListener('pointerdown', (event) => event.stopPropagation());
