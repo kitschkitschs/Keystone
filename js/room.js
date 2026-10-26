@@ -845,7 +845,7 @@ function moveCat(now, dark) {
     return;
   }
   // Sitting: after sitting down, wash now and then.
-  if (catState.mode === 'sit' && animDone(now)) {
+  if (catState.mode === 'sit' && animDone(now) && !meeting()) {
     const sitting = Math.floor((now - catState.animStart) / 3000) % 3 === 2;
     if (catState.anim === 'sitDown' && sitting) setAnim('groom', now);
     else if (catState.anim === 'groom' && now - catState.animStart > 2600) setAnim('sitDown', now - 60000);
@@ -878,7 +878,9 @@ function animDone(now) {
 function catFrame(now) {
   const a = animSetting(catState.anim);
   const meta = CAT_ANIMS.find((m) => m.key === catState.anim);
-  let i = catState.still ? 0 : Math.floor(((now - catState.animStart) / 1000) * a.fps * (catState.fast ? 2 : catState.creep ? 0.5 : 1));
+  // Looking at the duck, it stands still on the first walking frame.
+  const looking = catState.mode === 'idle' && meeting() && duckState.snug.kind === 'look';
+  let i = catState.still || looking ? 0 : Math.floor(((now - catState.animStart) / 1000) * a.fps * (catState.fast ? 2 : catState.creep ? 0.5 : 1));
   i = meta && meta.once ? Math.min(i, a.count - 1) : i % Math.max(1, a.count);
   return { frame: a.start + i, mirror: a.mirror };
 }
