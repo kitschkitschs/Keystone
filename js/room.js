@@ -287,14 +287,8 @@ function drawRoom(now) {
     else drawPiece(thing.p);
   }
 
-  if (catState.mode === 'carried') {
-    // Where the cat will land: furniture it can sit on, or a floor tile.
-    const target = catDropTarget();
-    const b = target.spot ? boxOf(target.spot) : { x: target.tile[0], y: target.tile[1], w: 1, d: 1 };
-    dashedBox(b, true);
-    if (target.spot) drawSeatGhost(target.spot);
-    drawCat(now);
-  }
+  // Carried, the cat is drawn on top of everything, with no guides (like the duck).
+  if (catState.mode === 'carried') drawCat(now);
   if (duckHere() && duckState.mode === 'carried') drawDuck(now);
 
   const light = drawDayLight();
@@ -912,7 +906,7 @@ function drawCat(now) {
 }
 
 // A see-through cat, sitting where it would sit on a piece: shown while you
-// place a piece the cat can sit on, or carry the cat over one.
+// place a piece the cat can sit on.
 function drawSeatGhost(spotPlaced) {
   if (!catSheet) return;
   const sit = animSetting('sitDown');
