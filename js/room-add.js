@@ -597,7 +597,8 @@ function showCatPage() {
       <div class="date"><div class="date-line">Room</div><h1 class="weekday">${petKind === 'duck' ? 'Duck' : 'Cat'}</h1></div>
       <button class="ink-button" type="button" data-cat="save">Save</button>
     </header>
-    <div class="side">
+    <div class="side cat-layout">
+      <div class="cat-main">
       <label class="field"><span>Name</span><input id="cat-name" type="text" value="${escapeHtml(catDraft.name)}" autocomplete="off"></label>
       <h3 class="cat-h">Breeds</h3>
       <div class="breeds">${petBreeds().map((b) => `<button type="button" class="breed" data-breed="${b.id}"${catDraft.breed === b.id ? ' aria-current="true"' : ''}>
@@ -614,6 +615,8 @@ function showCatPage() {
       </div>
       <p class="muted">The numbers on the sheet are frame numbers. Each animation starts at one frame and plays the ones after it.</p>
       <div class="cut-scroll"><canvas id="cat-sheet" class="pixel"></canvas></div>
+      </div>
+      <div class="cat-side">
       <h3 class="cat-h">Animations</h3>
       <div id="cat-anims">${petAnims().map((a) => {
         const s = catDraft.anims[a.key];
@@ -632,6 +635,7 @@ function showCatPage() {
         </div>`;
       }).join('')}</div>
       <p class="muted">Speed is frames a second.</p>
+      </div>
     </div>`;
   drawCatSheet();
   startCatPreviews();

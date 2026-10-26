@@ -123,7 +123,17 @@ function openGameWindow(kind) {
   else if (gameWindowKind && gameWindowKind !== kind) gameWindowTrail.push(gameWindowKind);
   gameWindowKind = kind;
   drawGameWindow();
-  if (!gameWindow.open) gameWindow.showModal();
+  // On a computer it stays open beside the room, so the room still works.
+  if (!gameWindow.open) {
+    if (isWide()) gameWindow.show();
+    else gameWindow.showModal();
+  }
+}
+
+// On a computer, the window is always there beside the room: the workshop when
+// nothing else is open.
+function dockGameWindow() {
+  if (isWide() && currentView() === 'home' && !gameWindow.open) openGameWindow('workshop');
 }
 
 function gameWindowBack() {
@@ -162,6 +172,7 @@ gameWindow.addEventListener('close', () => {
   if (gameWindow.open) return;
   gameWindowKind = null;
   if (gacha.phase !== 'turning') gacha.phase = 'ready';
+  setTimeout(dockGameWindow);
 });
 // A tap outside the window closes it.
 gameWindow.addEventListener('click', (event) => {

@@ -516,3 +516,25 @@ html.dark .sheet.game-window h3, html.dark .sheet.game-window .field { color: #C
 .seat-whos { display: flex; gap: 6px; justify-content: center; margin: 4px 0; }
 .seat-who { padding: 4px 12px; border-radius: 999px; border: 1px solid var(--rule); }
 .seat-who.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+/* ---- Computer-sized screens (html.wide, set in app.js): the room game laid out for editing ---- */
+html.wide #page { max-width: none; }
+html.wide #insight, html.wide #colours { max-width: 480px; margin: 0 auto; }
+/* The room on the left, the game's window kept open on the right. */
+html.wide #room .room-top { padding: 12px 480px 0 24px; }
+html.wide #game-window { position: fixed; inset: 64px 24px calc(var(--bar) + 20px) auto; width: 440px; max-height: none; margin: 0; z-index: 5; }
+html.wide .sheet { width: min(640px, calc(100% - 48px)); margin-top: 40px; }
+/* The cutter, Pieces and pet pages use the width. */
+html.wide #room-add, html.wide #pieces, html.wide #cat { max-width: 1280px; margin: 0 auto; }
+html.wide #cut-page .field { max-width: 480px; }
+html.wide #cut-work { display: grid; grid-template-columns: minmax(0, 1fr) 400px; grid-template-areas: "tools tools" "sheet boxed"; column-gap: 24px; align-items: start; }
+html.wide #cut-work .cut-tools { grid-area: tools; }
+html.wide #cut-scroll { grid-area: sheet; max-height: calc(100vh - 300px); }
+html.wide #cut-boxed { grid-area: boxed; max-height: calc(100vh - 300px); overflow: auto; }
+html.wide .org-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); column-gap: 32px; }
+html.wide #cat-page .field, html.wide #cat-page .cut-box { max-width: 480px; }
+/* The pet page: the sheet on the left, its animations on the right. */
+html.wide .cat-layout { display: grid; grid-template-columns: minmax(0, 1fr) 440px; column-gap: 32px; align-items: start; }
+html.wide .cat-main .cut-scroll { max-height: calc(100vh - 420px); min-height: 240px; }
+html.wide .cat-side { position: sticky; top: 12px; max-height: calc(100vh - var(--bar) - 40px); overflow: auto; }
+html.wide .cat-side .cat-h { margin-top: 0; }
