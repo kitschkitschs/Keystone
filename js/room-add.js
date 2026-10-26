@@ -7,18 +7,25 @@
 
 // --- Cutting pieces ---
 
-// Cutting for a piece you already have: { id, view }. view is the look to cut
-// again, or null to add a new turned look.
+// Cutting for a piece you already have: { id, view, on }. view is the look to cut
+// again, or null to add a new turned look. on: cutting a lamp's lit look.
 let cutFor = null;
+
+// The box a look was cut from, when cutting it again.
+function oldCutBox() {
+  if (!cutFor || cutFor.view === null) return null;
+  const v = pieces.get(cutFor.id).views[cutFor.view];
+  return cutFor.on ? v.on && v.on.box : v.box;
+}
 
 // Starts cutting for a piece. Cutting again opens its own sheet, if that's the
 // picture already in the cutter, with the old box ready.
-function cutForPiece(id, view) {
-  cutFor = { id, view };
+function cutForPiece(id, view, on = false) {
+  cutFor = { id, view, on };
   const piece = pieces.get(id);
   cut.boxes = [];
   cut.corner = null;
-  const old = view !== null && piece.views[view].box;
+  const old = oldCutBox();
   if (cut.sheet && old && piece.sheet && piece.sheet === sheetName()) cut.boxes = [[...old]];
   else if (view !== null) cut.note = piece.sheet ? `Choose ${piece.sheet}, the sheet it was cut from.` : 'Choose the picture it was cut from.';
   goTo('room-add');
@@ -46,7 +53,8 @@ function saveCutUndo() {
 
 // Boxes can be grouped before adding: { kind: 'turns', boxes } become one piece
 // with a look for each turn; { kind: 'colours', boxes } become pieces grouped
-// as colours. The first box picked comes first.
+// as colours; { kind: 'lamp', boxes: [off, on] } become one lamp that can be
+// switched on. The first box picked comes first.
 function cutGroups() {
   cut.groups = cut.groups
     .map((group) => ({ ...group, boxes: group.boxes.filter((box) => cut.boxes.includes(box)) }))
@@ -77,7 +85,7 @@ function showRoomAdd() {
   const again = forPiece && cutFor.view !== null;
   $('cut-page').innerHTML = `
     <header class="plain-head">
-      <div class="date"><div class="date-line">Room</div><h1 class="weekday">${again ? 'Cut again' : forPiece ? 'Add a turned look' : 'Cut pieces'}</h1></div>
+      <div class="date"><div class="date-line">Room</div><h1 class="weekday">${again ? (cutFor.on ? 'Cut the on look' : 'Cut again') : forPiece ? 'Add a turned look' : 'Cut pieces'}</h1></div>
       <button class="ink-button" type="button" data-cut="done">Done</button>
     </header>
     <div class="side">
@@ -138,7 +146,7 @@ function drawCutSheet() {
   for (const box of cut.boxes) {
     const [x, y, w, h] = box.map((n) => n * cut.zoom);
     const group = !cutFor && groupOf(box);
-    g.strokeStyle = !group ? '#3E9B5A' : group.kind === 'turns' ? '#2F7FD0' : '#9A5FB0';
+    g.strokeStyle = !group ? '#3E9B5A' : { turns: '#2F7FD0', colours: '#9A5FB0', lamp: '#D0962F' }[group.kind];
     g.strokeRect(x + 1, y + 1, w - 2, h - 2);
     if (cut.picked.has(box)) {
       g.fillStyle = 'rgba(47, 127, 208, 0.25)';
@@ -171,7 +179,7 @@ function showBoxed() {
   const locked = old ? old.elements.locked.checked : true;
   const groups = cutGroups();
   const grouped = new Set(groups.flatMap((group) => group.boxes));
-  const count = n - groups.filter((group) => group.kind === 'turns').reduce((sum, group) => sum + group.boxes.length - 1, 0);
+  const count = n - groups.filter((group) => group.kind !== 'colours').reduce((sum, group) => sum + group.boxes.length - 1, 0);
   const tile = (box) => {
     const i = cut.boxes.indexOf(box);
     return `<button type="button" class="pile-tile" data-cut="pick" data-i="${i}" aria-pressed="${cut.picked.has(box)}" aria-label="Pick piece ${i + 1}">
@@ -179,15 +187,16 @@ function showBoxed() {
   };
   const p = cut.picked.size;
   el.innerHTML = n ? `
+    <div class="pile">${cut.boxes.filter((box) => !grouped.has(box)).map(tile).join('')}</div>
     ${groups.map((group, g) => `<div class="cut-group ${group.kind}">
-      <div class="cut-group-head"><span>${group.kind === 'turns' ? 'Turns' : 'Colours'}</span>
+      <div class="cut-group-head"><span>${{ turns: 'Turns', colours: 'Colours', lamp: 'Off and on' }[group.kind]}</span>
         <button class="text-button" type="button" data-cut="ungroup" data-g="${g}">Separate</button></div>
       <div class="pile">${group.boxes.map(tile).join('')}</div>
     </div>`).join('')}
-    <div class="pile">${cut.boxes.filter((box) => !grouped.has(box)).map(tile).join('')}</div>
     <div class="buttons cut-pick-actions"${p ? '' : ' hidden'}>
       <button class="text-button" type="button" data-cut="turns"${p > 1 ? '' : ' disabled'}>Turns</button>
       <button class="text-button" type="button" data-cut="colours"${p > 1 ? '' : ' disabled'}>Colours</button>
+      <button class="text-button" type="button" data-cut="lamp"${p === 2 ? '' : ' disabled'}>Off and on</button>
       <button class="text-button danger" type="button" data-cut="unpick">Take out</button>
     </div>
     <form id="cut-form">
@@ -219,7 +228,7 @@ async function useCutPicture(src, name) {
   $('cut-work').hidden = false;
   fitCutZoom();
   // Cutting a piece again: its old box, if it fits this picture.
-  const old = cutFor && cutFor.view !== null && pieces.get(cutFor.id).views[cutFor.view].box;
+  const old = oldCutBox();
   if (old && old[0] + old[2] <= cut.sheet.width && old[1] + old[3] <= cut.sheet.height) cut.boxes = [[...old]];
   // A single piece is boxed straight away.
   else if (cut.sheet.width <= 64 && cut.sheet.height <= 64) cut.boxes = [trimBox(cut.sheet, [0, 0, cut.sheet.width, cut.sheet.height])];
@@ -273,24 +282,49 @@ $('cut-page').addEventListener('click', async (event) => {
     if (cut.picked.has(box)) cut.picked.delete(box);
     else cut.picked.add(box);
   }
-  if (['turns', 'colours', 'ungroup', 'unpick', 'clear'].includes(action)) saveCutUndo();
-  if (action === 'turns' || action === 'colours') groupPicked(action);
+  if (['turns', 'colours', 'lamp', 'ungroup', 'unpick', 'clear'].includes(action)) saveCutUndo();
+  if (['turns', 'colours', 'lamp'].includes(action)) groupPicked(action);
   if (action === 'ungroup') cut.groups.splice(Number(button.dataset.g), 1);
   if (action === 'unpick') {
     cut.boxes = cut.boxes.filter((box) => !cut.picked.has(box));
     cut.picked.clear();
   }
   if (action === 'clear') cut.boxes = [];
-  if (['pick', 'turns', 'colours', 'ungroup', 'unpick', 'clear'].includes(action)) {
+  if (['pick', 'turns', 'colours', 'lamp', 'ungroup', 'unpick', 'clear'].includes(action)) {
     drawCutSheet();
     showBoxed();
   }
   if (action === 'look') await (cutFor.view === null ? addTurnedLook() : useNewCut());
 });
 
+// Right-clicking a box, on the sheet or in the list, takes it out.
+$('cut-page').addEventListener('contextmenu', (event) => {
+  let i = -1;
+  const tile = event.target.closest('[data-cut="pick"]');
+  if (tile) i = Number(tile.dataset.i);
+  else if (event.target.id === 'cut-canvas' && !cutFor) {
+    const r = event.target.getBoundingClientRect();
+    const px = ((event.clientX - r.left) / r.width) * cut.sheet.width;
+    const py = ((event.clientY - r.top) / r.height) * cut.sheet.height;
+    // The smallest box under the pointer, so a piece inside a bigger box can be taken out.
+    let best = Infinity;
+    cut.boxes.forEach(([x, y, w, h], j) => {
+      if (px >= x && px < x + w && py >= y && py < y + h && w * h < best) [i, best] = [j, w * h];
+    });
+  }
+  if (i < 0) return;
+  event.preventDefault();
+  saveCutUndo();
+  const box = cut.boxes[i];
+  cut.boxes.splice(i, 1);
+  cut.picked.delete(box);
+  drawCutSheet();
+  showBoxed();
+});
+
 // Tapping on the sheet: two corners make a box. A tap inside a box picks it.
 $('cut-page').addEventListener('pointerup', (event) => {
-  if (event.target.id !== 'cut-canvas') return;
+  if (event.target.id !== 'cut-canvas' || event.button !== 0) return;
   const r = event.target.getBoundingClientRect();
   const px = Math.floor(((event.clientX - r.left) / r.width) * cut.sheet.width);
   const py = Math.floor(((event.clientY - r.top) / r.height) * cut.sheet.height);
@@ -359,6 +393,10 @@ $('cut-page').addEventListener('submit', async (event) => {
       await add([box]);
     } else if (group.kind === 'turns') {
       await add(group.boxes);
+    } else if (group.kind === 'lamp') {
+      const [off, on] = group.boxes;
+      const { src, pw, ph, box } = viewOf(on);
+      await add([off], { light: true, views: [{ ...viewOf(off), on: { src, pw, ph, box } }] });
     } else {
       let root = null;
       for (const one of group.boxes) {
@@ -382,7 +420,8 @@ async function useNewCut() {
   const piece = pieces.get(cutFor.id);
   const box = cut.boxes[0];
   const [, , pw, ph] = box;
-  const views = piece.views.map((v, i) => (i === cutFor.view ? { ...v, src: cutBox(cut.sheet, box), pw, ph, box: [...box] } : v));
+  const look = { src: cutBox(cut.sheet, box), pw, ph, box: [...box] };
+  const views = piece.views.map((v, i) => (i !== cutFor.view ? v : cutFor.on ? { ...v, on: look } : { ...v, ...look }));
   const saved = await putItem({ ...piece, views, sheet: piece.sheet || sheetName() });
   pieces.set(saved.id, saved);
   cutFor = null;

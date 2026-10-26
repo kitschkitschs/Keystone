@@ -486,6 +486,7 @@ html.dark .sheet.game-window h3, html.dark .sheet.game-window .field { color: #C
 /* Grouping boxes in the cutter (room-add.js). */
 .cut-group { margin: 8px 0; padding: 8px 10px 2px; border: 1px dashed #2F7FD0; border-radius: 10px; }
 .cut-group.colours { border-color: #9A5FB0; }
+.cut-group.lamp { border-color: #D0962F; }
 .cut-group-head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--muted); }
 .cut-pick-actions { position: sticky; bottom: 70px; padding: 8px; border-radius: 12px; background: var(--paper); box-shadow: 0 4px 16px var(--shadow); }
 #inv-note:empty { display: none; }
