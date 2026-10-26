@@ -1083,7 +1083,7 @@ function dropCat() {
 
 let dragging = false;
 roomCanvas.addEventListener('pointerdown', (event) => {
-  if (scene === 'garden') return;
+  if (scene === 'garden') return gardenDown(toRoom(event), event);
   const point = toRoom(event);
   if (!held) {
     // Both under the finger: the one in front.
@@ -1100,6 +1100,7 @@ roomCanvas.addEventListener('pointerdown', (event) => {
   moveHeldTo(point);
 });
 roomCanvas.addEventListener('pointermove', (event) => {
+  if (scene === 'garden') return gardenMove(toRoom(event));
   if (dragging) moveHeldTo(toRoom(event));
   if (!press) return;
   press.last = toRoom(event);
@@ -1126,7 +1127,7 @@ roomCanvas.addEventListener('pointerup', (event) => {
     return;
   }
   const point = toRoom(event);
-  if (scene === 'garden') return tapGarden(point);
+  if (scene === 'garden') return gardenUp() || tapGarden(point);
   const p = pieceAt(point);
   if (decorating) {
     if (p) pickUp(p);
@@ -1134,8 +1135,8 @@ roomCanvas.addEventListener('pointerup', (event) => {
   }
   // Tap a toy and the cat comes to play with it. Tap a lamp to switch it.
   if (p && floorToys().includes(p)) callToPlay(p);
-  // With the wand, a tap on the stove finishes what's cooking.
-  else if (p && pieces.get(p.piece).stove) { if (wand && kitchen.recipe) finishCooking(); else openGameWindow('stove'); }
+  // Playtesting with hurry on, a tap on the stove finishes what's cooking.
+  else if (p && pieces.get(p.piece).stove) { if (hurry && kitchen.recipe) finishCooking(); else openGameWindow('stove'); }
   else if (p && pieces.get(p.piece).light) switchLamp(p);
 });
 
@@ -1671,15 +1672,10 @@ function openPieceDetails(piece) {
 }
 
 function openRoomSettings() {
-  const hour = previewHour === null ? hourNow() : previewHour;
   openSheet('Room', `
     <label class="field"><span>Tiles across</span><input name="cols" type="number" min="6" max="24" value="${room.cols}"></label>
     <label class="field"><span>Wall rows</span><input name="wallRows" type="number" min="1" max="6" value="${room.wallRows}"></label>
     <label class="field"><span>Floor rows</span><input name="floorRows" type="number" min="3" max="16" value="${room.floorRows}"></label>
-    <h3>Light</h3>
-    <label class="check"><input type="checkbox" name="clock"${previewHour === null ? ' checked' : ''}><span>Follow the clock</span></label>
-    <label class="field"><span>Or try a time of day: <b id="hour-word">${timeWord(hour)}</b></span>
-      <input name="hour" type="range" min="0" max="23.75" step="0.25" value="${hour}"></label>
     <h3>Starter pieces</h3>
     <p><button class="text-button" type="submit" value="starter">Add the starter pieces you don't have</button></p>`,
   async (form, submitter) => {
@@ -1695,7 +1691,6 @@ function openRoomSettings() {
     room.cols = size('cols', 6, 24);
     room.wallRows = size('wallRows', 1, 6);
     room.floorRows = size('floorRows', 3, 16);
-    previewHour = form.elements.clock.checked ? null : Number(form.elements.hour.value);
     await saveRoomSettings();
     for (const p of [...placed]) {
       if (canPlace({ ...p, from: p })) continue;
@@ -1707,15 +1702,9 @@ function openRoomSettings() {
     showRoomPanel();
     return true;
   });
-  const form = $('sheet-form');
-  form.elements.hour.addEventListener('input', () => {
-    form.elements.clock.checked = false;
-    $('hour-word').textContent = timeWord(Number(form.elements.hour.value));
-    previewHour = Number(form.elements.hour.value);
-  });
 }
 
-// The light button on the room (room-hud.js) steps through these.
+// The Light button in the Workshop (room-hud.js) steps through these.
 const LIGHT_STEPS = [[null, 'Clock'], [10, 'Day'], [18, 'Evening'], [22.5, 'Night']];
 
 // --- Showing the page ---

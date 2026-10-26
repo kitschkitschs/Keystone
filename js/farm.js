@@ -2,10 +2,11 @@
 //
 // The garden is a second scene on the room's canvas (the sprout button on the
 // room goes there, the house button comes back). Its bed is a grid of plots:
-// tap one to choose what grows there. Crops grow on the real clock and the pets
-// do the work: they wander between the plots, tend them and pick what's ripe,
-// which goes in the pantry. A crop that doesn't regrow is planted again
-// straight away, so the garden keeps going on its own.
+// tap one to choose a crop, then tap or drag across the plots to plant it.
+// Crops grow on the real clock and the pets do the work: the duck waters what's
+// growing, dancing on the crop's tile, and the cat pounces on what's ripe and
+// picks it, which goes in the pantry. A crop that regrows grows again; one that
+// doesn't leaves its plot empty.
 //
 // Produce sells at the farmer's market for coins, and the market sells what
 // the garden can't grow (eggs, milk...). Recipes turn things from the pantry
@@ -113,9 +114,16 @@ async function pickPlot(plot, now = Date.now()) {
   const times = 1 + Math.floor((now - plot.ripeAt) / again);
   const last = plot.ripeAt + (times - 1) * again;
   const n = times * Math.max(1, Number(crop.yield) || 1);
-  addThing(`crop:${crop.id}`, n);
   const regrows = Number(crop.regrow) > 0;
-  const next = await putItem({ ...plot, plantedAt: regrows ? plot.plantedAt : last, ripeAt: last + again, regrown: regrows, pickedAt: last });
+  if (!regrows) {
+    // Picked once, and the plot is empty again.
+    addThing(`crop:${crop.id}`, Math.max(1, Number(crop.yield) || 1));
+    plots.delete(plot.id);
+    await deleteItem(plot.id);
+    return Math.max(1, Number(crop.yield) || 1);
+  }
+  addThing(`crop:${crop.id}`, n);
+  const next = await putItem({ ...plot, ripeAt: last + again, regrown: true, pickedAt: last });
   plots.set(next.id, next);
   return n;
 }
@@ -303,6 +311,7 @@ function enterGarden() {
 
 function leaveGarden() {
   scene = 'room';
+  sowing = null;
   sizeRoom();
   showRoomPanel();
   if (gameWindowKind === 'plant' || gameWindowKind === 'market') closeGameWindow();
@@ -314,25 +323,36 @@ function setPetAnim(pet, key, now) {
   pet.start = now;
 }
 
-// What a pet does next: pick something ripe, tend a plot, or wander and sit.
+// What a pet does next. The cat goes to pick something ripe, the duck goes to
+// water something growing; otherwise they wander and sit.
 function nextGardenPlan(pet, now, dark) {
   if (dark > 0.6) {
     pet.mode = 'sleep';
-    setPetAnim(pet, pet.who === 'duck' ? 'sleep' : 'sleep', now);
+    setPetAnim(pet, 'sleep', now);
     pet.until = now + 8000;
     return;
   }
   const others = gardenPets.filter((p) => p !== pet).map((p) => p.plot);
-  const growing = bedPlots().filter((p) => !others.includes(p.id));
-  const ripe = growing.filter((p) => isRipe(p));
-  let target = null;
-  if (ripe.length) target = ripe[Math.floor(Math.random() * ripe.length)];
-  else if (growing.length && Math.random() < 0.6) target = growing[Math.floor(Math.random() * growing.length)];
+  const free = bedPlots().filter((p) => !others.includes(p.id));
+  const jobs = pet.who === 'cat' ? free.filter((p) => isRipe(p)) : free.filter((p) => !isRipe(p));
+  const target = jobs.length && (pet.who === 'cat' || Math.random() < 0.7) ? jobs[Math.floor(Math.random() * jobs.length)] : null;
   pet.plot = target ? target.id : null;
-  if (target) pet.goal = standAt(target);
-  else pet.goal = freeGardenSpot();
+  if (!target) pet.goal = freeGardenSpot();
+  else if (pet.who === 'duck') pet.goal = onPlot(target);
+  else {
+    // The cat waits beside the plot, so it can pounce on it from the side.
+    const left = pet.x < target.x * TILE + TILE / 2;
+    pet.goal = { x: target.x * TILE + TILE / 2 + (left ? -14 : 14), y: onPlot(target).y };
+  }
   pet.mode = 'walk';
 }
+
+// Standing on a plot's own tile, in front of its crop.
+const onPlot = (plot) => ({ x: plot.x * TILE + TILE / 2, y: (plot.y + 1) * TILE - 1 });
+
+const PICK_CROUCH = 450;
+const PICK_POUNCE = 260;
+const PICK_BACK = 420;
 
 function moveGarden(now, dark) {
   for (const pet of gardenPets) {
@@ -345,11 +365,20 @@ function moveGarden(now, dark) {
       const step = PET_SPEED[pet.who] * dt;
       if (dist <= step) {
         Object.assign(pet, pet.goal);
-        if (pet.plot && plots.has(pet.plot)) {
-          pet.mode = 'tend';
-          setPetAnim(pet, pet.who === 'duck' ? 'peck' : 'groom', now);
-          pet.until = now + 2500 + Math.random() * 2500;
+        const plot = pet.plot && plots.get(pet.plot);
+        if (plot && pet.who === 'cat' && isRipe(plot)) {
+          // A quick crouch, facing the plot, then the pounce.
+          pet.flip = plot.x * TILE + TILE / 2 < pet.x;
+          pet.mode = 'pick';
+          pet.home = { x: pet.x, y: pet.y };
+          setPetAnim(pet, 'crouch', now);
+          pet.until = now + PICK_CROUCH;
+        } else if (plot && pet.who === 'duck' && !isRipe(plot)) {
+          pet.mode = 'water';
+          setPetAnim(pet, 'walkRight', now);
+          pet.until = now + 3000 + Math.random() * 2500;
         } else {
+          pet.plot = null;
           pet.mode = 'rest';
           setPetAnim(pet, pet.who === 'duck' ? 'sit' : 'sitDown', now);
           pet.until = now + 3000 + Math.random() * 5000;
@@ -363,21 +392,57 @@ function moveGarden(now, dark) {
       }
       continue;
     }
-    // The duck pecks again and again while it tends.
-    if (pet.mode === 'tend' && pet.who === 'duck' && now - pet.start > 1400) pet.start = now;
+    if (pet.mode === 'pick') {
+      pickMove(pet, now);
+      continue;
+    }
+    // The duck dances on the crop's tile while it waters: side to side, with a hop.
+    if (pet.mode === 'water') {
+      const beat = Math.floor((now - pet.start) / 320);
+      setPetAnim(pet, beat % 2 ? 'walkLeft' : 'walkRight', pet.start);
+      pet.flip = beat % 2 === 1;
+      pet.lift = Math.round(Math.abs(Math.sin(((now - pet.start) / 320) * Math.PI)) * 2);
+    }
     if (pet.mode === 'sleep' && dark <= 0.6) pet.until = 0;
     if (now < pet.until) continue;
-    if (pet.mode === 'tend') {
-      const plot = plots.get(pet.plot);
+    if (pet.mode === 'water') {
       pet.plot = null;
-      if (plot && isRipe(plot)) harvestInView(plot, now);
+      pet.lift = 0;
       pet.mode = 'rest';
-      setPetAnim(pet, pet.who === 'duck' ? 'sit' : 'sitDown', now);
+      setPetAnim(pet, 'sit', now);
       pet.until = now + 1200 + Math.random() * 2000;
       continue;
     }
     nextGardenPlan(pet, now, dark);
   }
+}
+
+// The cat's pounce on a ripe plot: crouch, leap onto it (and pick it), back off.
+function pickMove(pet, now) {
+  const plot = plots.get(pet.plot);
+  const at = plot ? onPlot(plot) : pet.home;
+  if (pet.phase === undefined) pet.phase = 'crouch';
+  if (pet.phase === 'crouch') {
+    if (now < pet.until) return;
+    Object.assign(pet, { phase: 'pounce', jumpAt: now });
+    setPetAnim(pet, pet.flip ? 'walkLeft' : 'walkRight', now);
+  }
+  if (pet.phase === 'pounce') {
+    const t = Math.min(1, (now - pet.jumpAt) / PICK_POUNCE);
+    pet.x = pet.home.x + (at.x - pet.home.x) * 0.8 * t;
+    pet.lift = 6 * Math.sin(Math.PI * t);
+    if (t < 1) return;
+    if (plot && isRipe(plot)) harvestInView(plot, now);
+    Object.assign(pet, { phase: 'back', jumpAt: now, lift: 0 });
+    return;
+  }
+  const t = Math.min(1, (now - pet.jumpAt) / PICK_BACK);
+  const from = pet.home.x + (at.x - pet.home.x) * 0.8;
+  pet.x = from + (pet.home.x - from) * t;
+  if (t < 1) return;
+  Object.assign(pet, { phase: undefined, plot: null, mode: 'rest' });
+  setPetAnim(pet, 'sitDown', now);
+  pet.until = now + 1200 + Math.random() * 2000;
 }
 
 // What's just been picked, floating up from its plot.
@@ -397,6 +462,7 @@ function petFrame(pet, now) {
   let mirror = false;
   if (pet.anim === 'walkLeft' && a.flip) { a = who.anims.walkRight; mirror = true; }
   else if (pet.who === 'cat' && pet.flip && (pet.anim === 'sleep' || pet.anim === 'lieDown')) mirror = true;
+  else if (pet.who === 'cat' && pet.anim === 'crouch') mirror = pet.flip !== Boolean(a.facesLeft);
   const meta = (pet.who === 'duck' ? DUCK_ANIMS : CAT_ANIMS).find((m) => m.key === pet.anim);
   let i = pet.who === 'duck' && pet.anim === 'sit' ? 0 : Math.floor(((now - pet.start) / 1000) * a.fps);
   i = meta && meta.once ? Math.min(i, a.count - 1) : i % Math.max(1, a.count);
@@ -405,7 +471,7 @@ function petFrame(pet, now) {
 
 function petBoxIn(pet) {
   const who = petOf(pet.who);
-  return { x: Math.round(pet.x - who.fw / 2), y: Math.round(pet.y - who.fh + 3), w: who.fw, h: who.fh };
+  return { x: Math.round(pet.x - who.fw / 2), y: Math.round(pet.y - who.fh + 3 - (pet.lift || 0)), w: who.fw, h: who.fh };
 }
 
 function drawGardenPet(pet, now) {
@@ -433,9 +499,9 @@ function drawGarden(now) {
   // The pets go in front of the crops, so they never get lost among them.
   for (const plot of bedPlots().sort((a, b) => a.y - b.y)) drawCrop(plot, Date.now());
   for (const pet of gardenPets.filter((p) => sheetOf(p.who)).sort((a, b) => a.y - b.y)) drawGardenPet(pet, now);
-  // Tending: drops of water falling on the plot.
+  // Watering: drops falling on the plot while the duck dances.
   for (const pet of gardenPets) {
-    const plot = pet.mode === 'tend' && plots.get(pet.plot);
+    const plot = pet.mode === 'water' && plots.get(pet.plot);
     if (!plot) continue;
     for (let i = 0; i < 3; i++) {
       const t = ((now - pet.start) / 900 + i / 3) % 1;
@@ -485,8 +551,8 @@ function tapGarden(point) {
   const now = performance.now();
   const tx = Math.floor(point.x / TILE);
   const ty = Math.floor(point.y / TILE);
-  // With the wand, a tap hurries a plot along, even with a pet standing on it.
-  if (wand && plotAt(tx, ty)) return jumpPlot(plotAt(tx, ty));
+  // Playtesting with hurry on, a tap grows a plot a stage, even with a pet standing on it.
+  if (hurry && plotAt(tx, ty)) return jumpPlot(plotAt(tx, ty));
   const pet = [...gardenPets].reverse().find((p) => {
     if (!sheetOf(p.who)) return false;
     const b = petBoxIn(p);
@@ -500,6 +566,45 @@ function tapGarden(point) {
   if (!inBed(tx, ty)) return;
   plantAt = { x: tx, y: ty };
   openGameWindow('plant');
+}
+
+// Sowing: a crop picked from the plant window stays in your hand, and every
+// empty plot you tap or drag across gets it ('' clears plots instead). The
+// seed button on the garden puts it away.
+let sowing = null;
+let sowDrag = false;
+function startSowing(cropId) {
+  sowing = cropId;
+  showHud();
+}
+function stopSowing() {
+  sowing = null;
+  sowDrag = false;
+  showHud();
+}
+async function sowAt(point) {
+  const tx = Math.floor(point.x / TILE);
+  const ty = Math.floor(point.y / TILE);
+  if (!inBed(tx, ty)) return;
+  const plot = plotAt(tx, ty);
+  if (sowing === '' ? !plot : plot) return;
+  await plant(tx, ty, sowing);
+}
+// Called by the room's pointer handlers (room.js) in the garden.
+function gardenDown(point, event) {
+  if (sowing === null) return false;
+  sowDrag = true;
+  roomCanvas.setPointerCapture(event.pointerId);
+  sowAt(point);
+  return true;
+}
+function gardenMove(point) {
+  if (sowDrag) sowAt(point);
+}
+function gardenUp() {
+  if (!sowDrag) return false;
+  sowDrag = false;
+  return true;
 }
 
 // Hearts over a pet given a snack, in the room or the garden.
@@ -527,7 +632,7 @@ function farmWindowHtml(kind) {
   if (kind === 'plant') {
     const plot = plantAt && plotAt(plantAt.x, plantAt.y);
     const all = [...crops.values()];
-    if (!all.length) return `<div class="workshop"><button type="button" class="ws-button" data-farm-go="crops"><b>Farm</b></button></div>`;
+    if (!all.length) return '';
     return `<div class="thing-grid">
       ${all.map((c) => `<button type="button" class="thing-tile${plot && plot.crop === c.id ? ' on' : ''}" data-plant="${c.id}" aria-label="${escapeHtml(c.name)}" title="${escapeHtml(c.name)}">${thingImg(c.produce || c.stages[c.stages.length - 1])}</button>`).join('')}
       ${plot ? '<button type="button" class="thing-tile" data-plant="" aria-label="Clear" title="Clear"><span class="thing-x">✕</span></button>' : ''}
@@ -539,8 +644,7 @@ function farmWindowHtml(kind) {
     return `<p class="market-coins">${coinsHtml(pantry.coins || 0)}</p>
       <h3 class="market-h">Buy</h3>
       <div class="thing-grid">${forSale.map((g) => `<button type="button" class="thing-tile" data-buy="${g.id}" aria-label="${escapeHtml(g.name)}" title="${escapeHtml(g.name)}"${(pantry.coins || 0) < (Number(g.price) || 0) ? ' disabled' : ''}>
-        ${thingImg(g.src)}${hasOf(`good:${g.id}`) ? `<span class="thing-n">${hasOf(`good:${g.id}`)}</span>` : ''}<span class="thing-price">${pixelIcon('coin')}${Number(g.price) || 0}</span></button>`).join('')}
-      ${forSale.length ? '' : '<button type="button" class="thing-tile" data-farm-go="goods" aria-label="Farm"><span class="thing-x">+</span></button>'}</div>
+        ${thingImg(g.src)}${hasOf(`good:${g.id}`) ? `<span class="thing-n">${hasOf(`good:${g.id}`)}</span>` : ''}<span class="thing-price">${pixelIcon('coin')}${Number(g.price) || 0}</span></button>`).join('')}</div>
       <h3 class="market-h">Sell</h3>
       <div class="thing-grid">${sellable.map((t) => `<button type="button" class="thing-tile" data-sell="${t.key}" aria-label="${escapeHtml(t.name)}" title="${escapeHtml(t.name)}">
         ${thingImg(t.src)}<span class="thing-n">${hasOf(t.key)}</span><span class="thing-price">${pixelIcon('coin')}${t.price}</span></button>`).join('')}</div>`;
@@ -570,8 +674,7 @@ function farmWindowHtml(kind) {
           return t ? `<span class="need${hasOf(thing) >= n ? '' : ' short'}" title="${escapeHtml(t.name)}">${thingImg(t.src, 1)}${hasOf(thing)}/${n}</span>` : '';
         }).join('')}</span>
         <button class="ink-button" type="button" data-cook="${r.id}"${cooking || !canCook(r) ? ' disabled' : ''}>Cook</button>
-      </div>`).join('')}
-      ${all.length ? '' : '<div class="workshop"><button type="button" class="ws-button" data-farm-go="recipes"><b>Farm</b></button></div>'}</div>`;
+      </div>`).join('')}</div>`;
   }
   return '';
 }
@@ -599,18 +702,13 @@ setInterval(() => { if (gameWindow.open && gameWindowKind === 'stove') showCookT
 
 $('gw-body').addEventListener('click', async (event) => {
   if (!FARM_TITLES[gameWindowKind]) return;
-  const go = event.target.closest('[data-farm-go]');
-  if (go) {
-    farmTab = go.dataset.farmGo;
-    closeGameWindow();
-    goTo('farm');
-    return;
-  }
   const plantButton = event.target.closest('[data-plant]');
   if (plantButton && plantAt) {
+    // The plot you tapped gets it now, and the crop stays in your hand for more.
     const current = plotAt(plantAt.x, plantAt.y);
     if (!current || current.crop !== plantButton.dataset.plant) await plant(plantAt.x, plantAt.y, plantButton.dataset.plant);
     closeGameWindow();
+    startSowing(plantButton.dataset.plant);
     return;
   }
   const buy = event.target.closest('[data-buy]');

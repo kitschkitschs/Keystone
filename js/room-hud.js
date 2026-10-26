@@ -81,15 +81,18 @@ function lightIcon() {
 // decorating, the decorate button stays out as a tick: tap it when you're done.
 let hudOpen = false;
 
+const lightName = () => (previewHour === null ? 'Clock' : LIGHT_STEPS.find(([hour]) => hour === previewHour)?.[1] || timeWord(previewHour));
+const seasonName = () => (previewSeason ? SEASONS.find(([key]) => key === previewSeason)[1] : 'Calendar');
+const seasonIcon = () => (previewSeason ? (previewSeason === 'summer' ? 'day' : previewSeason) : 'calendar');
+
+// The Workshop, where everything for setting the game up lives, is only on a
+// computer: on the phone the game is just the game.
 function showHud() {
   const hud = $('room-hud');
-  const lightName = previewHour === null ? 'Clock' : LIGHT_STEPS.find(([hour]) => hour === previewHour)?.[1] || timeWord(previewHour);
   const buttons = (scene === 'garden' ? [
     ['room', 'Back inside', 'house'],
     ['market', 'Market', 'market'],
     ['pantry', 'Pantry', 'pantry'],
-    ['light', `Light: ${lightName}`, lightIcon()],
-    ['season', `Season: ${previewSeason ? SEASONS.find(([key]) => key === previewSeason)[1] : 'Calendar'}`, previewSeason ? (previewSeason === 'summer' ? 'day' : previewSeason) : 'calendar'],
     ['workshop', 'Workshop', 'workshop'],
   ] : [
     ['decorate', decorating ? 'Done decorating' : 'Decorate', decorating ? 'done' : 'decorate'],
@@ -98,11 +101,24 @@ function showHud() {
     ['catalogue', 'Catalogue', 'catalogue'],
     ['garden', 'Garden', 'garden'],
     ['pantry', 'Pantry', 'pantry'],
-    ['light', `Light: ${lightName}`, lightIcon()],
     ['workshop', 'Workshop', 'workshop'],
-  ]).filter(([key]) => hudOpen || (decorating && (key === 'decorate' || key === 'inventory')));
+  ]).filter(([key]) => key !== 'workshop' || isWide())
+    .filter(([key]) => hudOpen || (decorating && (key === 'decorate' || key === 'inventory')));
   buttons.push(['menu', hudOpen ? 'Fold the buttons away' : 'Open the buttons', 'menu']);
-  hud.innerHTML = buttons.map(([key, label, icon]) => `<button type="button" class="hud-button" data-hud="${key}" aria-label="${label}" title="${label}"${key === 'decorate' ? ` aria-pressed="${decorating}"` : ''}${key === 'menu' ? ` aria-expanded="${hudOpen}"` : ''}>${pixelIcon(icon)}</button>`).join('');
+  // While sowing, the crop in your hand stays out: tap it to put it away.
+  const seed = scene === 'garden' && sowing !== null && (sowing === '' ? '' : crops.get(sowing));
+  const seedButton = seed === null || seed === false ? '' : `<button type="button" class="hud-button seed-button" data-hud="sow" aria-label="Done" title="Done">${seed ? `<img class="pixel" src="${seed.produce || seed.stages[seed.stages.length - 1]}" alt="">` : '<span class="thing-x">✕</span>'}</button>`;
+  hud.innerHTML = seedButton + buttons.map(([key, label, icon]) => `<button type="button" class="hud-button" data-hud="${key}" aria-label="${label}" title="${label}"${key === 'decorate' ? ` aria-pressed="${decorating}"` : ''}${key === 'menu' ? ` aria-expanded="${hudOpen}"` : ''}>${pixelIcon(icon)}</button>`).join('');
+}
+
+// Trying a time of day, or a season, from the Workshop. A picked one lasts until the app closes.
+function stepLight() {
+  const i = LIGHT_STEPS.findIndex(([hour]) => hour === previewHour);
+  previewHour = LIGHT_STEPS[(i + 1) % LIGHT_STEPS.length][0];
+}
+function stepSeason() {
+  const steps = [null, ...SEASONS.map(([k]) => k)];
+  previewSeason = steps[(steps.indexOf(previewSeason) + 1) % steps.length];
 }
 
 $('room-hud').addEventListener('click', async (event) => {
@@ -114,15 +130,9 @@ $('room-hud').addEventListener('click', async (event) => {
     showHud();
     return;
   }
-  // Opening something folds the buttons away again; trying the light or season doesn't.
-  if (key !== 'light' && key !== 'season') hudOpen = false;
-  if (key === 'season') {
-    // Follow the calendar, or try a season. A picked season lasts until the app closes.
-    const steps = [null, ...SEASONS.map(([k]) => k)];
-    previewSeason = steps[(steps.indexOf(previewSeason) + 1) % steps.length];
-    showHud();
-    roomNote(previewSeason ? `Trying ${previewSeason}.` : 'The seasons follow the calendar.');
-  }
+  if (key === 'sow') return stopSowing();
+  // Opening something folds the buttons away again.
+  hudOpen = false;
   if (key === 'decorate') {
     decorating = !decorating;
     if (!decorating) held = null;
@@ -139,14 +149,6 @@ $('room-hud').addEventListener('click', async (event) => {
   if (key === 'garden') enterGarden();
   if (key === 'room') leaveGarden();
   if (key === 'market' || key === 'pantry') { showHud(); openGameWindow(key); }
-  if (key === 'light') {
-    // Follow the clock, or try a time of day. A picked time lasts until the app closes.
-    const i = LIGHT_STEPS.findIndex(([hour]) => hour === previewHour);
-    const [hour, word] = LIGHT_STEPS[(i + 1) % LIGHT_STEPS.length];
-    previewHour = hour;
-    showHud();
-    roomNote(hour === null ? 'The light follows the clock.' : `Trying the light at ${word.toLowerCase()}.`);
-  }
 });
 
 // --- The pop-up window ---
@@ -185,9 +187,9 @@ function drawGameWindow() {
   $('gw-back').hidden = !gameWindowTrail.length;
   if (kind === 'gacha') return drawGacha();
   if (FARM_TITLES[kind]) return drawFarmWindow(kind);
-  if (kind === 'wand') {
-    $('gw-title').textContent = 'Wand';
-    $('gw-body').innerHTML = wandHtml();
+  if (kind === 'playtest') {
+    $('gw-title').textContent = 'Playtest';
+    $('gw-body').innerHTML = playtestHtml();
     return;
   }
   const titles = { inventory: 'Inventory', catalogue: 'Catalogue', workshop: 'Workshop' };
@@ -198,16 +200,25 @@ function drawGameWindow() {
     $('gw-body').innerHTML = catalogueHtml([...pieces.values()]) || '';
   }
   if (kind === 'workshop') {
+    const button = (key, name, icon = '', sub = '') => `<button type="button" class="ws-button${icon ? ' ws-icon' : ''}" data-ws="${key}">${icon ? pixelIcon(icon) : ''}<b>${name}</b>${sub ? `<span>${sub}</span>` : ''}</button>`;
     $('gw-body').innerHTML = `
       <div class="workshop">
-        <button type="button" class="ws-button" data-ws="add"><b>Cut pieces</b></button>
-        <button type="button" class="ws-button" data-ws="pieces"><b>Pieces</b></button>
-        <button type="button" class="ws-button" data-ws="cat"><b>${escapeHtml(cat.name)}</b></button>
-        <button type="button" class="ws-button" data-ws="duck"><b>${duck ? escapeHtml(duck.name) : 'Duck'}</b></button>
-        <button type="button" class="ws-button" data-ws="farm"><b>Farm</b></button>
-        <button type="button" class="ws-button" data-ws="map"><b>Map</b></button>
-        <button type="button" class="ws-button" data-ws="room"><b>Room</b></button>
-        <button type="button" class="ws-button${wand ? ' on' : ''}" data-ws="wand" aria-pressed="${wand}"><b>Wand</b></button>
+        <h3 class="ws-h">Make</h3>
+        <div class="ws-group">
+          ${button('add', 'Cut pieces')}${button('pieces', 'Pieces')}
+          ${button('farm', 'Farm')}${button('map', 'Map')}
+        </div>
+        <h3 class="ws-h">Pets and room</h3>
+        <div class="ws-group">
+          ${button('cat', escapeHtml(cat.name))}${button('duck', duck ? escapeHtml(duck.name) : 'Duck')}
+          ${button('room', 'Room')}
+        </div>
+        <h3 class="ws-h">Test</h3>
+        <div class="ws-group">
+          ${button('playtest', 'Playtest', 'wand', hurry ? 'Hurry' : '')}
+          ${button('light', 'Light', lightIcon(), lightName())}
+          ${button('season', 'Season', seasonIcon(), seasonName())}
+        </div>
       </div>`;
   }
 }
@@ -232,7 +243,12 @@ $('gw-body').addEventListener('click', async (event) => {
   const ws = event.target.closest('[data-ws]');
   if (ws) {
     const action = ws.dataset.ws;
-    if (action === 'wand') return openGameWindow('wand');
+    if (action === 'playtest') return openGameWindow('playtest');
+    if (action === 'light' || action === 'season') {
+      if (action === 'light') stepLight();
+      else stepSeason();
+      return drawGameWindow();
+    }
     closeGameWindow();
     if (action === 'add') { cutFor = null; goTo('room-add'); }
     if (action === 'cat' || action === 'duck') {

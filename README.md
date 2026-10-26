@@ -30,7 +30,7 @@ clock. The Insight page shows habits and health over time.
 | `js/room-gacha.js` | The gacha machine that unlocks pieces, and the catalogue of everything there is to collect. |
 | `js/room-duck.js` | The duck that waddles about the room, once you've given it a sprite sheet. |
 | `js/farm.js` | The garden the pets tend, the farmer's market, the pantry and the stove. |
-| `js/wand.js` | The wand: a switch in the Workshop that hurries things along, and gives you anything in the game. |
+| `js/playtest.js` | Playtest, in the Workshop: pick anything in the game and place or plant it, and hurry things along. |
 | `js/farm-page.js` | The Farm page: your own crops, market goods and recipes, picked from sprite sheets. |
 | `js/map.js` | Your own tile sets (a sheet for each season) and tiles, the garden's map, and the seasons. |
 | `js/map-page.js` | The Map page: cut tiles from a tile sheet and paint the garden's map with them. |

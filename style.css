@@ -604,7 +604,14 @@ html.wide .piece-col + .piece-col { margin-top: 0; }
 .wand-switch .ink-button { padding: 8px 18px; }
 .wand-switch svg { width: 24px; height: 24px; display: block; }
 .wand-switch .ink-button[aria-pressed="false"] { opacity: 0.45; }
-.ws-button.on { border-color: var(--ink); }
+.ws-h { margin: 6px 0 -2px; font-size: 13px; color: #7A6660; }
+.ws-h:first-child { margin-top: 0; }
+.ws-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ws-icon { grid-template-columns: 24px 1fr; column-gap: 10px; align-items: center; }
+.ws-icon svg { grid-row: span 2; width: 24px; height: 24px; }
+.ws-icon b:last-child { grid-row: span 2; }
+.seed-button img { width: 24px; height: 24px; object-fit: contain; image-rendering: pixelated; }
+html.dark .ws-h { color: #A79DB2; }
 .frame-pic small { display: block; text-align: center; font-size: 11px; }
 .tile-filters select { flex: 1; min-width: 0; }
 .tile-img { width: calc(var(--tw) * 2px); height: calc(var(--th) * 2px); max-width: 48px; max-height: 48px; object-fit: contain; image-rendering: pixelated; }
