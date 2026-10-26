@@ -2,7 +2,7 @@
 // 16 x 16 pixel tiles, with a cat walking about and the light following the clock.
 //
 // Everything is saved as items (see db.js), so it all goes in your backup file:
-//   { id: "piece-...", kind: "piece", day: "", name, type, count, surface, lift, light, catSpot, catLift, catShift, lightX, lightY, toy,
+//   { id: "piece-...", kind: "piece", day: "", name, type, count, surface, lift, light, catSpot, catLift, catShift, duckShift, duckLift, lightX, lightY, toy,
 //     set, family, rarity, locked,           set: the furniture set it belongs to. family: the
 //                                            piece it's a colour of (its id), so colours sit
 //                                            together in the catalogue. locked: still in the
@@ -1394,10 +1394,13 @@ async function deletePieces(ids) {
 // small things stand on top, and where a lamp's light comes from. The piece
 // stays still in its frame and the arrows move the thing being placed.
 let previewPiece = null;
+// Whose seat the arrows move in the seat preview: the cat's, or the duck's.
+let seatWho = 'cat';
 
 // What each arrow moves: the field, how one step up or right changes it, and its limits.
 const NUDGES = {
   seat: { x: ['catShift', 1, -64, 64], y: ['catLift', -1, 0, 64] },
+  duckSeat: { x: ['duckShift', 1, -64, 64], y: ['duckLift', -1, 0, 64] },
   top: { y: ['lift', -1, 0, 64] },
   glow: { x: ['lightX', 1, -64, 64], y: ['lightY', 1, -64, 64] },
 };
@@ -1438,8 +1441,28 @@ async function drawSeatPreview() {
   const shift = Number(form.catShift.value) || 0;
   if (catSheet) {
     const sit = animSetting('sitDown');
+    g.globalAlpha = seatWho === 'cat' ? 1 : 0.6;
     drawCatFrame(g, catSheet, sit.start + Math.max(0, sit.count - 1), Math.round(w / 2 + shift - cat.fw / 2), Math.round(d - TILE + 13 - lift - cat.fh + 3), sit.mirror);
   }
+  // The duck, where it sits on it (with the cat there too, or on its own).
+  if (duckHere()) {
+    const a = duck.anims.sit;
+    const across = Math.max(1, Math.floor(duckSheet.naturalWidth / duck.fw));
+    const frame = a.start;
+    const dShift = Number(form.duckShift.value) || 0;
+    const dLift = Number(form.duckLift.value) || 0;
+    g.globalAlpha = seatWho === 'duck' ? 1 : 0.6;
+    g.drawImage(duckSheet, (frame % across) * duck.fw, Math.floor(frame / across) * duck.fh, duck.fw, duck.fh,
+      Math.round(w / 2 + dShift - duck.fw / 2), Math.round(d - TILE + 13 - dLift - duck.fh + 3), duck.fw, duck.fh);
+  }
+  g.globalAlpha = 1;
+}
+
+// Cat or duck: which one the seat arrows move. Only there when there's a duck.
+function seatWhoHtml() {
+  if (!duckHere()) return '';
+  const pick = (who, name) => `<button class="text-button seat-who${seatWho === who ? ' on' : ''}" type="button" data-seat-who="${who}" aria-pressed="${seatWho === who}">${escapeHtml(name)}</button>`;
+  return `<div class="seat-whos">${pick('cat', cat.name)}${pick('duck', duck.name)}</div>`;
 }
 
 // A small piece to stand on top in the preview: a teacup if there is one.
@@ -1498,19 +1521,31 @@ function drawPreviews() {
 // Arrow buttons, and the hidden numbers they change.
 function nudgeHtml(kind, piece) {
   const n = NUDGES[kind];
-  const field = ([name]) => `<input type="hidden" name="${name}" value="${Number(piece[name] ?? (name === 'catLift' ? 8 : name === 'lift' ? 16 : 0))}">`;
+  const start = { catLift: 8, lift: 16, duckShift: (piece.catShift || 0) + 10, duckLift: piece.catLift ?? 8 };
+  const field = ([name]) => `<input type="hidden" name="${name}" value="${Number(piece[name] ?? start[name] ?? 0)}">`;
   const arrow = (axis, dir, label, glyph) => `<button class="nudge" type="button" data-nudge="${kind}:${axis}:${dir}" aria-label="${label}">${glyph}</button>`;
   return `<div class="nudges">
     ${n.x ? arrow('x', -1, 'Left', '←') : ''}${arrow('y', -1, 'Up', '↑')}${arrow('y', 1, 'Down', '↓')}${n.x ? arrow('x', 1, 'Right', '→') : ''}
     ${Object.values(n).map(field).join('')}
+    ${kind === 'seat' ? Object.values(NUDGES.duckSeat).map(field).join('') : ''}
   </div>`;
 }
 
 sheetForm.addEventListener('click', (event) => {
+  const who = event.target.closest('[data-seat-who]');
+  if (who) {
+    seatWho = who.dataset.seatWho;
+    for (const b of sheetForm.querySelectorAll('[data-seat-who]')) {
+      b.classList.toggle('on', b === who);
+      b.setAttribute('aria-pressed', String(b === who));
+    }
+    drawSeatPreview();
+    return;
+  }
   const button = event.target.closest('[data-nudge]');
   if (!button) return;
   const [kind, axis, dir] = button.dataset.nudge.split(':');
-  const [name, step, low, high] = NUDGES[kind][axis];
+  const [name, step, low, high] = NUDGES[kind === 'seat' && seatWho === 'duck' ? 'duckSeat' : kind][axis];
   const input = sheetForm.elements[name];
   input.value = Math.max(low, Math.min(high, (Number(input.value) || 0) + Number(dir) * step));
   drawPreviews();
@@ -1524,7 +1559,7 @@ sheetForm.addEventListener('input', (event) => {
 
 // What all the colours of a piece share. Each colour keeps its own pictures,
 // how many you have, its rarity and whether it's still in the machine.
-const SHARED_SETTINGS = ['type', 'set', 'surface', 'lift', 'light', 'lightX', 'lightY', 'catSpot', 'catLift', 'catShift', 'toy'];
+const SHARED_SETTINGS = ['type', 'set', 'surface', 'lift', 'light', 'lightX', 'lightY', 'catSpot', 'catLift', 'catShift', 'duckShift', 'duckLift', 'toy'];
 
 function openPieceDetails(piece) {
   const views = piece.views.map((v, i) => `<div class="view-row">
@@ -1537,6 +1572,7 @@ function openPieceDetails(piece) {
       ${i ? `<button class="text-button danger" type="submit" value="unview-${i}">Remove</button>` : ''}
     </div>`).join('');
   previewPiece = piece;
+  seatWho = 'cat';
   openSheet('Piece', `
     ${pieceTypeChoices(piece.type)}
     <label class="field"><span>How many you have</span><input name="count" type="number" min="1" max="99" value="${piece.count || 1}"></label>
@@ -1558,6 +1594,7 @@ function openPieceDetails(piece) {
     <label class="check"><input type="checkbox" name="catSpot"${piece.catSpot ? ' checked' : ''}><span>${escapeHtml(cat.name)} can sit and sleep on it</span></label>
     <div class="preview-setup seat-setup"${piece.catSpot ? '' : ' hidden'}>
       <canvas id="seat-preview" class="pixel" width="1" height="1" aria-label="${escapeHtml(cat.name)} sitting on it"></canvas>
+      ${seatWhoHtml()}
       ${nudgeHtml('seat', piece)}
     </div>
     <label class="check"><input type="checkbox" name="light"${piece.light ? ' checked' : ''}><span>Gives light at night</span></label>
@@ -1592,6 +1629,7 @@ function openPieceDetails(piece) {
       surface: form.elements.surface.checked, lift: Number(form.elements.lift.value) || 0, light: form.elements.light.checked,
       catSpot: form.elements.catSpot.checked, catLift: Math.max(0, Number(form.elements.catLift.value) || 0),
       catShift: Math.round(Number(form.elements.catShift.value) || 0),
+      duckShift: Math.round(Number(form.elements.duckShift.value) || 0), duckLift: Math.max(0, Number(form.elements.duckLift.value) || 0),
       lightX: Number(form.elements.lightX.value) || 0, lightY: Number(form.elements.lightY.value) || 0,
       toy: form.elements.toy.checked, set: form.elements.set.value.trim(), family, rarity: form.elements.rarity.value,
       locked: form.elements.locked.checked,

@@ -57,12 +57,16 @@ function placeDuck() {
 }
 
 // --- Furniture: the duck uses the same spots as the cat (catSpots in room.js),
-// sitting a little to one side when the cat is there too.
+// sitting where the piece's seat settings put it (duckShift sideways, duckLift
+// up; set beside the cat in the piece's details). Without them, a little to the
+// cat's right.
 
 function duckSeat(spotPlaced) {
+  const piece = pieces.get(spotPlaced.piece);
+  const b = boxOf(spotPlaced);
   const seat = seatPoint(spotPlaced);
-  const shared = catState.on === spotPlaced.id;
-  return { x: seat.x + (shared ? 10 : 0), y: seat.y, lift: seat.lift };
+  const shift = piece.duckShift ?? (piece.catShift || 0) + 10;
+  return { x: (b.x + b.w / 2) * TILE + shift, y: seat.y, lift: piece.duckLift ?? seat.lift };
 }
 
 function duckJump(to, lift, now) {
