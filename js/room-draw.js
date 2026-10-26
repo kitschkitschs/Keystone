@@ -432,17 +432,15 @@ async function useDrawing() {
     drawFor = null;
     // The next drawing starts from the one in progress, not this piece.
     draw.px = null;
-    goTo('home');
+    goTo('pieces');
     showBackupInfo();
     return;
   }
   cut.sheet = canvas;
-  cut.box = [0, 0, draw.w, draw.h];
+  cut.boxes = [trimBox(canvas, [0, 0, draw.w, draw.h])];
   cut.corner = null;
-  cut.tilesTouched = false;
-  cut.pile = [];
   cut.name = 'Drawing';
   cutFor = null;
-  cut.note = 'Your drawing. Give it a name and add it to the inventory.';
+  cut.note = 'Your drawing is boxed. Add it, then name it and set it up.';
   goTo('room-add');
 }

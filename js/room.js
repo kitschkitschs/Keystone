@@ -32,7 +32,6 @@ let cat = defaultCat();
 let decorating = false;
 let held = null; // the piece in your hand: { piece, view, x, y, from }
 let inventoryTab = 'all';
-let editingPieces = false;
 let previewHour = null; // a chosen time of day, to try the light; null follows the clock
 try { inventoryTab = localStorage.getItem('keystone-inventory-tab') || 'all'; } catch { /* all */ }
 
@@ -264,6 +263,7 @@ function drawRoom(now) {
     const b = target.spot ? boxOf(target.spot) : { x: target.tile[0], y: target.tile[1], w: 1, d: 1 };
     wg.fillStyle = 'rgba(90, 200, 120, 0.4)';
     wg.fillRect(b.x * TILE, b.y * TILE, b.w * TILE, b.d * TILE);
+    if (target.spot) drawSeatGhost(target.spot);
     drawCat(now);
   }
 
@@ -280,6 +280,7 @@ function drawRoom(now) {
     drawPiece(held, 0.85);
     wg.fillStyle = ok ? 'rgba(90, 200, 120, 0.5)' : 'rgba(230, 80, 80, 0.5)';
     wg.fillRect(box.x * TILE, box.y * TILE, box.w * TILE, box.d * TILE);
+    if (pieces.get(held.piece).catSpot) drawSeatGhost(held);
   }
 
   const g = roomCanvas.getContext('2d');
@@ -841,6 +842,19 @@ function drawCat(now) {
   drawCatFrame(wg, catSheet, frame, b.x, b.y, mirror);
 }
 
+// A see-through cat, sitting where it would sit on a piece: shown while you
+// place a piece the cat can sit on, or carry the cat over one.
+function drawSeatGhost(spotPlaced) {
+  if (!catSheet) return;
+  const sit = animSetting('sitDown');
+  const b = boxOf(spotPlaced);
+  const x = (b.x + b.w / 2) * TILE;
+  const y = tileCentre(...seatTile(spotPlaced)).y - (pieces.get(spotPlaced.piece).catLift ?? 8);
+  wg.globalAlpha = 0.6;
+  drawCatFrame(wg, catSheet, sit.start + Math.max(0, sit.count - 1), Math.round(x - cat.fw / 2), Math.round(y - cat.fh + 3), sit.mirror);
+  wg.globalAlpha = 1;
+}
+
 // Little pixel hearts when you pet the cat, and z's while it sleeps.
 const HEART = ['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'];
 const ZED = ['###', '..#', '.#.', '###'];
@@ -1120,26 +1134,14 @@ function placedCount(id) {
   return placed.filter((p) => p.piece === id).length;
 }
 
-function catStatus() {
-  const spotPlaced = catState.on && catState.mode !== 'hop' && placed.find((p) => p.id === catState.on);
-  const where = spotPlaced ? ` on the ${pieces.get(spotPlaced.piece).name.toLowerCase()}` : '';
-  if (catState.mode === 'sleep') return `${cat.name} is asleep${where}`;
-  if (catState.mode === 'carried') return `${cat.name} is in your arms`;
-  if (catState.mode === 'play') return `${cat.name} is playing`;
-  if (catState.mode === 'walk' || catState.mode === 'hop') return `${cat.name} is wandering about`;
-  if (where) return `${cat.name} is${where}`;
-  return `${cat.name} is here`;
-}
-
+// The bar under the room, only while decorating: the buttons for the piece in
+// your hand. Your pieces are in the inventory window (room-hud.js).
 function showRoomPanel() {
   const bar = $('room-bar');
-  const panel = $('room-panel');
   showHud();
-  if (!decorating) {
-    bar.innerHTML = `<span class="grow muted" id="room-status">${escapeHtml(catStatus())}, ${timeWord(hourNow())}.</span>`;
-    panel.innerHTML = '';
-    return;
-  }
+  if (gameWindowKind === 'inventory') drawGameWindow();
+  bar.hidden = !decorating;
+  if (!decorating) return;
   if (held) {
     const piece = pieces.get(held.piece);
     bar.innerHTML = `<span class="grow"><b>${escapeHtml(piece.name)}</b><span class="muted"> · drag it to a spot</span></span>
@@ -1147,18 +1149,23 @@ function showRoomPanel() {
       ${held.from ? '<button class="text-button" type="button" data-room="away">Put away</button>' : '<button class="text-button" type="button" data-room="cancel">Cancel</button>'}
       <button class="ink-button" type="button" data-room="place"${canPlace(held) ? '' : ' disabled'}>Place</button>`;
   } else {
-    bar.innerHTML = `<span class="grow muted">Tap a piece below to place it, or one in the room to move it.</span>
+    bar.innerHTML = `<span class="grow muted">Tap a piece in the room to move it.</span>
+      <button class="text-button" type="button" data-room="inventory">Inventory</button>
       <button class="ink-button" type="button" data-room="done">Done</button>`;
   }
+}
+
+// The inventory: every unlocked piece, by kind, with how many are left to place.
+function inventoryHtml() {
   const tabs = [['all', 'All'], ...PIECE_TYPES.map(([key, name]) => [key, name])];
   const list = [...pieces.values()]
     .filter((p) => !p.locked && (inventoryTab === 'all' || p.type === inventoryTab))
     .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-  panel.innerHTML = `
+  return `
     ${sampleMode ? '<p class="muted">Sample data is on, so changes to the room are only kept until you turn it off.</p>' : ''}
+    <p id="inv-note" class="status" role="status"></p>
     <nav class="inv-tabs" aria-label="Kinds of pieces">${tabs.map(([key, name]) => `<button type="button" class="chip" data-inv-tab="${key}" aria-pressed="${key === inventoryTab}">${name}</button>`).join('')}</nav>
     <div class="inventory">
-      <button type="button" class="inv-tile inv-add" data-room="add"><span class="inv-plus">+</span><span class="inv-name">Add</span></button>
       ${list.map((p) => {
         const left = (p.count || 1) - placedCount(p.id);
         const flat = p.type === 'wallpaper' || p.type === 'floor';
@@ -1169,48 +1176,45 @@ function showRoomPanel() {
           <span class="inv-name">${escapeHtml(p.name)}</span>${badge ? `<span class="inv-badge">${badge}</span>` : ''}</button>`;
       }).join('')}
     </div>
-    ${pieces.size ? '' : `<p class="muted">Nothing here yet. Add your own pieces, or start with the placeholder ones.</p>
-      <p><button class="ink-button" type="button" data-room="starter">Add the starter pieces</button></p>`}
-    <div class="buttons room-more">
-      <button class="text-button" type="button" data-room="edit" aria-pressed="${editingPieces}">${editingPieces ? 'Stop editing pieces' : 'Edit pieces'}</button>
-    </div>
-    ${editingPieces ? '<p class="muted">Tap a piece above to rename it, change it, or delete it.</p>' : ''}`;
+    ${pieces.size ? (list.length ? '' : '<p class="muted">Nothing of this kind yet.</p>')
+      : `<p class="muted">Nothing here yet. Cut your own pieces in the workshop, or start with the placeholder ones.</p>
+      <p><button class="ink-button" type="button" data-inv="starter">Add the starter pieces</button></p>`}`;
 }
 
-$('room-bar').addEventListener('click', roomButton);
-$('room-panel').addEventListener('click', roomButton);
-
-async function roomButton(event) {
-  const tab = event.target.closest('[data-inv-tab]');
-  if (tab) {
-    inventoryTab = tab.dataset.invTab;
-    try { localStorage.setItem('keystone-inventory-tab', inventoryTab); } catch { /* not important */ }
-    showRoomPanel();
-    return;
-  }
-  const tile = event.target.closest('[data-piece]');
-  if (tile) return tapPiece(pieces.get(tile.dataset.piece));
+$('room-bar').addEventListener('click', (event) => {
   const button = event.target.closest('[data-room]');
   if (!button) return;
   const action = button.dataset.room;
-  if (action === 'decorate') { decorating = true; showRoomPanel(); }
-  if (action === 'done') { decorating = false; editingPieces = false; held = null; showRoomPanel(); }
+  if (action === 'inventory') openGameWindow('inventory');
+  if (action === 'done') { decorating = false; held = null; showRoomPanel(); }
   if (action === 'place') placeHeld();
   if (action === 'turn') turnHeld();
   if (action === 'cancel') { held = null; showRoomPanel(); }
   if (action === 'away') putAway();
-  if (action === 'add') { cutFor = null; goTo('room-add'); }
-  if (action === 'edit') { editingPieces = !editingPieces; showRoomPanel(); }
-  if (action === 'starter') {
-    button.disabled = true;
+});
+
+$('gw-body').addEventListener('click', async (event) => {
+  if (gameWindowKind !== 'inventory') return;
+  const tab = event.target.closest('[data-inv-tab]');
+  if (tab) {
+    inventoryTab = tab.dataset.invTab;
+    try { localStorage.setItem('keystone-inventory-tab', inventoryTab); } catch { /* not important */ }
+    drawGameWindow();
+    return;
+  }
+  const tile = event.target.closest('[data-piece]');
+  if (tile) return tapPiece(pieces.get(tile.dataset.piece));
+  if (event.target.closest('[data-inv="starter"]')) {
+    event.target.disabled = true;
     await addStarterPieces();
     await loadRoom();
     showRoomPanel();
   }
-}
+});
 
+// A piece tapped in the inventory: wallpaper and floors go straight on, anything
+// else goes in your hand to place.
 async function tapPiece(piece) {
-  if (editingPieces) return openPieceDetails(piece);
   if (piece.type === 'wallpaper' || piece.type === 'floor') {
     room[piece.type] = room[piece.type] === piece.id ? '' : piece.id;
     await saveRoomSettings();
@@ -1218,9 +1222,10 @@ async function tapPiece(piece) {
     return;
   }
   if ((piece.count || 1) - placedCount(piece.id) <= 0) {
-    roomNote(`Every ${piece.name.toLowerCase()} is in the room. Tap one there to move it.`);
+    $('inv-note').textContent = `Every ${piece.name.toLowerCase()} is in the room. Tap one there to move it.`;
     return;
   }
+  closeGameWindow();
   holdPiece(piece);
 }
 
@@ -1229,6 +1234,8 @@ async function tapPiece(piece) {
 function pieceTypeChoices(current) {
   return `<label class="field"><span>What it is</span><select name="type">${PIECE_TYPES.map(([key, name]) => `<option value="${key}"${key === current ? ' selected' : ''}>${name}</option>`).join('')}</select></label>`;
 }
+
+const setNames = () => [...new Set([...pieces.values()].map((p) => p.set).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
 // Pieces this one can be a colour of: the first of each colour family, but not itself.
 function colourChoices(piece) {
@@ -1239,12 +1246,20 @@ function colourChoices(piece) {
     .map((p) => `<option value="${p.id}"${piece.family === p.id ? ' selected' : ''}>${escapeHtml(p.name)}</option>`).join('');
 }
 
-// New pieces from the cutter's pile, waiting to be named and set up one by one.
-let setupQueue = [];
+// Deletes pieces, and any of them standing in the room.
+async function deletePieces(ids) {
+  for (const id of ids) {
+    for (const p of placed.filter((q) => q.piece === id)) await deleteItem(p.id);
+    if (room.wallpaper === id) room.wallpaper = '';
+    if (room.floor === id) room.floor = '';
+    await deleteItem(id);
+  }
+  await saveRoomSettings();
+  await loadRoom();
+}
 
+// Everything about one piece. Opened from the Pieces page (room-pieces.js).
 function openPieceDetails(piece) {
-  const inQueue = setupQueue.indexOf(piece.id);
-  const nextId = inQueue >= 0 ? setupQueue[inQueue + 1] : null;
   const views = piece.views.map((v, i) => `<div class="view-row">
       <img class="pixel" src="${v.src}" alt="" style="--pw: ${v.pw}; --ph: ${v.ph}">
       <label>Wide <input type="number" name="w${i}" min="1" max="12" value="${v.w}"></label>
@@ -1252,14 +1267,13 @@ function openPieceDetails(piece) {
       <button class="text-button" type="submit" value="draw-${i}">Draw</button>
       ${i ? `<button class="text-button danger" type="submit" value="unview-${i}">Remove</button>` : ''}
     </div>`).join('');
-  openSheet(inQueue >= 0 ? `New piece ${inQueue + 1} of ${setupQueue.length}` : 'Piece', `
-    ${inQueue >= 0 ? `<div class="cut-preview"><img class="pixel" src="${piece.views[0].src}" alt="" style="--pw: ${piece.views[0].pw}; --ph: ${piece.views[0].ph}"></div>` : ''}
+  openSheet('Piece', `
     <label class="field"><span>Name</span><input name="name" type="text" value="${escapeHtml(piece.name)}" required autocomplete="off"></label>
     ${pieceTypeChoices(piece.type)}
     <label class="field"><span>How many you have</span><input name="count" type="number" min="1" max="99" value="${piece.count || 1}"></label>
     <h3>Collecting</h3>
-    <label class="field"><span>Set <span class="muted">(blank for none)</span></span><input name="set" type="text" value="${escapeHtml(piece.set || '')}" list="set-names" autocomplete="off"></label>
-    <datalist id="set-names">${[...new Set([...pieces.values()].map((p) => p.set).filter(Boolean))].map((name) => `<option value="${escapeHtml(name)}">`).join('')}</datalist>
+    <label class="field"><span>Set</span><input name="set" type="text" value="${escapeHtml(piece.set || '')}" list="set-names" autocomplete="off" placeholder="Not in a set"></label>
+    <datalist id="set-names">${setNames().map((name) => `<option value="${escapeHtml(name)}">`).join('')}</datalist>
     <label class="field"><span>A colour of</span><select name="family"><option value="">Nothing, it's its own piece</option>${colourChoices(piece)}</select></label>
     <label class="field"><span>Rarity</span><select name="rarity">${RARITIES.map(([key, name]) => `<option value="${key}"${(piece.rarity || 'common') === key ? ' selected' : ''}>${name}</option>`).join('')}</select></label>
     <label class="check"><input type="checkbox" name="locked"${piece.locked ? ' checked' : ''}><span>Locked in the gacha machine</span></label>
@@ -1267,37 +1281,21 @@ function openPieceDetails(piece) {
     <p class="muted">Each look is one way the piece can be turned. The tiles are what it stands on.</p>
     ${views}
     <p><button class="text-button" type="submit" value="addview">Add a turned look</button></p>
+    <h3>In the room</h3>
     <label class="check"><input type="checkbox" name="surface"${piece.surface ? ' checked' : ''}><span>Things can go on top (like a table)</span></label>
     <label class="field"><span>Table height, in pixels <span class="muted">(how high things sit on it)</span></span><input name="lift" type="number" min="0" max="64" value="${piece.lift || 16}"></label>
-    <label class="check"><input type="checkbox" name="light"${piece.light ? ' checked' : ''}><span>Gives light at night</span></label>
     <label class="check"><input type="checkbox" name="catSpot"${piece.catSpot ? ' checked' : ''}><span>${escapeHtml(cat.name)} can sit and sleep on it</span></label>
     <label class="field"><span>How high ${escapeHtml(cat.name)} sits on it, in pixels</span><input name="catLift" type="number" min="0" max="64" value="${piece.catLift ?? 8}"></label>
+    <label class="check"><input type="checkbox" name="light"${piece.light ? ' checked' : ''}><span>Gives light at night</span></label>
     <label class="check"><input type="checkbox" name="toy"${piece.toy ? ' checked' : ''}><span>A toy ${escapeHtml(cat.name)} plays with (on the floor)</span></label>
-    <p><button class="text-button danger" type="submit" value="delete">Delete this piece</button></p>
-    ${nextId ? '<p><button class="ink-button" type="submit" value="next">Save and set up the next one</button></p>' : ''}`,
+    <p><button class="text-button danger" type="submit" value="delete">Delete this piece</button></p>`,
   async (form, submitter) => {
     const action = submitter && submitter.value;
-    // Leaving the queue (deleting or drawing) still lets you carry on with the next one.
-    const goNext = () => {
-      const next = nextId && pieces.get(nextId);
-      if (next) {
-        openPieceDetails(next);
-        return false;
-      }
-      setupQueue = [];
-      return true;
-    };
     if (action === 'delete') {
-      const inRoom = placed.filter((p) => p.piece === piece.id);
-      if (!confirm(inRoom.length ? `Delete ${piece.name}? The ${inRoom.length} in the room go too.` : `Delete ${piece.name}?`)) return false;
-      for (const p of inRoom) await deleteItem(p.id);
-      if (room.wallpaper === piece.id) room.wallpaper = '';
-      if (room.floor === piece.id) room.floor = '';
-      await saveRoomSettings();
-      await deleteItem(piece.id);
-      await loadRoom();
-      showRoomPanel();
-      return goNext();
+      const inRoom = placed.filter((p) => p.piece === piece.id).length;
+      if (!confirm(inRoom ? `Delete ${piece.name}? The ${inRoom} in the room go too.` : `Delete ${piece.name}?`)) return false;
+      await deletePieces([piece.id]);
+      return true;
     }
     // Joining a colour family: pieces that were colours of this one come along.
     const family = form.elements.family.value;
@@ -1319,20 +1317,18 @@ function openPieceDetails(piece) {
       locked: form.elements.locked.checked,
     });
     pieces.set(saved.id, saved);
-    showRoomPanel();
     if (action && action.startsWith('draw-')) {
       drawFor = { piece: saved.id, view: Number(action.slice(5)) };
+      closeGameWindow();
       goTo('draw');
     } else if (action === 'addview') {
       cutFor = saved.id;
+      closeGameWindow();
       goTo('room-add');
     } else if (action && action.startsWith('unview-')) {
       openPieceDetails(saved);
       return false;
-    } else if (action === 'next') {
-      return goNext();
     }
-    if (inQueue >= 0) setupQueue = [];
     return true;
   });
 }
@@ -1394,9 +1390,3 @@ async function showRoom() {
   showRoomPanel();
   startRoomLoop();
 }
-
-// Keeps the words under the room up to date.
-setInterval(() => {
-  const status = $('room-status');
-  if (status && currentView() === 'home') status.textContent = `${catStatus()}, ${timeWord(hourNow())}.`;
-}, 2000);

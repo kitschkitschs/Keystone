@@ -26,12 +26,16 @@
       <p id="room-note" class="room-note side" role="status" hidden></p>
       <div id="room-bar" class="room-bar side"></div>
     </div>
-    <div id="room-panel" class="side"></div>
   </section>
 
   <!-- ===== Cutting your own pieces from a picture. Drawn by room-add.js. ===== -->
   <section id="room-add" class="view" aria-label="Add pieces" hidden>
     <div id="cut-page"></div>
+  </section>
+
+  <!-- ===== Every piece in a list, to set up several at once. Drawn by room-pieces.js. ===== -->
+  <section id="pieces" class="view" aria-label="Pieces" hidden>
+    <div id="pieces-page"></div>
   </section>
 
   <!-- ===== Drawing your own pieces, pixel by pixel. Drawn by room-draw.js. ===== -->
@@ -166,6 +170,7 @@
   <script src="js/room.js"></script>
   <script src="js/room-add.js"></script>
   <script src="js/room-draw.js"></script>
+  <script src="js/room-pieces.js"></script>
   <script src="js/room-gacha.js"></script>
   <script src="js/room-hud.js"></script>
 </body>
