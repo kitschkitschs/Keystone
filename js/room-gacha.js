@@ -32,7 +32,6 @@ function drawGacha() {
     action = `<div class="prize">
         <img class="pixel" src="${prize.views[0].src}" alt="" style="--pw: ${prize.views[0].pw}; --ph: ${prize.views[0].ph}">
         <p><b>${escapeHtml(pieceLabel(prize))}</b> <span class="muted">· ${rarityName(prize.rarity)}</span></p>
-        <p class="muted">It's in your inventory now.</p>
       </div>
       ${inside ? '<button class="ink-button" type="button" data-gacha="pull">Turn the handle again</button>' : ''}`;
   } else if (gacha.phase === 'turning') action = '';
@@ -40,8 +39,8 @@ function drawGacha() {
   $('gw-title').textContent = 'Gachapon';
   $('gw-body').innerHTML = `
     <div class="machine-wrap"><canvas id="gacha-machine" class="pixel" width="48" height="64"></canvas></div>
-    <p class="muted machine-note">${inside ? `${inside} ${inside === 1 ? 'thing' : 'things'} inside. Free to turn while we try it out.`
-      : 'Empty: everything is collected. Pieces you add go in here.'}</p>
+    <p class="muted machine-note">${inside ? `${inside} inside`
+      : 'Empty'}</p>
     <div class="machine-action">${action}</div>
     <p class="machine-more"><button class="text-button" type="button" data-gw="catalogue">See the catalogue</button></p>`;
   drawMachine(performance.now());

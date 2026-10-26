@@ -47,7 +47,6 @@ const APP_FILES = [
   'js/room-art.js',
   'js/room.js',
   'js/room-add.js',
-  'js/room-draw.js',
   'js/room-pieces.js',
   'js/room-gacha.js',
   'js/room-hud.js',
