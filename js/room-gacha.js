@@ -10,12 +10,12 @@ const RARITIES = [['common', 'Common', 70], ['rare', 'Rare', 25], ['special', 'S
 const CAPSULE = { common: '#E8B4B0', rare: '#8FA6C2', special: '#E2BE5C' };
 const rarityName = (key) => (RARITIES.find(([k]) => k === key) || RARITIES[0])[1];
 
-// phase: ready, turning (the handle goes round), capsule (waiting in the chute,
-// tap to open) or open (the prize is showing).
+// phase: ready, turning (the handle goes round, the capsule drops) or open (the
+// prize is showing). One tap of the handle is all it takes.
 const gacha = { phase: 'ready', prize: null, start: 0 };
 
 function openGacha() {
-  if (gacha.phase === 'turning') gacha.phase = 'capsule';
+  if (gacha.phase === 'turning') gacha.phase = 'open';
   openGameWindow('gacha');
 }
 
@@ -28,11 +28,10 @@ function drawGacha() {
   const inside = lockedPieces().length;
   const prize = gacha.prize && pieces.get(gacha.prize);
   let action;
-  if (gacha.phase === 'capsule') action = '<button class="ink-button" type="button" data-gacha="open">Open the capsule</button>';
-  else if (gacha.phase === 'open' && prize) {
+  if (gacha.phase === 'open' && prize) {
     action = `<div class="prize">
         <img class="pixel" src="${prize.views[0].src}" alt="" style="--pw: ${prize.views[0].pw}; --ph: ${prize.views[0].ph}">
-        <p><b>${escapeHtml(prize.name)}</b> <span class="muted">· ${rarityName(prize.rarity)}</span></p>
+        <p><b>${escapeHtml(pieceLabel(prize))}</b> <span class="muted">· ${rarityName(prize.rarity)}</span></p>
         <p class="muted">It's in your inventory now.</p>
       </div>
       ${inside ? '<button class="ink-button" type="button" data-gacha="pull">Turn the handle again</button>' : ''}`;
@@ -77,9 +76,9 @@ function catalogueHtml(all) {
 
 function catalogueTile(p) {
   const v = p.views[0];
-  return `<button type="button" class="cat-tile${p.locked ? ' locked' : ''}" data-cat-piece="${p.id}" aria-label="Edit ${escapeHtml(p.name)}">
+  return `<button type="button" class="cat-tile${p.locked ? ' locked' : ''}" data-cat-piece="${p.id}" aria-label="Edit this piece">
     <img class="pixel" src="${v.src}" alt="" style="--pw: ${v.pw}; --ph: ${v.ph}">
-    <span class="inv-name">${p.locked ? '?' : escapeHtml(p.name)}</span>
+    ${p.set ? '' : `<span class="inv-name">${p.locked ? '?' : escapeHtml(p.name)}</span>`}
     ${p.rarity && p.rarity !== 'common' ? `<span class="cat-rarity ${p.rarity}">${rarityName(p.rarity)}</span>` : ''}
   </button>`;
 }
@@ -121,7 +120,7 @@ function turning(now) {
     requestAnimationFrame(turning);
     return;
   }
-  gacha.phase = 'capsule';
+  gacha.phase = 'open';
   drawGacha();
 }
 
@@ -141,10 +140,6 @@ $('gw-body').addEventListener('click', async (event) => {
   if (action === 'pull') {
     button.disabled = true;
     await pull();
-  }
-  if (action === 'open') {
-    gacha.phase = 'open';
-    drawGacha();
   }
 });
 
@@ -209,7 +204,7 @@ function drawMachine(now) {
   g.fillRect(28, 46, 10, 9);
   g.fillStyle = MACHINE.chute;
   g.fillRect(29, 47, 8, 7);
-  if (prize && (gacha.phase === 'capsule' || (turning && t > 0.8))) {
+  if (prize && turning && t > 0.8) {
     const colour = CAPSULE[prize.rarity || 'common'];
     disc(g, 33, 51, 3.4, MACHINE.line);
     disc(g, 33, 51, 2.6, colour);

@@ -30,7 +30,7 @@ function showRoomAdd() {
       <button class="ink-button" type="button" data-cut="done">Done</button>
     </header>
     <div class="side">
-      <p class="muted">${forPiece ? `Box the picture of ${escapeHtml(forPiece.name)} turned another way.`
+      <p class="muted">${forPiece ? `Box the picture of this piece turned another way.`
         : 'Choose a picture: one piece, or a whole sheet. Box the pieces, then add them. You name and set them up next, all together.'}
         The picture needs a see-through background, like a PNG.</p>
       <div class="buttons">
@@ -259,7 +259,7 @@ async function addTurnedLook() {
   pieces.set(saved.id, saved);
   cutFor = null;
   cut.boxes = [];
-  org.note = `${saved.name} now has ${saved.views.length} looks: tap Turn while placing it.`;
+  org.note = `It now has ${saved.views.length} looks: tap Turn while placing it.`;
   goTo('pieces');
 }
 

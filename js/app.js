@@ -88,6 +88,8 @@ function currentView() {
 
 function showView() {
   const view = currentView();
+  // The game's pop-up window belongs to the room.
+  if (view !== 'home' && typeof closeGameWindow === 'function') closeGameWindow();
   $('room').hidden = view !== 'home';
   $('room-add').hidden = view !== 'room-add';
   $('pieces').hidden = view !== 'pieces';
