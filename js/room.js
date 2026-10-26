@@ -48,7 +48,12 @@ async function loadRoom() {
     if (item.kind === 'piece') pieces.set(item.id, item);
     if (item.kind === 'placed') placed.push(item);
     if (item.kind === 'room') Object.assign(room, item);
-    if (item.kind === 'cat') cat = { ...defaultCat(), ...item, anims: { ...defaultCat().anims, ...item.anims } };
+    if (item.kind === 'cat') {
+      cat = { ...defaultCat(), ...item, anims: { ...defaultCat().anims, ...item.anims } };
+      // The crouch first started at frame 24 by mistake: the stretch frames are 30 and 31.
+      const crouch = cat.anims.crouch;
+      if (crouch.start === 24 && crouch.count === 2) cat.anims.crouch = { ...crouch, start: 30 };
+    }
   }
   placed = placed.filter((p) => pieces.has(p.piece));
   catSheet = null;
