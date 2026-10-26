@@ -599,6 +599,8 @@ html.wide .piece-col + .piece-col { margin-top: 0; }
 .add-tag { cursor: pointer; }
 .tile-grid { grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); }
 .tile-grid .thing-tile { min-height: 52px; }
+.tile-filters { display: flex; gap: 8px; margin: 6px 0 2px; }
+.tile-filters select { flex: 1; min-width: 0; }
 .tile-img { width: calc(var(--tw) * 2px); height: calc(var(--th) * 2px); max-width: 48px; max-height: 48px; object-fit: contain; image-rendering: pixelated; }
 .map-wrap { margin: 8px 0; }
 #map-canvas { width: 100%; height: auto; image-rendering: pixelated; touch-action: none; border-radius: 6px; cursor: crosshair; }

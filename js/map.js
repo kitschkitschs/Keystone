@@ -13,12 +13,13 @@
 //        each sheet a picture (missing seasons use summer's, or any there is).
 //   { id: "tile-...", kind: "tile", day: "", set, x, y, w, h, frames: [[x, y]], fps, type, front, walk }
 //        x, y, w, h: where it is on the sheet, in pixels (whole tiles of 16).
-//        frames: more spots of the same size, played in turn (water).
+//        frames: more spots of the same size, played in turn (an animated tile).
 //        type: ground, soil, path, water, edge or decoration (see TILE_TYPES).
 //        front: drawn in front of the pets (a canopy). walk: the pets can walk on it.
 //   { id: "map-garden", kind: "map", day: "", cols, rows, ground: [], detail: [], front: [] }
-//        each layer a tile id (or "") for every tile of the map, row by row.
-//        A tile bigger than one tile is stored at its top-left corner.
+//        each layer a tile id (or "") for every tile of the map, row by row,
+//        with ":1", ":2" or ":3" after it when it's turned that many quarter
+//        turns. A tile bigger than one tile is stored at its top-left corner.
 
 const TILE_TYPES = [
   ['ground', 'Ground', true],
@@ -69,33 +70,50 @@ function sheetFor(set, season = seasonNow()) {
   return sheets[season] || sheets.summer || Object.values(sheets).find(Boolean) || '';
 }
 
+// What's in one spot of a map layer: the tile, and how many quarter turns.
+function cellTile(value) {
+  const [id, turn] = String(value || '').split(':');
+  return { id, tile: tiles.get(id), turn: Number(turn) || 0 };
+}
+const cellValue = (id, turn) => (turn ? `${id}:${turn}` : id);
+// How many tiles across and down a tile covers, turned.
+const footprint = (tile, turn = 0) => (turn % 2 ? [tile.h / TILE, tile.w / TILE] : [tile.w / TILE, tile.h / TILE]);
+
 // Draws a tile with its top-left corner at x, y.
-function drawTile(g, tile, x, y, now = performance.now(), season = seasonNow()) {
+function drawTile(g, tile, x, y, now = performance.now(), season = seasonNow(), turn = 0) {
   const img = picture(sheetFor(tilesets.get(tile.set), season));
   if (!img) return;
   const spots = [[tile.x, tile.y], ...(tile.frames || [])];
   const [sx, sy] = spots[Math.floor((now / 1000) * (Number(tile.fps) || 4)) % spots.length];
-  g.drawImage(img, sx, sy, tile.w, tile.h, x, y, tile.w, tile.h);
+  if (!turn) return g.drawImage(img, sx, sy, tile.w, tile.h, x, y, tile.w, tile.h);
+  const [cols, rows] = footprint(tile, turn);
+  g.save();
+  g.translate(x + (cols * TILE) / 2, y + (rows * TILE) / 2);
+  g.rotate((turn * Math.PI) / 2);
+  g.drawImage(img, sx, sy, tile.w, tile.h, -tile.w / 2, -tile.h / 2, tile.w, tile.h);
+  g.restore();
 }
 
-const mapHere = () => Boolean(gardenMap && gardenMap.ground.some((id) => tiles.has(id)));
+const mapHere = () => Boolean(gardenMap && gardenMap.ground.some((v) => cellTile(v).tile));
 const cellOf = (tx, ty) => (gardenMap && tx >= 0 && ty >= 0 && tx < gardenMap.cols && ty < gardenMap.rows ? ty * gardenMap.cols + tx : -1);
 
-// The tiles covering a spot on the map, big ones too, on each layer.
-function tilesAt(tx, ty) {
+// The spots on one layer whose tile covers tx, ty, big ones too.
+function coveringAt(layer, tx, ty) {
   const found = [];
   if (!gardenMap) return found;
-  for (const [layer] of MAP_LAYERS) {
-    gardenMap[layer].forEach((id, i) => {
-      const tile = tiles.get(id);
-      if (!tile) return;
-      const x = i % gardenMap.cols;
-      const y = Math.floor(i / gardenMap.cols);
-      if (tx >= x && tx < x + tile.w / TILE && ty >= y && ty < y + tile.h / TILE) found.push(tile);
-    });
-  }
+  gardenMap[layer].forEach((value, i) => {
+    const { tile, turn } = cellTile(value);
+    if (!tile) return;
+    const x = i % gardenMap.cols;
+    const y = Math.floor(i / gardenMap.cols);
+    const [cols, rows] = footprint(tile, turn);
+    if (tx >= x && tx < x + cols && ty >= y && ty < y + rows) found.push(i);
+  });
   return found;
 }
+
+// The tiles covering a spot on the map, on each layer.
+const tilesAt = (tx, ty) => MAP_LAYERS.flatMap(([layer]) => coveringAt(layer, tx, ty).map((i) => cellTile(gardenMap[layer][i]).tile));
 
 const soilAt = (tx, ty) => tilesAt(tx, ty).some((t) => t.type === 'soil');
 const walkableAt = (tx, ty) => {
@@ -106,9 +124,9 @@ const walkableAt = (tx, ty) => {
 function drawMapLayer(g, layer, now) {
   if (!gardenMap) return;
   const season = seasonNow();
-  gardenMap[layer].forEach((id, i) => {
-    const tile = tiles.get(id);
-    if (tile) drawTile(g, tile, (i % gardenMap.cols) * TILE, Math.floor(i / gardenMap.cols) * TILE, now, season);
+  gardenMap[layer].forEach((value, i) => {
+    const { tile, turn } = cellTile(value);
+    if (tile) drawTile(g, tile, (i % gardenMap.cols) * TILE, Math.floor(i / gardenMap.cols) * TILE, now, season, turn);
   });
 }
 
