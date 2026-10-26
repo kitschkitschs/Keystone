@@ -614,6 +614,11 @@ html.wide .piece-col + .piece-col { margin-top: 0; }
 html.dark .ws-h { color: #A79DB2; }
 .frame-pic small { display: block; text-align: center; font-size: 11px; }
 .tile-filters select { flex: 1; min-width: 0; }
+.sel-box { margin: 8px 0; padding-top: 8px; border-top: 1px solid var(--rule); max-height: 60vh; overflow: auto; }
+.sel-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.sel-row .tile-img { max-width: 32px; max-height: 32px; }
+.sel-kind { flex: 1; min-width: 0; }
+.sel-row select { width: auto; }
 .tile-img { width: calc(var(--tw) * 2px); height: calc(var(--th) * 2px); max-width: 48px; max-height: 48px; object-fit: contain; image-rendering: pixelated; }
 .map-wrap { margin: 8px 0; }
 #map-canvas { width: 100%; height: auto; image-rendering: pixelated; touch-action: none; border-radius: 6px; cursor: crosshair; }
