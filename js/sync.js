@@ -1,7 +1,7 @@
 // sync.js: saving a backup file and loading one back in.
 //
-// Save: builds a .txt file and opens Android's share menu, so you can send it
-// to Proton Drive. Chrome blocks sharing .json files, so the file is .txt,
+// Save: builds a .txt file. On the phone it opens Android's share menu, so you
+// can send it to Proton Drive; on a computer it's an ordinary download. Chrome blocks sharing .json files, so the file is .txt,
 // even though what's inside is JSON. Each file is named by date and time,
 // so every save doubles as a backup.
 //
@@ -29,13 +29,20 @@ async function buildBackupText() {
   return JSON.stringify(backup, null, 1);
 }
 
+// A phone or tablet, where the share menu is the way to send a file on. Computers
+// can have a share menu too (Windows does), but there a plain download is better.
+function onPhone() {
+  if (navigator.userAgentData) return navigator.userAgentData.mobile;
+  return /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+}
+
 // Returns true if the file was shared or downloaded, false if you cancelled.
 async function saveBackup() {
   const text = await buildBackupText();
   const name = backupFileName();
   const file = new File([text], name, { type: 'text/plain' });
 
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+  if (onPhone() && navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title: name });
     } catch (error) {
@@ -43,7 +50,7 @@ async function saveBackup() {
       throw error;
     }
   } else {
-    // No share menu (for example on the PC): download the file instead.
+    // On a computer (or with no share menu): download the file.
     const link = document.createElement('a');
     link.href = URL.createObjectURL(file);
     link.download = name;
