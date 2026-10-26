@@ -71,7 +71,7 @@ async function showDraw() {
   const forPiece = drawFor && pieces.get(drawFor.piece);
   $('draw-page').innerHTML = `
     <header class="plain-head">
-      <div class="date"><div class="date-line">Room</div><h1 class="weekday">${forPiece ? escapeHtml(forPiece.name) : 'Draw'}</h1></div>
+      <div class="date"><div class="date-line">Room</div><h1 class="weekday">${forPiece ? escapeHtml(pieceLabel(forPiece)) : 'Draw'}</h1></div>
       <button class="ink-button" type="button" data-draw="use">${forPiece ? 'Save' : 'Use this'}</button>
     </header>
     <div class="side">

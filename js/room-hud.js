@@ -14,6 +14,10 @@ const HUD_ICONS = {
     '..kaaaaaak..', '..kayyaaak..', '..kayykkak..', '..kaaakkak..', '..kddddddk..', '..kkkkkkkk..'],
   catalogue: ['..kkkkkkkkk.', '..kbbbbbbbk.', '..kbcccccbk.', '..kbbbbbbbk.', '..kbbbbbbbk.', '..kbbyybbbk.',
     '..kbbbbbbbk.', '..kbbbbbbbk.', '..kkkkkkkkk.', '..kccccccck.', '..kkkkkkkkk.', '............'],
+  done: ['............', '............', '..........k.', '.........kgk', '........kgk.', '.k.....kgk..',
+    'kgk...kgk...', '.kgk.kgk....', '..kgkgk.....', '...kgk......', '....k.......', '............'],
+  menu: ['............', '............', '.kkkkkkkkkk.', '.kaaaaaaaak.', '.kkkkkkkkkk.', '............',
+    '.kkkkkkkkkk.', '.kaaaaaaaak.', '.kkkkkkkkkk.', '............', '............', '............'],
   inventory: ['............', '..kkkkkkkk..', '.kwwwwwwwwk.', '.kwwwwwwwwk.', 'kkkkkkkkkkkk', 'kwwwwyywwwwk',
     'kwwwwyywwwwk', 'kwwwwwwwwwwk', 'kwwwwwwwwwwk', 'kkkkkkkkkkkk', '............', '............'],
   workshop: ['............', '....kkkk....', '....k..k....', '.kkkkkkkkkk.', '.kwwwwwwwwk.', '.kwwwwwwwwk.',
@@ -53,24 +57,36 @@ function lightIcon() {
   return 'day';
 }
 
+// The buttons fold away behind one menu button, so the room stays clear. While
+// decorating, the decorate button stays out as a tick: tap it when you're done.
+let hudOpen = false;
+
 function showHud() {
   const hud = $('room-hud');
   const lightName = previewHour === null ? 'Clock' : LIGHT_STEPS.find(([hour]) => hour === previewHour)?.[1] || timeWord(previewHour);
   const buttons = [
-    ['decorate', decorating ? 'Done decorating' : 'Decorate', 'decorate'],
+    ['decorate', decorating ? 'Done decorating' : 'Decorate', decorating ? 'done' : 'decorate'],
     ['inventory', 'Inventory', 'inventory'],
     ['gacha', 'Gachapon', 'gacha'],
     ['catalogue', 'Catalogue', 'catalogue'],
     ['light', `Light: ${lightName}`, lightIcon()],
     ['workshop', 'Workshop', 'workshop'],
-  ];
-  hud.innerHTML = buttons.map(([key, label, icon]) => `<button type="button" class="hud-button" data-hud="${key}" aria-label="${label}" title="${label}"${key === 'decorate' ? ` aria-pressed="${decorating}"` : ''}>${pixelIcon(icon)}</button>`).join('');
+  ].filter(([key]) => hudOpen || (key === 'decorate' && decorating));
+  buttons.push(['menu', hudOpen ? 'Fold the buttons away' : 'Open the buttons', 'menu']);
+  hud.innerHTML = buttons.map(([key, label, icon]) => `<button type="button" class="hud-button" data-hud="${key}" aria-label="${label}" title="${label}"${key === 'decorate' ? ` aria-pressed="${decorating}"` : ''}${key === 'menu' ? ` aria-expanded="${hudOpen}"` : ''}>${pixelIcon(icon)}</button>`).join('');
 }
 
 $('room-hud').addEventListener('click', async (event) => {
   const button = event.target.closest('[data-hud]');
   if (!button) return;
   const key = button.dataset.hud;
+  if (key === 'menu') {
+    hudOpen = !hudOpen;
+    showHud();
+    return;
+  }
+  // Opening something folds the buttons away again; trying the light doesn't.
+  if (key !== 'light') hudOpen = false;
   if (key === 'decorate') {
     decorating = !decorating;
     if (!decorating) held = null;
@@ -81,9 +97,9 @@ $('room-hud').addEventListener('click', async (event) => {
     showRoomPanel();
     openGameWindow('inventory');
   }
-  if (key === 'gacha') openGacha();
-  if (key === 'catalogue') openGameWindow('catalogue');
-  if (key === 'workshop') openGameWindow('workshop');
+  if (key === 'gacha') { showHud(); openGacha(); }
+  if (key === 'catalogue') { showHud(); openGameWindow('catalogue'); }
+  if (key === 'workshop') { showHud(); openGameWindow('workshop'); }
   if (key === 'light') {
     // Follow the clock, or try a time of day. A picked time lasts until the app closes.
     const i = LIGHT_STEPS.findIndex(([hour]) => hour === previewHour);
@@ -119,7 +135,7 @@ function drawGameWindow() {
       <div class="workshop">
         <button type="button" class="ws-button" data-ws="add"><b>Cut pieces</b><span>From a picture or a whole sprite sheet</span></button>
         <button type="button" class="ws-button" data-ws="draw"><b>Draw</b><span>Draw a piece pixel by pixel</span></button>
-        <button type="button" class="ws-button" data-ws="pieces"><b>Pieces</b><span>Name them, sort them into sets, and set them up</span></button>
+        <button type="button" class="ws-button" data-ws="pieces"><b>Pieces</b><span>Sort them into sets and set them up together</span></button>
         <button type="button" class="ws-button" data-ws="cat"><b>${escapeHtml(cat.name)}</b><span>Name and sprite sheet</span></button>
         <button type="button" class="ws-button" data-ws="room"><b>Room</b><span>Size, light and starter pieces</span></button>
       </div>`;

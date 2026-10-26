@@ -10,7 +10,7 @@ function showPiecesFor(ids) {
   org.justAdded = ids;
   org.filter = 'new';
   org.picked = new Set(ids);
-  org.note = `Added ${ids.length} ${ids.length === 1 ? 'piece' : 'pieces'}. ${ids.length === 1 ? "It's" : "They're all"} picked: change them together, or tap one to name it.`;
+  org.note = `Added ${ids.length} ${ids.length === 1 ? 'piece' : 'pieces'}. ${ids.length === 1 ? "It's" : "They're all"} picked: change them together, or tap one for more.`;
   goTo('pieces');
 }
 
@@ -29,9 +29,8 @@ function shownPieces() {
 
 function pieceTags(p) {
   const tags = [(PIECE_TYPES.find(([key]) => key === p.type) || PIECE_TYPES[0])[1]];
-  if (p.set && !org.filter.startsWith('set:')) tags.push(p.set);
   if (p.rarity && p.rarity !== 'common') tags.push(rarityName(p.rarity));
-  if (p.family && pieces.get(p.family)) tags.push(`colour of ${pieces.get(p.family).name}`);
+  if (p.family && pieces.get(p.family)) tags.push('a colour');
   if (p.locked) tags.push('in the machine');
   return tags.map(escapeHtml).join(' · ');
 }
@@ -63,10 +62,10 @@ function drawPieces() {
       </div>
       ${shown.length ? `<label class="check org-all"><input type="checkbox" id="org-all"${n && n === shown.length ? ' checked' : ''}><span>Pick all ${shown.length}</span></label>
       <ul class="org-list">${shown.map((p) => `<li class="org-row${org.picked.has(p.id) ? ' picked' : ''}">
-        <input type="checkbox" data-pick="${p.id}" aria-label="Pick ${escapeHtml(p.name)}"${org.picked.has(p.id) ? ' checked' : ''}>
-        <button type="button" class="org-thumb" data-open="${p.id}" aria-label="Everything about ${escapeHtml(p.name)}"><img class="pixel" src="${p.views[0].src}" alt="" style="--pw: ${p.views[0].pw}; --ph: ${p.views[0].ph}"></button>
+        <input type="checkbox" data-pick="${p.id}" aria-label="Pick this piece"${org.picked.has(p.id) ? ' checked' : ''}>
+        <button type="button" class="org-thumb" data-open="${p.id}" aria-label="Everything about this piece"><img class="pixel" src="${p.views[0].src}" alt="" style="--pw: ${p.views[0].pw}; --ph: ${p.views[0].ph}"></button>
         <div class="org-main">
-          <input class="org-name" type="text" value="${escapeHtml(p.name)}" data-name="${p.id}" aria-label="Name" autocomplete="off">
+          <span class="org-name">${p.set ? escapeHtml(p.set) : '<span class="muted">Not in a set</span>'}</span>
           <span class="org-tags">${pieceTags(p)}</span>
         </div>
         <button type="button" class="text-button org-more" data-open="${p.id}">More</button>
@@ -98,13 +97,6 @@ $('pieces-page').addEventListener('change', async (event) => {
     if (t.checked) org.picked.add(t.dataset.pick);
     else org.picked.delete(t.dataset.pick);
     drawPieces();
-  }
-  if (t.dataset.name) {
-    const piece = pieces.get(t.dataset.name);
-    const name = t.value.trim();
-    if (!name) { t.value = piece.name; return; }
-    const saved = await putItem({ ...piece, name });
-    pieces.set(saved.id, saved);
   }
 });
 
@@ -206,7 +198,7 @@ function openColours() {
   openSheet('Colours', `
     ${list.length > 1 ? `<h3>Colours of one piece</h3>
     <p class="muted">Make the ${list.length} picked pieces colours of one piece, so they sit together in the catalogue. Each one is still its own piece to collect.</p>
-    <label class="field"><span>The first colour</span><select name="original">${list.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}</select></label>
+    <div class="field"><span>The first colour</span>${pieceRadios('original', list, list[0].id)}</div>
     <p><button class="ink-button" type="submit" value="group">Group them as colours</button></p>` : ''}
     <h3>Cut other colours</h3>
     ${cuttable.length ? `<p class="muted">Choose sprite sheets laid out the same as the one ${cuttable.length === 1 ? 'this piece was' : `these ${cuttable.length} pieces were`} cut from, in other colours. Pick several at once. Each piece is cut again from every sheet, with the same settings, named after the colour in the file name, and grouped as its colour.</p>
@@ -227,7 +219,7 @@ function openColours() {
       const saved = await putItem({ ...piece, family: piece.id === root ? '' : root });
       pieces.set(saved.id, saved);
     }
-    org.note = `${list.length} pieces are now colours of ${pieces.get(root).name}.`;
+    org.note = `${list.length} pieces are now colours of one piece.`;
     return true;
   }, 'Close');
   const files = $('org-colour-files');
