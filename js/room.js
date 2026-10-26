@@ -2,7 +2,7 @@
 // 16 x 16 pixel tiles, with a cat walking about and the light following the clock.
 //
 // Everything is saved as items (see db.js), so it all goes in your backup file:
-//   { id: "piece-...", kind: "piece", day: "", name, type, count, surface, lift, light, catSpot, catLift, catShift, toy,
+//   { id: "piece-...", kind: "piece", day: "", name, type, count, surface, lift, light, catSpot, catLift, catShift, lightX, lightY, toy,
 //     set, family, rarity, locked,           set: the furniture set it belongs to. family: the
 //                                            piece it's a colour of (its id), so colours sit
 //                                            together in the catalogue. locked: still in the
@@ -349,10 +349,11 @@ function drawDayLight() {
   if (dark > 0) {
     wg.globalCompositeOperation = 'screen';
     for (const p of placed) {
-      if (!pieces.get(p.piece).light) continue;
+      const piece = pieces.get(p.piece);
+      if (!piece.light) continue;
       const s = spot(p);
-      const cx = s.x + s.w / 2;
-      const cy = s.y + s.h * 0.35;
+      const cx = s.x + s.w / 2 + (piece.lightX || 0);
+      const cy = s.y + s.h * 0.35 + (piece.lightY || 0);
       const glow = wg.createRadialGradient(cx, cy, 0, cx, cy, 44);
       glow.addColorStop(0, `rgba(255, 210, 140, ${0.75 * dark})`);
       glow.addColorStop(0.4, `rgba(255, 190, 120, ${0.3 * dark})`);
@@ -732,6 +733,8 @@ function startRest(kind, now, dark) {
   catState.mode = kind;
   if (kind === 'sleep') {
     setAnim('lieDown', now);
+    // Sometimes it stays lying stretched out instead of curling up.
+    catState.stretch = Math.random() < 0.4;
     catState.until = now + (dark > 0.5 ? 90000 + Math.random() * 120000 : 25000 + Math.random() * 30000);
   } else if (kind === 'sit') {
     setAnim('sitDown', now);
@@ -802,7 +805,7 @@ function moveCat(now, dark) {
     if (catState.anim === 'sitDown' && sitting) setAnim('groom', now);
     else if (catState.anim === 'groom' && now - catState.animStart > 2600) setAnim('sitDown', now - 60000);
   }
-  if (catState.mode === 'sleep' && catState.anim === 'lieDown' && animDone(now)) setAnim('sleep', now);
+  if (catState.mode === 'sleep' && catState.anim === 'lieDown' && !catState.stretch && animDone(now)) setAnim('sleep', now);
   if (now > catState.until) {
     // Put down while you decorate: it stays where you put it until you're done.
     if (catState.stay && decorating) catState.until = now + 4000;
@@ -1283,53 +1286,136 @@ async function deletePieces(ids) {
 }
 
 // Everything about one piece. Opened from the Pieces page (room-pieces.js).
-// The piece with the cat sitting on it, as it will look in the room, so the
-// seat height can be set by eye. Redrawn as the tiles or the height change.
-let seatPiece = null;
-async function drawSeatPreview() {
-  const c = $('seat-preview');
-  if (!c || !seatPiece) return;
+// Previews in a piece's details, to set things by eye: where the cat sits, where
+// small things stand on top, and where a lamp's light comes from. The piece
+// stays still in its frame and the arrows move the thing being placed.
+let previewPiece = null;
+
+// What each arrow moves: the field, how one step up or right changes it, and its limits.
+const NUDGES = {
+  seat: { x: ['catShift', 1, -64, 64], y: ['catLift', -1, 0, 64] },
+  top: { y: ['lift', -1, 0, 64] },
+  glow: { x: ['lightX', 1, -64, 64], y: ['lightY', 1, -64, 64] },
+};
+
+// A frame around the piece, with room for the cat around it, the same size
+// whatever is being placed.
+async function previewFrame(id) {
+  const c = $(id);
+  if (!c || !previewPiece) return null;
   const form = sheetForm.elements;
-  const v = seatPiece.views[0];
+  const v = previewPiece.views[0];
   const w = Math.max(1, Number(form.w0.value) || v.w) * TILE;
   const d = Math.max(1, Number(form.d0.value) || v.d) * TILE;
-  const lift = Math.max(0, Number(form.catLift.value) || 0);
-  const shift = Number(form.catShift.value) || 0;
   const img = await loadPicture(v.src).catch(() => null);
   const pic = { x: Math.floor((w - v.pw) / 2), y: d - v.ph };
-  const seat = { x: Math.round(w / 2 + shift - cat.fw / 2), y: Math.round(d - TILE + 13 - lift - cat.fh + 3) };
-  const left = Math.min(0, pic.x, seat.x) - 4;
-  const top = Math.min(0, pic.y, seat.y) - 4;
-  c.width = Math.max(w, pic.x + v.pw, seat.x + cat.fw) - left + 4;
-  c.height = Math.max(d, pic.y + v.ph) - top + 4;
-  const zoom = Math.max(1, Math.min(4, Math.floor(260 / c.width)));
+  const side = Math.max(cat.fw, 16);
+  const left = Math.min(0, pic.x) - side;
+  const top = Math.min(0, pic.y) - Math.max(cat.fh, 24);
+  c.width = Math.max(w, pic.x + v.pw) - left + side;
+  c.height = Math.max(d, pic.y + v.ph) - top + 6;
+  const zoom = Math.max(1, Math.min(4, Math.floor(280 / c.width)));
   c.style.width = `${c.width * zoom}px`;
   c.style.height = `${c.height * zoom}px`;
   const g = c.getContext('2d');
   g.imageSmoothingEnabled = false;
   g.translate(-left, -top);
-  // The tiles it stands on, faintly.
+  return { g, form, v, w, d, img, pic, left, top, c };
+}
+
+async function drawSeatPreview() {
+  const f = await previewFrame('seat-preview');
+  if (!f) return;
+  const { g, form, w, d, img, pic } = f;
   g.fillStyle = 'rgba(90, 200, 120, 0.25)';
   g.fillRect(0, 0, w, d);
   if (img) g.drawImage(img, pic.x, pic.y);
+  const lift = Number(form.catLift.value) || 0;
+  const shift = Number(form.catShift.value) || 0;
   if (catSheet) {
     const sit = animSetting('sitDown');
-    drawCatFrame(g, catSheet, sit.start + Math.max(0, sit.count - 1), seat.x, seat.y, sit.mirror);
+    drawCatFrame(g, catSheet, sit.start + Math.max(0, sit.count - 1), Math.round(w / 2 + shift - cat.fw / 2), Math.round(d - TILE + 13 - lift - cat.fh + 3), sit.mirror);
   }
 }
 
-sheetForm.addEventListener('click', (event) => {
-  const button = event.target.closest('[data-lift], [data-shift]');
-  if (!button) return;
-  const [name, by, low, high] = button.dataset.lift ? ['catLift', button.dataset.lift, 0, 64] : ['catShift', button.dataset.shift, -64, 64];
-  const input = sheetForm.elements[name];
-  input.value = Math.max(low, Math.min(high, (Number(input.value) || 0) + Number(by)));
+// A small piece to stand on top in the preview: a teacup if there is one.
+function sampleSmallPiece() {
+  const small = [...pieces.values()].filter((p) => p.type === 'small' && p.id !== previewPiece.id);
+  return small.find((p) => /cup/i.test(p.name)) || small[0];
+}
+
+async function drawTopPreview() {
+  const f = await previewFrame('top-preview');
+  if (!f) return;
+  const { g, form, w, d, img, pic } = f;
+  if (img) g.drawImage(img, pic.x, pic.y);
+  const lift = Number(form.lift.value) || 0;
+  const thing = sampleSmallPiece();
+  const tx = Math.floor((w / TILE - 1) / 2) * TILE;
+  const bottom = d - lift;
+  if (thing) {
+    const tv = thing.views[0];
+    const timg = await loadPicture(tv.src).catch(() => null);
+    if (timg) g.drawImage(timg, tx + Math.floor((TILE - tv.pw) / 2), bottom - tv.ph);
+  } else {
+    g.fillStyle = '#F2E8D5';
+    g.fillRect(tx + 4, bottom - 6, 8, 6);
+  }
+}
+
+async function drawGlowPreview() {
+  const f = await previewFrame('glow-preview');
+  if (!f) return;
+  const { g, form, v, img, pic, left, top, c } = f;
+  g.fillStyle = '#2E2A40';
+  g.fillRect(left, top, c.width, c.height);
+  if (img) g.drawImage(img, pic.x, pic.y);
+  const cx = pic.x + v.pw / 2 + (Number(form.lightX.value) || 0);
+  const cy = pic.y + v.ph * 0.35 + (Number(form.lightY.value) || 0);
+  g.globalCompositeOperation = 'screen';
+  const glow = g.createRadialGradient(cx, cy, 0, cx, cy, 44);
+  glow.addColorStop(0, 'rgba(255, 210, 140, 0.75)');
+  glow.addColorStop(0.4, 'rgba(255, 190, 120, 0.3)');
+  glow.addColorStop(1, 'rgba(255, 190, 120, 0)');
+  g.fillStyle = glow;
+  g.fillRect(cx - 44, cy - 44, 88, 88);
+  g.globalCompositeOperation = 'source-over';
+  g.fillStyle = '#FFFFFF';
+  g.fillRect(Math.round(cx) - 1, Math.round(cy), 3, 1);
+  g.fillRect(Math.round(cx), Math.round(cy) - 1, 1, 3);
+}
+
+function drawPreviews() {
   drawSeatPreview();
+  drawTopPreview();
+  drawGlowPreview();
+}
+
+// Arrow buttons, and the hidden numbers they change.
+function nudgeHtml(kind, piece) {
+  const n = NUDGES[kind];
+  const field = ([name]) => `<input type="hidden" name="${name}" value="${Number(piece[name] ?? (name === 'catLift' ? 8 : name === 'lift' ? 16 : 0))}">`;
+  const arrow = (axis, dir, label, glyph) => `<button class="nudge" type="button" data-nudge="${kind}:${axis}:${dir}" aria-label="${label}">${glyph}</button>`;
+  return `<div class="nudges">
+    ${n.x ? arrow('x', -1, 'Left', '←') : ''}${arrow('y', -1, 'Up', '↑')}${arrow('y', 1, 'Down', '↓')}${n.x ? arrow('x', 1, 'Right', '→') : ''}
+    ${Object.values(n).map(field).join('')}
+  </div>`;
+}
+
+sheetForm.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-nudge]');
+  if (!button) return;
+  const [kind, axis, dir] = button.dataset.nudge.split(':');
+  const [name, step, low, high] = NUDGES[kind][axis];
+  const input = sheetForm.elements[name];
+  input.value = Math.max(low, Math.min(high, (Number(input.value) || 0) + Number(dir) * step));
+  drawPreviews();
 });
 sheetForm.addEventListener('input', (event) => {
   if (!$('seat-preview')) return;
-  if (event.target.name === 'catSpot') sheetForm.querySelector('.seat-setup').hidden = !event.target.checked;
-  if (['catLift', 'catShift', 'w0', 'd0', 'catSpot'].includes(event.target.name)) drawSeatPreview();
+  const shows = { catSpot: '.seat-setup', surface: '.top-setup', light: '.glow-setup' }[event.target.name];
+  if (shows) sheetForm.querySelector(shows).hidden = !event.target.checked;
+  if (['w0', 'd0', 'catSpot', 'surface', 'light'].includes(event.target.name)) drawPreviews();
 });
 
 function openPieceDetails(piece) {
@@ -1340,7 +1426,7 @@ function openPieceDetails(piece) {
       <button class="text-button" type="submit" value="recut-${i}">Cut again</button>
       ${i ? `<button class="text-button danger" type="submit" value="unview-${i}">Remove</button>` : ''}
     </div>`).join('');
-  seatPiece = piece;
+  previewPiece = piece;
   openSheet('Piece', `
     ${pieceTypeChoices(piece.type)}
     <label class="field"><span>How many you have</span><input name="count" type="number" min="1" max="99" value="${piece.count || 1}"></label>
@@ -1354,23 +1440,21 @@ function openPieceDetails(piece) {
     ${views}
     <p><button class="text-button" type="submit" value="addview">Add a turned look</button></p>
     <h3>In the room</h3>
-    <label class="check"><input type="checkbox" name="surface"${piece.surface ? ' checked' : ''}><span>Things can go on top (like a table)</span></label>
-    <label class="field"><span>Table height, in pixels</span><input name="lift" type="number" min="0" max="64" value="${piece.lift || 16}"></label>
+    <label class="check"><input type="checkbox" name="surface"${piece.surface ? ' checked' : ''}><span>Things can go on top</span></label>
+    <div class="preview-setup top-setup"${piece.surface ? '' : ' hidden'}>
+      <canvas id="top-preview" class="pixel" width="1" height="1" aria-label="Something on top of it"></canvas>
+      ${nudgeHtml('top', piece)}
+    </div>
     <label class="check"><input type="checkbox" name="catSpot"${piece.catSpot ? ' checked' : ''}><span>${escapeHtml(cat.name)} can sit and sleep on it</span></label>
-    <div class="seat-setup"${piece.catSpot ? '' : ' hidden'}>
+    <div class="preview-setup seat-setup"${piece.catSpot ? '' : ' hidden'}>
       <canvas id="seat-preview" class="pixel" width="1" height="1" aria-label="${escapeHtml(cat.name)} sitting on it"></canvas>
-      <div class="seat-lift">
-        <button class="text-button" type="button" data-shift="-1">Left</button>
-        <button class="text-button" type="button" data-shift="1">Right</button>
-        <input name="catShift" type="number" min="-64" max="64" value="${piece.catShift || 0}" aria-label="Pixels to the right">
-      </div>
-      <div class="seat-lift">
-        <button class="text-button" type="button" data-lift="1">Higher</button>
-        <button class="text-button" type="button" data-lift="-1">Lower</button>
-        <input name="catLift" type="number" min="0" max="64" value="${piece.catLift ?? 8}" aria-label="Pixels up">
-      </div>
+      ${nudgeHtml('seat', piece)}
     </div>
     <label class="check"><input type="checkbox" name="light"${piece.light ? ' checked' : ''}><span>Gives light at night</span></label>
+    <div class="preview-setup glow-setup"${piece.light ? '' : ' hidden'}>
+      <canvas id="glow-preview" class="pixel" width="1" height="1" aria-label="Its light"></canvas>
+      ${nudgeHtml('glow', piece)}
+    </div>
     <label class="check"><input type="checkbox" name="toy"${piece.toy ? ' checked' : ''}><span>A toy ${escapeHtml(cat.name)} plays with (on the floor)</span></label>
     <p><button class="text-button danger" type="submit" value="delete">Delete this piece</button></p>`,
   async (form, submitter) => {
@@ -1398,6 +1482,7 @@ function openPieceDetails(piece) {
       surface: form.elements.surface.checked, lift: Number(form.elements.lift.value) || 0, light: form.elements.light.checked,
       catSpot: form.elements.catSpot.checked, catLift: Math.max(0, Number(form.elements.catLift.value) || 0),
       catShift: Math.round(Number(form.elements.catShift.value) || 0),
+      lightX: Number(form.elements.lightX.value) || 0, lightY: Number(form.elements.lightY.value) || 0,
       toy: form.elements.toy.checked, set: form.elements.set.value.trim(), family, rarity: form.elements.rarity.value,
       locked: form.elements.locked.checked,
     });
@@ -1411,7 +1496,7 @@ function openPieceDetails(piece) {
     }
     return true;
   });
-  drawSeatPreview();
+  drawPreviews();
 }
 
 function openRoomSettings() {
