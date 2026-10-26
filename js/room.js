@@ -470,7 +470,7 @@ function catSortY() {
   // Playing, the cat stays in front of its toy.
   const toy = catState.play && placed.find((p) => p.id === catState.play.toy);
   if (toy) return Math.max(catState.y, (boxOf(toy).y + 1) * TILE);
-  const spotUnder = catState.on && placed.find((p) => p.id === catState.on);
+  const spotUnder = placed.find((p) => p.id === (catState.on || (catState.mode === 'hop' && catState.leaving)));
   if (!spotUnder) return catState.y;
   const b = boxOf(spotUnder);
   return (b.y + b.d) * TILE + 0.3;
@@ -559,6 +559,7 @@ function hopOff(now) {
   }
   const [tx, ty] = exits[0];
   catState.exit = [tx, ty];
+  catState.leaving = catState.on; // drawn in front of it until it lands
   catState.on = null;
   startHop(tileCentre(tx, ty), 0, now);
 }
@@ -572,6 +573,7 @@ function finishHop(now, dark) {
   } else {
     if (catState.exit) [catState.tx, catState.ty] = catState.exit;
     catState.exit = null;
+    catState.leaving = null;
     startRest(catState.landKind || 'idle', now, dark);
     catState.landKind = null;
   }
@@ -1034,7 +1036,7 @@ function startCarry() {
   clearTimeout(press.timer);
   if (press.pet === 'duck') return startCarryDuck(press.last);
   Object.assign(catState, {
-    mode: 'carried', path: [], goal: null, after: null, hop: null, play: null, on: null, lift: 0,
+    mode: 'carried', path: [], goal: null, after: null, hop: null, play: null, on: null, leaving: null, lift: 0,
     fast: false, wantToy: null, exit: null,
   });
   setAnim('walkDown', performance.now());
