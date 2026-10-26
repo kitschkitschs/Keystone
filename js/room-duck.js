@@ -1,7 +1,8 @@
 // room-duck.js: a duck that waddles about the room, if you've given it a sprite
 // sheet (Workshop → Duck, set up on the same page as the cat, room-add.js).
 // It wanders the floor, stops to look about or peck, sits now and then, and
-// sleeps at night. Tap it and it gives a little hop.
+// sleeps at night, on furniture the cat can sleep on when there's some. Tap it
+// and it gives a little hop; hold it to pick it up, like the cat.
 //
 // Saved as { id: "duck", kind: "duck", day: "", name, breed, src, fw, fh, anims }.
 // Its sheet is your own picture, saved on the phone, never in the app's files.
@@ -30,8 +31,14 @@ function defaultDuck() {
 let duck = null; // set up in loadRoom (room.js) when there's a duck
 let breeds = []; // loaded in loadRoom too
 let duckSheet = null;
-// mode is stand, walk, peck, sit or sleep. face: the way it last walked.
-const duckState = { x: 0, y: 0, path: [], mode: 'stand', anim: 'walkDown', animStart: 0, face: 'walkDown', until: 0, placed: false, hop: 0, last: 0 };
+// mode is stand, walk, peck, sit, sleep, hop (on or off furniture) or carried.
+// face: the way it last walked. on: the furniture it's on (a placed id), lift:
+// how many pixels up. goal: { spot, kind } while it's on its way to furniture.
+const duckState = {
+  x: 0, y: 0, path: [], mode: 'stand', anim: 'walkDown', animStart: 0, face: 'walkDown', until: 0, placed: false,
+  hop: 0, last: 0, on: null, onAt: '', lift: 0, goal: null, jump: null, exit: null,
+};
+const DUCK_HOP_TIME = 400;
 const DUCK_SPEED = 14; // room pixels a second
 
 function loadDuck(item) {
@@ -46,7 +53,77 @@ const duckHere = () => Boolean(duck && duckSheet);
 function placeDuck() {
   const free = freeFloorTiles();
   const [tx, ty] = free.length ? free[Math.floor(Math.random() * free.length)] : [0, room.wallRows];
-  Object.assign(duckState, tileCentre(tx, ty), { tx, ty, path: [], mode: 'stand', until: 0, placed: true });
+  Object.assign(duckState, tileCentre(tx, ty), { tx, ty, path: [], mode: 'stand', until: 0, placed: true, on: null, lift: 0, goal: null, jump: null });
+}
+
+// --- Furniture: the duck uses the same spots as the cat (catSpots in room.js),
+// sitting a little to one side when the cat is there too.
+
+function duckSeat(spotPlaced) {
+  const seat = seatPoint(spotPlaced);
+  const shared = catState.on === spotPlaced.id;
+  return { x: seat.x + (shared ? 10 : 0), y: seat.y, lift: seat.lift };
+}
+
+function duckJump(to, lift, now) {
+  duckState.mode = 'hop';
+  duckState.jump = { x0: duckState.x, y0: duckState.y, l0: duckState.lift, x1: to.x, y1: to.y, l1: lift, start: now };
+  const dx = to.x - duckState.x;
+  const dy = to.y - duckState.y;
+  duckState.face = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'walkRight' : 'walkLeft') : dy > 0 ? 'walkDown' : 'walkUp';
+  setDuckAnim(duckState.face, now);
+}
+
+function duckOnto(spotPlaced, kind, now) {
+  duckState.on = spotPlaced.id;
+  duckState.onAt = placedAt(spotPlaced);
+  duckState.goal = { spot: spotPlaced.id, kind };
+  const seat = duckSeat(spotPlaced);
+  duckJump(seat, seat.lift, now);
+}
+
+// Walks up beside the furniture, then hops on. False if it can't get there.
+function duckGoTo(spotPlaced, kind, now) {
+  let best = null;
+  for (const tile of besideTiles(spotPlaced)) {
+    const path = tile[0] === duckState.tx && tile[1] === duckState.ty ? [] : findPath([duckState.tx, duckState.ty], tile);
+    if (path && (!best || path.length < best.length)) best = path;
+  }
+  if (!best) return false;
+  duckState.goal = { spot: spotPlaced.id, kind };
+  if (!best.length) duckOnto(spotPlaced, kind, now);
+  else {
+    duckState.path = best;
+    duckState.mode = 'walk';
+  }
+  return true;
+}
+
+function duckOff(now) {
+  const spotPlaced = placed.find((p) => p.id === duckState.on);
+  const exits = spotPlaced ? besideTiles(spotPlaced) : [];
+  duckState.goal = null;
+  duckState.on = null;
+  if (!exits.length) return placeDuck();
+  duckState.exit = exits[exits.length - 1];
+  duckJump(tileCentre(...duckState.exit), 0, now);
+}
+
+function duckRest(kind, now, dark) {
+  duckState.mode = kind;
+  setDuckAnim(kind, now);
+  duckState.until = now + (kind === 'sleep' ? (dark > 0.5 ? 60000 : 20000 + Math.random() * 20000) : 6000 + Math.random() * 9000);
+}
+
+function finishDuckJump(now, dark) {
+  const j = duckState.jump;
+  Object.assign(duckState, { x: j.x1, y: j.y1, lift: j.l1, jump: null });
+  if (duckState.on && duckState.goal) return duckRest(duckState.goal.kind, now, dark);
+  if (duckState.exit) [duckState.tx, duckState.ty] = duckState.exit;
+  duckState.exit = null;
+  duckState.mode = 'stand';
+  setDuckAnim(duckState.face, now);
+  duckState.until = now + 1500 + Math.random() * 2000;
 }
 
 function setDuckAnim(key, now) {
@@ -58,12 +135,15 @@ function setDuckAnim(key, now) {
 
 // What to do next: mostly wander a few tiles, sometimes peck or sit. At night, sleep.
 function nextDuckPlan(now, dark) {
+  if (duckState.on) return duckOff(now);
+  // Bedtime: on furniture if it can get to some, or where it stands.
+  const spots = catSpots();
+  const someSpot = () => spots[Math.floor(Math.random() * spots.length)];
   if (dark > 0.6) {
-    duckState.mode = 'sleep';
-    setDuckAnim('sleep', now);
-    duckState.until = now + 60000;
-    return;
+    if (spots.length && duckGoTo(someSpot(), 'sleep', now)) return;
+    return duckRest('sleep', now, dark);
   }
+  if (spots.length && Math.random() < 0.12 && duckGoTo(someSpot(), Math.random() < 0.5 ? 'sit' : 'sleep', now)) return;
   const roll = Math.random();
   if (roll < 0.55) {
     const near = freeFloorTiles().filter(([x, y]) => Math.abs(x - duckState.tx) + Math.abs(y - duckState.ty) <= 4);
@@ -95,11 +175,30 @@ function moveDuck(now, dark) {
   if (!duckState.placed) placeDuck();
   const dt = Math.min(0.1, (now - (duckState.last || now)) / 1000);
   duckState.last = now;
-  // Furniture put down where it stands: it hops to a free tile.
-  if (blockedTiles().has(`${duckState.tx},${duckState.ty}`)) placeDuck();
+  if (duckState.mode === 'carried') return;
+  // The furniture it's on moved or went away: it lands on the floor.
+  if (duckState.on) {
+    const spotPlaced = placed.find((p) => p.id === duckState.on);
+    if (!spotPlaced || placedAt(spotPlaced) !== duckState.onAt || (held && held.from && held.from.id === duckState.on)) placeDuck();
+  } else if (duckState.mode !== 'hop' && blockedTiles().has(`${duckState.tx},${duckState.ty}`)) {
+    // Furniture put down where it stands: it moves to a free tile.
+    placeDuck();
+  }
+  if (duckState.mode === 'hop') {
+    const j = duckState.jump;
+    const t = Math.min(1, (now - j.start) / DUCK_HOP_TIME);
+    duckState.x = j.x0 + (j.x1 - j.x0) * t;
+    duckState.y = j.y0 + (j.y1 - j.y0) * t;
+    duckState.lift = j.l0 + (j.l1 - j.l0) * t + 5 * Math.sin(Math.PI * t);
+    if (t >= 1) finishDuckJump(now, dark);
+    return;
+  }
   if (duckState.mode === 'walk') {
     const next = duckState.path[0];
     if (!next) {
+      const goal = duckState.goal && placed.find((p) => p.id === duckState.goal.spot);
+      if (goal) return duckOnto(goal, duckState.goal.kind, now);
+      duckState.goal = null;
       duckState.mode = 'stand';
       setDuckAnim(duckState.face, now);
       duckState.until = now + 1000 + Math.random() * 3000;
@@ -136,8 +235,8 @@ function duckFrame(now) {
     mirror = true;
   }
   const meta = DUCK_ANIMS.find((m) => m.key === duckState.anim);
-  // Standing, it holds the first frame of the way it's facing.
-  let i = duckState.mode === 'stand' ? 0 : Math.floor(((now - duckState.animStart) / 1000) * a.fps);
+  // Standing or held, it holds the first frame of the way it's facing.
+  let i = duckState.mode === 'stand' || duckState.mode === 'carried' ? 0 : Math.floor(((now - duckState.animStart) / 1000) * a.fps);
   i = meta && meta.once ? Math.min(i, a.count - 1) : i % Math.max(1, a.count);
   return { frame: a.start + i, mirror };
 }
@@ -145,7 +244,45 @@ function duckFrame(now) {
 function duckBox(now) {
   const t = (now - duckState.hop) / 350;
   const lift = t >= 0 && t < 1 ? Math.round(4 * Math.sin(Math.PI * t)) : 0;
-  return { x: Math.round(duckState.x - duck.fw / 2), y: Math.round(duckState.y - duck.fh + 3 - lift), w: duck.fw, h: duck.fh };
+  return { x: Math.round(duckState.x - duck.fw / 2), y: Math.round(duckState.y - duckState.lift - duck.fh + 3 - lift), w: duck.fw, h: duck.fh };
+}
+
+// Drawn just in front of the furniture it's on, so it sits on top.
+function duckSortY() {
+  const spotUnder = duckState.on && placed.find((p) => p.id === duckState.on);
+  if (!spotUnder) return duckState.y - 0.1;
+  const b = boxOf(spotUnder);
+  return (b.y + b.d) * TILE + 0.35;
+}
+
+// --- Picking it up (the finger handling is shared with the cat, in room.js) ---
+
+function startCarryDuck(point) {
+  Object.assign(duckState, { mode: 'carried', path: [], goal: null, on: null, lift: 0, jump: null, exit: null, face: 'walkDown' });
+  setDuckAnim('walkDown', performance.now());
+  carryDuckTo(point);
+  if (navigator.vibrate) navigator.vibrate(15);
+}
+
+function carryDuckTo(point) {
+  duckState.x = Math.max(0, Math.min(world.width, point.x));
+  duckState.y = Math.max(duck.fh / 2, Math.min(world.height, point.y + duck.fh / 2 - 3));
+}
+
+// Lets go: onto furniture under it, or down to the nearest free floor tile.
+function dropDuck() {
+  const now = performance.now();
+  const feet = [Math.floor(duckState.x / TILE), Math.floor(duckState.y / TILE)];
+  const under = pieceAt({ x: duckState.x, y: duckState.y - duck.fh / 2 + 3 });
+  const spotPlaced = catSpots().find((p) => p === under || overlaps(boxOf(p), { x: feet[0], y: feet[1], w: 1, d: 1 }));
+  if (spotPlaced) return duckOnto(spotPlaced, darkNow() > 0.4 ? 'sleep' : 'sit', now);
+  let best = null;
+  for (const [x, y] of freeFloorTiles()) {
+    const d = (x - feet[0]) ** 2 + (y - feet[1]) ** 2;
+    if (!best || d < best.d) best = { tile: [x, y], d };
+  }
+  duckState.exit = best ? best.tile : [0, room.wallRows];
+  duckJump(tileCentre(...duckState.exit), 0, now);
 }
 
 function drawDuck(now) {

@@ -261,7 +261,7 @@ function drawList() {
   wall.sort((a, b) => a.y - b.y);
   rugs.sort((a, b) => a.y - b.y);
   if (catState.mode !== 'carried') standing.push({ y: catSortY(), cat: true });
-  if (duckHere()) standing.push({ y: duckState.y - 0.1, duck: true });
+  if (duckHere() && duckState.mode !== 'carried') standing.push({ y: duckSortY(), duck: true });
   standing.sort((a, b) => a.y - b.y);
   return [...wall, ...rugs, ...standing];
 }
@@ -290,6 +290,7 @@ function drawRoom(now) {
     if (target.spot) drawSeatGhost(target.spot);
     drawCat(now);
   }
+  if (duckHere() && duckState.mode === 'carried') drawDuck(now);
 
   const light = drawDayLight();
   drawCatExtras(now, light);
@@ -1014,11 +1015,12 @@ function onCat(point) {
 
 // --- Picking up the cat: hold it, or drag it, and put it down somewhere else.
 
-let press = null; // a finger on the cat: { last, timer, carrying }
+let press = null; // a finger on the cat or the duck: { pet, first, last, timer, carrying }
 
 function startCarry() {
   press.carrying = true;
   clearTimeout(press.timer);
+  if (press.pet === 'duck') return startCarryDuck(press.last);
   Object.assign(catState, {
     mode: 'carried', path: [], goal: null, after: null, hop: null, play: null, on: null, lift: 0,
     fast: false, wantToy: null, exit: null,
@@ -1074,9 +1076,12 @@ let dragging = false;
 roomCanvas.addEventListener('pointerdown', (event) => {
   const point = toRoom(event);
   if (!held) {
-    if (!onCat(point)) return;
+    // Both under the finger: the one in front.
+    const [isCat, isDuck] = [onCat(point), onDuck(point)];
+    const pet = isCat && isDuck ? (duckSortY() >= catSortY() ? 'duck' : 'cat') : isCat ? 'cat' : isDuck ? 'duck' : null;
+    if (!pet) return;
     roomCanvas.setPointerCapture(event.pointerId);
-    press = { first: point, last: point, carrying: false };
+    press = { pet, first: point, last: point, carrying: false };
     press.timer = setTimeout(() => { if (press && !press.carrying) startCarry(); }, 300);
     return;
   }
@@ -1088,12 +1093,15 @@ roomCanvas.addEventListener('pointermove', (event) => {
   if (dragging) moveHeldTo(toRoom(event));
   if (!press) return;
   press.last = toRoom(event);
-  if (press.carrying) carryTo(press.last);
+  if (press.carrying) (press.pet === 'duck' ? carryDuckTo : carryTo)(press.last);
   else if (Math.hypot(press.last.x - press.first.x, press.last.y - press.first.y) > 4) startCarry();
 });
 function letGoOfCat() {
   clearTimeout(press.timer);
-  if (press.carrying) dropCat();
+  if (press.pet === 'duck') {
+    if (press.carrying) dropDuck();
+    else tapDuck(performance.now());
+  } else if (press.carrying) dropCat();
   else petCat(performance.now());
   press = null;
 }
@@ -1113,9 +1121,8 @@ roomCanvas.addEventListener('pointerup', (event) => {
     if (p) pickUp(p);
     return;
   }
-  // Tap the duck and it hops. Tap a toy and the cat comes to play with it. Tap a lamp to switch it.
-  if (onDuck(point)) tapDuck(performance.now());
-  else if (p && floorToys().includes(p)) callToPlay(p);
+  // Tap a toy and the cat comes to play with it. Tap a lamp to switch it.
+  if (p && floorToys().includes(p)) callToPlay(p);
   else if (p && pieces.get(p.piece).light) switchLamp(p);
 });
 
