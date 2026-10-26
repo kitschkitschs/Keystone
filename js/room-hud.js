@@ -71,7 +71,7 @@ function showHud() {
     ['catalogue', 'Catalogue', 'catalogue'],
     ['light', `Light: ${lightName}`, lightIcon()],
     ['workshop', 'Workshop', 'workshop'],
-  ].filter(([key]) => hudOpen || (key === 'decorate' && decorating));
+  ].filter(([key]) => hudOpen || (decorating && (key === 'decorate' || key === 'inventory')));
   buttons.push(['menu', hudOpen ? 'Fold the buttons away' : 'Open the buttons', 'menu']);
   hud.innerHTML = buttons.map(([key, label, icon]) => `<button type="button" class="hud-button" data-hud="${key}" aria-label="${label}" title="${label}"${key === 'decorate' ? ` aria-pressed="${decorating}"` : ''}${key === 'menu' ? ` aria-expanded="${hudOpen}"` : ''}>${pixelIcon(icon)}</button>`).join('');
 }
@@ -129,16 +129,15 @@ function drawGameWindow() {
   if (kind === 'inventory') $('gw-body').innerHTML = inventoryHtml();
   if (kind === 'look') $('gw-body').innerHTML = catLookHtml();
   if (kind === 'catalogue') {
-    $('gw-body').innerHTML = catalogueHtml([...pieces.values()]) || '<p class="muted">Nothing to collect yet. Add pieces in the workshop.</p>';
+    $('gw-body').innerHTML = catalogueHtml([...pieces.values()]) || '';
   }
   if (kind === 'workshop') {
     $('gw-body').innerHTML = `
       <div class="workshop">
-        <button type="button" class="ws-button" data-ws="add"><b>Cut pieces</b><span>From a picture or a whole sprite sheet</span></button>
-        <button type="button" class="ws-button" data-ws="draw"><b>Draw</b><span>Draw a piece pixel by pixel</span></button>
-        <button type="button" class="ws-button" data-ws="pieces"><b>Pieces</b><span>Sort them into sets and set them up together</span></button>
-        <button type="button" class="ws-button" data-ws="cat"><b>${escapeHtml(cat.name)}</b><span>Name and sprite sheet</span></button>
-        <button type="button" class="ws-button" data-ws="room"><b>Room</b><span>Size, light and starter pieces</span></button>
+        <button type="button" class="ws-button" data-ws="add"><b>Cut pieces</b></button>
+        <button type="button" class="ws-button" data-ws="pieces"><b>Pieces</b></button>
+        <button type="button" class="ws-button" data-ws="cat"><b>${escapeHtml(cat.name)}</b></button>
+        <button type="button" class="ws-button" data-ws="room"><b>Room</b></button>
       </div>`;
   }
 }
@@ -161,7 +160,6 @@ $('gw-body').addEventListener('click', async (event) => {
     const action = ws.dataset.ws;
     closeGameWindow();
     if (action === 'add') { cutFor = null; goTo('room-add'); }
-    if (action === 'draw') { drawFor = null; goTo('draw'); }
     if (action === 'cat') goTo('cat');
     if (action === 'room') openRoomSettings();
     if (action === 'pieces') goTo('pieces');

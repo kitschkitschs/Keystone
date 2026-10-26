@@ -31,9 +31,8 @@ let cat = defaultCat();
 
 let decorating = false;
 let held = null; // the piece in your hand: { piece, view, x, y, from }
-let inventoryTab = 'all';
+let inventoryFolder = null; // the set open in the inventory ('' for no set), or null for all the folders
 let previewHour = null; // a chosen time of day, to try the light; null follows the clock
-try { inventoryTab = localStorage.getItem('keystone-inventory-tab') || 'all'; } catch { /* all */ }
 
 const roomCanvas = $('room-canvas');
 const world = document.createElement('canvas');
@@ -1154,49 +1153,56 @@ function placedCount(id) {
   return placed.filter((p) => p.piece === id).length;
 }
 
-// The bar under the room, only while decorating: the buttons for the piece in
-// your hand. Your pieces are in the inventory window (room-hud.js).
+// The bar under the room, only while you hold a piece: its buttons. Your pieces
+// are in the inventory window (room-hud.js).
 function showRoomPanel() {
   const bar = $('room-bar');
   showHud();
   if (gameWindowKind === 'inventory') drawGameWindow();
-  bar.hidden = !decorating;
-  if (!decorating) return;
+  bar.hidden = !(decorating && held);
+  if (bar.hidden) return;
   if (held) {
     const piece = pieces.get(held.piece);
-    bar.innerHTML = `<span class="grow"><b>${escapeHtml(pieceLabel(piece))}</b><span class="muted"> · drag it to a spot</span></span>
+    bar.innerHTML = `<span class="grow"></span>
       ${piece.views.length > 1 ? '<button class="text-button" type="button" data-room="turn">Turn</button>' : ''}
       ${held.from ? '<button class="text-button" type="button" data-room="away">Put away</button>' : '<button class="text-button" type="button" data-room="cancel">Cancel</button>'}
       <button class="ink-button" type="button" data-room="place"${canPlace(held) ? '' : ' disabled'}>Place</button>`;
-  } else {
-    bar.innerHTML = '<span class="grow muted">Tap a piece in the room to move it, or add one from the inventory. Tap the tick when you\'re done.</span>';
   }
 }
 
-// The inventory: every unlocked piece, by kind, with how many are left to place.
+// The inventory: every unlocked piece, in a folder for each set, with how many
+// are left to place.
 function inventoryHtml() {
-  const tabs = [['all', 'All'], ...PIECE_TYPES.map(([key, name]) => [key, name])];
-  const list = [...pieces.values()]
-    .filter((p) => !p.locked && (inventoryTab === 'all' || p.type === inventoryTab))
-    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-  return `
-    ${sampleMode ? '<p class="muted">Sample data is on, so changes to the room are only kept until you turn it off.</p>' : ''}
+  const owned = [...pieces.values()].filter((p) => !p.locked).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  const folders = new Map();
+  for (const p of owned) {
+    const set = p.set || '';
+    if (!folders.has(set)) folders.set(set, []);
+    folders.get(set).push(p);
+  }
+  if (inventoryFolder !== null && !folders.has(inventoryFolder)) inventoryFolder = null;
+  if (inventoryFolder === null) {
+    const names = [...folders.keys()].sort((a, b) => (a === '') - (b === '') || a.localeCompare(b));
+    return `<p id="inv-note" class="status" role="status"></p>
+      <div class="inventory">${names.map((name) => {
+        const first = folders.get(name)[0].views[0];
+        return `<button type="button" class="inv-tile inv-folder" data-inv-folder="${escapeHtml(name)}">
+          <img class="pixel" src="${first.src}" alt="" style="--pw: ${first.pw}; --ph: ${first.ph}">
+          <span class="inv-name">${name ? escapeHtml(name) : 'Not in a set'}</span><span class="inv-badge">${folders.get(name).length}</span></button>`;
+      }).join('')}</div>`;
+  }
+  return `<p class="inv-path"><button class="text-button" type="button" data-inv-folder-back>‹ Sets</button> <b>${inventoryFolder ? escapeHtml(inventoryFolder) : 'Not in a set'}</b></p>
     <p id="inv-note" class="status" role="status"></p>
-    <nav class="inv-tabs" aria-label="Kinds of pieces">${tabs.map(([key, name]) => `<button type="button" class="chip" data-inv-tab="${key}" aria-pressed="${key === inventoryTab}">${name}</button>`).join('')}</nav>
     <div class="inventory">
-      ${list.map((p) => {
+      ${folders.get(inventoryFolder).map((p) => {
         const left = (p.count || 1) - placedCount(p.id);
         const flat = p.type === 'wallpaper' || p.type === 'floor';
         const using = (p.type === 'wallpaper' && room.wallpaper === p.id) || (p.type === 'floor' && room.floor === p.id);
-        const badge = flat ? (using ? 'in use' : '') : left > 0 ? `${left}` : 'all out';
+        const badge = flat ? (using ? '✓' : '') : left > 0 ? `${left}` : '0';
         return `<button type="button" class="inv-tile${!flat && left <= 0 ? ' used' : ''}${using ? ' using' : ''}" data-piece="${p.id}">
-          <img class="pixel" src="${p.views[0].src}" alt="" style="--pw: ${p.views[0].pw}; --ph: ${p.views[0].ph}">
-          <span class="inv-name">${escapeHtml(pieceLabel(p))}</span>${badge ? `<span class="inv-badge">${badge}</span>` : ''}</button>`;
+          <img class="pixel" src="${p.views[0].src}" alt="" style="--pw: ${p.views[0].pw}; --ph: ${p.views[0].ph}">${badge ? `<span class="inv-badge">${badge}</span>` : ''}</button>`;
       }).join('')}
-    </div>
-    ${pieces.size ? (list.length ? '' : '<p class="muted">Nothing of this kind yet.</p>')
-      : `<p class="muted">Nothing here yet. Cut your own pieces in the workshop, or start with the placeholder ones.</p>
-      <p><button class="ink-button" type="button" data-inv="starter">Add the starter pieces</button></p>`}`;
+    </div>`;
 }
 
 $('room-bar').addEventListener('click', (event) => {
@@ -1211,21 +1217,14 @@ $('room-bar').addEventListener('click', (event) => {
 
 $('gw-body').addEventListener('click', async (event) => {
   if (gameWindowKind !== 'inventory') return;
-  const tab = event.target.closest('[data-inv-tab]');
-  if (tab) {
-    inventoryTab = tab.dataset.invTab;
-    try { localStorage.setItem('keystone-inventory-tab', inventoryTab); } catch { /* not important */ }
+  const folder = event.target.closest('[data-inv-folder]');
+  if (folder || event.target.closest('[data-inv-folder-back]')) {
+    inventoryFolder = folder ? folder.dataset.invFolder : null;
     drawGameWindow();
     return;
   }
   const tile = event.target.closest('[data-piece]');
   if (tile) return tapPiece(pieces.get(tile.dataset.piece));
-  if (event.target.closest('[data-inv="starter"]')) {
-    event.target.disabled = true;
-    await addStarterPieces();
-    await loadRoom();
-    showRoomPanel();
-  }
 });
 
 // A piece tapped in the inventory: wallpaper and floors go straight on, anything
@@ -1238,7 +1237,7 @@ async function tapPiece(piece) {
     return;
   }
   if ((piece.count || 1) - placedCount(piece.id) <= 0) {
-    $('inv-note').textContent = 'All of those are in the room. Tap one there to move it.';
+    $('inv-note').textContent = 'All in the room.';
     return;
   }
   closeGameWindow();
@@ -1251,15 +1250,8 @@ function pieceTypeChoices(current) {
   return `<label class="field"><span>What it is</span><select name="type">${PIECE_TYPES.map(([key, name]) => `<option value="${key}"${key === current ? ' selected' : ''}>${name}</option>`).join('')}</select></label>`;
 }
 
-// Pieces go by their set's name, with the colour after it for a colour copy:
-// "Cottage (blue)". Only pieces outside a set show their own name.
-function pieceLabel(p) {
-  if (!p.set) return p.name;
-  const colour = pieceColour(p);
-  return colour ? `${p.set} (${colour})` : p.set;
-}
-// Copies cut before pieces kept their colour have it at the end of their name.
-const pieceColour = (p) => p.colour ?? ((p.family && (p.name.match(/\(([^)]+)\)$/) || [])[1]) || '');
+// Pieces go by their set's name; only pieces outside a set show their own.
+const pieceLabel = (p) => p.set || p.name;
 
 // Pieces to pick between, as their pictures: a radio button each.
 function pieceRadios(name, list, current, none) {
@@ -1346,7 +1338,6 @@ function openPieceDetails(piece) {
       <label>Wide <input type="number" name="w${i}" min="1" max="12" value="${v.w}"></label>
       <label>Deep <input type="number" name="d${i}" min="1" max="12" value="${v.d}"></label>
       <button class="text-button" type="submit" value="recut-${i}">Cut again</button>
-      <button class="text-button" type="submit" value="draw-${i}">Draw</button>
       ${i ? `<button class="text-button danger" type="submit" value="unview-${i}">Remove</button>` : ''}
     </div>`).join('');
   seatPiece = piece;
@@ -1357,20 +1348,17 @@ function openPieceDetails(piece) {
     <label class="field"><span>Set</span><input name="set" type="text" value="${escapeHtml(piece.set || '')}" list="set-names" autocomplete="off" placeholder="Not in a set"></label>
     <datalist id="set-names">${setNames().map((name) => `<option value="${escapeHtml(name)}">`).join('')}</datalist>
     <div class="field"><span>A colour of</span>${pieceRadios('family', colourChoices(piece), piece.family, 'None')}</div>
-<label class="field"><span>Colour <span class="muted">(shown after the set's name)</span></span><input name="colour" type="text" value="${escapeHtml(pieceColour(piece))}" autocomplete="off" placeholder="None"></label>
     <label class="field"><span>Rarity</span><select name="rarity">${RARITIES.map(([key, name]) => `<option value="${key}"${(piece.rarity || 'common') === key ? ' selected' : ''}>${name}</option>`).join('')}</select></label>
     <label class="check"><input type="checkbox" name="locked"${piece.locked ? ' checked' : ''}><span>Locked in the gacha machine</span></label>
     <h3>Looks and tiles</h3>
-    <p class="muted">Each look is one way the piece can be turned. The tiles are what it stands on.</p>
     ${views}
     <p><button class="text-button" type="submit" value="addview">Add a turned look</button></p>
     <h3>In the room</h3>
     <label class="check"><input type="checkbox" name="surface"${piece.surface ? ' checked' : ''}><span>Things can go on top (like a table)</span></label>
-    <label class="field"><span>Table height, in pixels <span class="muted">(how high things sit on it)</span></span><input name="lift" type="number" min="0" max="64" value="${piece.lift || 16}"></label>
+    <label class="field"><span>Table height, in pixels</span><input name="lift" type="number" min="0" max="64" value="${piece.lift || 16}"></label>
     <label class="check"><input type="checkbox" name="catSpot"${piece.catSpot ? ' checked' : ''}><span>${escapeHtml(cat.name)} can sit and sleep on it</span></label>
     <div class="seat-setup"${piece.catSpot ? '' : ' hidden'}>
       <canvas id="seat-preview" class="pixel" width="1" height="1" aria-label="${escapeHtml(cat.name)} sitting on it"></canvas>
-      <p class="muted">Move ${escapeHtml(cat.name)} to where they should sit, one pixel at a time.</p>
       <div class="seat-lift">
         <button class="text-button" type="button" data-shift="-1">Left</button>
         <button class="text-button" type="button" data-shift="1">Right</button>
@@ -1410,15 +1398,11 @@ function openPieceDetails(piece) {
       surface: form.elements.surface.checked, lift: Number(form.elements.lift.value) || 0, light: form.elements.light.checked,
       catSpot: form.elements.catSpot.checked, catLift: Math.max(0, Number(form.elements.catLift.value) || 0),
       catShift: Math.round(Number(form.elements.catShift.value) || 0),
-      toy: form.elements.toy.checked, set: form.elements.set.value.trim(), colour: form.elements.colour.value.trim(), family, rarity: form.elements.rarity.value,
+      toy: form.elements.toy.checked, set: form.elements.set.value.trim(), family, rarity: form.elements.rarity.value,
       locked: form.elements.locked.checked,
     });
     pieces.set(saved.id, saved);
-    if (action && action.startsWith('draw-')) {
-      drawFor = { piece: saved.id, view: Number(action.slice(5)) };
-      closeGameWindow();
-      goTo('draw');
-    } else if (action === 'addview' || (action && action.startsWith('recut-'))) {
+    if (action === 'addview' || (action && action.startsWith('recut-'))) {
       closeGameWindow();
       cutForPiece(saved.id, action === 'addview' ? null : Number(action.slice(6)));
     } else if (action && action.startsWith('unview-')) {
@@ -1436,12 +1420,10 @@ function openRoomSettings() {
     <label class="field"><span>Tiles across</span><input name="cols" type="number" min="6" max="24" value="${room.cols}"></label>
     <label class="field"><span>Wall rows</span><input name="wallRows" type="number" min="1" max="6" value="${room.wallRows}"></label>
     <label class="field"><span>Floor rows</span><input name="floorRows" type="number" min="3" max="16" value="${room.floorRows}"></label>
-    <p class="muted">Pieces that no longer fit go back to the inventory.</p>
     <h3>Light</h3>
     <label class="check"><input type="checkbox" name="clock"${previewHour === null ? ' checked' : ''}><span>Follow the clock</span></label>
     <label class="field"><span>Or try a time of day: <b id="hour-word">${timeWord(hour)}</b></span>
       <input name="hour" type="range" min="0" max="23.75" step="0.25" value="${hour}"></label>
-    <p class="muted">Trying a time only lasts until the app closes.</p>
     <h3>Starter pieces</h3>
     <p><button class="text-button" type="submit" value="starter">Add the starter pieces you don't have</button></p>`,
   async (form, submitter) => {

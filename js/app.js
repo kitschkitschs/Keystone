@@ -83,7 +83,7 @@ sheetForm.addEventListener('input', (event) => {
 function currentView() {
   const hash = location.hash.slice(1);
   if (hash.startsWith('insight')) return 'insight';
-  return ['room-add', 'pieces', 'draw', 'cat', 'colours'].includes(hash) ? hash : 'home';
+  return ['room-add', 'pieces', 'cat', 'colours'].includes(hash) ? hash : 'home';
 }
 
 function showView() {
@@ -93,11 +93,10 @@ function showView() {
   $('room').hidden = view !== 'home';
   $('room-add').hidden = view !== 'room-add';
   $('pieces').hidden = view !== 'pieces';
-  $('draw').hidden = view !== 'draw';
   $('cat').hidden = view !== 'cat';
   $('insight').hidden = view !== 'insight';
   $('colours').hidden = view !== 'colours';
-  const barView = ['room-add', 'pieces', 'draw', 'cat'].includes(view) ? 'home' : view;
+  const barView = ['room-add', 'pieces', 'cat'].includes(view) ? 'home' : view;
   for (const button of $('bar-buttons').children) {
     if (button.dataset.view === barView) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
@@ -105,7 +104,6 @@ function showView() {
   if (view === 'home') showRoom();
   if (view === 'room-add') showRoomAdd();
   if (view === 'pieces') showPieces();
-  if (view === 'draw') showDraw();
   if (view === 'cat') showCatSetup();
   if (view === 'insight') showInsight(location.hash.slice(1));
   if (view === 'colours') showColours();

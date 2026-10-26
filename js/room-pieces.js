@@ -10,7 +10,7 @@ function showPiecesFor(ids) {
   org.justAdded = ids;
   org.filter = 'new';
   org.picked = new Set(ids);
-  org.note = `Added ${ids.length} ${ids.length === 1 ? 'piece' : 'pieces'}. ${ids.length === 1 ? "It's" : "They're all"} picked: change them together, or tap one for more.`;
+  org.note = `Added ${ids.length}.`;
   goTo('pieces');
 }
 
@@ -134,8 +134,7 @@ function openBulkChange() {
     <h3>Collecting</h3>
     <label class="field"><span>Set</span><select name="setChoice">${keep}${setNames().map((s) => `<option value="set:${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}<option value="new">A new set…</option><option value="none">Not in a set</option></select></label>
     <label class="field" id="bulk-new-set" hidden><span>New set's name</span><input name="newSet" type="text" autocomplete="off"></label>
-<label class="field"><span>Colour <span class="muted">(shown after the set's name)</span></span><input name="colour" type="text" value="" autocomplete="off" placeholder="Keep as is"></label>
-    <label class="field"><span>Rarity</span><select name="rarity">${keep}${RARITIES.map(([key, name]) => `<option value="${key}">${name}</option>`).join('')}</select></label>
+<label class="field"><span>Rarity</span><select name="rarity">${keep}${RARITIES.map(([key, name]) => `<option value="${key}">${name}</option>`).join('')}</select></label>
     <label class="field"><span>Gacha machine</span><select name="locked">${keep}<option value="yes">Locked in the machine</option><option value="no">Unlocked</option></select></label>
     <h3>What they are</h3>
     <label class="field"><span>Kind</span><select name="type">${keep}${PIECE_TYPES.map(([key, name]) => `<option value="${key}">${name}</option>`).join('')}</select></label>
@@ -164,7 +163,6 @@ function openBulkChange() {
       if (choice === 'new') change.set = newSet;
       if (choice === 'none') change.set = '';
       if (choice.startsWith('set:')) change.set = choice.slice(4);
-      if (form.elements.colour.value.trim()) change.colour = form.elements.colour.value.trim();
       if (form.elements.rarity.value) change.rarity = form.elements.rarity.value;
       if (form.elements.type.value) change.type = form.elements.type.value;
       if (count) change.count = count;
@@ -199,13 +197,10 @@ function openColours() {
   const cuttable = list.filter((p) => p.sheet && p.views.some((v) => v.box));
   openSheet('Colours', `
     ${list.length > 1 ? `<h3>Colours of one piece</h3>
-    <p class="muted">Make the ${list.length} picked pieces colours of one piece, so they sit together in the catalogue. Each one is still its own piece to collect.</p>
     <div class="field"><span>The first colour</span>${pieceRadios('original', list, list[0].id)}</div>
     <p><button class="ink-button" type="submit" value="group">Group them as colours</button></p>` : ''}
-    <h3>Cut other colours</h3>
-    ${cuttable.length ? `<p class="muted">Choose sprite sheets laid out the same as the one ${cuttable.length === 1 ? 'this piece was' : `these ${cuttable.length} pieces were`} cut from, in other colours. Pick several at once. Each piece is cut again from every sheet, with the same settings, named after the colour in the file name, and grouped as its colour.</p>
-    <label class="ink-button"><span>Choose the other colours</span><input id="org-colour-files" type="file" accept="image/*" multiple hidden></label>`
-      : '<p class="muted">Only pieces cut from a sprite sheet can be cut again in other colours.</p>'}`,
+    ${cuttable.length ? `<h3>Cut other colours</h3>
+    <label class="ink-button"><span>Choose the other colours</span><input id="org-colour-files" type="file" accept="image/*" multiple hidden></label>` : ''}`,
   async (form, submitter) => {
     if (!submitter || submitter.value !== 'group') return true;
     const original = pieces.get(form.elements.original.value);
@@ -261,9 +256,8 @@ async function cutColours(list, files) {
       if (!views.length) { skipped++; continue; }
       const copy = { ...piece };
       delete copy.unlockedAt;
-      const colour = colourWord(file.name, piece.sheet);
       const saved = await putItem({
-        ...copy, id: newId('piece'), name: `${piece.name} (${colour})`, colour, views, family: familyOf(piece),
+        ...copy, id: newId('piece'), name: `${piece.name} (${colourWord(file.name, piece.sheet)})`, views, family: familyOf(piece),
         sheet: file.name.replace(/\.[^.]*$/, ''), locked: true, createdAt: Date.now() + ids.length,
       });
       pieces.set(saved.id, saved);
