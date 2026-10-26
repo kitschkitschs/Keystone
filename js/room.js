@@ -294,6 +294,8 @@ function drawRoom(now) {
 
   const light = drawDayLight();
   drawCatExtras(now, light);
+  drawFriendHearts(now);
+  drawDuckZeds(now);
 
   if (held) {
     // A faint tile grid while placing, then the piece, outlined in white where
@@ -587,6 +589,8 @@ function nextCatPlan(now, dark) {
     if (toys.length && Math.random() < 0.7 && goPlay(toys[Math.floor(Math.random() * toys.length)], now)) return;
     if (zoom(now)) return;
   }
+  // Now and then it goes to say hello to the duck (room-duck.js).
+  if (Math.random() < 0.12 * (1 - dark) && catVisitsDuck(now)) return;
   const r = Math.random();
   const sleepy = 0.12 + 0.65 * dark;
   const spots = catSpots();
@@ -807,6 +811,7 @@ function moveCat(now, dark) {
       catState.creep = false;
       if (after === 'hop') hopOn(now);
       else if (after === 'play') startPlay(now);
+      else if (after === 'meet') { if (!greet(now)) startRest('sit', now, dark); }
       else startRest(after, now, dark);
       return;
     }
@@ -927,7 +932,9 @@ function drawCatExtras(now) {
     drawPixels(HEART, b.x + b.w / 2 - 3, b.y + 4 - t * 12, '#E0607A');
     wg.globalAlpha = 1;
   }
-  if (catState.mode === 'sleep' && catState.anim === 'sleep') {
+  // Curled up, or lying stretched out once it has lain down.
+  const asleep = catState.anim === 'sleep' || (catState.anim === 'lieDown' && catState.stretch && animDone(now));
+  if (catState.mode === 'sleep' && asleep) {
     const t = ((now - catState.animStart) / 2400) % 1;
     wg.globalAlpha = Math.sin(t * Math.PI);
     drawPixels(ZED, b.x + b.w / 2 + 4 + t * 4, b.y + 8 - t * 10, '#FFFFFF');
