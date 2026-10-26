@@ -96,7 +96,7 @@ wideQuery.addEventListener('change', () => {
 function currentView() {
   const hash = location.hash.slice(1);
   if (hash.startsWith('insight')) return 'insight';
-  return ['room-add', 'pieces', 'cat', 'farm', 'colours'].includes(hash) ? hash : 'home';
+  return ['room-add', 'pieces', 'cat', 'farm', 'map', 'colours'].includes(hash) ? hash : 'home';
 }
 
 function showView() {
@@ -108,9 +108,10 @@ function showView() {
   $('pieces').hidden = view !== 'pieces';
   $('cat').hidden = view !== 'cat';
   $('farm').hidden = view !== 'farm';
+  $('map').hidden = view !== 'map';
   $('insight').hidden = view !== 'insight';
   $('colours').hidden = view !== 'colours';
-  const barView = ['room-add', 'pieces', 'cat', 'farm'].includes(view) ? 'home' : view;
+  const barView = ['room-add', 'pieces', 'cat', 'farm', 'map'].includes(view) ? 'home' : view;
   for (const button of $('bar-buttons').children) {
     if (button.dataset.view === barView) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
@@ -120,6 +121,7 @@ function showView() {
   if (view === 'pieces') showPieces();
   if (view === 'cat') showCatSetup();
   if (view === 'farm') showFarm();
+  if (view === 'map') showMapPage();
   if (view === 'insight') showInsight(location.hash.slice(1));
   if (view === 'colours') showColours();
   window.scrollTo(0, 0);

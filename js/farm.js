@@ -178,15 +178,30 @@ function farmTick(now) {
 }
 
 // --- The garden scene ---
-// It's drawn on the room's canvas, the same size as the room: a hedge where the
-// wall would be, then grass, with the bed in the middle.
+// It's drawn on the room's canvas, the same size as the room: your own map
+// (map.js), where soil tiles are the plots, or else a hedge where the wall
+// would be, then grass, with the bed in the middle.
 
 function bed() {
   const cols = Math.max(1, Math.min(garden.cols, room.cols - 2));
   const down = Math.max(1, Math.min(garden.rows, room.floorRows - 2));
   return { x: Math.floor((room.cols - cols) / 2), y: room.wallRows + 1, cols, rows: down };
 }
-const inBed = (tx, ty) => { const b = bed(); return tx >= b.x && tx < b.x + b.cols && ty >= b.y && ty < b.y + b.rows; };
+const inBed = (tx, ty) => {
+  if (mapHere()) return soilAt(tx, ty);
+  const b = bed();
+  return tx >= b.x && tx < b.x + b.cols && ty >= b.y && ty < b.y + b.rows;
+};
+// Somewhere a pet can stand: anywhere on the map that isn't water or in the way.
+function freeGardenSpot() {
+  const top = mapHere() ? 0 : room.wallRows;
+  for (let tries = 0; tries < 40; tries++) {
+    const tx = Math.floor(Math.random() * room.cols);
+    const ty = top + Math.floor(Math.random() * (rows() - top));
+    if (!mapHere() || walkableAt(tx, ty)) return { x: tx * TILE + TILE / 2, y: ty * TILE + 13 };
+  }
+  return { x: (room.cols * TILE) / 2, y: (rows() - 1) * TILE + 13 };
+}
 const plotAt = (tx, ty) => plots.get(`plot-${tx}-${ty}`);
 const bedPlots = () => [...plots.values()].filter((p) => inBed(p.x, p.y));
 
@@ -196,6 +211,11 @@ function groundPicture(id) {
 }
 
 function drawGardenGround() {
+  if (mapHere()) {
+    drawMapLayer(wg, 'ground', performance.now());
+    drawMapLayer(wg, 'detail', performance.now());
+    return;
+  }
   const W = world.width;
   const top = room.wallRows * TILE;
   // The sky, a hedge along the back, and a little fence in front of it.
@@ -258,7 +278,8 @@ function enterGarden() {
   gardenPets = [{ who: 'cat' }, ...(duckHere() ? [{ who: 'duck' }] : [])].map((p, i) => {
     const b = bed();
     const tx = b.x - 1 + i * (b.cols + 1);
-    return { ...p, x: Math.max(0, tx) * TILE + TILE / 2, y: (b.y + b.rows) * TILE + 11, mode: 'rest', anim: p.who === 'duck' ? 'sit' : 'sitDown', start: performance.now(), until: performance.now() + 1500 + i * 1200, flip: false, hearts: 0 };
+    const at = mapHere() ? freeGardenSpot() : { x: Math.max(0, tx) * TILE + TILE / 2, y: (b.y + b.rows) * TILE + 11 };
+    return { ...p, ...at, mode: 'rest', anim: p.who === 'duck' ? 'sit' : 'sitDown', start: performance.now(), until: performance.now() + 1500 + i * 1200, flip: false, hearts: 0 };
   });
   showRoomPanel();
   if (gameWindowKind === 'inventory') closeGameWindow();
@@ -292,11 +313,7 @@ function nextGardenPlan(pet, now, dark) {
   else if (growing.length && Math.random() < 0.6) target = growing[Math.floor(Math.random() * growing.length)];
   pet.plot = target ? target.id : null;
   if (target) pet.goal = standAt(target);
-  else {
-    const tx = Math.floor(Math.random() * room.cols);
-    const ty = room.wallRows + Math.floor(Math.random() * room.floorRows);
-    pet.goal = { x: tx * TILE + TILE / 2, y: ty * TILE + 13 };
-  }
+  else pet.goal = freeGardenSpot();
   pet.mode = 'walk';
 }
 
@@ -411,6 +428,8 @@ function drawGarden(now) {
     }
     wg.globalAlpha = 1;
   }
+  // Your map's tiles that go in front: a canopy over everything.
+  if (mapHere()) drawMapLayer(wg, 'front', now);
   drawDayLight(false);
   for (const pet of gardenPets) {
     const b = sheetOf(pet.who) && petBoxIn(pet);

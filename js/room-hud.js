@@ -38,6 +38,14 @@ const HUD_ICONS = {
     '.kldcccdddk.', '.kldcccdddk.', '.kldddddddk.', '.kldddddddk.', '..kkkkkkkk..', '............'],
   coin: ['............', '....kkkk....', '...kyyyyk...', '..kyycyyyk..', '.kyycyyyyyk.', '.kyycyyyyyk.',
     '.kyyyyyyyyk.', '.kyyyyyyyyk.', '..kyyyyyyk..', '...kyyyyk...', '....kkkk....', '............'],
+  calendar: ['..k......k..', 'kkkkkkkkkkkk', 'kaaaaaaaaaak', 'kkkkkkkkkkkk', 'kcccccccccck', 'kckcckcckcck',
+    'kcccccccccck', 'kckcckcckcck', 'kcccccccccck', 'kcccccccccck', 'kkkkkkkkkkkk', '............'],
+  spring: ['............', '....aaaa....', '...aaaaaa...', '..aaayyaaa..', '..aaayyaaa..', '...aaaaaa...',
+    '....aaaa....', '.....gg.....', '..gg.gg.....', '...gggg.....', '.....gg.....', '............'],
+  autumn: ['............', '.......kk...', '.....kkyyk..', '...kkyyyyk..', '..kyyywyyk..', '.kyyywyyyk..',
+    '.kyywyyyk...', '.kywyyykk...', '.kwykkk.....', '.kw.........', 'kw..........', '............'],
+  winter: ['.....b......', '...b.b.b....', '....bbb.....', '.b...b...b..', '..b..b..b...', 'bbbbbbbbbbb.',
+    '..b..b..b...', '.b...b...b..', '....bbb.....', '...b.b.b....', '.....b......', '............'],
   night: ['............', '....kkkk....', '...kyyyk....', '..kyyyk.....', '..kyyk......', '..kyyk......',
     '..kyyk......', '..kyyyk.....', '...kyyyk....', '....kkkk....', '............', '............'],
 };
@@ -79,6 +87,7 @@ function showHud() {
     ['market', 'Market', 'market'],
     ['pantry', 'Pantry', 'pantry'],
     ['light', `Light: ${lightName}`, lightIcon()],
+    ['season', `Season: ${previewSeason ? SEASONS.find(([key]) => key === previewSeason)[1] : 'Calendar'}`, previewSeason ? (previewSeason === 'summer' ? 'day' : previewSeason) : 'calendar'],
     ['workshop', 'Workshop', 'workshop'],
   ] : [
     ['decorate', decorating ? 'Done decorating' : 'Decorate', decorating ? 'done' : 'decorate'],
@@ -103,8 +112,15 @@ $('room-hud').addEventListener('click', async (event) => {
     showHud();
     return;
   }
-  // Opening something folds the buttons away again; trying the light doesn't.
-  if (key !== 'light') hudOpen = false;
+  // Opening something folds the buttons away again; trying the light or season doesn't.
+  if (key !== 'light' && key !== 'season') hudOpen = false;
+  if (key === 'season') {
+    // Follow the calendar, or try a season. A picked season lasts until the app closes.
+    const steps = [null, ...SEASONS.map(([k]) => k)];
+    previewSeason = steps[(steps.indexOf(previewSeason) + 1) % steps.length];
+    showHud();
+    roomNote(previewSeason ? `Trying ${previewSeason}.` : 'The seasons follow the calendar.');
+  }
   if (key === 'decorate') {
     decorating = !decorating;
     if (!decorating) held = null;
@@ -182,6 +198,7 @@ function drawGameWindow() {
         <button type="button" class="ws-button" data-ws="cat"><b>${escapeHtml(cat.name)}</b></button>
         <button type="button" class="ws-button" data-ws="duck"><b>${duck ? escapeHtml(duck.name) : 'Duck'}</b></button>
         <button type="button" class="ws-button" data-ws="farm"><b>Farm</b></button>
+        <button type="button" class="ws-button" data-ws="map"><b>Map</b></button>
         <button type="button" class="ws-button" data-ws="room"><b>Room</b></button>
       </div>`;
   }
@@ -216,6 +233,7 @@ $('gw-body').addEventListener('click', async (event) => {
     if (action === 'room') openRoomSettings();
     if (action === 'pieces') goTo('pieces');
     if (action === 'farm') goTo('farm');
+    if (action === 'map') goTo('map');
     return;
   }
   if (event.target.closest('[data-gw="catalogue"]')) openGameWindow('catalogue');
