@@ -7,6 +7,9 @@
 //                                            piece it's a colour of (its id), so colours sit
 //                                            together in the catalogue. locked: still in the
 //                                            gacha machine (see room-gacha.js).
+//     sheet                                  the picture it was cut from, and each view's
+//                                            box on it, so other colours of that sheet can
+//                                            be cut the same way (see room-add.js).
 //     views: [{ src, pw, ph, w, d }] }       one thing in your inventory. Each view is
 //                                            one way it can be turned: its picture
 //                                            (src, pw x ph pixels) and the tiles it

@@ -42,6 +42,7 @@ function showRoomAdd() {
           <button class="text-button" type="button" data-cut="find">Find all pieces</button>`}
         </div>
         <div id="cut-pile" hidden></div>
+        <div id="cut-colours" hidden></div>
         <div class="cut-box">
           <label>Left <input type="number" min="0" data-box="0"></label>
           <label>Top <input type="number" min="0" data-box="1"></label>
@@ -74,6 +75,7 @@ function showRoomAdd() {
     showCutBox();
   }
   showPile();
+  showColourOffer();
 }
 
 function fitCutZoom() {
@@ -178,6 +180,12 @@ $('cut-page').addEventListener('change', async (event) => {
     await useCutPicture(await readFileAsDataUrl(file), '');
     cut.name = file.name.replace(/\.[^.]*$/, '');
     if (cut.sheet) $('cut-status').textContent = `${file.name}, ${cut.sheet.width} × ${cut.sheet.height} pixels.`;
+    await recognisePieces();
+  }
+  if (event.target.id === 'cut-colour-files' && event.target.files.length) {
+    const files = [...event.target.files];
+    event.target.value = '';
+    await addColourSheets(files);
   }
   if (event.target.id === 'cut-snap') cut.snap = event.target.checked;
   if (event.target.name === 'type') { cut.tilesTouched = false; guessTiles(); }
@@ -208,6 +216,7 @@ $('cut-page').addEventListener('click', async (event) => {
   if (action === 'starter') {
     await useCutPicture('room-art/starter.png', 'The starter sheet. Box a piece to try it.');
     cut.name = 'Starter';
+    await recognisePieces();
   }
   if (action === 'pile') {
     const kept = cut.pile[Number(button.dataset.i)];
@@ -294,9 +303,11 @@ $('cut-page').addEventListener('submit', async (event) => {
   }
   const form = event.target;
   const [, , pw, ph] = cut.box;
-  const view = { src: cutBox(cut.sheet, cut.box), pw, ph, w: Number(form.elements.w.value) || 1, d: Number(form.elements.d.value) || 1 };
+  const view = { src: cutBox(cut.sheet, cut.box), pw, ph, w: Number(form.elements.w.value) || 1, d: Number(form.elements.d.value) || 1, box: [...cut.box] };
   if (cutFor) {
     const piece = pieces.get(cutFor);
+    // A turned look only keeps its box if it came from the same sheet.
+    if (!sheetName() || piece.sheet !== sheetName()) delete view.box;
     const saved = await putItem({ ...piece, views: [...piece.views, view] });
     pieces.set(saved.id, saved);
     cutFor = null;
@@ -308,8 +319,10 @@ $('cut-page').addEventListener('submit', async (event) => {
     id: newId('piece'), kind: 'piece', day: '', name: form.elements.name.value.trim(), type, views: [view],
     count: Math.max(1, Number(form.elements.count.value) || 1), surface: form.elements.surface.checked, lift: 16,
     light: form.elements.light.checked, catSpot: form.elements.catSpot.checked, catLift: 8, toy: form.elements.toy.checked, locked: form.elements.locked.checked, createdAt: Date.now(),
+    sheet: sheetName(),
   });
   pieces.set(piece.id, piece);
+  showColourOffer();
   form.elements.name.value = '';
   form.elements.count.value = 1;
   form.elements.surface.checked = false;
@@ -402,10 +415,11 @@ async function addPile() {
   for (const kept of cut.pile.filter((k) => k.on)) {
     const [, , pw, ph] = kept.box;
     const small = pw <= TILE && ph <= TILE;
-    const view = { src: kept.src, pw, ph, w: small ? 1 : Math.max(1, Math.round(pw / TILE)), d: 1 };
+    const view = { src: kept.src, pw, ph, w: small ? 1 : Math.max(1, Math.round(pw / TILE)), d: 1, box: [...kept.box] };
     const piece = await putItem({
       id: newId('piece'), kind: 'piece', day: '', name: `${base} ${++n}`, type: small ? 'small' : 'furniture', views: [view],
       count: 1, surface: false, lift: 16, light: false, catSpot: false, catLift: 8, toy: false, locked: true, createdAt: Date.now() + n,
+      sheet: sheetName(),
     });
     pieces.set(piece.id, piece);
     ids.push(piece.id);
@@ -413,10 +427,94 @@ async function addPile() {
   cut.pile = [];
   drawCutSheet();
   showPile();
+  showColourOffer();
   showBackupInfo();
   $('cut-status').textContent = `Added ${ids.length}. You can change them any time in Edit pieces.`;
   setupQueue = ids;
   if (ids.length) openPieceDetails(pieces.get(ids[0]));
+}
+
+// --- Other colours of a sheet ---
+// A piece remembers the sheet it was cut from (sheet) and where (each look's box).
+// Another sheet with the same layout in other colours can then be cut in one go:
+// every piece again, in each colour, with the same settings, grouped as colours.
+
+// The name pieces from this picture remember, or '' for a drawing.
+const sheetName = () => (cut.name && cut.name !== 'Drawing' ? cut.name : '');
+const piecesFromSheet = (name) => [...pieces.values()].filter((p) => name && p.sheet === name && p.views.some((v) => v.box));
+
+// Pieces cut before pieces remembered their sheet: if a piece's picture is one of
+// the pieces on this sheet, it's from here.
+async function recognisePieces() {
+  const name = sheetName();
+  if (!cut.sheet || !name) return;
+  const found = new Map(findPieces(cut.sheet).map((box) => [cutBox(cut.sheet, box), box]));
+  for (const piece of [...pieces.values()]) {
+    if (piece.sheet) continue;
+    let matched = false;
+    const views = piece.views.map((v) => {
+      const box = v.box || found.get(v.src);
+      if (box && !v.box) matched = true;
+      return box ? { ...v, box } : v;
+    });
+    if (!matched) continue;
+    const saved = await putItem({ ...piece, views, sheet: name });
+    pieces.set(saved.id, saved);
+  }
+  showColourOffer();
+}
+
+function showColourOffer() {
+  const el = $('cut-colours');
+  if (!el || cutFor) return;
+  const from = piecesFromSheet(sheetName());
+  el.hidden = !from.length;
+  el.innerHTML = from.length ? `
+    <h3 class="cat-h">Other colours of this sheet</h3>
+    <p class="muted">${from.length} ${from.length === 1 ? 'piece has' : 'pieces have'} been cut from ${escapeHtml(sheetName())}. Choose the same sheet in other colours, one or several at once, and every piece is cut from each of them with the same settings, grouped as colours.</p>
+    <label class="ink-button"><span>Choose the other colours</span><input id="cut-colour-files" type="file" accept="image/*" multiple hidden></label>` : '';
+}
+
+// The part of a file name that says its colour: the words not in the first
+// sheet's name. "cottage-blue.png" next to "cottage-red" is "blue".
+function colourWord(fileName, sheet) {
+  const words = (name) => name.toLowerCase().split(/[\s_.-]+/).filter(Boolean);
+  const base = new Set(words(sheet));
+  const own = words(fileName.replace(/\.[^.]*$/, '')).filter((w) => !base.has(w));
+  return own.join(' ') || fileName.replace(/\.[^.]*$/, '');
+}
+
+async function addColourSheets(files) {
+  const name = sheetName();
+  const from = piecesFromSheet(name).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  let added = 0;
+  let skipped = 0;
+  for (const file of files) {
+    let sheet;
+    try {
+      sheet = pictureCanvas(await loadPicture(await readFileAsDataUrl(file)));
+    } catch {
+      skipped++;
+      continue;
+    }
+    const colour = colourWord(file.name, name);
+    for (const piece of from) {
+      const fits = (box) => box && box[0] + box[2] <= sheet.width && box[1] + box[3] <= sheet.height;
+      const views = piece.views.filter((v) => fits(v.box)).map((v) => ({ ...v, src: cutBox(sheet, v.box) }));
+      if (!views.length) { skipped++; continue; }
+      const copy = { ...piece };
+      delete copy.unlockedAt;
+      const saved = await putItem({
+        ...copy, id: newId('piece'), name: `${piece.name} (${colour})`, views, family: familyOf(piece),
+        sheet: file.name.replace(/\.[^.]*$/, ''), locked: true, createdAt: Date.now() + added,
+      });
+      pieces.set(saved.id, saved);
+      added++;
+    }
+  }
+  showBackupInfo();
+  $('cut-status').textContent = `Added ${added} ${added === 1 ? 'piece' : 'pieces'} in ${files.length} ${files.length === 1 ? 'colour' : 'colours'}. They went into the gacha machine.${skipped ? ` ${skipped} couldn't be cut: the sheet was a different size.` : ''}`;
+  $('cut-page').scrollIntoView();
 }
 
 // --- The cat page ---
