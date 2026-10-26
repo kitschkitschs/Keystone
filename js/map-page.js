@@ -7,8 +7,9 @@
 //          ground (ground, soil, water), on the ground (paths, edges,
 //          decorations) or in front (anything marked to go in front of the pets).
 //          ↻ turns the tile you paint with. A tile bigger than one tile goes
-//          down with its bottom middle where you tap. ✥ picks up a tile on the
-//          ground or in front and carries it to where you let go, like furniture.
+//          down with its bottom middle where you tap, and tiles stack on the
+//          ground and in front, the last one on top. ✥ picks up the tile on top
+//          and carries it to where you let go, like furniture.
 // What everything is, and how it's saved: see map.js.
 
 const mapPage = {
@@ -30,7 +31,7 @@ const mapPage = {
 async function showMapPage() {
   await loadRoom();
   if (!gardenMap) gardenMap = blankMap();
-  else if (gardenMap.cols !== room.cols || gardenMap.rows !== rows()) gardenMap = resizedMap(gardenMap);
+  else if (gardenMap.cols !== gardenCols() || gardenMap.rows !== gardenRows()) gardenMap = resizedMap(gardenMap);
   if (!tilesets.has(mapPage.set)) mapPage.set = [...tilesets.keys()][0] || '';
   await sheetsReady();
   drawMapPage();
@@ -175,8 +176,8 @@ function mapCell(event) {
 function paintAt(event, first) {
   const [tx, ty] = mapCell(event);
   if (mapPage.brush === 'erase') {
-    // Takes off the tile here on that layer, a big one too.
-    for (const i of coveringAt(mapPage.layer, tx, ty)) gardenMap[mapPage.layer][i] = '';
+    // Takes off what's here on that layer, big and stacked tiles too.
+    takeOff(mapPage.layer, coveringAt(mapPage.layer, tx, ty));
   } else {
     const tile = tiles.get(mapPage.brush);
     if (!tile) return;
@@ -184,7 +185,7 @@ function paintAt(event, first) {
     // A big tile goes down once per tap, not along the drag.
     if (!first && (cols > 1 || rows > 1)) return;
     const [x, y] = spotFor(tile, mapPage.turn, tx, ty);
-    gardenMap[layerFor(tile)][cellOf(x, y)] = cellValue(tile.id, mapPage.turn);
+    putTile(layerFor(tile), cellOf(x, y), tile.id, mapPage.turn);
   }
   drawMapCanvas();
   saveSoon();
@@ -196,9 +197,9 @@ function pickUpAt(event) {
   for (const layer of ['front', 'detail']) {
     const found = coveringAt(layer, tx, ty);
     if (!found.length) continue;
-    const i = found[found.length - 1];
-    mapPage.held = { layer, value: gardenMap[layer][i] };
-    gardenMap[layer][i] = '';
+    const top = found[found.length - 1];
+    mapPage.held = { layer, value: cellValue(top.tile.id, top.turn) };
+    takeOff(layer, [top]);
     return true;
   }
   return false;
@@ -207,7 +208,7 @@ function putDown() {
   const { layer, value } = mapPage.held;
   const { tile, turn } = cellTile(value);
   const [x, y] = spotFor(tile, turn, ...mapPage.hover);
-  gardenMap[layer][cellOf(x, y)] = value;
+  putTile(layer, cellOf(x, y), tile.id, turn);
   mapPage.held = null;
   drawMapCanvas();
   saveSoon();
@@ -508,7 +509,7 @@ $('map-page').addEventListener('click', async (event) => {
   }
   if (action === 'deltile') {
     const id = mapPage.tile;
-    const used = MAP_LAYERS.some(([layer]) => gardenMap[layer].some((v) => cellTile(v).id === id));
+    const used = MAP_LAYERS.some(([layer]) => gardenMap[layer].some((v) => cellStack(v).some((one) => one.id === id)));
     if (!confirm(used ? 'Delete this tile? It comes off the map too.' : 'Delete this tile?')) return;
     await removeTiles([id]);
     mapPage.tile = '';
@@ -533,7 +534,7 @@ async function removeTiles(ids) {
     await deleteItem(id);
     tiles.delete(id);
   }
-  for (const [layer] of MAP_LAYERS) gardenMap[layer] = gardenMap[layer].map((v) => (ids.includes(cellTile(v).id) ? '' : v));
+  for (const [layer] of MAP_LAYERS) gardenMap[layer] = gardenMap[layer].map((v) => stackValue(cellStack(v).filter((one) => !ids.includes(one.id))));
   await saveMap();
   if (ids.includes(mapPage.brush)) mapPage.brush = '';
 }

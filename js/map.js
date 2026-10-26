@@ -19,7 +19,9 @@
 //   { id: "map-garden", kind: "map", day: "", cols, rows, ground: [], detail: [], front: [] }
 //        each layer a tile id (or "") for every tile of the map, row by row,
 //        with ":1", ":2" or ":3" after it when it's turned that many quarter
-//        turns. A tile bigger than one tile is stored at its top-left corner.
+//        turns, and "|" between them when tiles are stacked in one spot (the
+//        last one is on top). A tile bigger than one tile is stored at its
+//        top-left corner.
 
 const TILE_TYPES = [
   ['ground', 'Ground', true],
@@ -59,8 +61,8 @@ function loadMaps(items) {
 }
 
 function blankMap() {
-  const n = room.cols * rows();
-  return { id: 'map-garden', kind: 'map', day: '', cols: room.cols, rows: rows(), ground: Array(n).fill(''), detail: Array(n).fill(''), front: Array(n).fill('') };
+  const n = gardenCols() * gardenRows();
+  return { id: 'map-garden', kind: 'map', day: '', cols: gardenCols(), rows: gardenRows(), ground: Array(n).fill(''), detail: Array(n).fill(''), front: Array(n).fill('') };
 }
 const saveMap = async () => { gardenMap = await putItem(gardenMap); };
 
@@ -70,12 +72,18 @@ function sheetFor(set, season = seasonNow()) {
   return sheets[season] || sheets.summer || Object.values(sheets).find(Boolean) || '';
 }
 
-// What's in one spot of a map layer: the tile, and how many quarter turns.
-function cellTile(value) {
-  const [id, turn] = String(value || '').split(':');
-  return { id, tile: tiles.get(id), turn: Number(turn) || 0 };
+// What's in one spot of a map layer: the tiles stacked there, the last on top,
+// each with how many quarter turns it's turned.
+function cellStack(value) {
+  return String(value || '').split('|').filter(Boolean).map((one) => {
+    const [id, turn] = one.split(':');
+    return { id, tile: tiles.get(id), turn: Number(turn) || 0 };
+  }).filter((one) => one.tile);
 }
+// The tile on top of a spot.
+const cellTile = (value) => cellStack(value).pop() || { id: '', tile: null, turn: 0 };
 const cellValue = (id, turn) => (turn ? `${id}:${turn}` : id);
+const stackValue = (stack) => stack.map(({ id, turn }) => cellValue(id, turn)).join('|');
 // How many tiles across and down a tile covers, turned.
 const footprint = (tile, turn = 0) => (turn % 2 ? [tile.h / TILE, tile.w / TILE] : [tile.w / TILE, tile.h / TILE]);
 
@@ -94,26 +102,45 @@ function drawTile(g, tile, x, y, now = performance.now(), season = seasonNow(), 
   g.restore();
 }
 
-const mapHere = () => Boolean(gardenMap && gardenMap.ground.some((v) => cellTile(v).tile));
+const mapHere = () => Boolean(gardenMap && gardenMap.ground.some((v) => cellStack(v).length));
 const cellOf = (tx, ty) => (gardenMap && tx >= 0 && ty >= 0 && tx < gardenMap.cols && ty < gardenMap.rows ? ty * gardenMap.cols + tx : -1);
 
-// The spots on one layer whose tile covers tx, ty, big ones too.
+// Every tile on one layer covering tx, ty, big ones and stacked ones too:
+// { at (the spot), k (where it is in the stack), tile, turn }, the last on top.
 function coveringAt(layer, tx, ty) {
   const found = [];
   if (!gardenMap) return found;
-  gardenMap[layer].forEach((value, i) => {
-    const { tile, turn } = cellTile(value);
-    if (!tile) return;
-    const x = i % gardenMap.cols;
-    const y = Math.floor(i / gardenMap.cols);
-    const [cols, rows] = footprint(tile, turn);
-    if (tx >= x && tx < x + cols && ty >= y && ty < y + rows) found.push(i);
+  gardenMap[layer].forEach((value, at) => {
+    const x = at % gardenMap.cols;
+    const y = Math.floor(at / gardenMap.cols);
+    cellStack(value).forEach(({ tile, turn }, k) => {
+      const [cols, rows] = footprint(tile, turn);
+      if (tx >= x && tx < x + cols && ty >= y && ty < y + rows) found.push({ at, k, tile, turn });
+    });
   });
   return found;
 }
 
 // The tiles covering a spot on the map, on each layer.
-const tilesAt = (tx, ty) => MAP_LAYERS.flatMap(([layer]) => coveringAt(layer, tx, ty).map((i) => cellTile(gardenMap[layer][i]).tile));
+const tilesAt = (tx, ty) => MAP_LAYERS.flatMap(([layer]) => coveringAt(layer, tx, ty).map((one) => one.tile));
+
+// Takes tiles off a layer: each { at, k } found by coveringAt.
+function takeOff(layer, found) {
+  for (const at of new Set(found.map((one) => one.at))) {
+    const gone = found.filter((one) => one.at === at).map((one) => one.k);
+    gardenMap[layer][at] = stackValue(cellStack(gardenMap[layer][at]).filter((_, k) => !gone.includes(k)));
+  }
+}
+
+// Puts a tile down: the ground holds one tile, the other layers stack.
+function putTile(layer, at, id, turn) {
+  if (layer === 'ground') {
+    gardenMap[layer][at] = cellValue(id, turn);
+    return;
+  }
+  const stack = cellStack(gardenMap[layer][at]).filter((one) => one.id !== id || one.turn !== turn);
+  gardenMap[layer][at] = stackValue([...stack, { id, turn }]);
+}
 
 const soilAt = (tx, ty) => tilesAt(tx, ty).some((t) => t.type === 'soil');
 const walkableAt = (tx, ty) => {
@@ -125,8 +152,7 @@ function drawMapLayer(g, layer, now) {
   if (!gardenMap) return;
   const season = seasonNow();
   gardenMap[layer].forEach((value, i) => {
-    const { tile, turn } = cellTile(value);
-    if (tile) drawTile(g, tile, (i % gardenMap.cols) * TILE, Math.floor(i / gardenMap.cols) * TILE, now, season, turn);
+    for (const { tile, turn } of cellStack(value)) drawTile(g, tile, (i % gardenMap.cols) * TILE, Math.floor(i / gardenMap.cols) * TILE, now, season, turn);
   });
 }
 

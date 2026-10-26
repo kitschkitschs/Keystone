@@ -15,14 +15,17 @@
 // Saved as items (all part of "Save game only", see sync.js):
 //   { id: "crop-...", kind: "crop", day: "", name, fw, fh, stages: [src], produce, hours, regrow, yield, price }
 //        stages: its pictures from seed to ripe, fw x fh pixels each, standing
-//        on its plot. produce: the picture of what you pick. hours: from
+//        on its plot. A crop that regrows has one more at the end: how it looks
+//        once it's been picked. produce: the picture of what you pick. hours: from
 //        planting to ripe. regrow: hours until it's ripe again after picking
 //        (0: it's planted again from seed). yield: how many each picking.
 //        price: coins each at the market.
 //   { id: "good-...", kind: "good", day: "", name, src, price }    sold at the market
 //   { id: "recipe-...", kind: "recipe", day: "", name, src, needs: [{ thing, n }], minutes, price }
 //   { id: "plot-<x>-<y>", kind: "plot", day: "", x, y, crop, plantedAt, ripeAt, regrown }
-//   { id: "garden", kind: "garden", day: "", cols, rows, grass, soil }    the bed's size, and floor pieces for its ground
+//   { id: "garden", kind: "garden", day: "", cols, rows, wide, tall, grass, soil }
+//        cols, rows: the bed's size. wide, tall: the garden's own size in tiles
+//        (the room's, until you set it). grass, soil: floor pieces for its ground.
 //   { id: "pantry", kind: "pantry", day: "", coins, has: { thing: n } }
 //   { id: "kitchen", kind: "kitchen", day: "", recipe, doneAt }    what's cooking
 // A thing is "crop:<id>", "good:<id>" or "recipe:<id>".
@@ -32,7 +35,7 @@ let crops = new Map();
 let goods = new Map();
 let recipes = new Map();
 let plots = new Map();
-const garden = { cols: 6, rows: 3, grass: '', soil: '' };
+const garden = { cols: 6, rows: 3, wide: 0, tall: 0, grass: '', soil: '' };
 let pantry = { coins: 0, has: {} };
 let kitchen = { recipe: '', doneAt: 0 };
 let scene = 'room'; // or 'garden'
@@ -43,7 +46,7 @@ function loadFarm(items) {
   goods = new Map();
   recipes = new Map();
   plots = new Map();
-  Object.assign(garden, { cols: 6, rows: 3, grass: '', soil: '' });
+  Object.assign(garden, { cols: 6, rows: 3, wide: 0, tall: 0, grass: '', soil: '' });
   pantry = { coins: 0, has: {} };
   kitchen = { recipe: '', doneAt: 0 };
   for (const item of items) {
@@ -60,7 +63,14 @@ function loadFarm(items) {
 }
 
 const savePantry = async () => { pantry = await putItem({ ...pantry, id: 'pantry', kind: 'pantry', day: '' }); };
-const saveGarden = () => putItem({ id: 'garden', kind: 'garden', day: '', cols: garden.cols, rows: garden.rows, grass: garden.grass, soil: garden.soil });
+const saveGarden = () => putItem({ id: 'garden', kind: 'garden', day: '', cols: garden.cols, rows: garden.rows, wide: garden.wide, tall: garden.tall, grass: garden.grass, soil: garden.soil });
+
+// The garden has its own size, in tiles; until you set one it's the room's.
+const gardenCols = () => Math.max(6, Math.min(40, Math.round(Number(garden.wide)) || room.cols));
+const gardenRows = () => Math.max(room.wallRows + 2, Math.min(30, Math.round(Number(garden.tall)) || rows()));
+// The size of whichever scene is showing.
+const sceneCols = () => (scene === 'garden' ? gardenCols() : room.cols);
+const sceneRows = () => (scene === 'garden' ? gardenRows() : rows());
 
 // What a thing is, from its key: its name, picture and price.
 function thingOf(key) {
@@ -118,16 +128,21 @@ async function tendGarden() {
   if (any) await savePantry();
 }
 
-// Which picture a plot shows: the stages grow in turn, the last one is ripe.
-// A crop that regrows waits on its last-but-one stage.
+// Which stage picture is the ripe one. A crop that regrows keeps one more
+// picture after it: how it looks once it's been picked.
+const ripeStage = (crop) => Math.max(0, crop.stages.length - (Number(crop.regrow) > 0 && crop.stages.length > 1 ? 2 : 1));
+
+// Which picture a plot shows: the stages grow in turn up to the ripe one, and
+// a crop that regrows waits on its picked look.
 function stageOf(plot, now = Date.now()) {
   const crop = crops.get(plot.crop);
   const n = crop.stages.length;
   if (!n) return null;
-  if (isRipe(plot, now)) return crop.stages[n - 1];
-  if (plot.regrown) return crop.stages[Math.max(0, n - 2)];
+  const ripe = ripeStage(crop);
+  if (isRipe(plot, now)) return crop.stages[ripe];
+  if (plot.regrown) return crop.stages[Number(crop.regrow) > 0 && n > 1 ? n - 1 : Math.max(0, ripe - 1)];
   const t = (now - plot.plantedAt) / Math.max(1, plot.ripeAt - plot.plantedAt);
-  return crop.stages[Math.max(0, Math.min(n - 2, Math.floor(t * (n - 1))))];
+  return crop.stages[Math.max(0, Math.min(ripe - 1, Math.floor(t * ripe)))];
 }
 
 // --- Cooking ---
@@ -183,9 +198,9 @@ function farmTick(now) {
 // would be, then grass, with the bed in the middle.
 
 function bed() {
-  const cols = Math.max(1, Math.min(garden.cols, room.cols - 2));
-  const down = Math.max(1, Math.min(garden.rows, room.floorRows - 2));
-  return { x: Math.floor((room.cols - cols) / 2), y: room.wallRows + 1, cols, rows: down };
+  const cols = Math.max(1, Math.min(garden.cols, sceneCols() - 2));
+  const down = Math.max(1, Math.min(garden.rows, sceneRows() - room.wallRows - 2));
+  return { x: Math.floor((sceneCols() - cols) / 2), y: room.wallRows + 1, cols, rows: down };
 }
 const inBed = (tx, ty) => {
   if (mapHere()) return soilAt(tx, ty);
@@ -196,11 +211,11 @@ const inBed = (tx, ty) => {
 function freeGardenSpot() {
   const top = mapHere() ? 0 : room.wallRows;
   for (let tries = 0; tries < 40; tries++) {
-    const tx = Math.floor(Math.random() * room.cols);
-    const ty = top + Math.floor(Math.random() * (rows() - top));
+    const tx = Math.floor(Math.random() * sceneCols());
+    const ty = top + Math.floor(Math.random() * (sceneRows() - top));
     if (!mapHere() || walkableAt(tx, ty)) return { x: tx * TILE + TILE / 2, y: ty * TILE + 13 };
   }
-  return { x: (room.cols * TILE) / 2, y: (rows() - 1) * TILE + 13 };
+  return { x: (sceneCols() * TILE) / 2, y: (sceneRows() - 1) * TILE + 13 };
 }
 const plotAt = (tx, ty) => plots.get(`plot-${tx}-${ty}`);
 const bedPlots = () => [...plots.values()].filter((p) => inBed(p.x, p.y));
@@ -273,6 +288,7 @@ const standAt = (plot) => ({ x: plot.x * TILE + TILE / 2, y: (plot.y + 1) * TILE
 
 function enterGarden() {
   scene = 'garden';
+  sizeRoom();
   decorating = false;
   held = null;
   gardenPets = [{ who: 'cat' }, ...(duckHere() ? [{ who: 'duck' }] : [])].map((p, i) => {
@@ -287,6 +303,7 @@ function enterGarden() {
 
 function leaveGarden() {
   scene = 'room';
+  sizeRoom();
   showRoomPanel();
   if (gameWindowKind === 'plant' || gameWindowKind === 'market') closeGameWindow();
 }
@@ -466,6 +483,10 @@ function heartUp(b, until, now) {
 let plantAt = null;
 function tapGarden(point) {
   const now = performance.now();
+  const tx = Math.floor(point.x / TILE);
+  const ty = Math.floor(point.y / TILE);
+  // With the wand, a tap hurries a plot along, even with a pet standing on it.
+  if (wand && plotAt(tx, ty)) return jumpPlot(plotAt(tx, ty));
   const pet = [...gardenPets].reverse().find((p) => {
     if (!sheetOf(p.who)) return false;
     const b = petBoxIn(p);
@@ -476,8 +497,6 @@ function tapGarden(point) {
     if (navigator.vibrate) navigator.vibrate(10);
     return;
   }
-  const tx = Math.floor(point.x / TILE);
-  const ty = Math.floor(point.y / TILE);
   if (!inBed(tx, ty)) return;
   plantAt = { x: tx, y: ty };
   openGameWindow('plant');
