@@ -1,9 +1,12 @@
 // map-page.js: the Map page (Workshop → Map). Two tabs:
-//   Tiles: add a tile set (a tile sheet), with a sheet for each season, and cut
-//          tiles from it: drag across the sheet to pick one or more tiles, then
-//          say what it is. Tap a tile you've cut to change it. An animated
+//   Tiles: open pictures (or a whole folder) and cut tiles from them: drag
+//          across a sheet to pick one or more tiles, then say what it is. The
+//          first tile cut makes the picture a tile set, which can have a sheet
+//          for each season. ✕ closes a sheet: a tile set with tiles is only
+//          put away (its tiles stay), and "Open again" brings it back. Tap a tile you've cut to change it. An animated
 //          tile has more frames to play in turn (water).
-//   Map:   paint the garden with your tiles. Each tile goes on its own layer:
+//   Map:   paint the room or the garden with your tiles (each has its own
+//          map, and its size is set here too). Each tile goes on its own layer:
 //          ground (ground, soil, water), on the ground (paths, edges,
 //          decorations) or in front (anything marked to go in front of the pets).
 //          The layer chips under the tiles say which layer it goes on (its
@@ -14,11 +17,18 @@
 //          a tile or drag a box, and everything there (big tiles and
 //          decorations too) comes up in a list by layer, with tags to show
 //          just one layer or kind, to delete or move to another layer.
+//          − and + zoom in and out (or Ctrl and the scroll wheel), and the
+//          hand drags the map around, as does the middle mouse button.
 // What everything is, and how it's saved: see map.js.
 
 const mapPage = {
   tab: 'map', // or 'tiles'
+  which: 'garden', // the map being painted: 'room' or 'garden'
+  zoom: 1, // 1 fits the whole map in
+  sizing: false, // the size fields are open
   set: '', // the tile set showing on the Tiles tab
+  loose: [], // pictures opened but not cut from yet: { name, file, src }
+  looseAt: -1, // the one showing instead of a tile set
   pick: null, // the box picked on the sheet: { x, y, w, h } in pixels
   tile: '', // the tile being changed
   addFrame: false, // the next tap on the sheet adds a frame to that tile
@@ -39,25 +49,17 @@ const mapPage = {
 
 async function showMapPage() {
   await loadRoom();
-  if (!gardenMap) gardenMap = blankMap();
-  else if (gardenMap.cols !== gardenCols() || gardenMap.rows !== gardenRows()) gardenMap = resizedMap(gardenMap);
-  if (!tilesets.has(mapPage.set)) mapPage.set = [...tilesets.keys()][0] || '';
+  for (const which of ['room', 'garden']) {
+    if (!maps[which]) maps[which] = blankMap(which);
+    else await fitMap(which);
+  }
+  if (!tilesets.has(mapPage.set) || tilesets.get(mapPage.set).hidden) mapPage.set = openSets()[0]?.id || '';
   await sheetsReady();
   drawMapPage();
 }
 
-// The room changed size: keep what's painted where it still fits.
-function resizedMap(old) {
-  const map = blankMap();
-  for (const [layer] of MAP_LAYERS) {
-    old[layer].forEach((id, i) => {
-      const x = i % old.cols;
-      const y = Math.floor(i / old.cols);
-      if (x < map.cols && y < map.rows) map[layer][y * map.cols + x] = id;
-    });
-  }
-  return map;
-}
+// The map being painted.
+const theMap = () => maps[mapPage.which];
 
 const setTiles = (setId) => [...tiles.values()].filter((t) => t.set === setId).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 const typeName = (key) => (TILE_TYPES.find(([k]) => k === key) || TILE_TYPES[0])[1];
@@ -65,7 +67,8 @@ const turnStyle = (turn) => (turn ? `; transform: rotate(${turn * 90}deg)` : '')
 
 function drawMapPage() {
   // Drawing again keeps the sheet scrolled where it was.
-  const wrap = document.querySelector('.sheet-wrap');
+  const wrapOf = () => document.querySelector(mapPage.tab === 'map' ? '.map-view' : '.sheet-wrap');
+  const wrap = wrapOf();
   const scrolled = wrap ? [wrap.scrollLeft, wrap.scrollTop] : null;
   const chip = (attr, value, label, on) => `<button type="button" class="inv-tag" ${attr}="${escapeHtml(value)}" aria-pressed="${on}">${label}</button>`;
   $('map-page').innerHTML = `
@@ -79,9 +82,11 @@ function drawMapPage() {
       ${mapPage.tab === 'map' ? mapTabHtml() : tilesTabHtml()}
       <p id="map-status" class="status" role="status"></p>
     </div>`;
-  if (mapPage.tab === 'map') drawMapCanvas();
-  else drawSheetCanvas();
-  const again = document.querySelector('.sheet-wrap');
+  if (mapPage.tab === 'map') {
+    sizeMapCanvas();
+    drawMapCanvas();
+  } else drawSheetCanvas();
+  const again = wrapOf();
   if (again && scrolled) [again.scrollLeft, again.scrollTop] = scrolled;
 }
 
@@ -94,19 +99,23 @@ function mapStatus(text) {
 
 function mapTabHtml() {
   const all = [...tiles.values()].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-  if (!all.length) return '<p><button class="ink-button" type="button" data-map-tab="tiles">Add tiles</button></p>';
+  const which = (key, name) => `<button type="button" class="inv-tag" data-map-which="${key}" aria-pressed="${mapPage.which === key}">${name}</button>`;
+  const head = `<div class="inv-tags">${which('room', 'Room')}${which('garden', 'Garden')}
+      <button type="button" class="inv-tag" data-map="sizing" aria-pressed="${mapPage.sizing}">Size</button></div>
+    ${mapPage.sizing ? sizeHtml() : ''}`;
+  if (!all.length) return `${head}<p><button class="ink-button" type="button" data-map-tab="tiles">Add tiles</button></p>`;
   const shown = all.filter((t) => (!mapPage.kind || t.type === mapPage.kind) && (!mapPage.sheet || t.set === mapPage.sheet));
   const kinds = TILE_TYPES.filter(([key]) => key === mapPage.kind || all.some((t) => t.type === key));
   const option = (value, label, on) => `<option value="${escapeHtml(value)}"${on ? ' selected' : ''}>${escapeHtml(label)}</option>`;
   const tool = (key, mark, label) => `<button type="button" class="thing-tile${mapPage.brush === key ? ' on' : ''}" data-brush="${key}" aria-label="${label}" title="${label}"><span class="thing-x">${mark}</span></button>`;
-  return `<div class="map-layout">
+  return `${head}<div class="map-layout">
       <div class="map-tools">
         <div class="tile-filters">
           <select id="tile-kind" aria-label="Kind">${option('', 'All kinds', !mapPage.kind)}${kinds.map(([key, name]) => option(key, name, mapPage.kind === key)).join('')}</select>
           <select id="tile-sheet" aria-label="Tile set">${option('', 'All tile sets', !mapPage.sheet)}${[...tilesets.values()].map((set) => option(set.id, set.name, mapPage.sheet === set.id)).join('')}</select>
         </div>
         <div class="thing-grid tile-grid">
-          ${tool('erase', '✕', 'Eraser')}${tool('move', '✥', 'Move')}
+          ${tool('erase', '✕', 'Select')}${tool('move', '✥', 'Move')}${tool('pan', '✋&#xFE0E;', 'Look around')}
           <button type="button" class="thing-tile" data-map="turn" aria-label="Turn" title="Turn"${tiles.has(mapPage.brush) ? '' : ' disabled'}><span class="thing-x">↻</span></button>
           ${shown.map((t) => `<button type="button" class="thing-tile${mapPage.brush === t.id ? ' on' : ''}" data-brush="${t.id}" aria-label="${typeName(t.type)}" title="${typeName(t.type)}"><img class="pixel tile-img" src="${tileThumb(t)}" alt="" style="--tw: ${t.w}; --th: ${t.h}${mapPage.brush === t.id ? turnStyle(mapPage.turn) : ''}"></button>`).join('')}
         </div>
@@ -114,21 +123,76 @@ function mapTabHtml() {
         ${mapPage.brush === 'erase' && mapPage.sel ? selectionHtml() : ''}
         <p><button class="text-button danger" type="button" data-map="clear">Clear the map</button></p>
       </div>
-      <div class="map-wrap"><canvas id="map-canvas" class="pixel"></canvas></div>
+      <div class="map-side">
+        <div class="zoom-bar">
+          <button type="button" class="text-button" data-map="zoomout" aria-label="Zoom out" title="Zoom out"${mapPage.zoom <= 1 ? ' disabled' : ''}>−</button>
+          <button type="button" class="text-button" data-map="zoomin" aria-label="Zoom in" title="Zoom in"${mapPage.zoom >= MAP_ZOOM_MAX ? ' disabled' : ''}>+</button>
+        </div>
+        <div class="map-wrap map-view"><canvas id="map-canvas" class="pixel${mapPage.brush === 'pan' ? ' panning' : ''}"></canvas></div>
+      </div>
     </div>`;
 }
 
+// The size of the map being painted: the room's or the garden's own.
+function sizeHtml() {
+  const field = (id, label, min, max, value) => `<label>${label} <input type="number" data-size="${id}" min="${min}" max="${max}" value="${value}"></label>`;
+  return `<div class="cut-box">${mapPage.which === 'room'
+    ? field('cols', 'Across', ...ROOM_SIZES.cols, room.cols) + field('wallRows', 'Wall rows', ...ROOM_SIZES.wallRows, room.wallRows) + field('floorRows', 'Floor rows', ...ROOM_SIZES.floorRows, room.floorRows)
+    : field('wide', 'Across', 6, 40, gardenCols()) + field('tall', 'Down', room.wallRows + 2, 30, gardenRows())}</div>`;
+}
+
+// Zooming: at 1 the whole map fits in its box; bigger, the box scrolls.
+const MAP_ZOOM_MAX = 8;
+function sizeMapCanvas() {
+  const c = $('map-canvas');
+  const box = document.querySelector('.map-view');
+  const map = theMap();
+  if (!c || !box || !map) return;
+  const fit = Math.min(box.clientWidth / (map.cols * TILE), (box.clientHeight || Infinity) / (map.rows * TILE));
+  c.style.width = `${Math.floor(map.cols * TILE * fit * mapPage.zoom)}px`;
+  c.style.height = `${Math.floor(map.rows * TILE * fit * mapPage.zoom)}px`;
+}
+// Zooms to z, keeping the spot under clientX, clientY (or the middle) still.
+function zoomMap(z, clientX, clientY) {
+  const box = document.querySelector('.map-view');
+  const c = $('map-canvas');
+  if (!box || !c) return;
+  z = Math.max(1, Math.min(MAP_ZOOM_MAX, z));
+  const b = box.getBoundingClientRect();
+  const x = clientX ?? b.left + b.width / 2;
+  const y = clientY ?? b.top + b.height / 2;
+  const r = c.getBoundingClientRect();
+  const ratio = z / mapPage.zoom;
+  const [px, py] = [(x - r.left) * ratio, (y - r.top) * ratio];
+  mapPage.zoom = z;
+  sizeMapCanvas();
+  box.scrollLeft = px - (x - b.left);
+  box.scrollTop = py - (y - b.top);
+  const [out, inn] = document.querySelectorAll('.zoom-bar button');
+  out.disabled = z <= 1;
+  inn.disabled = z >= MAP_ZOOM_MAX;
+}
+window.addEventListener('resize', () => { if (currentView() === 'map' && mapPage.tab === 'map') sizeMapCanvas(); });
+
 function drawMapCanvas() {
   const c = $('map-canvas');
-  if (!c || !gardenMap) return;
-  c.width = gardenMap.cols * TILE;
-  c.height = gardenMap.rows * TILE;
+  const map = theMap();
+  if (!c || !map) return;
+  c.width = map.cols * TILE;
+  c.height = map.rows * TILE;
   const g = c.getContext('2d');
   g.imageSmoothingEnabled = false;
   g.fillStyle = '#9DBF7E';
   g.fillRect(0, 0, c.width, c.height);
+  if (mapPage.which === 'room') {
+    // The plain wall and floor, under what's painted.
+    g.fillStyle = '#C5D2B3';
+    g.fillRect(0, 0, c.width, room.wallRows * TILE);
+    g.fillStyle = '#C9A27A';
+    g.fillRect(0, room.wallRows * TILE, c.width, c.height - room.wallRows * TILE);
+  }
   const now = performance.now();
-  for (const [layer] of MAP_LAYERS) drawMapLayer(g, layer, now);
+  for (const [layer] of MAP_LAYERS) drawMapLayer(g, map, layer, now);
   g.fillStyle = 'rgba(255, 255, 255, 0.18)';
   for (let x = TILE; x < c.width; x += TILE) g.fillRect(x, 0, 1, c.height);
   for (let y = TILE; y < c.height; y += TILE) g.fillRect(0, y, c.width, 1);
@@ -157,11 +221,11 @@ function drawMapCanvas() {
     g.strokeRect(x0 * TILE + 0.5, y0 * TILE + 0.5, (x1 - x0 + 1) * TILE - 1, (y1 - y0 + 1) * TILE - 1);
     g.setLineDash([]);
   }
-  const hi = mapPage.hi && cellStack(gardenMap[mapPage.hi.layer][mapPage.hi.at])[mapPage.hi.k];
+  const hi = mapPage.hi && cellStack(theMap()[mapPage.hi.layer][mapPage.hi.at])[mapPage.hi.k];
   if (hi) {
     const [cols, rows] = footprint(hi.tile, hi.turn);
     g.fillStyle = 'rgba(224, 96, 122, 0.35)';
-    g.fillRect((mapPage.hi.at % gardenMap.cols) * TILE, Math.floor(mapPage.hi.at / gardenMap.cols) * TILE, cols * TILE, rows * TILE);
+    g.fillRect((mapPage.hi.at % theMap().cols) * TILE, Math.floor(mapPage.hi.at / theMap().cols) * TILE, cols * TILE, rows * TILE);
   }
 }
 
@@ -172,9 +236,9 @@ function selectedTiles() {
   const { x0, y0, x1, y1 } = mapPage.sel;
   const found = [];
   for (const [layer] of MAP_LAYERS) {
-    gardenMap[layer].forEach((value, at) => {
-      const x = at % gardenMap.cols;
-      const y = Math.floor(at / gardenMap.cols);
+    theMap()[layer].forEach((value, at) => {
+      const x = at % theMap().cols;
+      const y = Math.floor(at / theMap().cols);
       cellStack(value).forEach(({ tile, turn }, k) => {
         const [cols, rows] = footprint(tile, turn);
         if (x <= x1 && x + cols - 1 >= x0 && y <= y1 && y + rows - 1 >= y0) found.push({ layer, at, k, tile, turn });
@@ -211,7 +275,7 @@ function selectionHtml() {
 // One listed tile, from its "layer|at|k".
 function selEntry(key) {
   const [layer, at, k] = key.split('|');
-  const one = cellStack(gardenMap[layer][Number(at)])[Number(k)];
+  const one = cellStack(theMap()[layer][Number(at)])[Number(k)];
   return one && { layer, at: Number(at), k: Number(k), ...one };
 }
 
@@ -228,7 +292,7 @@ function spotFor(tile, turn, tx, ty) {
   const [cols, rows] = footprint(tile, turn);
   const x = tx - Math.floor((cols - 1) / 2);
   const y = ty - rows + 1;
-  return [Math.max(0, Math.min(x, gardenMap.cols - cols)), Math.max(0, Math.min(y, gardenMap.rows - rows))];
+  return [Math.max(0, Math.min(x, theMap().cols - cols)), Math.max(0, Math.min(y, theMap().rows - rows))];
 }
 // Water keeps moving while the map is on screen.
 setInterval(() => { if (currentView() === 'map' && mapPage.tab === 'map') drawMapCanvas(); }, 200);
@@ -237,15 +301,16 @@ let painting = false;
 let mapSaveTimer = 0;
 const saveSoon = () => {
   clearTimeout(mapSaveTimer);
-  mapSaveTimer = setTimeout(saveMap, 400);
+  const which = mapPage.which;
+  mapSaveTimer = setTimeout(() => saveMap(which), 400);
 };
 
 // The map tile under the pointer, kept inside the map.
 function mapCell(event) {
   const r = $('map-canvas').getBoundingClientRect();
-  const tx = Math.floor(((event.clientX - r.left) / r.width) * gardenMap.cols);
-  const ty = Math.floor(((event.clientY - r.top) / r.height) * gardenMap.rows);
-  return [Math.max(0, Math.min(tx, gardenMap.cols - 1)), Math.max(0, Math.min(ty, gardenMap.rows - 1))];
+  const tx = Math.floor(((event.clientX - r.left) / r.width) * theMap().cols);
+  const ty = Math.floor(((event.clientY - r.top) / r.height) * theMap().rows);
+  return [Math.max(0, Math.min(tx, theMap().cols - 1)), Math.max(0, Math.min(ty, theMap().rows - 1))];
 }
 
 function paintAt(event, first) {
@@ -256,7 +321,7 @@ function paintAt(event, first) {
   // A big tile goes down once per tap, not along the drag.
   if (!first && (cols > 1 || rows > 1)) return;
   const [x, y] = spotFor(tile, mapPage.turn, tx, ty);
-  putTile(mapPage.layer, cellOf(x, y), tile.id, mapPage.turn);
+  putTile(theMap(), mapPage.layer, cellOf(theMap(), x, y), tile.id, mapPage.turn);
   drawMapCanvas();
   saveSoon();
 }
@@ -273,11 +338,11 @@ function selectTo(event) {
 function pickUpAt(event) {
   const [tx, ty] = mapCell(event);
   for (const layer of ['front', 'detail']) {
-    const found = coveringAt(layer, tx, ty);
+    const found = coveringAt(theMap(), layer, tx, ty);
     if (!found.length) continue;
     const top = found[found.length - 1];
     mapPage.held = { layer, value: cellValue(top.tile.id, top.turn) };
-    takeOff(layer, [top]);
+    takeOff(theMap(), layer, [top]);
     return true;
   }
   return false;
@@ -286,14 +351,32 @@ function putDown() {
   const { layer, value } = mapPage.held;
   const { tile, turn } = cellTile(value);
   const [x, y] = spotFor(tile, turn, ...mapPage.hover);
-  putTile(layer, cellOf(x, y), tile.id, turn);
+  putTile(theMap(), layer, cellOf(theMap(), x, y), tile.id, turn);
   mapPage.held = null;
   drawMapCanvas();
   saveSoon();
 }
 
+// Moving around a zoomed-in map: dragging with the hand, or the middle mouse
+// button, scrolls its box.
+let panFrom = null;
+function startPan(event) {
+  const box = document.querySelector('.map-view');
+  panFrom = { x: event.clientX, y: event.clientY, left: box.scrollLeft, top: box.scrollTop };
+  event.target.setPointerCapture(event.pointerId);
+}
+function panTo(event) {
+  const box = document.querySelector('.map-view');
+  box.scrollLeft = panFrom.left - (event.clientX - panFrom.x);
+  box.scrollTop = panFrom.top - (event.clientY - panFrom.y);
+}
+
 $('map-page').addEventListener('pointerdown', (event) => {
   if (event.target.id === 'map-canvas') {
+    if (mapPage.brush === 'pan' || event.button === 1) {
+      event.preventDefault();
+      return startPan(event);
+    }
     if (!mapPage.brush) return;
     mapPage.hover = mapCell(event);
     if (mapPage.brush === 'move') {
@@ -314,6 +397,7 @@ $('map-page').addEventListener('pointerdown', (event) => {
   if (event.target.id === 'sheet-canvas') sheetDown(event);
 });
 $('map-page').addEventListener('pointermove', (event) => {
+  if (panFrom) return panTo(event);
   if (event.target.id === 'map-canvas') {
     const [tx, ty] = mapCell(event);
     const moved = !mapPage.hover || mapPage.hover[0] !== tx || mapPage.hover[1] !== ty;
@@ -325,6 +409,10 @@ $('map-page').addEventListener('pointermove', (event) => {
   if (sheetDrag && event.target.id === 'sheet-canvas') sheetMove(event);
 });
 $('map-page').addEventListener('pointerup', (event) => {
+  if (panFrom) {
+    panFrom = null;
+    return;
+  }
   painting = false;
   if (mapPage.held) putDown();
   if (mapPage.selFrom) {
@@ -333,6 +421,11 @@ $('map-page').addEventListener('pointerup', (event) => {
   }
   if (sheetDrag && event.target.id === 'sheet-canvas') sheetUp(event);
 });
+$('map-page').addEventListener('wheel', (event) => {
+  if (event.target.id !== 'map-canvas' || !(event.ctrlKey || event.metaKey)) return;
+  event.preventDefault();
+  zoomMap(mapPage.zoom * Math.exp(-event.deltaY / 300), event.clientX, event.clientY);
+}, { passive: false });
 // Pointing at a listed tile shows where it is on the map.
 $('map-page').addEventListener('mouseover', (event) => {
   const row = event.target.closest('[data-sel-row]');
@@ -350,28 +443,41 @@ $('map-page').addEventListener('pointerleave', (event) => {
 
 // --- The Tiles tab ---
 
+// The sheet showing on the Tiles tab: a tile set, or a picture opened but not
+// cut from yet (it becomes a tile set with its first tile).
+function shownSet() {
+  const loose = mapPage.loose[mapPage.looseAt];
+  return loose ? { id: '', name: loose.name, sheets: { summer: loose.src }, loose: true } : tilesets.get(mapPage.set);
+}
+// The tile sets in the row of tags: closed ones (hidden) only in "Open again".
+const openSets = () => [...tilesets.values()].filter((set) => !set.hidden);
+
 function tilesTabHtml() {
-  const set = tilesets.get(mapPage.set);
-  const sets = [...tilesets.values()];
-  return `<div class="inv-tags">
-      ${sets.map((s) => `<button type="button" class="inv-tag" data-tileset="${s.id}" aria-pressed="${s.id === mapPage.set}">${escapeHtml(s.name)}</button>`).join('')}
-      <label class="inv-tag add-tag"><span>New tile set</span><input id="tileset-file" type="file" accept="image/*" hidden></label>
+  const set = shownSet();
+  const sets = openSets();
+  const closed = [...tilesets.values()].filter((one) => one.hidden);
+  const at = mapPage.looseAt >= 0 ? sets.length + mapPage.looseAt : sets.findIndex((one) => one.id === mapPage.set);
+  return `<div class="buttons">
+      <label class="ink-button"><span>Open pictures</span><input id="tileset-file" type="file" accept="image/*" multiple hidden></label>
+      <label class="text-button"><span>Open a folder</span><input id="tileset-folder" type="file" webkitdirectory multiple hidden></label>
+      ${closed.length ? `<select id="tileset-reopen" aria-label="Open again"><option value="">Open again</option>${closed.map((one) => `<option value="${one.id}">${escapeHtml(one.name)}</option>`).join('')}</select>` : ''}
     </div>
+    ${sheetTagsHtml([...sets.map((one) => one.name), ...mapPage.loose.map((one) => one.name)], at, 'data-tileset', 'data-tileset-close')}
     ${set ? `<div class="map-layout tiles-layout">
       <div class="map-wrap sheet-wrap cut-scroll"><canvas id="sheet-canvas" class="pixel"></canvas></div>
       <div class="map-tools">
-        <label class="field"><span>Name</span><input id="tileset-name" type="text" value="${escapeHtml(set.name)}" autocomplete="off"></label>
+        ${set.loose ? '' : `<label class="field"><span>Name</span><input id="tileset-name" type="text" value="${escapeHtml(set.name)}" autocomplete="off"></label>
         <div class="field"><span>Sheets</span><div class="season-sheets">${SEASONS.map(([key, name]) => `<label class="season-sheet${set.sheets[key] ? ' has' : ''}">
           ${set.sheets[key] ? `<img class="pixel" src="${set.sheets[key]}" alt="">` : '<span class="thing-x">+</span>'}<span>${name}</span>
-          <input type="file" accept="image/*" data-season-sheet="${key}" hidden></label>`).join('')}</div></div>
+          <input type="file" accept="image/*" data-season-sheet="${key}" hidden></label>`).join('')}</div></div>`}
         ${tileFormHtml()}
-        <p><button class="text-button danger" type="button" data-map="unset">Delete this tile set</button></p>
+        ${set.loose ? '' : '<p><button class="text-button danger" type="button" data-map="unset">Delete this tile set</button></p>'}
       </div>
     </div>` : ''}`;
 }
 
 // The tile being changed, or the new one picked on the sheet.
-const formTile = () => tiles.get(mapPage.tile) || (mapPage.pick && { id: 'pick', set: mapPage.set, frames: [], fps: 4, ...mapPage.pick });
+const formTile = () => tiles.get(mapPage.tile) || (mapPage.pick && { id: 'pick', set: shownSet()?.id || '', frames: [], fps: 4, ...mapPage.pick });
 
 function tileFormHtml() {
   const tile = tiles.get(mapPage.tile);
@@ -406,7 +512,7 @@ function frameThumb(tile, x, y) {
 const SHEET_SCALE = 2;
 function drawSheetCanvas() {
   const c = $('sheet-canvas');
-  const set = tilesets.get(mapPage.set);
+  const set = shownSet();
   const img = set && picture(sheetFor(set));
   if (!c) return;
   if (!img) {
@@ -468,7 +574,7 @@ function sheetUp(event) {
   }
   if (tap) {
     // A tap on a tile you've cut opens it; anywhere else picks that one tile.
-    const hit = setTiles(mapPage.set).find((t) => x * TILE >= t.x && x * TILE < t.x + t.w && y * TILE >= t.y && y * TILE < t.y + t.h);
+    const hit = setTiles(shownSet()?.id || '').find((t) => x * TILE >= t.x && x * TILE < t.x + t.w && y * TILE >= t.y && y * TILE < t.y + t.h);
     mapPage.tile = hit ? hit.id : '';
     mapPage.pick = hit ? null : { x: x * TILE, y: y * TILE, w: TILE, h: TILE };
   } else mapPage.tile = '';
@@ -486,6 +592,45 @@ function tileFields() {
 function savedFields(shape) {
   const { anim, ...fields } = tileFields();
   return { ...fields, frames: anim ? shape.frames || [] : [] };
+}
+
+// Shows a picture you've opened, reading it first if it hasn't been yet.
+async function showLoose(i) {
+  const loose = mapPage.loose[i];
+  if (!loose) return;
+  try {
+    if (!loose.src) loose.src = await readFileAsDataUrl(loose.file);
+    await loadPicture(loose.src);
+  } catch (error) {
+    mapStatus(error.message);
+    return;
+  }
+  Object.assign(mapPage, { looseAt: i, tile: '', pick: null, addFrame: false, form: null });
+  drawMapPage();
+}
+// Closing a tile set with tiles only puts it away (the tiles stay, and "Open
+// again" brings it back); one with none is deleted. A picture not cut from is
+// just closed.
+async function closeSheet(i) {
+  const sets = openSets();
+  if (i >= sets.length) {
+    const at = i - sets.length;
+    mapPage.loose.splice(at, 1);
+    if (mapPage.looseAt === at) mapPage.looseAt = -1;
+    else if (mapPage.looseAt > at) mapPage.looseAt--;
+  } else {
+    const set = sets[i];
+    if (setTiles(set.id).length) {
+      const saved = await putItem({ ...set, hidden: true });
+      tilesets.set(saved.id, saved);
+    } else {
+      await deleteItem(set.id);
+      tilesets.delete(set.id);
+    }
+    if (mapPage.set === set.id) mapPage.set = openSets()[0]?.id || '';
+  }
+  Object.assign(mapPage, { tile: '', pick: null, addFrame: false, form: null });
+  drawMapPage();
 }
 
 async function addTileset(file, season = 'summer', set = null) {
@@ -508,10 +653,18 @@ async function addTileset(file, season = 'summer', set = null) {
 
 $('map-page').addEventListener('change', async (event) => {
   const t = event.target;
-  if (t.id === 'tileset-file' && t.files[0]) {
-    mapPage.tile = '';
-    mapPage.pick = null;
-    await addTileset(t.files[0]);
+  if ((t.id === 'tileset-file' || t.id === 'tileset-folder') && t.files.length) {
+    const found = picturesIn(t.files);
+    t.value = '';
+    if (!found.length) return;
+    mapPage.loose.push(...found.map(({ name, file }) => ({ name, file, src: '' })));
+    return showLoose(mapPage.loose.length - found.length);
+  }
+  if (t.id === 'tileset-reopen' && tilesets.has(t.value)) {
+    const saved = await putItem({ ...tilesets.get(t.value), hidden: false });
+    tilesets.set(saved.id, saved);
+    Object.assign(mapPage, { set: saved.id, looseAt: -1, tile: '', pick: null, form: null });
+    return drawMapPage();
   }
   if (t.dataset.seasonSheet && t.files[0]) await addTileset(t.files[0], t.dataset.seasonSheet, tilesets.get(mapPage.set));
   if (t.id === 'tileset-name' && t.value.trim()) {
@@ -528,10 +681,22 @@ $('map-page').addEventListener('change', async (event) => {
   if (t.dataset.selMove) {
     const one = selEntry(t.dataset.selMove);
     if (!one || t.value === one.layer) return;
-    takeOff(one.layer, [one]);
-    putTile(t.value, one.at, one.id, one.turn);
+    takeOff(theMap(), one.layer, [one]);
+    putTile(theMap(), t.value, one.at, one.id, one.turn);
     mapPage.hi = null;
     saveSoon();
+    return drawMapPage();
+  }
+  if (t.dataset.size) {
+    const sizes = Object.fromEntries([...document.querySelectorAll('[data-size]')].map((input) => [input.dataset.size, input.value]));
+    if (mapPage.which === 'room') await setRoomSize(sizes);
+    else {
+      garden.wide = Math.max(6, Math.min(40, Math.round(Number(sizes.wide)) || gardenCols()));
+      garden.tall = Math.max(room.wallRows + 2, Math.min(30, Math.round(Number(sizes.tall)) || gardenRows()));
+      await saveGarden();
+      await fitMap('garden');
+    }
+    mapPage.sel = null;
     return drawMapPage();
   }
   if (t.id === 'tile-kind' || t.id === 'tile-sheet') {
@@ -560,6 +725,11 @@ $('map-page').addEventListener('click', async (event) => {
     if (tiles.has(mapPage.brush)) mapPage.layer = layerFor(tiles.get(mapPage.brush));
     return drawMapPage();
   }
+  const which = event.target.closest('[data-map-which]');
+  if (which) {
+    Object.assign(mapPage, { which: which.dataset.mapWhich, sel: null, hi: null, held: null, zoom: 1 });
+    return drawMapPage();
+  }
   const paintLayer = event.target.closest('[data-paint-layer]');
   if (paintLayer) {
     mapPage.layer = paintLayer.dataset.paintLayer;
@@ -574,16 +744,21 @@ $('map-page').addEventListener('click', async (event) => {
   const selDel = event.target.closest('[data-sel-del]');
   if (selDel) {
     const one = selEntry(selDel.dataset.selDel);
-    if (one) takeOff(one.layer, [one]);
+    if (one) takeOff(theMap(), one.layer, [one]);
     mapPage.hi = null;
     saveSoon();
     return drawMapPage();
   }
   const set = event.target.closest('[data-tileset]');
   if (set) {
-    Object.assign(mapPage, { set: set.dataset.tileset, tile: '', pick: null, addFrame: false, form: null });
+    const i = Number(set.dataset.tileset);
+    const sets = openSets();
+    if (i >= sets.length) return showLoose(i - sets.length);
+    Object.assign(mapPage, { set: sets[i].id, looseAt: -1, tile: '', pick: null, addFrame: false, form: null });
     return drawMapPage();
   }
+  const close = event.target.closest('[data-tileset-close]');
+  if (close) return closeSheet(Number(close.dataset.tilesetClose));
   const unframe = event.target.closest('[data-unframe]');
   if (unframe) {
     const shape = tiles.get(mapPage.tile) || mapPage.pick;
@@ -594,9 +769,14 @@ $('map-page').addEventListener('click', async (event) => {
   if (!button) return;
   const action = button.dataset.map;
   if (action === 'done') goTo('home');
+  if (action === 'sizing') {
+    mapPage.sizing = !mapPage.sizing;
+    drawMapPage();
+  }
+  if (action === 'zoomin' || action === 'zoomout') zoomMap(mapPage.zoom * (action === 'zoomin' ? 1.5 : 1 / 1.5));
   if (action === 'delsel') {
     const shown = shownSelected();
-    for (const [layer] of MAP_LAYERS) takeOff(layer, shown.filter((one) => one.layer === layer));
+    for (const [layer] of MAP_LAYERS) takeOff(theMap(), layer, shown.filter((one) => one.layer === layer));
     mapPage.hi = null;
     saveSoon();
     drawMapPage();
@@ -606,11 +786,21 @@ $('map-page').addEventListener('click', async (event) => {
     drawMapPage();
   }
   if (action === 'clear' && confirm('Clear the whole map?')) {
-    gardenMap = blankMap();
-    await saveMap();
+    maps[mapPage.which] = blankMap(mapPage.which);
+    await saveMap(mapPage.which);
     drawMapPage();
   }
   if (action === 'addtile') {
+    // The first tile from a picture makes it a tile set.
+    const loose = mapPage.loose[mapPage.looseAt];
+    if (loose) {
+      const set = await putItem({ id: newId('tileset'), kind: 'tileset', day: '', name: loose.name, sheets: { summer: loose.src }, createdAt: Date.now() });
+      tilesets.set(set.id, set);
+      mapPage.loose.splice(mapPage.looseAt, 1);
+      mapPage.looseAt = -1;
+      mapPage.set = set.id;
+      await sheetsReady();
+    }
     const saved = await putItem({ id: newId('tile'), kind: 'tile', day: '', set: mapPage.set, ...mapPage.pick, fps: 4, ...savedFields(mapPage.pick), createdAt: Date.now() });
     tiles.set(saved.id, saved);
     Object.assign(mapPage, { pick: null, tile: '', brush: saved.id, turn: 0, layer: layerFor(saved), form: null });
@@ -638,7 +828,7 @@ $('map-page').addEventListener('click', async (event) => {
   }
   if (action === 'deltile') {
     const id = mapPage.tile;
-    const used = MAP_LAYERS.some(([layer]) => gardenMap[layer].some((v) => cellStack(v).some((one) => one.id === id)));
+    const used = Object.values(maps).some((map) => map && MAP_LAYERS.some(([layer]) => map[layer].some((v) => cellStack(v).some((one) => one.id === id))));
     if (!confirm(used ? 'Delete this tile? It comes off the map too.' : 'Delete this tile?')) return;
     await removeTiles([id]);
     mapPage.tile = '';
@@ -653,7 +843,7 @@ $('map-page').addEventListener('click', async (event) => {
     await deleteItem(set.id);
     tilesets.delete(set.id);
     if (mapPage.sheet === set.id) mapPage.sheet = '';
-    mapPage.set = [...tilesets.keys()][0] || '';
+    mapPage.set = openSets()[0]?.id || '';
     drawMapPage();
   }
 });
@@ -663,7 +853,10 @@ async function removeTiles(ids) {
     await deleteItem(id);
     tiles.delete(id);
   }
-  for (const [layer] of MAP_LAYERS) gardenMap[layer] = gardenMap[layer].map((v) => stackValue(cellStack(v).filter((one) => !ids.includes(one.id))));
-  await saveMap();
+  for (const which of ['room', 'garden']) {
+    if (!maps[which]) continue;
+    for (const [layer] of MAP_LAYERS) maps[which][layer] = maps[which][layer].map((v) => stackValue(cellStack(v).filter((one) => !ids.includes(one.id))));
+    await saveMap(which);
+  }
   if (ids.includes(mapPage.brush)) mapPage.brush = '';
 }

@@ -46,6 +46,8 @@ const HUD_ICONS = {
     '.kyywyyyk...', '.kywyyykk...', '.kwykkk.....', '.kw.........', 'kw..........', '............'],
   winter: ['.....b......', '...b.b.b....', '....bbb.....', '.b...b...b..', '..b..b..b...', 'bbbbbbbbbbb.',
     '..b..b..b...', '.b...b...b..', '....bbb.....', '...b.b.b....', '.....b......', '............'],
+  seeds: ['............', '....kkkk....', '.....kk.....', '....kwwk....', '...kwwwwk...', '..kwwwwwwk..',
+    '.kwwgwwwgwk.', '.kwwwwwwwwk.', '.kwgwwwgwwk.', '.kwwwwwwwwk.', '..kwwwwwwk..', '...kkkkkk...'],
   wand: ['......k.....', '.....kyk....', '..k.kyyyk.k.', '...kyyyyyk..', '..k.kyyyk.k.', '.....kyk....',
     '.....kk.....', '....kwk.....', '...kwk......', '..kwk.......', '.kwk........', '.kk.........'],
   night: ['............', '....kkkk....', '...kyyyk....', '..kyyyk.....', '..kyyk......', '..kyyk......',
@@ -90,6 +92,7 @@ const seasonIcon = () => (previewSeason ? (previewSeason === 'summer' ? 'day' : 
 function showHud() {
   const hud = $('room-hud');
   const buttons = (scene === 'garden' ? [
+    ['seeds', 'Seeds', 'seeds'],
     ['room', 'Back inside', 'house'],
     ['market', 'Market', 'market'],
     ['pantry', 'Pantry', 'pantry'],
@@ -103,12 +106,9 @@ function showHud() {
     ['pantry', 'Pantry', 'pantry'],
     ['workshop', 'Workshop', 'workshop'],
   ]).filter(([key]) => key !== 'workshop' || isWide())
-    .filter(([key]) => hudOpen || (decorating && (key === 'decorate' || key === 'inventory')));
+    .filter(([key]) => hudOpen || key === 'seeds' || (decorating && (key === 'decorate' || key === 'inventory')));
   buttons.push(['menu', hudOpen ? 'Fold the buttons away' : 'Open the buttons', 'menu']);
-  // While sowing, the crop in your hand stays out: tap it to put it away.
-  const seed = scene === 'garden' && sowing !== null && (sowing === '' ? '' : crops.get(sowing));
-  const seedButton = seed === null || seed === false ? '' : `<button type="button" class="hud-button seed-button" data-hud="sow" aria-label="Done" title="Done">${seed ? `<img class="pixel" src="${seed.produce || seed.stages[seed.stages.length - 1]}" alt="">` : '<span class="thing-x">✕</span>'}</button>`;
-  hud.innerHTML = seedButton + buttons.map(([key, label, icon]) => `<button type="button" class="hud-button" data-hud="${key}" aria-label="${label}" title="${label}"${key === 'decorate' ? ` aria-pressed="${decorating}"` : ''}${key === 'menu' ? ` aria-expanded="${hudOpen}"` : ''}>${pixelIcon(icon)}</button>`).join('');
+  hud.innerHTML = buttons.map(([key, label, icon]) => `<button type="button" class="hud-button" data-hud="${key}" aria-label="${label}" title="${label}"${key === 'decorate' ? ` aria-pressed="${decorating}"` : ''}${key === 'seeds' ? ` aria-pressed="${pouchOpen}"` : ''}${key === 'menu' ? ` aria-expanded="${hudOpen}"` : ''}>${pixelIcon(icon)}</button>`).join('');
 }
 
 // Trying a time of day, or a season, from the Workshop. A picked one lasts until the app closes.
@@ -130,7 +130,7 @@ $('room-hud').addEventListener('click', async (event) => {
     showHud();
     return;
   }
-  if (key === 'sow') return stopSowing();
+  if (key === 'seeds') return pouchOpen ? closePouch() : openPouch();
   // Opening something folds the buttons away again.
   hudOpen = false;
   if (key === 'decorate') {

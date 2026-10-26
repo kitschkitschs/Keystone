@@ -2,7 +2,7 @@
 // 16 x 16 pixel tiles, with a cat walking about and the light following the clock.
 //
 // Everything is saved as items (see db.js), so it all goes in your backup file:
-//   { id: "piece-...", kind: "piece", day: "", name, type, count, surface, lift, light, catSpot, catLift, catShift, duckShift, duckLift, lightX, lightY, toy,
+//   { id: "piece-...", kind: "piece", day: "", name, type, count, surface, lift, light, catSpot, seatFor, catLift, catShift, duckShift, duckLift, lightX, lightY, toy,
 //     set, family, rarity, locked,           set: the furniture set it belongs to. family: the
 //                                            piece it's a colour of (its id), so colours sit
 //                                            together in the catalogue. locked: comes from the
@@ -180,6 +180,33 @@ function sizeRoom() {
 }
 window.addEventListener('resize', () => { if (currentView() === 'home') sizeRoom(); });
 
+// Zooming in on the room or garden: two fingers pinch and move it around, or
+// Ctrl and the scroll wheel on a computer (the wheel alone moves it around).
+// view.x, view.y is the top-left corner showing, in the room's pixels.
+const view = { z: 1, x: 0, y: 0 };
+const ZOOM_MAX = 4;
+function clampView() {
+  view.z = Math.max(1, Math.min(ZOOM_MAX, view.z));
+  view.x = Math.max(0, Math.min(world.width - world.width / view.z, view.x));
+  view.y = Math.max(0, Math.min(world.height - world.height / view.z, view.y));
+}
+// Zooms to z keeping the room's point under clientX, clientY where it is.
+function zoomRoomAt(z, clientX, clientY) {
+  const r = roomCanvas.getBoundingClientRect();
+  const at = toRoom({ clientX, clientY });
+  view.z = Math.max(1, Math.min(ZOOM_MAX, z));
+  view.x = at.x - ((clientX - r.left) / r.width) * (world.width / view.z);
+  view.y = at.y - ((clientY - r.top) / r.height) * (world.height / view.z);
+  clampView();
+}
+// Puts the room, as much as is showing, on the screen.
+function blitWorld() {
+  clampView();
+  const g = roomCanvas.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  g.drawImage(world, view.x, view.y, world.width / view.z, world.height / view.z, 0, 0, roomCanvas.width, roomCanvas.height);
+}
+
 // The plain wall and floor, until you pick a wallpaper and a floor.
 function drawPlainWall(g, h) {
   g.fillStyle = '#C5D2B3'; g.fillRect(0, 0, world.width, h);
@@ -285,12 +312,17 @@ function drawRoom(now) {
   surfaceBg(room.floor, 0, wallH, W, room.floorRows * TILE, () => drawPlainFloor(wg, wallH, room.floorRows * TILE));
   wg.fillStyle = 'rgba(59, 44, 42, 0.18)';
   wg.fillRect(0, wallH, W, 2);
+  // The room's own map (the Map page), over the wallpaper and floor.
+  rustlePlants(maps.room, [{ who: 'cat', x: catState.x, y: catState.y }, ...(duckHere() ? [{ who: 'duck', x: duckState.x, y: duckState.y }] : [])], performance.now());
+  drawMapLayer(wg, maps.room, 'ground', now);
+  drawMapLayer(wg, maps.room, 'detail', now);
 
   for (const thing of drawList()) {
     if (thing.cat) drawCat(now);
     else if (thing.duck) drawDuck(now);
     else drawPiece(thing.p);
   }
+  drawMapLayer(wg, maps.room, 'front', now);
 
   // Carried, the cat is drawn on top of everything, with no guides (like the duck).
   if (catState.mode === 'carried') drawCat(now);
@@ -316,9 +348,7 @@ function drawRoom(now) {
     dashedBox(box, ok);
   }
 
-  const g = roomCanvas.getContext('2d');
-  g.imageSmoothingEnabled = false;
-  g.drawImage(world, 0, 0, roomCanvas.width, roomCanvas.height);
+  blitWorld();
 }
 
 // A dashed pixel outline around some tiles: white for yes, red for no.
@@ -463,7 +493,14 @@ function placeCat() {
 // sleep on it"). The cat walks up next to it, hops on, and hops off again after.
 
 const placedAt = (p) => `${p.x},${p.y},${p.view || 0},${p.ox || 0},${p.oy || 0}`;
-const catSpots = () => placed.filter((p) => pieces.get(p.piece).catSpot && pieces.get(p.piece).type === 'furniture');
+// Seats. A seat for one pet only (seatFor 'one') is free for a pet while the
+// other isn't on it or on the way to it.
+function seatFree(p, who) {
+  if (pieces.get(p.piece).seatFor !== 'one') return true;
+  const other = who === 'cat' ? (duckHere() ? duckState : null) : catState;
+  return !other || (other.on !== p.id && !(other.goal && other.goal.spot === p.id && ['walk', 'hop'].includes(other.mode)));
+}
+const catSpots = (who) => placed.filter((p) => pieces.get(p.piece).catSpot && pieces.get(p.piece).type === 'furniture' && (!who || seatFree(p, who)));
 
 // Drawn just in front of the furniture it's on, so it sits on top.
 function catSortY() {
@@ -600,7 +637,7 @@ function nextCatPlan(now, dark) {
   if (Math.random() < 0.12 * (1 - dark) && catVisitsDuck(now)) return;
   const r = Math.random();
   const sleepy = 0.12 + 0.65 * dark;
-  const spots = catSpots();
+  const spots = catSpots('cat');
   const someSpot = () => spots[Math.floor(Math.random() * spots.length)];
   if (r < sleepy && spots.length && Math.random() < 0.75 && goToSpot(someSpot(), 'sleep', now)) return;
   if (r >= sleepy && r < sleepy + 0.3 && spots.length && Math.random() < 0.5 && goToSpot(someSpot(), 'sit', now)) return;
@@ -985,7 +1022,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && cu
 
 function toRoom(event) {
   const r = roomCanvas.getBoundingClientRect();
-  return { x: ((event.clientX - r.left) / r.width) * world.width, y: ((event.clientY - r.top) / r.height) * world.height };
+  return { x: view.x + ((event.clientX - r.left) / r.width) * (world.width / view.z), y: view.y + ((event.clientY - r.top) / r.height) * (world.height / view.z) };
 }
 
 // Moves the piece in your hand so its tiles sit under your finger.
@@ -1052,7 +1089,7 @@ function catDropTarget() {
   const feet = [Math.floor(catState.x / TILE), Math.floor(catState.y / TILE)];
   const finger = { x: catState.x, y: catState.y - cat.fh / 2 + 3 };
   const under = pieceAt(finger);
-  const spotPlaced = catSpots().find((p) => p === under || overlaps(boxOf(p), { x: feet[0], y: feet[1], w: 1, d: 1 }));
+  const spotPlaced = catSpots('cat').find((p) => p === under || overlaps(boxOf(p), { x: feet[0], y: feet[1], w: 1, d: 1 }));
   if (spotPlaced) return { spot: spotPlaced };
   let best = null;
   for (const [x, y] of freeFloorTiles()) {
@@ -1080,6 +1117,66 @@ function dropCat() {
     startHop(tileCentre(...target.tile), 0, now);
   }
 }
+
+// Two fingers on the room: pinching zooms, moving them moves around. Whatever
+// the first finger started (patting, carrying, sowing) stops, and the
+// fingers lifting afterwards don't count as taps.
+const fingers = new Map();
+let pinch = null;
+function stopFirstFinger() {
+  if (press) {
+    clearTimeout(press.timer);
+    if (press.carrying) (press.pet === 'duck' ? dropDuck : dropCat)();
+    press = null;
+  }
+  dragging = false;
+  sowDrag = false;
+}
+roomCanvas.addEventListener('pointerdown', (event) => {
+  fingers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
+  if (fingers.size < 2 && !pinch) return;
+  event.stopImmediatePropagation();
+  if (fingers.size !== 2) return;
+  stopFirstFinger();
+  const [a, b] = [...fingers.values()];
+  const mid = { clientX: (a.clientX + b.clientX) / 2, clientY: (a.clientY + b.clientY) / 2 };
+  pinch = { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1, z: view.z, at: toRoom(mid) };
+  for (const id of fingers.keys()) { try { roomCanvas.setPointerCapture(id); } catch (e) { /* already gone */ } }
+});
+roomCanvas.addEventListener('pointermove', (event) => {
+  if (!fingers.has(event.pointerId)) return;
+  fingers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
+  if (!pinch) return;
+  event.stopImmediatePropagation();
+  if (fingers.size < 2) return;
+  const [a, b] = [...fingers.values()];
+  const r = roomCanvas.getBoundingClientRect();
+  const mid = { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
+  view.z = Math.max(1, Math.min(ZOOM_MAX, pinch.z * (Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) / pinch.d)));
+  view.x = pinch.at.x - ((mid.x - r.left) / r.width) * (world.width / view.z);
+  view.y = pinch.at.y - ((mid.y - r.top) / r.height) * (world.height / view.z);
+  clampView();
+});
+const fingerUp = (event) => {
+  fingers.delete(event.pointerId);
+  if (!pinch) return;
+  event.stopImmediatePropagation();
+  if (!fingers.size) pinch = null;
+};
+roomCanvas.addEventListener('pointerup', fingerUp);
+roomCanvas.addEventListener('pointercancel', fingerUp);
+roomCanvas.addEventListener('wheel', (event) => {
+  if (event.ctrlKey || event.metaKey) {
+    event.preventDefault();
+    zoomRoomAt(view.z * Math.exp(-event.deltaY / 300), event.clientX, event.clientY);
+  } else if (view.z > 1) {
+    event.preventDefault();
+    const k = world.width / view.z / roomCanvas.clientWidth;
+    view.x += (event.shiftKey ? event.deltaY : event.deltaX) * k;
+    view.y += (event.shiftKey ? 0 : event.deltaY) * k;
+    clampView();
+  }
+}, { passive: false });
 
 let dragging = false;
 roomCanvas.addEventListener('pointerdown', (event) => {
@@ -1211,12 +1308,15 @@ async function putAway() {
   showRoomPanel();
 }
 
-// Steps the piece in your hand to its next colour.
-function colourHeld() {
-  const fam = familyMembers(familyOf(pieces.get(held.piece)));
-  const next = fam[(fam.findIndex((p) => p.id === held.piece) + 1) % fam.length];
+// The colour button opens a row with every colour of the piece in your hand;
+// tap one to change to it.
+let colourMenu = false;
+function colourHeld(i) {
+  const next = familyMembers(familyOf(pieces.get(held.piece)))[i];
+  if (!next) return;
   held.piece = next.id;
   held.view = Math.min(held.view, next.views.length - 1);
+  colourMenu = false;
   showRoomPanel();
 }
 
@@ -1251,7 +1351,10 @@ function showRoomPanel() {
   const tools = $('held-tools');
   showHud();
   if (gameWindowKind === 'inventory') drawGameWindow();
-  if (!held) fine = false;
+  if (!held) {
+    fine = false;
+    colourMenu = false;
+  }
   tools.hidden = !(decorating && held);
   if (tools.hidden) return;
   const piece = pieces.get(held.piece);
@@ -1260,10 +1363,11 @@ function showRoomPanel() {
       ${button('cancel', 'Cancel', '✕')}
       ${held.from ? button('away', 'Put away', '⤓') : ''}
       ${piece.views.length > 1 ? button('turn', 'Turn', '↻') : ''}
-      ${familyMembers(familyOf(piece)).length > 1 ? `<button class="held-button swatch" type="button" data-room="colour" aria-label="Colour" title="Colour"><img class="pixel" src="${piece.views[0].src}" alt=""></button>` : ''}
+      ${familyMembers(familyOf(piece)).length > 1 ? `<button class="held-button swatch" type="button" data-room="colour" aria-label="Colour" title="Colour" aria-pressed="${colourMenu}"><img class="pixel" src="${piece.views[0].src}" alt=""></button>` : ''}
       <button class="held-button" type="button" data-room="fine" aria-label="Fine placement" title="Fine placement" aria-pressed="${fine}">${HELD_ICONS.fine}</button>
       ${button('place', 'Place', '✓', ' place')}
     </div>
+    ${colourMenu ? `<div class="held-row colour-row">${familyMembers(familyOf(piece)).map((p, i) => `<button class="held-button swatch" type="button" data-room="pickcolour:${i}" aria-label="Colour" aria-pressed="${p.id === piece.id}"><img class="pixel" src="${p.views[0].src}" alt=""></button>`).join('')}</div>` : ''}
     ${fine ? `<div class="held-row">
       ${button('nudge:-1:0', 'Left', '←')}${button('nudge:0:-1', 'Up', '↑')}${button('nudge:0:1', 'Down', '↓')}${button('nudge:1:0', 'Right', '→')}
       ${button('layer:1', 'In front', HELD_ICONS.front)}${button('layer:-1', 'Behind', HELD_ICONS.back)}
@@ -1279,12 +1383,15 @@ function placeHeldTools() {
   if (!held || tools.hidden) return;
   const s = spot(held);
   const box = boxOf(held);
-  const k = roomCanvas.clientWidth / world.width;
-  const below = Math.max(s.y + s.h, (box.y + box.d) * TILE) * k + 6;
+  // From the room's pixels to the screen's, zoomed in or not.
+  const k = (roomCanvas.clientWidth / world.width) * view.z;
+  const sx = (x) => (x - view.x) * k;
+  const sy = (y) => (y - view.y) * k;
+  const below = sy(Math.max(s.y + s.h, (box.y + box.d) * TILE)) + 6;
   const room = roomCanvas.clientHeight;
   const h = tools.offsetHeight;
-  const top = below + h <= room ? below : Math.max(0, Math.min(s.y, box.y * TILE) * k - h - 6);
-  const left = Math.max(0, Math.min(roomCanvas.clientWidth - tools.offsetWidth, (s.x + s.w / 2) * k - tools.offsetWidth / 2));
+  const top = below + h <= room ? below : Math.max(0, sy(Math.min(s.y, box.y * TILE)) - h - 6);
+  const left = Math.max(0, Math.min(roomCanvas.clientWidth - tools.offsetWidth, sx(s.x + s.w / 2) - tools.offsetWidth / 2));
   tools.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
 }
 
@@ -1324,7 +1431,8 @@ $('held-tools').addEventListener('click', (event) => {
   const [action, dx, dy] = button.dataset.room.split(':');
   if (action === 'place') placeHeld();
   if (action === 'turn') turnHeld();
-  if (action === 'colour') colourHeld();
+  if (action === 'colour') { colourMenu = !colourMenu; showRoomPanel(); }
+  if (action === 'pickcolour') colourHeld(Number(dx));
   if (action === 'cancel') { held = null; showRoomPanel(); }
   if (action === 'away') putAway();
   if (action === 'fine') { fine = !fine; showRoomPanel(); }
@@ -1577,7 +1685,7 @@ sheetForm.addEventListener('input', (event) => {
 
 // What all the colours of a piece share. Each colour keeps its own pictures,
 // how many you have, its rarity and whether it's still in the machine.
-const SHARED_SETTINGS = ['type', 'set', 'surface', 'lift', 'light', 'lightX', 'lightY', 'catSpot', 'catLift', 'catShift', 'duckShift', 'duckLift', 'toy', 'stove'];
+const SHARED_SETTINGS = ['type', 'set', 'surface', 'lift', 'light', 'lightX', 'lightY', 'catSpot', 'seatFor', 'catLift', 'catShift', 'duckShift', 'duckLift', 'toy', 'stove'];
 
 function openPieceDetails(piece) {
   const views = piece.views.map((v, i) => `<div class="view-row">
@@ -1622,6 +1730,7 @@ function openPieceDetails(piece) {
       <canvas id="seat-preview" class="pixel" width="1" height="1" aria-label="${escapeHtml(cat.name)} sitting on it"></canvas>
       ${seatWhoHtml()}
       ${nudgeHtml('seat', piece)}
+      ${duckHere() ? `<div class="inv-tags">${[['both', 'Both pets'], ['one', 'One pet']].map(([key, label]) => `<label class="inv-tag radio-tag"><input type="radio" name="seatFor" value="${key}"${(piece.seatFor || 'both') === key ? ' checked' : ''}><span>${label}</span></label>`).join('')}</div>` : ''}
     </div>
     <label class="check"><input type="checkbox" name="toy"${piece.toy ? ' checked' : ''}><span>A toy ${escapeHtml(cat.name)} plays with (on the floor)</span></label>
     </div></div>
@@ -1644,6 +1753,7 @@ function openPieceDetails(piece) {
       surface: form.elements.surface.checked, lift: Number(form.elements.lift.value) || 0, light: form.elements.light.checked,
       catSpot: form.elements.catSpot.checked, catLift: Math.max(0, Number(form.elements.catLift.value) || 0),
       catShift: Math.round(Number(form.elements.catShift.value) || 0),
+      seatFor: form.elements.seatFor ? form.elements.seatFor.value : piece.seatFor || 'both',
       duckShift: Math.round(Number(form.elements.duckShift.value) || 0), duckLift: Math.max(0, Number(form.elements.duckLift.value) || 0),
       lightX: Number(form.elements.lightX.value) || 0, lightY: Number(form.elements.lightY.value) || 0,
       toy: form.elements.toy.checked, stove: form.elements.stove.checked, set: form.elements.set.value.trim(), family, rarity: form.elements.rarity.value,
@@ -1673,9 +1783,6 @@ function openPieceDetails(piece) {
 
 function openRoomSettings() {
   openSheet('Room', `
-    <label class="field"><span>Tiles across</span><input name="cols" type="number" min="6" max="24" value="${room.cols}"></label>
-    <label class="field"><span>Wall rows</span><input name="wallRows" type="number" min="1" max="6" value="${room.wallRows}"></label>
-    <label class="field"><span>Floor rows</span><input name="floorRows" type="number" min="3" max="16" value="${room.floorRows}"></label>
     <h3>Starter pieces</h3>
     <p><button class="text-button" type="submit" value="starter">Add the starter pieces you don't have</button></p>`,
   async (form, submitter) => {
@@ -1687,21 +1794,24 @@ function openRoomSettings() {
       roomNote(added ? `Added ${added} starter piece${added === 1 ? '' : 's'}.` : 'You have all the starter pieces already.');
       return true;
     }
-    const size = (name, min, max) => Math.max(min, Math.min(max, Math.round(Number(form.elements[name].value)) || room[name]));
-    room.cols = size('cols', 6, 24);
-    room.wallRows = size('wallRows', 1, 6);
-    room.floorRows = size('floorRows', 3, 16);
-    await saveRoomSettings();
-    for (const p of [...placed]) {
-      if (canPlace({ ...p, from: p })) continue;
-      await deleteItem(p.id);
-      placed = placed.filter((q) => q.id !== p.id);
-    }
-    sizeRoom();
-    catState.placed = false;
-    showRoomPanel();
     return true;
   });
+}
+
+// The room's size (set on the Map page): furniture that no longer fits is put
+// away, and the room's map grows or shrinks with it.
+const ROOM_SIZES = { cols: [6, 24], wallRows: [1, 6], floorRows: [3, 16] };
+async function setRoomSize(size) {
+  for (const [name, [min, max]] of Object.entries(ROOM_SIZES)) room[name] = Math.max(min, Math.min(max, Math.round(Number(size[name])) || room[name]));
+  await saveRoomSettings();
+  for (const p of [...placed]) {
+    if (canPlace({ ...p, from: p })) continue;
+    await deleteItem(p.id);
+    placed = placed.filter((q) => q.id !== p.id);
+  }
+  catState.placed = false;
+  await fitMap('room');
+  await fitMap('garden');
 }
 
 // The Light button in the Workshop (room-hud.js) steps through these.

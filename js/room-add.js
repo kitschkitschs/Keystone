@@ -1,5 +1,7 @@
 // room-add.js: two pages for your own art.
-//   #room-add  cuts pieces out of a picture (a whole sheet, or a single piece).
+//   #room-add  cuts pieces out of pictures (whole sheets, or single pieces):
+//              open several, or a folder with the folders inside it, and
+//              switch between them with their tags.
 //              Then they're named and set up together on the Pieces page
 //              (room-pieces.js).
 //   #cat       sets up the cat from a sprite sheet.
@@ -98,8 +100,10 @@ function showRoomAdd() {
       ${forPiece ? '' : `<label class="field"><span>Set</span><input id="cut-set" type="text" value="${escapeHtml(cut.set)}" list="cut-set-names" autocomplete="off" placeholder="Not in a set"></label>
       <datalist id="cut-set-names">${setNames().map((name) => `<option value="${escapeHtml(name)}">`).join('')}</datalist>`}
       <div class="buttons">
-        <label class="ink-button"><span>${cut.sheet ? 'Another picture' : 'Choose a picture'}</span><input id="cut-file" type="file" accept="image/*" hidden></label>
+        <label class="ink-button"><span>${cut.sheet ? 'More pictures' : 'Choose pictures'}</span><input id="cut-file" type="file" accept="image/*" multiple hidden></label>
+        <label class="text-button"><span>Open a folder</span><input id="cut-folder" type="file" webkitdirectory multiple hidden></label>
       </div>
+      ${sheetTagsHtml(cutSheets.map((sheet) => sheet.name), cutAt, 'data-cut-sheet', 'data-cut-unload', cutSheets.map((sheet) => sheet.path))}
       <p id="cut-status" class="status" role="status">${cut.note}</p>
       <div id="cut-work"${cut.sheet ? '' : ' hidden'}>
         <div class="cut-tools">
@@ -216,7 +220,60 @@ function showBoxed() {
     </form>` : '';
 }
 
-async function useCutPicture(src, name) {
+// Every picture among files picked one by one, or a folder with the folders
+// inside it, in path order: [{ name, path, file }].
+function picturesIn(fileList) {
+  return [...fileList].filter((file) => file.type.startsWith('image/'))
+    .map((file) => ({ file, path: file.webkitRelativePath || file.name, name: file.name.replace(/\.[^.]*$/, '') }))
+    .sort((a, b) => a.path.localeCompare(b.path, undefined, { numeric: true }));
+}
+// A row of tags for the sheets you have open, each with ✕ to close it. Used by
+// every cutter: here, the Farm page and the Map page.
+function sheetTagsHtml(names, at, pickAttr, unloadAttr, titles = names) {
+  if (!names.length) return '';
+  return `<div class="inv-tags sheet-tags">${names.map((name, i) => `<span class="sheet-tag"><button type="button" class="inv-tag" ${pickAttr}="${i}" aria-pressed="${i === at}" title="${escapeHtml(titles[i])}">${escapeHtml(name)}</button><button type="button" class="text-button danger" ${unloadAttr}="${i}" aria-label="Close ${escapeHtml(name)}" title="Close">✕</button></span>`).join('')}</div>`;
+}
+
+// The sheets open in the cutter: { name, path, file, src, state }. Switching
+// sheets keeps each one's boxes (state); closing one forgets its boxes, but
+// pieces already added stay.
+const cutSheets = [];
+let cutAt = -1;
+function keepCutState() {
+  const sheet = cutSheets[cutAt];
+  if (sheet) sheet.state = { boxes: cut.boxes, groups: cut.groups, undo: cut.undo, redo: cut.redo };
+}
+async function openCutSheet(i) {
+  keepCutState();
+  const sheet = cutSheets[i];
+  if (!sheet) return;
+  cutAt = i;
+  if (!sheet.src) sheet.src = await readFileAsDataUrl(sheet.file);
+  await useCutPicture(sheet.src, sheet.name, sheet.state);
+  showRoomAdd();
+}
+async function addCutSheets(fileList) {
+  const found = picturesIn(fileList);
+  if (!found.length) return;
+  keepCutState();
+  const first = cutSheets.length;
+  cutSheets.push(...found);
+  cutAt = -1;
+  await openCutSheet(first);
+}
+async function closeCutSheet(i) {
+  if (i === cutAt) keepCutState();
+  cutSheets.splice(i, 1);
+  if (i === cutAt) {
+    cutAt = -1;
+    if (cutSheets.length) return openCutSheet(Math.min(i, cutSheets.length - 1));
+    Object.assign(cut, { sheet: null, boxes: [], groups: [], undo: [], redo: [], name: '', corner: null });
+    cut.picked.clear();
+  } else if (i < cutAt) cutAt--;
+  showRoomAdd();
+}
+
+async function useCutPicture(src, name, state = null) {
   try {
     cut.sheet = pictureCanvas(await loadPicture(src));
   } catch (error) {
@@ -224,12 +281,12 @@ async function useCutPicture(src, name) {
     return;
   }
   cut.name = name;
-  cut.boxes = [];
-  cut.groups = [];
+  cut.boxes = state ? state.boxes : [];
+  cut.groups = state ? state.groups : [];
   cut.picked.clear();
   cut.corner = null;
-  cut.undo = [];
-  cut.redo = [];
+  cut.undo = state ? state.undo : [];
+  cut.redo = state ? state.redo : [];
   // The set is named after the sheet, unless you've named it already.
   const setInput = $('cut-set');
   if (setInput && !setInput.value.trim()) setInput.value = cut.set = setNameFrom(sheetName());
@@ -237,7 +294,9 @@ async function useCutPicture(src, name) {
   fitCutZoom();
   // Cutting a piece again: its old box, if it fits this picture.
   const old = oldCutBox();
-  if (old && old[0] + old[2] <= cut.sheet.width && old[1] + old[3] <= cut.sheet.height) cut.boxes = [[...old]];
+  if (state) {
+    // Back to a sheet you'd boxed things on: as you left it.
+  } else if (old && old[0] + old[2] <= cut.sheet.width && old[1] + old[3] <= cut.sheet.height) cut.boxes = [[...old]];
   // A single piece is boxed straight away.
   else if (cut.sheet.width <= 64 && cut.sheet.height <= 64) cut.boxes = [trimBox(cut.sheet, [0, 0, cut.sheet.width, cut.sheet.height])];
   drawCutSheet();
@@ -247,16 +306,20 @@ async function useCutPicture(src, name) {
 }
 
 $('cut-page').addEventListener('change', async (event) => {
-  if (event.target.id === 'cut-file' && event.target.files[0]) {
-    const file = event.target.files[0];
+  if ((event.target.id === 'cut-file' || event.target.id === 'cut-folder') && event.target.files.length) {
+    const files = [...event.target.files];
     event.target.value = '';
-    await useCutPicture(await readFileAsDataUrl(file), file.name.replace(/\.[^.]*$/, ''));
+    await addCutSheets(files);
   }
   if (event.target.id === 'cut-snap') cut.snap = event.target.checked;
   if (event.target.id === 'cut-set') cut.set = event.target.value.trim();
 });
 
 $('cut-page').addEventListener('click', async (event) => {
+  const pick = event.target.closest('[data-cut-sheet]');
+  if (pick) return openCutSheet(Number(pick.dataset.cutSheet));
+  const unload = event.target.closest('[data-cut-unload]');
+  if (unload) return closeCutSheet(Number(unload.dataset.cutUnload));
   const button = event.target.closest('[data-cut]');
   if (!button) return;
   const action = button.dataset.cut;

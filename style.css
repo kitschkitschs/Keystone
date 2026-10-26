@@ -623,7 +623,11 @@ html.dark .ws-h { color: #A79DB2; }
 .sel-row select { width: auto; }
 .tile-img { width: calc(var(--tw) * 2px); height: calc(var(--th) * 2px); max-width: 48px; max-height: 48px; object-fit: contain; image-rendering: pixelated; }
 .map-wrap { margin: 8px 0; }
-#map-canvas { width: 100%; height: auto; image-rendering: pixelated; touch-action: none; border-radius: 6px; cursor: crosshair; }
+#map-canvas { display: block; margin: 0 auto; image-rendering: pixelated; touch-action: none; cursor: crosshair; }
+#map-canvas.panning { cursor: grab; }
+.map-view { overflow: auto; height: 60vh; margin-top: 0; border-radius: 6px; }
+.zoom-bar { display: flex; justify-content: flex-end; gap: 4px; }
+.zoom-bar .text-button { min-width: 36px; font-size: 18px; }
 .sheet-wrap { max-height: 60vh; }
 #sheet-canvas { image-rendering: pixelated; touch-action: none; cursor: crosshair; display: block; }
 .season-sheets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
@@ -637,4 +641,17 @@ html.wide .map-layout { display: grid; grid-template-columns: 360px minmax(0, 1f
 html.wide .tiles-layout { grid-template-columns: minmax(0, 1fr) 380px; }
 html.wide .map-tools { position: sticky; top: 12px; }
 html.wide .sheet-wrap { max-height: calc(100vh - 260px); }
-html.wide #map-canvas { width: auto; height: calc(100vh - 260px); max-width: 100%; object-fit: contain; }
+html.wide .map-view { height: calc(100vh - 400px); min-height: 320px; }
+.colour-row { flex-wrap: wrap; justify-content: center; max-width: 240px; }
+.seed-pouch { display: flex; align-items: center; gap: 8px; margin-top: 6px; padding: 6px; border: 2px solid #3B2C2A; border-radius: 8px; background: #FBF4E6; }
+.seed-pouch[hidden] { display: none; }
+.pouch-seeds { display: flex; gap: 4px; flex: 1; min-width: 0; overflow-x: auto; padding: 2px; }
+.pouch-tools { display: flex; gap: 4px; padding-left: 8px; border-left: 2px solid #E2D3B8; }
+.pouch-seed { width: 36px; height: 36px; flex-shrink: 0; }
+.pouch-seed img { width: 26px; height: 26px; object-fit: contain; image-rendering: pixelated; }
+html.dark .seed-pouch { background: #2A2436; border-color: #120F1A; }
+html.dark .pouch-tools { border-color: #3A3249; }
+.radio-tag { cursor: pointer; }
+.radio-tag input { position: absolute; opacity: 0; pointer-events: none; }
+.radio-tag:has(input:checked) { background: #D99A93; }
+html.dark .radio-tag:has(input:checked) { background: #8A5A6A; }
