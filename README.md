@@ -29,6 +29,8 @@ clock. The Insight page shows habits and health over time.
 | `js/room-pieces.js` | The Pieces page: every piece in a list, to name them, sort them into sets and set up several at once. |
 | `js/room-gacha.js` | The gacha machine that unlocks pieces, and the catalogue of everything there is to collect. |
 | `js/room-duck.js` | The duck that waddles about the room, once you've given it a sprite sheet. |
+| `js/farm.js` | The garden the pets tend, the farmer's market, the pantry and the stove. |
+| `js/farm-page.js` | The Farm page: your own crops, market goods and recipes, picked from sprite sheets. |
 | `js/room-hud.js` | The game's buttons on the room, and its pop-up windows. |
 | `js/room-art.js` | The placeholder pieces, the cat's standard sheet layout, and picture helpers. |
 | `room-art/` | Placeholder art drawn for Keystone: `starter.png` (furniture) and `cat.png` (a grey tabby, Stardew pet layout). |
@@ -55,7 +57,7 @@ and `updatedAt`, the time it last changed. Deleting an item keeps it with
   `keystone-2026-10-23-1415.txt`. Send it to Proton Drive. Every save is a new
   file, so each one is also a backup. On a PC, the file downloads instead.
 - **Save game only** saves just the room game (pieces, the room and what's in it,
-  the pets and their breeds) as `keystone-game-….txt`. Load it on the other device
+  the pets and their breeds, the garden, crops, market goods, recipes and the pantry) as `keystone-game-….txt`. Load it on the other device
   like any backup: it merges the same way, so game changes made on the computer
   carry over to the phone without touching anything else.
 - **Load from file**: download the newest backup from Proton Drive, then pick it

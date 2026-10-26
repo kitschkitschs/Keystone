@@ -28,6 +28,16 @@ const HUD_ICONS = {
     'yy.kyyyyk.yy', '...kyyyyk...', '....kkkk....', '..y..yy..y..', '.y...yy...y.', '............'],
   evening: ['............', '............', '.a...aa...a.', '..a..aa..a..', '....kkkk....', '...kaaaak...',
     '..kaaaaaak..', 'kkkkkkkkkkkk', '............', '.dddddddddd.', '...dddddd...', '............'],
+  garden: ['............', '.kk......kk.', 'kggk....kggk', 'kgggk..kgggk', '.kgggkkgggk.', '..kkkggkkk..',
+    '.....gg.....', '.....gg.....', '.kkkkkkkkkk.', 'kwwwwwwwwwwk', 'kwwwwwwwwwwk', '.kkkkkkkkkk.'],
+  house: ['.....kk.....', '....kaak....', '...kaaaak...', '..kaaaaaak..', '.kaaaaaaaak.', 'kkkkkkkkkkkk',
+    '.kcccccccck.', '.kcbbcckwwk.', '.kcbbcckwwk.', '.kccccckwwk.', '.kkkkkkkkkk.', '............'],
+  market: ['............', 'kkkkkkkkkkkk', 'kaaccaaccaak', 'kaaccaaccaak', 'kkkkkkkkkkkk', '.kw......wk.',
+    '.kw......wk.', 'kkkkkkkkkkkk', 'kyyygggaaaak', 'kwwwwwwwwwwk', 'kkkkkkkkkkkk', '............'],
+  pantry: ['............', '...kkkkkk...', '...kwwwwk...', '..kkkkkkkk..', '.kllllllllk.', '.kldddddddk.',
+    '.kldcccdddk.', '.kldcccdddk.', '.kldddddddk.', '.kldddddddk.', '..kkkkkkkk..', '............'],
+  coin: ['............', '....kkkk....', '...kyyyyk...', '..kyycyyyk..', '.kyycyyyyyk.', '.kyycyyyyyk.',
+    '.kyyyyyyyyk.', '.kyyyyyyyyk.', '..kyyyyyyk..', '...kyyyyk...', '....kkkk....', '............'],
   night: ['............', '....kkkk....', '...kyyyk....', '..kyyyk.....', '..kyyk......', '..kyyk......',
     '..kyyk......', '..kyyyk.....', '...kyyyk....', '....kkkk....', '............', '............'],
 };
@@ -64,14 +74,22 @@ let hudOpen = false;
 function showHud() {
   const hud = $('room-hud');
   const lightName = previewHour === null ? 'Clock' : LIGHT_STEPS.find(([hour]) => hour === previewHour)?.[1] || timeWord(previewHour);
-  const buttons = [
+  const buttons = (scene === 'garden' ? [
+    ['room', 'Back inside', 'house'],
+    ['market', 'Market', 'market'],
+    ['pantry', 'Pantry', 'pantry'],
+    ['light', `Light: ${lightName}`, lightIcon()],
+    ['workshop', 'Workshop', 'workshop'],
+  ] : [
     ['decorate', decorating ? 'Done decorating' : 'Decorate', decorating ? 'done' : 'decorate'],
     ['inventory', 'Inventory', 'inventory'],
     ['gacha', 'Gachapon', 'gacha'],
     ['catalogue', 'Catalogue', 'catalogue'],
+    ['garden', 'Garden', 'garden'],
+    ['pantry', 'Pantry', 'pantry'],
     ['light', `Light: ${lightName}`, lightIcon()],
     ['workshop', 'Workshop', 'workshop'],
-  ].filter(([key]) => hudOpen || (decorating && (key === 'decorate' || key === 'inventory')));
+  ]).filter(([key]) => hudOpen || (decorating && (key === 'decorate' || key === 'inventory')));
   buttons.push(['menu', hudOpen ? 'Fold the buttons away' : 'Open the buttons', 'menu']);
   hud.innerHTML = buttons.map(([key, label, icon]) => `<button type="button" class="hud-button" data-hud="${key}" aria-label="${label}" title="${label}"${key === 'decorate' ? ` aria-pressed="${decorating}"` : ''}${key === 'menu' ? ` aria-expanded="${hudOpen}"` : ''}>${pixelIcon(icon)}</button>`).join('');
 }
@@ -100,6 +118,9 @@ $('room-hud').addEventListener('click', async (event) => {
   if (key === 'gacha') { showHud(); openGacha(); }
   if (key === 'catalogue') { showHud(); openGameWindow('catalogue'); }
   if (key === 'workshop') { showHud(); openGameWindow('workshop'); }
+  if (key === 'garden') enterGarden();
+  if (key === 'room') leaveGarden();
+  if (key === 'market' || key === 'pantry') { showHud(); openGameWindow(key); }
   if (key === 'light') {
     // Follow the clock, or try a time of day. A picked time lasts until the app closes.
     const i = LIGHT_STEPS.findIndex(([hour]) => hour === previewHour);
@@ -145,6 +166,7 @@ function drawGameWindow() {
   const kind = gameWindowKind;
   $('gw-back').hidden = !gameWindowTrail.length;
   if (kind === 'gacha') return drawGacha();
+  if (FARM_TITLES[kind]) return drawFarmWindow(kind);
   const titles = { inventory: 'Inventory', catalogue: 'Catalogue', workshop: 'Workshop' };
   $('gw-title').textContent = titles[kind] || '';
   if (kind === 'inventory') $('gw-body').innerHTML = inventoryHtml();
@@ -159,6 +181,7 @@ function drawGameWindow() {
         <button type="button" class="ws-button" data-ws="pieces"><b>Pieces</b></button>
         <button type="button" class="ws-button" data-ws="cat"><b>${escapeHtml(cat.name)}</b></button>
         <button type="button" class="ws-button" data-ws="duck"><b>${duck ? escapeHtml(duck.name) : 'Duck'}</b></button>
+        <button type="button" class="ws-button" data-ws="farm"><b>Farm</b></button>
         <button type="button" class="ws-button" data-ws="room"><b>Room</b></button>
       </div>`;
   }
@@ -192,6 +215,7 @@ $('gw-body').addEventListener('click', async (event) => {
     }
     if (action === 'room') openRoomSettings();
     if (action === 'pieces') goTo('pieces');
+    if (action === 'farm') goTo('farm');
     return;
   }
   if (event.target.closest('[data-gw="catalogue"]')) openGameWindow('catalogue');

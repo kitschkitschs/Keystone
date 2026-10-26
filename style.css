@@ -538,3 +538,51 @@ html.wide .cat-layout { display: grid; grid-template-columns: minmax(0, 1fr) 440
 html.wide .cat-main .cut-scroll { max-height: calc(100vh - 420px); min-height: 240px; }
 html.wide .cat-side { position: sticky; top: 12px; max-height: calc(100vh - var(--bar) - 40px); overflow: auto; }
 html.wide .cat-side .cat-h { margin-top: 0; }
+
+/* The garden's windows (farm.js) and the Farm page (farm-page.js). */
+.thing-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; padding: 6px 0 10px; }
+.thing-tile { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 64px; padding: 6px 4px;
+  border: 2px solid #E2D3B8; border-radius: 8px; background: #FFFAF0; color: #3B2C2A; }
+.thing-tile.on { border-color: #3B2C2A; background: #F6E1DA; }
+.thing-tile:disabled { opacity: 0.45; }
+.thing-tile img, .need img, .need-row img, .cooking img { width: calc(16px * var(--s, 2)); height: calc(16px * var(--s, 2)); object-fit: contain; object-position: bottom; image-rendering: pixelated; }
+.thing-x { font-family: var(--serif); font-size: 26px; line-height: 1; color: #7A6660; }
+.thing-n { position: absolute; top: 3px; right: 5px; font-size: 11px; font-weight: 700; color: #3B2C2A; }
+.thing-name { max-width: 100%; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thing-price, .coins { display: inline-flex; align-items: center; gap: 2px; font-size: 12px; }
+.thing-price svg { width: 11px; height: 11px; }
+.coins svg { width: 18px; height: 18px; }
+.coins b { font-size: 15px; }
+.market-coins { margin: 0 0 4px; }
+.market-h { margin: 8px 0 0; font-family: var(--serif); font-weight: 500; font-size: 16px; }
+.give { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 4px; }
+.give-name { flex: 1 1 100%; font-size: 13px; }
+.recipes { display: grid; gap: 8px; }
+.recipe-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 2px solid #E2D3B8; border-radius: 8px; background: #FFFAF0; }
+.recipe-pic img { width: 32px; height: 32px; image-rendering: pixelated; }
+.recipe-needs { flex: 1; display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; }
+.need { display: inline-flex; align-items: center; gap: 2px; }
+.need.short { color: #B05A5A; }
+.cooking { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.cook-bar { flex: 1; height: 10px; border: 2px solid #3B2C2A; border-radius: 4px; background: #FFFAF0; overflow: hidden; }
+.cook-bar span { display: block; height: 100%; width: 0; background: #A9C49A; }
+html.dark .thing-tile, html.dark .recipe-row, html.dark .cook-bar { background: #1E1A2A; border-color: #3A3249; color: #ECE4EE; }
+html.dark .thing-tile.on { border-color: #ECE4EE; background: #3A3249; }
+html.dark .thing-n { color: #ECE4EE; }
+#farm .thing-tile { border-color: var(--rule); background: var(--paper); color: var(--ink); }
+#farm .thing-tile.on { border-color: var(--ink); }
+.farm-tabs { margin-bottom: 8px; }
+.farm-editor { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--rule); }
+.stage-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px; }
+.stage-pic { height: 64px; width: auto; image-rendering: pixelated; }
+.need-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+.need-row select { flex: 1; min-width: 0; }
+.need-row input { width: 64px; }
+.picker { padding: 10px 0; }
+.pick-scroll { max-height: 60vh; }
+.pick-scroll canvas { cursor: pointer; }
+html.wide #farm { max-width: 1280px; margin: 0 auto; }
+html.wide .farm-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 32px; align-items: start; }
+html.wide .farm-side { position: sticky; top: 12px; }
+html.wide .pick-scroll { max-height: calc(100vh - 300px); }
+.pick-slot { min-width: 64px; }
