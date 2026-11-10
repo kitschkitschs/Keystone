@@ -8,13 +8,17 @@
 // What the sender knows, per phone:
 //   - the phone's push address (a random web address from Google's push service)
 //   - the phone's time zone, such as "Europe/Copenhagen"
-//   - a list of times, such as ["08:30", "13:00"]
-// It never sees reminder texts, habit names or any other Keystone data.
+//   - a list of slots: a time, and the days it applies to, such as
+//     { time: "08:30", days: [0, 1, 2, 3, 4] } (Monday to Friday) or
+//     { time: "13:00", date: "2026-11-14" } (that one day only).
+//     A slot may carry skip: "2026-11-11", a day to stay quiet on (the thing
+//     was already done that day).
+// It never sees reminder texts, item names or any other Daybook data.
 // The pings are empty, so there is nothing in them to read.
 //
 // Addresses the app talks to:
 //   GET  /public-key  the sender's public key, which the phone needs to sign up
-//   POST /schedule    { deviceKey, endpoint, timeZone, times } saves one phone's list
+//   POST /schedule    { deviceKey, endpoint, timeZone, slots } saves one phone's list
 //   POST /remove      { deviceKey } forgets one phone
 
 import { DurableObject } from 'cloudflare:workers';
@@ -28,7 +32,7 @@ const ALLOWED_ORIGINS = [
 
 // How many phones the sender keeps, so a stranger can't fill it up.
 const MAX_DEVICES = 3;
-const MAX_TIMES = 100;
+const MAX_SLOTS = 200;
 
 // If Cloudflare skips a minute, pings from up to this many minutes ago still go out.
 const CATCH_UP_MINUTES = 10;
@@ -132,7 +136,14 @@ export class ReminderStore extends DurableObject {
     let changed = false;
 
     for (const [deviceKey, device] of Object.entries(devices)) {
-      const due = minutes.some((t) => device.times.includes(localTime(t, device.timeZone)));
+      // Only ping when a slot really is due that day: a ping with nothing to
+      // show makes Chrome put up its own "updated in the background" notice.
+      // A phone saved by the old Keystone app has plain times, meaning every day.
+      const slots = device.slots || (device.times || []).map((time) => ({ time, days: [0, 1, 2, 3, 4, 5, 6] }));
+      const due = minutes.some((t) => {
+        const local = localMoment(t, device.timeZone);
+        return slots.some((slot) => slotDue(slot, local));
+      });
       if (!due) continue;
 
       const response = await sendPing(device.endpoint, keys);
@@ -151,7 +162,7 @@ export class ReminderStore extends DurableObject {
 
 // --- Checking what the app sends ---
 
-function checkDevice({ deviceKey, endpoint, timeZone, times }) {
+function checkDevice({ deviceKey, endpoint, timeZone, slots, times }) {
   if (typeof deviceKey !== 'string' || deviceKey.length < 20 || deviceKey.length > 100) {
     throw new Error('Missing device key.');
   }
@@ -159,22 +170,57 @@ function checkDevice({ deviceKey, endpoint, timeZone, times }) {
     throw new Error('Missing push address.');
   }
   try {
-    localTime(Date.now(), timeZone);
+    localMoment(Date.now(), timeZone);
   } catch {
     throw new Error('Unknown time zone.');
   }
-  if (!Array.isArray(times) || times.length > MAX_TIMES ||
-      !times.every((time) => /^([01]\d|2[0-3]):[0-5]\d$/.test(time))) {
-    throw new Error('Times must look like "13:00".');
-  }
-  return { endpoint, timeZone, times: [...new Set(times)] };
+  // The old Keystone app sent plain times, meaning every day.
+  if (!slots && Array.isArray(times)) slots = times.map((time) => ({ time, days: [0, 1, 2, 3, 4, 5, 6] }));
+  if (!Array.isArray(slots) || slots.length > MAX_SLOTS) throw new Error('Missing reminder times.');
+  return { endpoint, timeZone, slots: slots.map(checkSlot) };
 }
 
-// "13:00" for a moment in time, as a clock in that time zone would show it.
-function localTime(ms, timeZone) {
-  return new Intl.DateTimeFormat('en-GB', {
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function checkSlot(slot) {
+  if (!slot || !TIME.test(slot.time)) throw new Error('Times must look like "13:00".');
+  const clean = { time: slot.time };
+  if (slot.date !== undefined) {
+    if (!DATE.test(slot.date)) throw new Error('Dates must look like "2026-11-14".');
+    clean.date = slot.date;
+  } else {
+    if (!Array.isArray(slot.days) || !slot.days.every((day) => Number.isInteger(day) && day >= 0 && day <= 6)) {
+      throw new Error('Days must be numbers from 0 (Monday) to 6 (Sunday).');
+    }
+    clean.days = [...new Set(slot.days)];
+  }
+  if (slot.skip !== undefined) {
+    if (!DATE.test(slot.skip)) throw new Error('Dates must look like "2026-11-14".');
+    clean.skip = slot.skip;
+  }
+  return clean;
+}
+
+// Is this slot due at this local moment?
+function slotDue(slot, local) {
+  if (slot.time !== local.time || slot.skip === local.date) return false;
+  return slot.date ? slot.date === local.date : slot.days.includes(local.day);
+}
+
+// A moment in time as a clock and calendar in that time zone would show it:
+// { time: "13:00", date: "2026-11-14", day: 5 } where day 0 is Monday.
+function localMoment(ms, timeZone) {
+  const parts = {};
+  for (const part of new Intl.DateTimeFormat('en-GB', {
     timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
-  }).format(new Date(ms));
+    year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short',
+  }).formatToParts(new Date(ms))) parts[part.type] = part.value;
+  return {
+    time: `${parts.hour}:${parts.minute}`,
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    day: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(parts.weekday),
+  };
 }
 
 // --- Sending a ping (the Web Push standard, with no message inside) ---
