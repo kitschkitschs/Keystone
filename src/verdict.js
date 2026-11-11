@@ -83,7 +83,8 @@ function period(it) { const w = (it && it.when) || {}; const n = Math.max(1, w.n
 function freshOf(id, place) { const n = period(I(id)) || 7; const last = isDone(id, T0) ? T0 : lastDoneBefore(id, T0);
   const since = last ? diff(last, T0) : n; const left = n - since;
   return { id, place, n, last, since, left, fresh: Math.max(0, Math.min(1, left / n)), urg: since / n }; }
-const jobsIn = (gid) => kidsOf(gid).filter((k) => period(I(k))).map((k) => freshOf(k, gid));
+// a job with no frequency still belongs to its room: it needs doing until it has been done once
+const jobsIn = (gid) => kidsOf(gid).filter((k) => period(I(k)) || (!repeatable(I(k)) && (!lastDoneBefore(k, T0) || isDone(k, T0)))).map((k) => freshOf(k, gid));
 const allJobs = () => roomIds().flatMap(jobsIn);
 function verdict(jobs, W) { if (!jobs.length) return { lvl: 0, word: W[0] };
   const avg = jobs.reduce((a, j) => a + j.fresh, 0) / jobs.length; let lvl = avg >= 0.75 ? 0 : avg >= 0.5 ? 1 : avg >= 0.25 ? 2 : 3;
@@ -159,11 +160,13 @@ const subjRank = (s) => { const v = subjVerdict(s); return v.lvl * 1000 + Math.m
 function slotDone(it, d) {
   if (it.opens === 'study') return minOn(null, d) >= sessLen() || supMin(d) >= sessLen();
   if (it.opens === 'chores') return choreIds().some((k) => val(d, k));
+  if (it.opens === 'training') return typeof trainedOn === 'function' && trainedOn(d).length > 0;
   return false; }
 function slotSub(it) { if (it.opens === 'study') { const m = minOn(null, T0), s = supMin(T0); return s >= sessLen() ? 'Study support done' : ''; } // no 'Opens …', the arrow says it (2026-11-04)
+  if (it.opens === 'training') return '';
   const n = choreIds().filter((k) => val(T0, k)).length; return n ? n + ' done today' : ''; }
 function slotGo(id) { const it = I(id); S.sheet = null; S.fromSlot = id; S.room = null; S.subj = null; S.pick = null; S.stv = null;
-  if (it.opens === 'study') { S.area = 'study'; S.page = null; } else { S.area = 'home'; S.page = 'chores'; }
+  if (it.opens === 'study') { S.area = 'study'; S.page = null; } else if (it.opens === 'training') { S.area = 'health'; S.page = 'training'; } else { S.area = 'home'; S.page = 'chores'; }
   render(); $('#main').scrollTop = 0; }
 
 // ---------- blocks ----------
@@ -422,8 +425,9 @@ function vSheet(s) {
 }
 function vNew(gid) { const g = G(gid); if (!g) return; const st = g.style;
   const D = { name: '', type: 'task', kind: 'behaviour', tags: [], made: T0, dur: 20, insight: true };
-  if (st === 'room' || gid === 'g-tend') D.when = { mode: 'every', n: 7 };
-  else if (st === 'tcat') Object.assign(D, { when: { mode: 'every', n: 7 }, dur: 45 });
+  // every new item starts with no frequency (2026-11-11)
+  if (st === 'room' || gid === 'g-tend') D.when = { mode: 'once', date: null };
+  else if (st === 'tcat') Object.assign(D, { when: { mode: 'once', date: null }, dur: 45 });
   else if (st === 'sgroup') Object.assign(D, { when: { mode: 'once', date: null }, est: 1, dur: 60, insight: false });
   else Object.assign(D, { when: { mode: 'once', date: gid === 'g-prep' ? T0 : null }, insight: false }, gid === 'g-prep' ? { icon: 'cooking-pot' } : {});
   const title = st === 'tcat' ? 'New session · ' + g.name : st === 'room' ? 'New job · ' + g.name : gid === 'g-tend' ? 'New thing to tend' : gid === 'g-prep' ? 'New prep' : gid === 'g-oneoff' ? 'New chore' : 'New study task';

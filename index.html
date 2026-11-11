@@ -1,8 +1,9 @@
 <!doctype html>
 <html lang="en">
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
 <meta name="theme-color" content="#F2EFEA">
+<meta name="color-scheme" content="only light">
 <meta name="application-name" content="Almanac">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
@@ -109,7 +110,7 @@ nav.areas .pill{width:52px;height:36px;border-radius:18px;display:flex;align-ite
 .inrow .blkbtn.off{border-style:dashed;border-color:var(--faint);background:transparent;color:var(--quiet)}
 .postits{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:6px 2px 20px}
 .postit{aspect-ratio:1;display:flex;flex-direction:column;align-items:stretch;text-align:left;padding:6px 11px 8px;background-color:#F7F3EA;background-image:none;box-shadow:0 1px 2px rgba(0,0,0,.12),0 3px 6px rgba(0,0,0,.06);overflow:hidden;border-radius:2px}
-.postit .pt{font-size:14px;font-weight:600;line-height:25px;height:26px;flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink);border-bottom:1px solid #E3DDD2}.postit .pl{font-size:12px;line-height:21px;height:22px;flex:none;border-bottom:1px solid #E3DDD2;color:#4A453E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.postit .ptag{margin-top:auto;font-size:7px;line-height:10px;letter-spacing:.08em;color:var(--quiet);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-top:6px;flex:none}
+.postit .pt{font-size:14px;font-weight:600;line-height:25px;height:26px;flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink);border-bottom:1px solid #E3DDD2}.postit .pl{font-size:12px;line-height:21px;height:22px;flex:none;border-bottom:1px solid #E3DDD2;color:#4A453E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.postit .pls{font-size:12px;line-height:22px;height:88px;flex:none;color:#4A453E;white-space:pre-line;overflow:hidden;overflow-wrap:anywhere;background-image:linear-gradient(transparent 21px,#E3DDD2 21px);background-size:100% 22px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical}.postit .ptag{margin-top:auto;font-size:7px;line-height:10px;letter-spacing:.08em;color:var(--quiet);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-top:6px;flex:none}
 .notepaper{background:#F7F3EA;box-shadow:0 1px 2px rgba(0,0,0,.1),0 3px 6px rgba(0,0,0,.05);padding:12px 14px 6px;margin:2px 0 16px;border-radius:2px}
 .ntitle{width:100%;border:0;background:transparent;font:600 17px/1.3 var(--sans);color:var(--ink);padding:2px 0 8px;outline:none}
 .nlines{width:100%;min-height:224px;border:0;resize:none;outline:none;background:transparent;background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 27px,#E3DDD2 27px,#E3DDD2 28px);background-attachment:local;font:15px/28px var(--sans);color:var(--ink);padding:0;overflow:hidden}
@@ -537,6 +538,8 @@ textarea.inp{resize:none;font:inherit;padding-top:10px;height:auto}
 .itiles>.itile.dragging{display:none}
 /* sheets, menu, toast */
 .scrim{position:absolute;inset:0;background:rgba(35,33,30,.32);z-index:40;display:flex;align-items:flex-end}
+/* the phone keyboard: pop-ups end above it (--kb is set in app.js) */
+.scrim{padding-bottom:var(--kb,0px);box-sizing:border-box}.cifull{bottom:var(--kb,0px)!important}
 .sheet{background:var(--card);width:100%;max-height:88%;border-radius:22px 22px 0 0;display:flex;flex-direction:column}
 .sheet header{display:flex;align-items:center;gap:10px;padding:16px 12px 6px 20px}
 .sheet h2{margin:0;flex:1;min-width:0;font-family:var(--serif);font-size:22px;font-weight:400}
@@ -555,7 +558,7 @@ textarea.inp{resize:none;font:inherit;padding-top:10px;height:auto}
 .wcard .wf,.wcard .wb{position:absolute;inset:0;border-radius:16px;background:#F7F3EA;box-shadow:0 1px 2px rgba(0,0,0,.12),0 6px 16px rgba(0,0,0,.08);backface-visibility:hidden;-webkit-backface-visibility:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:28px 22px;text-align:center;box-sizing:border-box;transition:box-shadow .15s}
 .wcard .wb{transform:rotateY(180deg)}.wcard.held .wf,.wcard.held .wb{box-shadow:0 2px 4px rgba(0,0,0,.12),0 18px 34px rgba(0,0,0,.16)}
 .wdeck .wunder{transform:scale(.94);transition:transform .2s ease-out}.wdeck .wunder .wf{box-shadow:inherit}
-.wtile .wpl{font-size:12px;line-height:22px;color:#4A453E;background-image:linear-gradient(transparent 21px,#E3DDD2 21px);background-size:100% 22px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}html.dark .wtile .wpl{color:var(--ink2);background-image:linear-gradient(transparent 21px,#433F39 21px)}.wprow{grid-template-rows:auto}.wprow .wtile .wpl{-webkit-line-clamp:4;line-height:20px;height:80px;background-image:linear-gradient(transparent 19px,#E3DDD2 19px);background-size:100% 20px}html.dark .wprow .wtile .wpl{background-image:linear-gradient(transparent 19px,#433F39 19px)}.postrow .postit .pl{height:20px;line-height:19px}.wpage .wcount{text-align:center}.wscroll{position:relative;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}.wtrack{will-change:transform}.witem{position:relative;display:block;height:var(--wh,480px);padding:0 8px;cursor:pointer;overflow-wrap:anywhere;text-align:center}.witem .wbox{position:absolute;left:8px;right:8px;top:50%;display:flex;flex-direction:column;align-items:center;gap:14px;transform:translateY(calc(var(--wy,21px) * -1));transition:transform .3s cubic-bezier(.22,.7,.3,1)}.witem.open .wbox{transform:translateY(-50%)}.witem .wans{align-items:center}.witem .wit:has(.wflag){justify-content:center}.witem .wiw{font-family:var(--serif);font-size:38px;line-height:1.1}.witem .wans{display:flex;flex-direction:column;gap:10px;opacity:0;transform:translateY(6px);transition:opacity .22s,transform .22s;pointer-events:none}.witem.open .wans{opacity:1;transform:none}.witem .wim{font-size:16px;line-height:1.45;color:var(--ink2)}.witem .win{font-size:14px;line-height:1.45;font-style:italic;color:var(--ink2)}.witem .wit{font-size:10.5px;color:var(--faint);margin-top:4px}.wfoot{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-top:auto}.wfoot .wcount{padding:0}.wfoot .wmenuw,.wfoot .wshufw{justify-self:end}.wcountw{display:inline-flex;align-items:center;gap:4px;justify-self:center}.wcountw .fbtn{width:22px;height:22px;min-height:0;padding:0;display:inline-flex;align-items:center;justify-content:center;color:var(--quiet);border:0;background:none;box-shadow:none}.wcountw .wcount{line-height:22px;display:block;padding:0 2px!important;margin:0!important}.wfoot{align-items:center}.wcountw .fbtn svg{display:block}.vdrop.vsortm.wup{top:auto;bottom:34px;right:auto;left:50%;transform:translateX(-50%);max-height:60vh;overflow-y:auto}.vdrop.vsortm.wmenu{right:0;max-height:60vh;overflow-y:auto}.wqrow{padding:4px 6px}.wqrow .inp{width:100%}
+.wtile .wpl{font-size:12px;line-height:22px;color:#4A453E;background-image:linear-gradient(transparent 21px,#E3DDD2 21px);background-size:100% 22px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}html.dark .wtile .wpl{color:var(--ink2);background-image:linear-gradient(transparent 21px,#433F39 21px)}.wprow{grid-template-rows:auto}.wprow .wtile .wpl{-webkit-line-clamp:4;line-height:20px;height:80px;background-image:linear-gradient(transparent 19px,#E3DDD2 19px);background-size:100% 20px}html.dark .wprow .wtile .wpl{background-image:linear-gradient(transparent 19px,#433F39 19px)}.postrow .postit .pl{height:20px;line-height:19px}.postrow .postit .pls{line-height:20px;height:80px;background-image:linear-gradient(transparent 19px,#E3DDD2 19px);background-size:100% 20px}.wpage .wcount{text-align:center}.wscroll{position:relative;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}.wtrack{will-change:transform}.witem{position:relative;display:block;height:var(--wh,480px);padding:0 8px;cursor:pointer;overflow-wrap:anywhere;text-align:center}.witem .wbox{position:absolute;left:8px;right:8px;top:50%;display:flex;flex-direction:column;align-items:center;gap:14px;transform:translateY(calc(var(--wy,21px) * -1));transition:transform .3s cubic-bezier(.22,.7,.3,1)}.witem.open .wbox{transform:translateY(-50%)}.witem .wans{align-items:center}.witem .wit:has(.wflag){justify-content:center}.witem .wiw{font-family:var(--serif);font-size:38px;line-height:1.1}.witem .wans{display:flex;flex-direction:column;gap:10px;opacity:0;transform:translateY(6px);transition:opacity .22s,transform .22s;pointer-events:none}.witem.open .wans{opacity:1;transform:none}.witem .wim{font-size:16px;line-height:1.45;color:var(--ink2)}.witem .win{font-size:14px;line-height:1.45;font-style:italic;color:var(--ink2)}.witem .wit{font-size:10.5px;color:var(--faint);margin-top:4px}.wfoot{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-top:auto}.wfoot .wcount{padding:0}.wfoot .wmenuw,.wfoot .wshufw{justify-self:end}.wcountw{display:inline-flex;align-items:center;gap:4px;justify-self:center}.wcountw .fbtn{width:22px;height:22px;min-height:0;padding:0;display:inline-flex;align-items:center;justify-content:center;color:var(--quiet);border:0;background:none;box-shadow:none}.wcountw .wcount{line-height:22px;display:block;padding:0 2px!important;margin:0!important}.wfoot{align-items:center}.wcountw .fbtn svg{display:block}.vdrop.vsortm.wup{top:auto;bottom:34px;right:auto;left:50%;transform:translateX(-50%);max-height:60vh;overflow-y:auto}.vdrop.vsortm.wmenu{right:0;max-height:60vh;overflow-y:auto}.wqrow{padding:4px 6px}.wqrow .inp{width:100%}
 .wpage{display:flex;flex-direction:column;min-height:calc(100% - 60px)}.wpage .wcount{margin-top:auto;padding:12px 4px 4px;font-size:10.5px;color:var(--ink2)}.wcard .wn{position:absolute;left:16px;bottom:14px;font-size:10px;color:var(--ink2)}.wdeck .wunder[data-under="prev"],.wdeck.goprev .wunder[data-under="next"]{visibility:hidden}.wdeck.goprev .wunder[data-under="prev"]{visibility:visible}
 .wtile{position:relative}.wtile .wpl{height:88px;flex:none}.wtfoot{margin-top:auto;display:flex;align-items:flex-end;gap:6px;padding-top:6px}.wtfoot .ptag{margin-top:0;padding-top:0;flex:1;min-width:0}.wtfoot .wflag{line-height:0;color:var(--quiet);flex:none}.wit .wflag{color:inherit;margin-right:8px;line-height:0;vertical-align:-1px}.wit:has(.wflag){display:flex;align-items:center}.wfl1{display:inline-flex;align-items:center;margin-right:auto}.flag{display:inline-block;flex:none;vertical-align:-1px}.wmenu .flag,.vsortm .flag{margin-right:8px}.wlchip .flag{margin-right:6px}.wfootl{line-height:0;justify-self:start;padding-left:4px}
 .wtile{gap:0}.wtile .wtw{font-family:var(--serif);font-size:22px;line-height:1.1;padding-top:6px}.wtile .wtm{font-size:13px;line-height:1.4;color:var(--ink2);display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
@@ -955,7 +958,7 @@ html.dark .vcard{box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 2px 8px rgba(0
 html.dark .postit,html.dark .jcard,html.dark .notepaper,html.dark .sheet.notesh,html.dark .notesh{background-color:#34312C;color:var(--ink)}
 html.dark .postit{background-image:none}html.dark .postit .pt,html.dark .postit .pl{border-color:#433F39}
 html.dark .jcard{background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 19px,#433F39 19px,#433F39 20px)}
-html.dark .postit .pt{color:var(--ink)}html.dark .postit .pl{color:var(--ink2)}
+html.dark .postit .pt{color:var(--ink)}html.dark .postit .pls{color:var(--ink2);background-image:linear-gradient(transparent 21px,#433F39 21px)}html.dark .postrow .postit .pls{background-image:linear-gradient(transparent 19px,#433F39 19px)}html.dark .postit .pl{color:var(--ink2)}
 html.dark .scrim{background:rgba(0,0,0,.5)}
 html.dark .menu,html.dark .sheet{box-shadow:0 12px 32px rgba(0,0,0,.55)}
 html.dark #viewer.vwph{background:rgba(29,27,25,.3)}
@@ -1007,7 +1010,7 @@ const rgb = (h) => { h = h.replace('#', ''); return [0, 2, 4].map((i) => parseIn
 // dark mode (2026-11-08): warm near-black, cards that glow warmer as they need care; kept per device
 const THL = { card: '#FAF8F4', page: '#F2EFEA', ink: '#23211E', line: '#DDD6CA' }, THD = { card: '#2B2926', page: '#1D1B19', ink: '#EFEAE2', line: '#3D3934' };
 const TH = Object.assign({}, THL); let darkOn = false; try { darkOn = localStorage.getItem('daybook3-dark') === '1'; } catch (e) { /* no storage */ }
-function applyTheme() { Object.assign(TH, darkOn ? THD : THL); document.documentElement.classList.toggle('dark', darkOn); const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = TH.page; }
+function applyTheme() { Object.assign(TH, darkOn ? THD : THL); document.documentElement.classList.toggle('dark', darkOn); document.documentElement.style.colorScheme = darkOn ? 'dark' : 'only light'; /* tells the browser not to darken the page by itself, and to draw its own pickers to match */ const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = TH.page; }
 applyTheme();
 // in dark mode the colours I picked are toned down to fit: lighter, brighter ones get darker and a little softer.
 // Done on whatever gets drawn (backgrounds, borders, fills, --c / --bg tones), never on text colour or inside boards.
@@ -1370,13 +1373,16 @@ function routineOpen(id, d) {
 // without a length of its own an item counts as 30 min (2026-11-04)
 // Today shows no item lengths (2026-11-04): only the block totals and the Study session; kept as a hook in case they come back
 const tdur = (it) => '';
+function whereOf(id) { const it = I(id); const src = it && it.part && I(it.part) ? it.part : id; const r = placements(src).find((p) => G(p) && G(p).style === 'room'); if (r) return G(r).name;
+  if (typeof subjIds === 'function') { const sj = subjIds().find((s) => sIds(s).includes(src)); if (sj) return G(sj).name; } return ''; }
 function itemRow(id, list, d) {
   const it = I(id); const live = d === T0;
   if (it.type === 'slot') return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, false)}<span class="lbl">${S.edit ? nm(id, it.name) : `<button data-a="${live ? 'slot' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left;display:flex;align-items:center;gap:8px"><span style="flex:1">${esc(it.name)}${live && it.opens === 'study' && supMin(T0) < sessLen() ? `<span class="tdur">${estHM(minOn(null, T0) / 60)} of ${estHM(sessLen() / 60)}</span>` : ''}${live && slotSub(it) ? `<span class="sub">${esc(slotSub(it))}</span>` : ''}</span>${live ? '<span class="chev" aria-hidden="true">›</span>' : ''}</button>`}</span>${tail(id, list)}</div>`;
   if (it.type === 'checkin') return `<div class="row" data-ref="${id}" data-fixed="1">${S.edit ? '<span class="grip"></span>' : ''}${tickCircle(id, d, live)}<button class="lbl" data-a="checkin" data-ref="${id}">${nm(id, it.name)}</button><span class="chev">›</span></div>`;
   const much = String(val(d, id) || '').startsWith('much');
   const late = live ? lateBy(id) : 0;
-  const sub = much ? 'Too much' + (val(d, id) === 'much:hyper' ? ' · hyperfixation' : val(d, id) === 'much:inert' ? ' · inertia' : '') : late ? (late === 1 ? '1 day late' : late + ' days late') : '';
+  const sub0 = much ? 'Too much' + (val(d, id) === 'much:hyper' ? ' · hyperfixation' : val(d, id) === 'much:inert' ? ' · inertia' : '') : late ? (late === 1 ? '1 day late' : late + ' days late') : '';
+  const sub = [whereOf(id), sub0].filter(Boolean).join(' · '); // a chore shows its room, a study task its subject
   if (it.type === 'routine') {
     const open = S.edit || routineOpen(id, d); const steps = it.steps || [];
     return `<div data-ref="${id}"><div class="row">${grip()}${tickCircle(id, d, live)}
@@ -1511,8 +1517,9 @@ const frozenOf = (d) => d < T0 && M.frozen && M.frozen[d] ? M.frozen[d].filter((
 // Also used on frozen past days, so old snapshots follow the rule too (2026-11-06)
 function slotDrop(out) {
   const all = out.flatMap((x) => x.items); const sids = typeof subjIds === 'function' ? new Set(subjIds().flatMap(sIds)) : new Set(); const cids = typeof choreIds === 'function' ? new Set(choreIds()) : new Set();
-    const studyOn = all.some((id) => sids.has(id) || (I(id) && I(id).part && sids.has(I(id).part))), choreOn = all.some((id) => cids.has(id));
-    if (studyOn || choreOn) out.forEach((x) => { x.items = x.items.filter((id) => !(I(id) && I(id).type === 'slot' && ((I(id).opens === 'study' && studyOn) || (I(id).opens === 'chores' && choreOn)))); });
+    const tids = typeof trainCats === 'function' ? new Set(trainCats().flatMap(kidsOf)) : new Set();
+    const studyOn = all.some((id) => sids.has(id) || (I(id) && I(id).part && sids.has(I(id).part))), choreOn = all.some((id) => cids.has(id)), moveOn = all.some((id) => tids.has(id));
+    if (studyOn || choreOn || moveOn) out.forEach((x) => { x.items = x.items.filter((id) => !(I(id) && I(id).type === 'slot' && ((I(id).opens === 'study' && studyOn) || (I(id).opens === 'chores' && choreOn) || (I(id).opens === 'training' && moveOn)))); });
   return out; }
 function placeDay(d) {
   const fz = frozenOf(d); if (fz) { const keep = new Set(slotDrop([{ items: fz.filter((o) => !o.appt).map((o) => o.id) }])[0].items); return fz.filter((o) => !isMissed(o.id, d) && (o.appt || keep.has(o.id))).map((o) => Object.assign({}, o)); }
@@ -1598,7 +1605,7 @@ function renderSchedule() {
 function renderPlan() {
   const inPlan = (id) => placements(id).some((p) => p.startsWith('s:') || (G(p) && G(p).style === 'dayblock'));
   const F = S.planF || 'all';
-  const tasks = Object.keys(M.items).filter((id) => ['task', 'routine'].includes(I(id).type) && !I(id).part && (F === 'home' ? homeItem(id) : F === 'plan' ? inPlan(id) && !homeItem(id) : inPlan(id) || homeItem(id)));
+  const tasks = Object.keys(M.items).filter((id) => ['task', 'routine'].includes(I(id).type) && !I(id).part && !(typeof hobArea === 'function' && hobArea(id)) && (F === 'home' ? homeItem(id) : F === 'plan' ? inPlan(id) && !homeItem(id) : inPlan(id) || homeItem(id)));
   const nos = tasks.filter((id) => (I(id).when || {}).mode === 'once' && !I(id).when.date && !Object.keys(M.log).some((d) => val(d, id)));
   const sch = tasks.filter((id) => (I(id).when || {}).mode === 'once' && I(id).when.date && (I(id).when.date >= T0 || onDay(id, T0))).sort((a, b) => I(a).when.date.localeCompare(I(b).when.date));
   const rep = tasks.filter((id) => repeatable(I(id)));
@@ -1697,6 +1704,7 @@ function renderLayer() {
   const lastSb = () => [...document.querySelectorAll('#layer .sb')].pop(); const sb0 = lastSb(); const keep = sb0 && S.sheet && S._lastSheet === S.sheet ? sb0.scrollTop : 0; $('#layer').innerHTML = h; S._lastSheet = S.sheet; if (keep) { const sb1 = lastSb(); if (sb1) sb1.scrollTop = keep; }
   // a message while a pop-up is open shows inside that pop-up, under its title (never hidden behind it)
   if (S.toast && S.sheet) { const hd = [...document.querySelectorAll('#layer > .scrim > .sheet > header, #layer > .cifull > header, #layer > .cifull .cihd')].pop(); if (hd) { const m = document.createElement('div'); m.className = 'shmsg'; m.setAttribute('role', 'alert'); m.textContent = S.toast.msg; hd.after(m); } }
+  { const nt = document.getElementById('ntext'); if (nt) { nt.style.height = 'auto'; nt.style.height = Math.max(nt.scrollHeight, 224) + 'px'; } } // a long note opens at its full height, so the pop-up can scroll through it
   // the + sheet keeps the size it opened at while I search (2026-11-08)
   if (S.sheet && S.sheet.kind === 'add') { const sh = [...document.querySelectorAll('#layer .sheet')].pop(); if (sh) { if (!(S.sheet.q || '').trim()) S.sheet.h = sh.offsetHeight; else if (S.sheet.h) sh.style.height = S.sheet.h + 'px'; } }
 }
@@ -1737,6 +1745,7 @@ function sheetBody() {
   if (s.kind === 'group') { const g = G(s.ref);
     return `<div class="fld"><span class="mono">Name</span><input class="inp" id="gname" value="${esc(g.name)}"></div>
       ${g.style === 'sgroup' ? `<div class="fld"><span class="mono">Deadline</span><div class="inrow"><input class="inp" type="date" id="gdl" value="${g.deadline || ''}"><span class="note">optional</span></div></div>` : ''}
+      ${g.style === 'project' && typeof hobOf === 'function' && hobOf(s.ref) && hobActs(hobOf(s.ref)).length ? `<div class="fld"><span class="mono">Activity it covers</span><div class="chips">${[['', 'None']].concat(hobActs(hobOf(s.ref)).map((k) => [k, I(k).name])).map(([k, l]) => `<button class="chip" data-a="projact" data-ref="${s.ref}" data-v="${k}" aria-pressed="${(g.act || '') === k}">${esc(l)}</button>`).join('')}</div></div>` : ''}
       ${g.style === 'dayblock' ? `<div class="fld"><span class="mono">Time</span><div class="inrow"><input class="inp" type="time" id="gstart" value="${g.start}"><span>to</span><input class="inp" type="time" id="gend" value="${g.end}"></div></div>` : ''}
       <div class="fld"><span class="mono">Colour</span>${colorField(s.ref, g.color)}</div>
       ${g.style === 'hgroup' && g.special !== 'checkins' ? `<div class="fld"><span class="mono">Asked in a check-in</span><div class="chips">${[['', 'No'], ['morning', 'Morning'], ['evening', 'Evening']].map(([k, l]) => `<button class="chip" data-a="gci" data-ref="${s.ref}" data-v="${k}" aria-pressed="${(g.ci || '') === k}">${l}</button>`).join('')}</div></div>` : ''}
@@ -1765,7 +1774,7 @@ function sheetBody() {
     lines.push(['Status', done ? (String(val(d, s.ref)).startsWith('much') ? 'Too much' : 'Done') : d < T0 ? 'Not done' : d === T0 ? 'Not done yet' : 'Coming up']);
     return `<div class="peekhd"><span class="aic" style="background:${pale(c)};color:${mix(c, TH.ink, 0.35)}">${icon(it.icon || (isA ? G(catOf(s.ref)).icon : 'check') || 'circle', 20, 1.9)}</span></div>
       <dl class="peek">${lines.map(([k, v]) => `<dt class="mono">${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
-      <div class="btns">${d === T0 && it.type !== 'checkin' && it.type !== 'routine' ? `<button class="btn dark" data-a="peektick">${it.type === 'slot' ? 'Open ' + (it.opens === 'study' ? 'Study' : 'Chores') : done ? 'Untick' : 'Tick as done'}</button>` : ''}${d <= T0 && !done && it.type !== 'checkin' ? `<button class="btn" data-a="miss" data-ref="${s.ref}" data-d="${d}">Missed</button>` : ''}<button class="btn" data-a="peekedit">Edit</button></div>`; }
+      <div class="btns">${d === T0 && it.type !== 'checkin' && it.type !== 'routine' ? `<button class="btn dark" data-a="peektick">${it.type === 'slot' ? 'Open ' + (it.opens === 'study' ? 'Study' : it.opens === 'training' ? 'Training' : 'Chores') : done ? 'Untick' : 'Tick as done'}</button>` : ''}${d <= T0 && !done && it.type !== 'checkin' ? `<button class="btn" data-a="miss" data-ref="${s.ref}" data-d="${d}">Missed</button>` : ''}<button class="btn" data-a="peekedit">Edit</button></div>`; }
   if (s.kind === 'add') {
     // Add or log, redone (2026-11-08): compact, everything in reach. Always on top: a feeling, plan items, notebook items.
     // The search finds anything tickable and ticks it right there; Tick as done = everything on Today plus what I ticked lately.
@@ -1784,7 +1793,7 @@ function sheetBody() {
     // which study task group: picked right here when there's more than one (2026-11-08)
     // a task from Capture first asks what kind it is (2026-11-10): a plain task, a chore, a study task or a prep
     if (s.pickTask && !s.pickStudy) { const row = (a, v, ic, l) => `<button class="arow" data-a="${a}" ${v ? `data-v="${v}"` : ''} style="text-align:left"><span class="an" style="display:flex;align-items:center;gap:12px">${icon(ic, 20)}${l}</span><span class="chev" aria-hidden="true">›</span></button>`;
-      return `<div class="fld"><div class="afind">${row('new', 'once', 'check', 'Task')}${row('vadd', 'g-oneoff', 'spray-can', 'Chore')}${row('addstudy', '', 'book-open', 'Study task')}${row('vadd', 'g-prep', 'cooking-pot', 'Prep')}</div></div>`; }
+      return `<div class="fld"><div class="afind">${row('new', 'once', 'check', 'Task')}${row('vadd', 'g-oneoff', 'spray-can', 'Chore')}${row('addstudy', '', 'book-open', 'Study task')}${row('vadd', 'g-prep', 'cooking-pot', 'Prep')}</div></div><div class="fld"><span class="mono">Generic</span><div class="afind">${row('slotadd', 'chores', 'spray-can', 'Daily chore')}${row('slotadd', 'training', 'footprints', 'Movement')}${row('slotadd', 'study', 'graduation-cap', 'Study session')}</div></div>`; }
     if (s.pickStudy) { const subs = S.subj && G(S.subj) ? [S.subj] : subjIds();
       return `<div class="fld"><span class="mono">Study task in</span><div class="afind">${subs.map((sb) => sgroupsOf(sb).map((g) => `<button class="arow" data-a="vadd" data-v="${g}" style="text-align:left"><span class="an">${esc(G(g).name)}<span class="sub">${esc(G(sb).name)}</span></span><span class="chev" aria-hidden="true">›</span></button>`).join('')).join('') || '<p class="empty">No task groups yet.</p>'}</div></div>`; }
     // the page I'm on comes first, under This page (2026-11-08)
@@ -1887,7 +1896,6 @@ function itemSheet(s) {
     if (D.type !== 'appt') {
     h += `<div class="fld"><span class="mono">Kind</span><div class="chips">${[['', 'None'], ['behaviour', 'Behaviour'], ['experience', 'Experience'], ['circumstance', 'Circumstance']].map(([k, l]) => `<button class="chip" data-a="dset" data-k="kind" data-v="${k}" aria-pressed="${(D.kind || '') === k}">${l}</button>`).join('')}</div>${D.kind === 'behaviour' ? sw('unwanted', 'Unwanted', D.unwanted, 'Behaviour I want less of') : ''}${D.kind === 'behaviour' && D.type === 'task' ? sw('overdo', 'Can overdo', D.overdo, 'Tap twice for Too much') : ''}</div>`;
     h += tagField(D, 'dtag');
-    if (repeatable(D) || D.type === 'step') h += sw('insight', 'Show in Insight', D.insight !== false, 'Its own statistics. When off it still counts in its circle\'s Other ring.');
     }
   }
   if (s.ref && I(s.ref) && !s.isNew) h += remField(s.ref);
@@ -1937,6 +1945,8 @@ function freqUI(s, D) {
 function apptWhen(D) { const r = D.rep, d = D.date || T0; if (!r) return { mode: 'once', date: d }; const n = Math.max(1, r.n || 1);
   if (r.unit === 'week') return { mode: 'days', days: [wd(d)], n, date: d }; if (r.unit === 'month') return { mode: 'month', n, date: d };
   return n === 1 ? { mode: 'days', days: [0, 1, 2, 3, 4, 5, 6], n: 1, date: d } : { mode: 'every', n, date: d }; }
+// whatever pop-up is open, keep what is typed in it before it is drawn again (a New tag box used to wipe a word's text)
+function capAll() { const s = S.sheet; if (!s) return; try { const k = s.kind; if (k === 'item') capture(); else if (k === 'word') wCapture(); else if (k === 'note') ncapture(); else if (k === 'rem') remCapture(); else if (k === 'trip') tripCapture(); else if (k === 'cond') condCapture(); else if (k === 'tracker') tcapture(); else if (k === 'photo') mcapture(); } catch (e) {} }
 function capture() { const s = S.sheet; if (!s || s.kind !== 'item') return; const D = s.draft;
   const g = (id) => document.getElementById(id); if (g('dname')) D.name = g('dname').value.trim() || D.name;
   if (g('ddate') && D.type === 'appt') { D.date = g('ddate').value || T0; if (D.when) D.when.date = D.date; }
@@ -1952,7 +1962,7 @@ function capture() { const s = S.sheet; if (!s || s.kind !== 'item') return; con
 function openItem(id) { const it = I(id); if (!it) return; if (it.type === 'step') { const r = placements(id)[0]; if (r) id = r.slice(2); } if (it.part && I(it.part)) id = it.part;
   const x = I(id); openSheet({ kind: 'item', ref: id, title: x.type === 'appt' ? 'Appointment' : x.type === 'routine' ? 'Routine' : x.type === 'checkin' ? 'Check-in' : 'Task', draft: JSON.parse(JSON.stringify(x)), block: placements(id).find((p) => G(p) && G(p).style === 'dayblock') || (vHomed({ ref: id }) ? '' : blockOfItem(id)), cat: catOf(id), parts: (x.parts || []).filter(I).map((p) => Object.assign({ id: p, date: (I(p).when || {}).date, min: I(p).dur || 30 }, I(p).time ? { time: I(p).time } : {})), steps: (x.steps || []).map((s) => ({ id: s, name: I(s).name })) }); }
 function newItem(mode, block) {
-  const D = { name: '', type: mode === 'routine' ? 'routine' : 'task', when: mode === 'every' ? { mode: 'every', n: 1, date: T0 } : mode === 'routine' ? { mode: 'days', days: [0, 1, 2, 3, 4, 5, 6], n: 1, date: T0 } : { mode: 'once', date: mode === 'once' && S.page === 'plan' ? null : T0 }, kind: 'behaviour', tags: [], insight: mode !== 'once', made: T0, dur: 30 };
+  const D = { name: '', type: mode === 'routine' ? 'routine' : 'task', when: mode === 'every' ? { mode: 'every', n: 1, date: T0 } : mode === 'routine' ? { mode: 'once', date: T0 } : { mode: 'once', date: mode === 'once' && S.page === 'plan' ? null : T0 }, kind: 'behaviour', tags: [], insight: mode !== 'once', made: T0, dur: 30 };
   openSheet({ kind: 'item', isNew: true, title: mode === 'routine' ? 'New routine' : mode === 'every' ? 'New repeat task' : 'New task', draft: D, block: block || blockIds()[blockIds().length - 1], steps: [] });
 }
 function newAppt(pick) { const cat = pick && G(pick) ? pick : S.cat !== 'all' && G(S.cat) ? S.cat : G('g-appts').kids[0];
@@ -2032,7 +2042,8 @@ document.addEventListener('click', (e) => {
   switch (act) {
     case 'pdjopen': S.area = 'notebook'; S.insOn = false; notebookAction('jopen', a, ref, v); break;
     case 'pdbopen': S.area = 'notebook'; S.insOn = false; S.nbView = 'home'; boardAction('bdopen', a, ref, v); render(); break;
-    case 'openadd': S.openAdd = v; render(); { const el = document.getElementById(v); if (el) { el.focus(); el.scrollIntoView({ block: 'nearest' }); } } break;
+    case 'openadd': capAll(); S.openAdd = v; render(); { const el = document.getElementById(v); if (el) { el.focus(); el.scrollIntoView({ block: 'nearest' }); } } break;
+    case 'slotadd': slotAdd(v); break;
     case 'newpick': if (S.sheet) { S.sheet.pickTask = true; S.sheet.title = 'Task'; renderLayer(); } break;
     case 'addstudy': { const gs = (S.subj && G(S.subj) ? [S.subj] : subjIds()).flatMap(sgroupsOf); if (gs.length === 1) vNew(gs[0]); else { S.sheet.pickStudy = true; S.sheet.title = 'Study task'; renderLayer(); } break; }
     case 'addcond': openSheet({ kind: 'cond', isNew: true, ref: uid('c'), title: 'New condition', draft: { name: '', start: T0, tags: ['ct-ill'].filter(ctag) } }); break;
@@ -2237,9 +2248,9 @@ document.addEventListener('wheel', (e) => { if (S.sheet || S.edit || S.area !== 
 
 // Drag and drop: a grip moves its row within its list, or into another list that takes that kind of thing.
 const kindOf = (ref) => G(ref) ? G(ref).style : (I(ref) || {}).type;
-const ACCEPT = { task: ['task', 'routine', 'slot'], slot: ['slot'], rooms: ['room'], subjects: ['subject'], sgroups: ['sgroup'], blocks: ['dayblock'], acats: ['acat'], tcats: ['tcat'], appt: ['appt'], hgroups: ['hgroup'], tracker: ['tracker'] };
+const ACCEPT = { hobbies: ['hobby'], task: ['task', 'routine', 'slot'], slot: ['slot'], rooms: ['room'], subjects: ['subject'], sgroups: ['sgroup'], blocks: ['dayblock'], acats: ['acat'], tcats: ['tcat'], appt: ['appt'], hgroups: ['hgroup'], tracker: ['tracker'] };
 function listOf(key) { if (key === 'ins:tiles') return M.settings.insOrder; if (key.startsWith('s:')) return I(key.slice(2)).steps; return G(key).kids; }
-function accepts(key, ref) { if (key === 'ins:tiles') return String(ref).startsWith('T:'); if (key.startsWith('s:')) return kindOf(ref) === 'step' && key.slice(2) !== ref; const g = G(key); return !!g && (ACCEPT[g.holds] || []).includes(kindOf(ref)); }
+function accepts(key, ref) { if (key === 'ins:tiles') return String(ref).startsWith('T:'); if (key.startsWith('s:')) return kindOf(ref) === 'step' && key.slice(2) !== ref; const g = G(key); if (key === 'g-hobbies') return kindOf(ref) === 'hobby'; return !!g && (ACCEPT[g.holds] || []).includes(kindOf(ref)); }
 let drag = null;
 document.addEventListener('pointerdown', (e) => {
   const gp = e.target.closest('.grip'); if (!gp || !S.edit) return;
@@ -3023,7 +3034,6 @@ function trackerSheet(s) {
   h += tagField(D, 'ttag');
   { const pg = Object.keys(M.groups).find((k) => M.groups[k].kids.includes(s.ref)); const lead = pg ? G(pg).kids.filter((k) => I(k))[0] : null;
     if (lead && lead !== s.ref) h += sw('after', 'Only after ' + esc(I(lead).name), D.after, 'Shows once ' + esc(I(lead).name.toLowerCase()) + ' has an answer'); }
-  h += sw('insight', 'Show in Insight', D.insight !== false, 'Its own statistics in Insight');
   if (!s.isNew) h += `<div class="btns"><button class="btn danger" data-a="ddelete">Delete</button></div>`;
   return h;
 }
@@ -3080,6 +3090,7 @@ function healthAction(act, a, ref, v) {
     case 'hopen': S.open['h:' + ref] = ref === 't-conds' ? S.open['h:' + ref] !== true : S.open['h:' + ref] === false; // Training's Conditions start closed try { localStorage.setItem('daybook3-shut', JSON.stringify(Object.keys(S.open).filter((k) => k.startsWith('h:') && S.open[k] === false))); } catch (e) {} render(); return true;
     case 'hmore': S.open['more:' + ref] = !S.open['more:' + ref]; render(); return true;
     case 'htab': S.htab[ref] = +v; render(); return true;
+    case 'projact': { const gn = document.getElementById('gname'); const nmv = gn && gn.value.trim(); change(() => { if (nmv) G(ref).name = nmv; if (v) G(ref).act = v; else delete G(ref).act; }); renderLayer(); return true; }
     case 'gci': { change(() => { if (v) G(ref).ci = v; else delete G(ref).ci; }); renderLayer(); return true; }
     case 'cistep': if (S.sheet && S.sheet.kind === 'checkin') { S.sheet.step = +v; S._lastSheet = null; renderLayer(); } return true;
     case 'hset': { const cur = hval(T0, ref); const nv = /^\d+$/.test(v) ? +v : v; change(() => { if (cur === nv) delete L(T0)[ref]; else L(T0)[ref] = nv; }); return true; }
@@ -3226,6 +3237,22 @@ document.addEventListener('input', (e) => {
   if (id === 'chex' && /^#[0-9a-f]{6}$/i.test(e.target.value.trim())) { const [h, sat, l] = hexToHsl(e.target.value.trim()); Object.assign(s, { h, s: sat, l }); $('#cprev').style.background = e.target.value.trim(); ['h', 's', 'l'].forEach((k) => { const el = $('#c' + k); if (el) el.value = s[k]; }); }
 });
 
+// Generic items (2026-11-11): Daily chore, Movement and Study session. They sit on Today when nothing specific from their
+// section is planned that day, and open that section to pick the real thing.
+function slotAdd(k) { const DEF = { study: ['sl-study', 'Study session', 'graduation-cap', '#3FAFA6', 60], chores: ['sl-chore', 'Daily chore', 'spray-can', '#EDBB3A', 20], training: ['sl-move', 'Movement', 'footprints', '#6FA24A', 30] }[k]; if (!DEF) return;
+  const [id, name, ic, color, dur] = DEF; const blk = k === 'study' ? studyBlock() : k === 'chores' ? eveBlock() : blockIds()[0];
+  const placed = I(id) && placements(id).some((p) => G(p) && G(p).style === 'dayblock');
+  if (placed) { S.sheet = null; S.area = 'plan'; S.page = 'today'; S.day = T0; render(); flash(name + ' is already on Today'); return; }
+  S.sheet = null; S.area = 'plan'; S.page = 'today'; S.day = T0;
+  change(() => { if (!M.items[id]) M.items[id] = { name, type: 'slot', opens: k, when: { mode: 'every', n: 1 }, icon: ic, color, dur, made: T0 };
+    const gs = M.groups['g-slots'] = M.groups['g-slots'] || { name: 'Slots', holds: 'slot', kids: [] }; if (!gs.kids.includes(id)) gs.kids.push(id);
+    if (blk && G(blk) && !G(blk).kids.includes(id)) G(blk).kids.push(id); }, 'Added ' + name); }
+// The phone keyboard (2026-11-11): pop-ups slide up so the field I'm writing in stays above it.
+(function () { const vv = window.visualViewport; if (!vv) return; let last = -1;
+  const fit = () => { const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)); if (kb === last) return; last = kb; document.documentElement.style.setProperty('--kb', kb + 'px'); document.documentElement.classList.toggle('kbon', kb > 80);
+    const a = document.activeElement; if (kb > 80 && a && a.closest && a.closest('#layer')) setTimeout(() => { try { a.scrollIntoView({ block: 'center' }); } catch (e) {} }, 60); };
+  vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); })();
+document.addEventListener('focusin', (e) => { const t = e.target; if (!t || !t.closest || !t.closest('#layer') || !/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) && !t.isContentEditable) return; setTimeout(() => { try { t.scrollIntoView({ block: 'center' }); } catch (_) {} }, 350); });
 // ===================== Verdict pages: Study and Home (2026-11-03) =====================
 // One shared page system for both areas, big to small: a verdict card, a strip of smaller cards (rooms or subjects,
 // most urgent first; first tap picks and filters, second tap opens), then the list of what needs you most.
@@ -3311,7 +3338,8 @@ function period(it) { const w = (it && it.when) || {}; const n = Math.max(1, w.n
 function freshOf(id, place) { const n = period(I(id)) || 7; const last = isDone(id, T0) ? T0 : lastDoneBefore(id, T0);
   const since = last ? diff(last, T0) : n; const left = n - since;
   return { id, place, n, last, since, left, fresh: Math.max(0, Math.min(1, left / n)), urg: since / n }; }
-const jobsIn = (gid) => kidsOf(gid).filter((k) => period(I(k))).map((k) => freshOf(k, gid));
+// a job with no frequency still belongs to its room: it needs doing until it has been done once
+const jobsIn = (gid) => kidsOf(gid).filter((k) => period(I(k)) || (!repeatable(I(k)) && (!lastDoneBefore(k, T0) || isDone(k, T0)))).map((k) => freshOf(k, gid));
 const allJobs = () => roomIds().flatMap(jobsIn);
 function verdict(jobs, W) { if (!jobs.length) return { lvl: 0, word: W[0] };
   const avg = jobs.reduce((a, j) => a + j.fresh, 0) / jobs.length; let lvl = avg >= 0.75 ? 0 : avg >= 0.5 ? 1 : avg >= 0.25 ? 2 : 3;
@@ -3387,11 +3415,13 @@ const subjRank = (s) => { const v = subjVerdict(s); return v.lvl * 1000 + Math.m
 function slotDone(it, d) {
   if (it.opens === 'study') return minOn(null, d) >= sessLen() || supMin(d) >= sessLen();
   if (it.opens === 'chores') return choreIds().some((k) => val(d, k));
+  if (it.opens === 'training') return typeof trainedOn === 'function' && trainedOn(d).length > 0;
   return false; }
 function slotSub(it) { if (it.opens === 'study') { const m = minOn(null, T0), s = supMin(T0); return s >= sessLen() ? 'Study support done' : ''; } // no 'Opens …', the arrow says it (2026-11-04)
+  if (it.opens === 'training') return '';
   const n = choreIds().filter((k) => val(T0, k)).length; return n ? n + ' done today' : ''; }
 function slotGo(id) { const it = I(id); S.sheet = null; S.fromSlot = id; S.room = null; S.subj = null; S.pick = null; S.stv = null;
-  if (it.opens === 'study') { S.area = 'study'; S.page = null; } else { S.area = 'home'; S.page = 'chores'; }
+  if (it.opens === 'study') { S.area = 'study'; S.page = null; } else if (it.opens === 'training') { S.area = 'health'; S.page = 'training'; } else { S.area = 'home'; S.page = 'chores'; }
   render(); $('#main').scrollTop = 0; }
 
 // ---------- blocks ----------
@@ -3650,8 +3680,9 @@ function vSheet(s) {
 }
 function vNew(gid) { const g = G(gid); if (!g) return; const st = g.style;
   const D = { name: '', type: 'task', kind: 'behaviour', tags: [], made: T0, dur: 20, insight: true };
-  if (st === 'room' || gid === 'g-tend') D.when = { mode: 'every', n: 7 };
-  else if (st === 'tcat') Object.assign(D, { when: { mode: 'every', n: 7 }, dur: 45 });
+  // every new item starts with no frequency (2026-11-11)
+  if (st === 'room' || gid === 'g-tend') D.when = { mode: 'once', date: null };
+  else if (st === 'tcat') Object.assign(D, { when: { mode: 'once', date: null }, dur: 45 });
   else if (st === 'sgroup') Object.assign(D, { when: { mode: 'once', date: null }, est: 1, dur: 60, insight: false });
   else Object.assign(D, { when: { mode: 'once', date: gid === 'g-prep' ? T0 : null }, insight: false }, gid === 'g-prep' ? { icon: 'cooking-pot' } : {});
   const title = st === 'tcat' ? 'New session · ' + g.name : st === 'room' ? 'New job · ' + g.name : gid === 'g-tend' ? 'New thing to tend' : gid === 'g-prep' ? 'New prep' : gid === 'g-oneoff' ? 'New chore' : 'New study task';
@@ -3775,7 +3806,7 @@ const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const iavg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
 const ITICK = ['task', 'step', 'routine'];
 // trackers a circle can count (2026-11-08: Insight gathers items from tags, so a Sleep tag brings Sleep quality and the sleep tags too)
-const insTrkOk = (k) => { const it = I(k); return !!it && it.type === 'tracker' && it.insight !== false && (SCALES[it.scale] || ['yesno', 'avoid'].includes(it.scale)); };
+const insTrkOk = (k) => { const it = I(k); return !!it && it.type === 'tracker' && (SCALES[it.scale] || ['yesno', 'avoid'].includes(it.scale)); };
 const insCountable = (k) => !!I(k) && (ITICK.includes(I(k).type) || insTrkOk(k));
 const insTagged = (tags) => Object.keys(M.items).filter((k) => (I(k).tags || []).some((t) => (tags || []).includes(t)));
 // how often an item is meant to happen: num0 times in den0 days (Loop's frequency)
@@ -3785,7 +3816,7 @@ function insFreq(id) { const it = I(id); let w = it.when;
   if (w.mode === 'days') return [Math.max(1, (w.days || []).length), 7 * n];
   if (w.mode === 'month') return [1, 30 * n]; if (w.mode === 'year') return [1, 365 * n];
   if (w.mode === 'every') return [1, n]; return [1, 7]; }
-const detailed = (id) => { const it = I(id); return it && it.insight !== false && (it.type === 'step' || repeatable(it)); };
+const detailed = (id) => { const it = I(id); return it && (it.type === 'step' || repeatable(it)); };
 
 // Example history for Insight only (never saved, never shown outside Insight), while the example items are in.
 // Tick items get it only before my first real log day, so my own ticks stay honest; health answers fill the days I didn't log.
@@ -3821,10 +3852,8 @@ function insDone(D, id, d) { const it = I(id); if (!it) return false;
 
 function insCircles() {
   const C = []; const add = (key, name, color, ids, mine) => { ids = [...new Set(ids)].filter(insCountable); if (ids.length || mine) C.push({ key, name, color, ids, mine }); };
-  Object.keys(M.items).filter((k) => I(k).type === 'routine').forEach((r) => add('r:' + r, I(r).name, colorOf(r), [r].concat(I(r).steps || [])));
+  // the owner, 2026-11-11: only Chores and Studies get a circle by themselves; every tag gets one, with every item that carries it
   add('home:chores', 'Chores', '#EDBB3A', (typeof roomIds === 'function' ? roomIds().flatMap(kidsOf) : []).concat(kidsOf('g-oneoff')));
-  add('home:tend', 'Homemaking', '#7DBE9A', kidsOf('g-tend'));
-  add('home:cook', 'Cooking', '#F08A3E', kidsOf('g-prep'));
   add('study', studyName(), (M.areas.study || {}).color || '#3FAFA6', subjIds().flatMap(sIds)); if (C.length && C[C.length - 1].key === 'study') C[C.length - 1].subjects = subjIds().filter((sj) => sIds(sj).length);
   Object.entries(M.tags || {}).forEach(([t, n]) => { const ids = insTagged([t]).filter(insCountable); if (ids.length) add('tag:' + t, n, colorOf(ids[0]), ids); });
   // the built-in circles can be set up too (2026-11-08): my own name and my own pick of things
@@ -3872,12 +3901,22 @@ function insightData() {
     // today not ticked yet doesn't end the streak I'm on
     const prev = streaks[streaks.length - 1]; const current = run ? run.length : states[days.length - 1] === 'miss' && prev && prev.to === days[days.length - 2] ? prev.length : 0;
     return { id, name: it.name, states, strength, streaks, current, k0, freq: [num0, den0] }; };
-  D.habits = {}; D.circles = insCircles().map((c) => { const tick = c.ids.filter((k) => ITICK.includes(I(k).type)); c.trkIds = c.ids.filter(insTrkOk); const det = tick.filter(detailed); const rest = tick.filter((k) => !detailed(k));
+  // On time (the owner, 2026-11-11): chores and studies score on being done on time. A thing with a rhythm of n days is on time on a day
+  // when it was last done n days ago or less (a new one gets n days first); a deadline is on time until it passes with the task not done.
+  const kStart = (id) => { const made = I(id).made || days[0]; return Math.max(0, first, days.indexOf(made) >= 0 ? days.indexOf(made) : 0); };
+  const onTime = (id, n) => { const k0 = kStart(id); let lk = null; return days.map((d, k) => { if (first < 0 || k < k0 || d > T0) return null; if (insDone(D, id, d)) lk = k; return (lk == null ? k - k0 : k - lk) <= n ? 1 : 0; }); };
+  const byDeadline = (id, dl) => { const k0 = kStart(id); let dn = false; return days.map((d, k) => { if (first < 0 || k < k0 || d > T0) return null; if (insDone(D, id, d)) dn = true; return d > dl && !dn ? 0 : 1; }); };
+  const smooth = (vals) => { let v = 0, seen = false; const m = Math.pow(0.5, 1 / 13); return vals.map((x) => { if (x == null) return v; v = seen ? v * m + (1 - m) * x : x; seen = true; return v; }); };
+  D.habits = {}; D.circles = insCircles().map((c) => { const tick = c.ids.filter((k) => ITICK.includes(I(k).type)); c.trkIds = c.ids.filter(insTrkOk); const every = c.key.startsWith('tag:') || c.mine || c.set; const det = tick.filter((k) => every || detailed(k)); const rest = tick.filter((k) => !every && !detailed(k));
     det.forEach((k) => { if (!D.habits[k]) D.habits[k] = habit(k); });
+    if (c.key === 'home:chores' && !c.set) det.forEach((k) => { const n = period(I(k)); if (n && !D.habits[k].timely) { D.habits[k].strength = smooth(onTime(k, n)); D.habits[k].timely = true; } });
     let hs = det.map((k) => D.habits[k]);
     // Studies: one ring per subject, any of its tasks studied or ticked counts (aim: once a week)
     if (c.subjects) { hs = c.subjects.map((sj) => { const ids = sIds(sj); const st = days.map((d, k) => k < Math.max(0, first) || first < 0 || d > T0 ? 'skip' : ids.some((r) => insDone(D, r, d)) ? 'done' : 'miss');
-      const hb = habit(ids[0], st); hb.name = G(sj).name; hb.id = ''; hb.color = G(sj).color; hb.subj = true; return hb; }); rest.length = 0; }
+      const hb = habit(ids[0], st); hb.name = G(sj).name; hb.id = ''; hb.color = G(sj).color; hb.subj = true;
+      // its strength: how on time its open tasks are, reviews on their own rhythm and deadlines by their date
+      const open = sgroupsOf(sj).flatMap((g) => kidsOf(g).filter((k) => I(k) && !sFinished(k)).map((k) => { const dl = I(k).due || G(g).deadline || null; return smooth(dl ? byDeadline(k, dl) : onTime(k, period(I(k)) || SDEF)); }));
+      if (open.length) hb.strength = days.map((_, k) => iavg(open.map((o) => o[k]))); return hb; }); rest.length = 0; }
     let other = null;
     if (rest.length) { const st = days.map((d, k) => k < Math.max(0, first) || first < 0 || d > T0 ? 'skip' : rest.some((r) => insDone(D, r, d)) ? 'done' : 'miss');
       other = habit(rest[0], st); other.name = 'Other'; other.id = ''; other.other = true; other.n = rest.length; }
@@ -3887,16 +3926,16 @@ function insightData() {
   // health items: true averages on their own scale
   const inGroups = (gs) => gs.flatMap((g) => G(g) ? G(g).kids : []).filter((k) => I(k) && I(k).type === 'tracker');
   const ciIds = inGroups(['hg-sleep', 'hc-morning', 'hc-evening']).concat(inGroups(['hg-ci']));
-  D.measures = [...new Set(ciIds)].filter((k) => SCALES[I(k).scale] && I(k).scale !== 'symptom3' && I(k).insight !== false);
+  D.measures = [...new Set(ciIds)].filter((k) => SCALES[I(k).scale] && I(k).scale !== 'symptom3');
   if (M.settings.insHealth) D.measures = M.settings.insHealth.filter((k) => I(k) && I(k).type === 'tracker' && SCALES[I(k).scale] && I(k).scale !== 'symptom3');
   if (!M.settings.insHealth) D.measures.sort((a, b) => (/^morning /i.test(I(a).name) ? 1 : 0) - (/^morning /i.test(I(b).name) ? 1 : 0)); // the morning twins go last, so a small tile keeps the main ones
   D.raw = {}; D.info = {};
   trackers.forEach((t) => { const sc = I(t).scale; if (!SCALES[sc] || sc === 'symptom3') return;
     D.raw[t] = days.map((d) => { const v = insVal(D, d, t); return typeof v === 'number' ? v : null; });
     D.info[t] = { lo: 1, hi: SCALES[sc].length, words: SCALES[sc] }; });
-  D.symptoms = trackers.filter((t) => I(t).scale === 'symptom3' && I(t).insight !== false);
+  D.symptoms = trackers.filter((t) => I(t).scale === 'symptom3');
   D.sym = {}; D.symptoms.forEach((t) => { D.sym[t] = days.map((d, k) => { const v = insVal(D, d, t); return typeof v === 'number' ? v : D.logged[k] ? 0 : null; }); });
-  D.areas = trackers.filter((t) => I(t).scale === 'avoid' && I(t).insight !== false);
+  D.areas = trackers.filter((t) => I(t).scale === 'avoid');
   D.av = {}; D.areas.forEach((t) => { D.av[t] = days.map((d) => { const v = insVal(D, d, t); return v === 'faced' ? 1 : v === 'avoided' ? 0 : null; }); });
   // trackers in a circle: a ring each, its value = the average over the last 30 logged days (scales between their ends,
   // yes/no and showed up as the share of days; symptoms as the share of days present, left out of the circle's %)
@@ -3910,7 +3949,7 @@ function insightData() {
     const sc = c.trk.filter((t) => !t.sym && ['avoid'].concat(Object.keys(SCALES)).includes(I(t.id).scale)); let parts = c.all.concat(sc); if (!parts.length) parts = c.trk.filter((t) => !t.sym); if (c.trk.length) c.strength = days.map((_, k) => iavg(parts.map((h) => h.strength[k]))); });
   // everything that can go together, one value per day (null = not known that day)
   D.vars = []; const addVar = (id, name, group, vals, src) => { if (vals.filter((v) => v != null).length >= 7) D.vars.push({ id, name, group, vals, src: src || id }); };
-  trackers.forEach((t) => { const it = I(t); const sc = it.scale; if (it.insight === false) return;
+  trackers.forEach((t) => { const it = I(t); const sc = it.scale;
     const g = sc === 'symptom3' ? 'Symptoms' : sc === 'avoid' ? 'Avoidance' : D.measures.includes(t) ? 'Health' : 'Other';
     addVar(t, it.name, g, days.map((d, k) => { const v = insVal(D, d, t);
       if (sc === 'symptom3') return typeof v === 'number' ? v : D.logged[k] ? 0 : null;
@@ -3969,7 +4008,7 @@ function goesTogether(D, pid, lag) {
 function avRoll(arrs, n = 30) { let sum = 0, cnt = 0, cur = null; const len = arrs.length ? arrs[0].length : 0;
   const out = Array.from({ length: len }, (_, k) => { arrs.forEach((a) => { const v = a[k]; if (v != null) { sum += v; cnt++; } const o = k >= n ? a[k - n] : null; if (o != null) { sum -= o; cnt--; } });
     if (cnt) cur = sum / cnt; return cur; });
-  const f = out.find((x) => x != null); return out.map((x) => x == null ? (f == null ? 0.5 : f) : x); }
+  const f = out.find((x) => x != null); const res = out.map((x) => x == null ? (f == null ? 0 : f) : x); res.none = f == null; return res; }
 // Experiments: change one thing for a while; compare with the same number of days just before
 const expList = () => (M.settings.exps = M.settings.exps || []);
 function expSeries(D, id) { if (D.raw[id]) { const f = D.info[id]; return D.raw[id].map((v) => v == null ? null : (v - f.lo) / (f.hi - f.lo)); }
@@ -4037,9 +4076,9 @@ function iflower(vals, names, acc, size = 190, w = 350) { names = names || WD; c
     return `<ellipse cx="${cx}" cy="${(c - len / 2 - 5).toFixed(2)}" rx="${(6 + 4 * v).toFixed(2)}" ry="${(len / 2).toFixed(2)}" transform="rotate(${a.toFixed(1)} ${cx} ${c})" fill="${tint(acc, (1 - v) * 0.62)}"/>`; }).join('')}<circle cx="${cx}" cy="${c}" r="11" fill="${mix(acc, INK, 0.25)}"/></svg>
     ${vals.map((v, k) => { const rad = ((k / n) * 360 - 90) * Math.PI / 180, x = R * Math.cos(rad); const tx = Math.abs(x) < 12 ? 'translateX(-50%)' : x < 0 ? 'translateX(-100%)' : 'none';
       return `<span style="left:calc(50% + ${x.toFixed(1)}px);top:${(c + R * Math.sin(rad) - 7).toFixed(1)}px;transform:${tx}">${esc(names[k])}</span>`; }).join('')}</div>`; }
-function ihorizon(share, h, R) { const hy = h / 2, cy = hy + R - share * 2 * R;
+function ihorizon(share, h, R, none) { const hy = h / 2, cy = hy + R - share * 2 * R; if (none) return `<div class="ihz" style="height:${h}px"><b style="top:${hy}px"></b></div>`; // nothing answered yet: only the horizon
   return `<div class="ihz" style="height:${h}px"><div class="ihz-top" style="height:${hy}px"><i style="width:${2 * R}px;height:${2 * R}px;left:calc(50% - ${R}px);top:${cy - R}px;background:${SUN}"></i></div><div class="ihz-bot" style="top:${hy}px;height:${hy}px"><i style="width:${2 * R}px;height:${2 * R}px;left:calc(50% - ${R}px);top:${cy - R - hy}px;background:${SHADOW}"></i></div><b style="top:${hy}px"></b></div>`; }
-const iminiHz = (s) => { const cy = 7 + 6 - s * 12; return `<span class="ihzm"><span class="t"><i style="top:${(cy - 6).toFixed(1)}px;background:${SUN}"></i></span><span class="b"><i style="top:${(cy - 6 - 7).toFixed(1)}px;background:${SHADOW}"></i></span><b></b></span>`; };
+const iminiHz = (s, none) => { if (none) return `<span class="ihzm"><b></b></span>`; const cy = 7 + 6 - s * 12; return `<span class="ihzm"><span class="t"><i style="top:${(cy - 6).toFixed(1)}px;background:${SUN}"></i></span><span class="b"><i style="top:${(cy - 6 - 7).toFixed(1)}px;background:${SHADOW}"></i></span><b></b></span>`; };
 // a navigation row: mini ring, name, beads, number, chevron
 const irow = (o) => `<${o.go ? `button data-a="ins" data-v="${esc(o.go)}"` : 'div'} class="irow ${o.sub ? 'sub' : ''}">${o.lead || ''}<span class="nm">${esc(o.label)}</span>${o.mid || ''}${o.muted ? `<span class="mu">${esc(o.muted)}</span>` : ''}${o.num ? `<span class="nu">${esc(o.num)}</span>` : ''}${o.go ? '<span class="chev" aria-hidden="true">›</span>' : o.nochev ? '<span class="chev" aria-hidden="true" style="visibility:hidden">›</span>' : ''}</${o.go ? 'button' : 'div'}>`;
 const ichips = (k, opts, cur) => `<div class="chips ichips">${opts.map((o) => `<button class="chip sm" data-a="insz" data-ref="${k}" data-v="${o}" aria-pressed="${o === cur}">${o}</button>`).join('')}</div>`;
@@ -4079,7 +4118,7 @@ function renderInsight() {
     // the front page: every circle as its own tile (2026-11-04), from the ⋯ menu and from Health's Insight folder alike
     title = '';
     const ms = D.measures; const healthV = iavg(ms.filter((m) => mAvgRaw(m) != null).map((m) => mAvg(m)));
-    const avoidV = avRoll(D.areas.map((a) => D.av[a]))[last];
+    const avoidS = avRoll(D.areas.map((a) => D.av[a])); const avoidV = avoidS[last];
     // in edit mode a tile can be dragged, recoloured, hidden, and my own circles set up (2026-11-08)
     const T = {}; const ed = S.edit;
     const dots = (refs) => ed ? `<span class="itdots">${refs.map(([r, c, l]) => `<span class="hdot" style="background:${c}" data-col="${r}" role="button" aria-label="Change the ${esc(l)} colour"></span>`).join('')}</span>` : '';
@@ -4087,9 +4126,11 @@ function renderInsight() {
       ? `<div class="itile ed" data-ref="T:${key}"><span class="ithd">${grip()}<span class="mono">${esc(t)}</span>${mine ? `<button class="hb" data-a="inscedit" data-ref="${key}" aria-label="Set up ${esc(t)}">${icon('settings', 16)}</button>` : ''}<button class="hb" data-a="inshide" data-v="${key}" aria-label="Hide ${esc(t)}">${icon('eye-off', 16)}</button></span>${inner}${dots(cols)}</div>`
       : `<button class="itile" data-a="ins" data-v="${key}"><span class="mono">${esc(t)}</span>${right ? `<em>${esc(right)}</em>` : ''}${inner}</button>`;
     const tile = (t, rings, big, small, go, right, cols, mine) => { T[go] = wrap(go, t, iringSet(rings, big, small, 132, 7, 11, 9), right, cols || [], mine); };
-    if (D.areas.length) T.avoid = wrap('avoid', 'Avoidance', ihorizon(avoidV, 132, 30), ipct(avoidV), [['ic:sun', SUN, 'showed up'], ['ic:shadow', SHADOW, 'avoided']]);
+    if (D.areas.length) T.avoid = wrap('avoid', 'Avoidance', ihorizon(avoidV, 132, 30, avoidS.none), ipct(avoidV), [['ic:sun', SUN, 'showed up'], ['ic:shadow', SHADOW, 'avoided']]);
     if (ms.length) tile('Health', ms.slice(0, 5).map((m, k) => ({ label: I(m).name, v: mAvg(m), c: ciCol(k) })), ipct(healthV), '30 days', 'health', '', [['ic:health', CI_Y, 'Health']], true);
     if (D.feel.some((w) => w.length)) tile('Feelings', D.fams.map((x) => ({ label: x.f, v: fShare(x), c: x.c })), fDays() + '/30', 'days', 'feel', '', D.fams.map((x) => ['fc:' + x.f, x.c, x.f]));
+    if (D.symptoms.length) { const SY = '#E0644E'; const sAvg = (id) => { const v = D.sym[id].slice(-30).filter((x) => x != null); return v.length ? iavg(v) / 3 : 0; }; const ld = loads.slice(-30).filter((x) => x != null);
+      tile('Symptoms', D.symptoms.slice().sort((a, b) => sAvg(b) - sAvg(a)).slice(0, 5).map((id, k) => ({ label: I(id).name, v: sAvg(id), c: tint(SY, Math.min(0.66, k * 0.16)) })), ld.length ? (Math.round(iavg(ld) * 10) / 10).toFixed(1) : '0', 'load, 30 days', 'symptoms'); }
     if (D.over.length) tile('Too much', D.over.slice(0, 5).map((id) => ({ label: I(id).name, v: mShare(id), c: MUCH_C })).map((r, k) => Object.assign(r, { c: tint(MUCH_C, Math.min(0.66, k * 0.16)) })), String(mDays('any')), 'days, 30', 'much', '', [['ic:much', MUCH_C, 'Too much'], ['ic:hyper', HYPER_C, 'hyperfixation'], ['ic:inert', INERT_C, 'inertia']]);
     D.circles.forEach((c) => { const rs = (c.tileRings || c.all.map((hb) => ({ label: hb.name, v: hb.strength[last] }))).concat(c.trk.map((t) => ({ label: t.name, v: t.strength[last] }))).slice(0, 5); tile(c.name, shades(c, rs), ipct(c.strength[last]), c.ids.length === 1 ? '1 item' : c.ids.length + ' items', 'cat:' + c.key, '', [['ic:c:' + c.key, c.color, c.name]], true); });
     { const run = expList().filter((e) => !expResult(D, e).done).length; // Experiments at the top (2026-11-08)
@@ -4234,16 +4275,16 @@ function renderInsight() {
     const avKey = ikey([[`<i style="width:11px;height:11px;background:${SUN}"></i>`, 'showed up'], [`<i style="width:11px;height:11px;background:${SHADOW}"></i>`, 'avoided'], [ibead('miss'), 'skipped']]);
     if (kind === 'avoid') { title = 'Avoidance';
       const s = pooled; const allV = D.areas.flatMap((a) => D.av[a]);
-      h += `<div class="ibig"><b>${ipct(s[last])}</b><span>showed up, 30 days</span></div>` + ihorizon(s[last], 188, 44);
+      h += `<div class="ibig"><b>${ipct(s[last])}</b><span>showed up, 30 days</span></div>` + ihorizon(s[last], 188, 44, s.none);
       h += istats([[since(s, allDays, last - 30), 'this month'], [since(s, allDays, 0), 'this year'], [String(allV.filter((v) => v === 1).length), 'showed up'], [String(allV.filter((v) => v === 0).length), 'avoided']]);
-      h += ilab('Areas', 'last 7 days') + `<div class="ilist">${D.areas.map((a, i) => irow({ label: I(a).name, lead: iminiHz(series[i][last]), mid: ibeads(D.av[a].slice(-7).map((v) => v == null ? ibead('miss') : v ? ibead('done', 1, SUN) : ibead('avoid'))), num: ipct(series[i][last]), go: 'area:' + a })).join('')}</div>` + avKey;
+      h += ilab('Areas', 'last 7 days') + `<div class="ilist">${D.areas.map((a, i) => irow({ label: I(a).name, lead: iminiHz(series[i][last], series[i].none), mid: ibeads(D.av[a].slice(-7).map((v) => v == null ? ibead('miss') : v ? ibead('done', 1, SUN) : ibead('avoid'))), num: ipct(series[i][last]), go: 'area:' + a })).join('')}</div>` + avKey;
       if (!D.areas.length) h += inote('No avoidance areas yet.');
     } else { const id = name; if (!D.av[id]) { S.ins = 'avoid'; return renderInsight(); } title = I(id).name; const vals = D.av[id]; const s = sOf(vals);
       const runs = []; let run = null; vals.forEach((v, k) => { if (v === 1) { if (!run) run = { from: days[k], to: days[k], length: 0 }; run.to = days[k]; run.length++; } else if (v === 0) { if (run) runs.push(run); run = null; } }); if (run) runs.push(run);
       const best = runs.sort((a, b) => b.length - a.length).slice(0, 4); const bestMax = Math.max(1, ...best.map((r) => r.length));
       const byWd = (want) => WD.map((_, w) => { const vs = vals.filter((v, k) => v != null && wd(days[k]) === w).slice(-12); return vs.length ? iavg(vs.map((v) => v === want ? 1 : 0)) : 0; });
       const weeks = Array.from({ length: 12 }, (_, w) => vals.slice(N - (12 - w) * 7, N - (11 - w) * 7).filter((v) => v != null));
-      h += `<div class="ibig"><b>${ipct(s[last])}</b><span>showed up, 30 days</span></div>` + ihorizon(s[last], 172, 40);
+      h += `<div class="ibig"><b>${ipct(s[last])}</b><span>showed up, 30 days</span></div>` + ihorizon(s[last], 172, 40, s.none);
       h += istats([[since(s, vals, last - 30), 'this month'], [since(s, vals, 0), 'this year'], [String(vals.filter((v) => v === 1).length), 'showed up'], [String(vals.filter((v) => v === 0).length), 'avoided']]);
       { const L0 = ilineFrom(D, s, Math.max(0, vals.findIndex((v) => v != null)), acc); h += ilab('Score', L0.span) + L0.html; }
       h += ilab('Days', '13 weeks') + ical(D, vals.map((v) => v == null ? { state: 'miss' } : v ? { state: 'done', t: 1, c: SUN } : { state: 'avoid' }), 13) + avKey;
@@ -4334,7 +4375,7 @@ function insightAction(act, a, ref, v) {
 
 // Title dropdown (2026-11-04): like Home and Studies, the title names the section I'm in and lists the others
 function insSections() { insApplyCols(); const D = insightData(); const out = [];
-  if (D.areas.length) { const v = avRoll(D.areas.map((a) => D.av[a]))[D.last]; out.push(['avoid', 'Avoidance', v, iminiHz(v)]); }
+  if (D.areas.length) { const v = avRoll(D.areas.map((a) => D.av[a]))[D.last]; out.push(['avoid', 'Avoidance', v, iminiHz(v, !D.areas.some((a) => D.av[a].some((x) => x != null)))]); }
   if (D.measures.length) { const v = iavg(D.measures.map((m) => { const f = D.info[m]; const a = D.raw[m].slice(-30).filter((x) => x != null); return a.length ? (iavg(a) - f.lo) / (f.hi - f.lo) : null; }).filter((x) => x != null)); out.push(['health', 'Health', v, imini(v, CI_Y)]); }
   if (D.feel.some((w) => w.length)) { const cnt = D.fams.map((x) => D.feel.slice(-30).filter((w) => w.some((y) => x.ws.includes(y))).length); const i = cnt.indexOf(Math.max(...cnt)); const nd = D.feel.slice(-30).filter((w) => w.length).length;
     out.push(['feel', 'Feelings', null, imini(nd ? cnt[i] / nd : 0, D.fams[i].c)]); }
@@ -4348,7 +4389,7 @@ function insSections() { insApplyCols(); const D = insightData(); const out = []
 function insOrder(keys) { const want = keys.map((k) => 'T:' + k); const cur = (M.settings.insOrder || []).filter((k) => want.includes(k)); want.forEach((k) => { if (!cur.includes(k)) cur.push(k); });
   M.settings.insOrder = cur.concat((M.settings.insOrder || []).filter((k) => !want.includes(k))); return cur; }
 const insMine = () => (M.settings && M.settings.insCircles) || [];
-function insName(D, k) { return { avoid: 'Avoidance', health: 'Health', feel: 'Feelings', much: 'Too much' }[k] || ((D.circles.find((c) => 'cat:' + c.key === k) || {}).name) || k; }
+function insName(D, k) { return { avoid: 'Avoidance', health: 'Health', feel: 'Feelings', much: 'Too much', symptoms: 'Symptoms' }[k] || ((D.circles.find((c) => 'cat:' + c.key === k) || {}).name) || k; }
 // setting up my own circle: name, colour, and the things it counts
 function inscSheet(s) { const D0 = s.draft; const Dd = insightData(); let groups;
   if (s.target === 'health') { const hs = Object.keys(M.items).filter((k) => I(k).type === 'tracker' && SCALES[I(k).scale] && I(k).scale !== 'symptom3'); groups = [['Health items', D0.ids.filter((k) => hs.includes(k)).concat(hs.filter((k) => !D0.ids.includes(k)))]]; }
@@ -4897,7 +4938,7 @@ const hobProjs = (h) => G(h).kids.filter((k) => G(k) && G(k).style === 'project'
 const hobOf = (pid) => hobIds().find((h) => G(h).kids.includes(pid));
 const projTasks = (p) => G(p).kids.filter((k) => I(k));
 const lastEver = (id) => Object.keys(M.log).filter((d) => d <= T0 && val(d, id)).sort().pop() || null;
-const projLast = (p) => projTasks(p).map(lastEver).concat((G(p).photos || []).map((x) => x.d)).filter(Boolean).sort().pop() || null;
+const projLast = (p) => projTasks(p).map(lastEver).concat((G(p).photos || []).map((x) => x.d)).concat(G(p).worked || []).filter(Boolean).sort().pop() || null;
 const hobLast = (h) => hobActs(h).map(lastEver).concat(hobProjs(h).map(projLast)).filter(Boolean).sort().pop() || null;
 const agoText = (d) => { const n = diff(d, T0); return n <= 0 ? 'today' : n === 1 ? 'yesterday' : n < 14 ? n + ' days ago' : n < 60 ? Math.round(n / 7) + ' weeks ago' : Math.round(n / 30) + ' months ago'; };
 const projSrc = (x) => x.asset ? blobUrl(x.asset) : x.src;
@@ -4909,6 +4950,8 @@ function hobRail() {
     return `<button role="tab" data-a="hobpick" data-v="${h}" aria-selected="${S.hob === h}" style="${S.hob === h ? 'background:' + g.color + '2E' : ''}"><span class="dot" style="background:${g.color}" ${S.edit ? `data-col="${h}" role="button" aria-label="Change colour of ${esc(g.name)}"` : ''}></span><span class="vl">${esc(g.name)}</span></button>`; };
   return `<nav role="tablist" aria-label="Hobbies"><button role="tab" class="dice" data-a="hobpick" data-v="surprise" aria-selected="${S.hob === 'surprise'}" aria-label="Surprise me">${icon('dice-5', 18)}</button>${H.map(tab).join('')}${S.edit ? `<button class="dice" data-a="hobadd" aria-label="Add hobby">${icon('plus', 18)}</button>` : ''}</nav>`;
 }
+// edit mode: the tabs as a list, to rename them and drag them into another order (the owner, 2026-11-11)
+function hobTabsCard() { return lcard(null, 'Hobby tabs', '', `<div class="list" data-list="g-hobbies">${hobIds().map((h) => `<div class="row" data-ref="${h}">${grip()}<span class="hdot" data-col="${h}" role="button" aria-label="Change the ${esc(G(h).name)} colour" style="background:${G(h).color};width:16px;height:16px;flex:none;border-radius:8px;outline:1.5px dashed var(--faint);outline-offset:2px"></span><span class="lbl">${nm(h, G(h).name)}</span></div>`).join('')}</div>`); }
 function hobTitle() { if (S.hob === 'surprise') return 'Surprise me'; if (S.proj && G(S.proj)) return S.edit ? nm(S.proj, G(S.proj).name) : esc(G(S.proj).name); return S.edit ? nm(S.hob, G(S.hob).name) : esc(G(S.hob).name); }
 function renderHobbies() {
   if (!hobIds().length) return `<p class="empty">No hobbies yet.</p>` + (S.edit ? `<button class="addbtn" data-a="hobadd"><span class="plus">+</span>Hobby</button>` : '');
@@ -4918,7 +4961,7 @@ function renderHobbies() {
   const actRow = (id) => { const it = I(id); const done = isDone(id, T0); const ld = lastEver(id);
     return `<div class="row" data-ref="${id}">${tickCircle(id, T0, true)}<button class="lbl" data-a="${S.edit ? 'open' : 'hobact'}" data-ref="${id}" style="text-align:left">${nm(id, it.name)}<span class="sub">${done ? 'Logged today' : ld ? 'Last done ' + agoText(ld) : 'Not done yet'}</span></button>${tail(id, h)}</div>`; };
   const projRow = (p) => { const x = G(p); const ph = (x.photos || []).slice(-1)[0]; const ld = projLast(p); const T = projTasks(p); const left = T.filter((t) => !lastEver(t)).length;
-    return `<div class="row prow" data-ref="${p}"><span class="pthumb" style="--c:${g.color}">${ph ? `<img src="${esc(projSrc(ph))}" alt="">` : icon(g.icon || 'folder', 18)}</span><button class="lbl" data-a="${S.edit ? 'gear' : 'hobproj'}" data-ref="${p}" style="text-align:left">${nm(p, x.name)}<span class="sub">${ld ? 'Last worked on ' + agoText(ld) : 'Not started'}${T.length ? ' · ' + left + ' left' : ''}</span></button>${S.edit ? tail(p, h) : `<span class="chev" aria-hidden="true">›</span>`}</div>`; };
+    return `<div class="row prow" data-ref="${p}"><span class="pthumb" style="--c:${g.color}">${ph ? `<img src="${esc(projSrc(ph))}" alt="">` : icon(g.icon || 'folder', 18)}</span><button class="lbl" data-a="${S.edit ? 'gear' : 'hobproj'}" data-ref="${p}" style="text-align:left">${nm(p, x.name)}<span class="sub">${(x.worked || []).includes(T0) ? 'Worked on today' : ld ? 'Last worked on ' + agoText(ld) : 'Not started'}${T.length ? ' · ' + left + ' left' : ''}</span></button>${S.edit ? tail(p, h) : `<span class="chev" aria-hidden="true">›</span>`}</div>`; };
   const A = hobActs(h), P = hobProjs(h).filter((p) => !G(p).done), live = P.filter((p) => !G(p).hold), held = P.filter((p) => G(p).hold);
   const hk = 'hbhold:' + h; if (S.open[hk] === undefined) S.open[hk] = false;
   let out = '';
@@ -4928,6 +4971,7 @@ function renderHobbies() {
   // Add activity only in edit mode; outside it just + Project (2026-11-06)
   // no + Project button on the page; the top bar + has it (2026-11-08)
   // Archive and Delete for the hobby tab show only in edit mode (2026-11-10)
+  if (S.edit) out += hobTabsCard();
   if (S.edit) out += `<div class="pjbtns"><button class="btn" data-a="hobarch" data-ref="${h}">${icon('archive', 16)} Archive</button><button class="btn danger" data-a="hobdel" data-ref="${h}">Delete</button></div>`;
   return out;
 }
@@ -4952,9 +4996,9 @@ const whCol = (k) => (M.settings.wheelCols || {})[k] || WH_DEF[k];
 function surprisePage() {
   const pool = M.settings.hobPool || {};
   const dot = (k, l) => `<div class="tg"><span class="l"><span class="hdot" data-col="wh:${k}" role="button" aria-label="Change the ${l.toLowerCase()} colour" style="background:${whCol(k)};width:16px;height:16px;display:inline-block;border-radius:8px;margin-right:10px;vertical-align:-3px;outline:1.5px dashed var(--faint);outline-offset:2px"></span>${l}</span></div>`;
-  if (S.edit) return `<div class="card rollcard">${hobWheel()}</div>` + lcard(null, 'Wheel', '', dot('rim', 'Rim') + dot('pin', 'Pin') + dot('bulb', 'Lights')) + lcard(null, 'Surprise me picks from', '', hobIds().map((h) => `<div class="tg"><span class="l"><span class="hdot" data-col="${h}" role="button" aria-label="Change the ${esc(G(h).name)} colour" style="background:${G(h).color};width:16px;height:16px;display:inline-block;border-radius:8px;margin-right:10px;vertical-align:-3px;outline:1.5px dashed var(--faint);outline-offset:2px"></span>${esc(G(h).name)}</span><button class="fbtn hicb" data-ic="${h}" aria-label="Change the icon for ${esc(G(h).name)}" style="color:${mix(G(h).color || '#9A9387', TH.ink, 0.45)}">${icon(G(h).icon || 'star', 18)}</button><button class="swt" role="switch" aria-checked="${pool[h] !== false}" data-a="hobpool" data-v="${h}" aria-label="${esc(G(h).name)}"></button></div>`).join(''));
+  if (S.edit) return `<div class="card rollcard">${hobWheel()}</div>` + lcard(null, 'Wheel', '', dot('rim', 'Rim') + dot('pin', 'Pin') + dot('bulb', 'Lights')) + hobTabsCard() + lcard(null, 'Surprise me picks from', '', hobIds().map((h) => `<div class="tg"><span class="l"><span class="hdot" data-col="${h}" role="button" aria-label="Change the ${esc(G(h).name)} colour" style="background:${G(h).color};width:16px;height:16px;display:inline-block;border-radius:8px;margin-right:10px;vertical-align:-3px;outline:1.5px dashed var(--faint);outline-offset:2px"></span>${esc(G(h).name)}</span><button class="fbtn hicb" data-ic="${h}" aria-label="Change the icon for ${esc(G(h).name)}" style="color:${mix(G(h).color || '#9A9387', TH.ink, 0.45)}">${icon(G(h).icon || 'star', 18)}</button><button class="swt" role="switch" aria-checked="${pool[h] !== false}" data-a="hobpool" data-v="${h}" aria-label="${esc(G(h).name)}"></button></div>`).join(''));
   const r = S.roll && !S.spinning && suggestion(S.roll);
-  return `<div class="card rollcard">${hobWheel()}${r ? `<div class="rollin"><span class="mono" style="color:${r.color}">${esc(r.hobby)}</span><p class="rollt">${esc(r.text)}</p><p class="rolls">${esc(r.sub)}</p><div class="pjbtns" style="justify-content:center"><button class="btn" data-a="hobrollgo">Open</button></div></div>` : ''}</div>`;
+  return `<div class="card rollcard">${hobWheel()}${r ? `<div class="rollin"><span class="mono" style="color:${r.color}">${esc(r.hobby)}</span><p class="rollt">${esc(r.text)}</p><p class="rolls">${esc(r.sub)}</p><div class="pjbtns" style="justify-content:center"><button class="btn" data-a="hobrollgo">Open</button>${r.go ? `<button class="btn" data-a="projwork" data-ref="${r.go}" aria-pressed="${(G(r.go).worked || []).includes(T0)}">${(G(r.go).worked || []).includes(T0) ? 'Done today' : 'Worked on it'}</button>` : ''}</div></div>` : ''}</div>`;
 }
 // the spinning wheel (2026-11-08): a slice per hobby in the pool, in its colour with its icon; a tap spins it and it lands on the roll
 const wheelHobs = () => { const pool = M.settings.hobPool || {}; return hobIds().filter((h) => pool[h] !== false); };
@@ -5012,16 +5056,23 @@ function spinTo(h) { const H = wheelHobs(), i = H.indexOf(h); if (i < 0) return;
   setTimeout(() => { S.spinning = false; if (S.area === 'hobbies' && S.hob === 'surprise') { render(); const w2 = document.querySelector('.whl'); if (w2) { w2.classList.add('land'); wheelBurst(S.roll); } } }, 3300); }
 // a roll picks a hobby I haven't touched for longest more often; it suggests its first open project, else an activity
 // a random open project of the hobby, else a random activity, chosen once when the wheel lands (2026-11-08)
-function rollPick(h) { const P = hobProjs(h).filter((p) => !G(p).hold && !G(p).done); const L = P.length ? P : hobActs(h); return L.length ? L[Math.floor(Math.random() * L.length)] : null; }
-function suggestion(h) { if (!G(h)) return null; const g = G(h); const P = hobProjs(h).filter((p) => !G(p).hold && !G(p).done); const ld = hobLast(h);
-  const pk = S.rollPick; const pj = P.length ? (P.includes(pk) ? pk : P[0]) : null; const A = hobActs(h); const act = !pj ? (A.includes(pk) ? pk : A[0]) : null;
-  return { hobby: g.name, color: g.color, text: pj ? 'Work on the ' + G(pj).name.toLowerCase() : act ? I(act).name : 'Some ' + g.name.toLowerCase(), sub: ld ? 'Last done ' + agoText(ld) : 'Not done yet', go: pj || null }; }
+// what the wheel can land on: every open project, and every activity no open project covers (the owner, 2026-11-11)
+const openProjs = (h) => hobProjs(h).filter((p) => !G(p).hold && !G(p).done);
+function rollPool(h) { const P = openProjs(h); const cov = P.map((p) => G(p).act).filter(Boolean); return P.concat(hobActs(h).filter((a) => !cov.includes(a))); }
+function rollPick(h) { const L = rollPool(h); return L.length ? L[Math.floor(Math.random() * L.length)] : null; }
+function suggestion(h) { if (!G(h)) return null; const g = G(h); const L = rollPool(h); const ld = hobLast(h);
+  const pk = L.includes(S.rollPick) ? S.rollPick : L[0]; const pj = pk && G(pk) ? pk : null; const act = pk && I(pk) ? pk : null;
+  return { hobby: g.name, color: g.color, text: pj ? 'Work on ' + G(pj).name : act ? I(act).name : 'Some ' + g.name.toLowerCase(), sub: ld ? 'Last done ' + agoText(ld) : 'Not done yet', go: pj || null, act }; }
+// Worked on it: a project gets today as a day I worked on it, and the activity it covers counts as done today
+function projWork(p) { const x = G(p); if (!x) return; const was = (x.worked || []).includes(T0);
+  change(() => { if (was) { x.worked = x.worked.filter((d) => d !== T0); if (x.workAuto === T0 && x.act && M.log[T0]) { delete M.log[T0][x.act]; } delete x.workAuto; }
+    else { x.worked = (x.worked || []).concat(T0).slice(-400); if (x.act && I(x.act) && !val(T0, x.act)) { (M.log[T0] = M.log[T0] || {})[x.act] = 'done'; x.workAuto = T0; } } }); }
 function rollHobby() { const pool = M.settings.hobPool || {}; const H = hobIds().filter((h) => pool[h] !== false && h !== S.roll); if (!H.length) return null;
   const w = H.map((h) => { const ld = hobLast(h); return 1 + (ld ? Math.min(30, diff(ld, T0)) : 30); }); let t = Math.random() * w.reduce((a, b) => a + b, 0);
   for (let i = 0; i < H.length; i++) { t -= w[i]; if (t <= 0) return H[i]; } return H[H.length - 1]; }
 function hobNewTask(p) { const D = { name: '', type: 'task', kind: 'behaviour', tags: [], made: T0, dur: 30, insight: false, when: { mode: 'once', date: null } };
   openSheet({ kind: 'item', isNew: true, title: 'New task · ' + G(p).name, draft: D, block: eveBlock(), home: p, steps: [] }); }
-function hobNewAct(h) { const D = { name: '', type: 'task', kind: 'behaviour', tags: ['t-hobby'], made: T0, dur: 30, insight: true, when: { mode: 'every', n: 1 }, icon: G(h).icon };
+function hobNewAct(h) { const D = { name: '', type: 'task', kind: 'behaviour', tags: ['t-hobby'], made: T0, dur: 30, when: { mode: 'once', date: null }, icon: G(h).icon };
   openSheet({ kind: 'item', isNew: true, title: 'New activity · ' + G(h).name, draft: D, block: null, home: h, steps: [], hobact: true }); }
 function finishedProjects() { return allHobIds().flatMap((h) => hobProjs(h).filter((p) => G(p).done).map((p) => ({ p, h }))).sort((a, b) => G(b.p).done.localeCompare(G(a.p).done)); }
 function hobAction(act, a, ref, v) {
@@ -5041,6 +5092,7 @@ function hobAction(act, a, ref, v) {
     case 'projback': { const x = G(ref); change(() => { delete x.done; }, 'Brought back ' + x.name); return true; }
     case 'projphrm': { const x = G(ref); change(() => { x.photos = (x.photos || []).filter((q) => q.id !== v); }, 'Photo removed'); if (VW && VW.kind === 'photo') vwPhoto(); return true; }
     case 'hobpool': { change(() => { const P = M.settings.hobPool = M.settings.hobPool || {}; if (P[v] === false) delete P[v]; else P[v] = false; }); return true; }
+    case 'projwork': projWork(ref); return true;
     case 'hobroll': { if (S.spinning) return true; const h = rollHobby(); if (!h) { flash('Nothing in the pool'); return true; } spinTo(h); return true; }
     case 'hobrollgo': { const r = suggestion(S.roll); if (!r) return true; S.hob = S.roll; S.proj = r.go; S.roll = null; render(); return true; }
   }
@@ -5058,6 +5110,16 @@ function wheelBurst(h) { const ph = document.getElementById('phone'), sv = docum
     p.animate([{ transform: 'translate(-50%,-50%) rotate(0deg)', opacity: 1 }, { transform: `translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px)) rotate(${sp / 2}deg)`, opacity: 1, offset: 0.45 },
       { transform: `translate(calc(-50% + ${dx * 1.25}px),calc(-50% + ${dy + 260}px)) rotate(${sp}deg)`, opacity: 0 }], { duration: 1500 + Math.random() * 700, easing: 'cubic-bezier(.15,.7,.35,1)', fill: 'forwards' }); }
   try { if (navigator.vibrate) navigator.vibrate(12); } catch (_) {} }
+
+// swipe a project to the right to say I worked on it today; again to take it back (the owner, 2026-11-11)
+let pws = null;
+document.addEventListener('pointerdown', (e) => { if (S.edit || S.sheet || S.area !== 'hobbies' || e.button > 0) return; const row = e.target.closest && e.target.closest('#view .prow[data-ref]'); if (!row) return; pws = { row, x: e.clientX, y: e.clientY, on: false, dx: 0 }; });
+document.addEventListener('pointermove', (e) => { const w = pws; if (!w) return; const dx = e.clientX - w.x, dy = e.clientY - w.y;
+  if (!w.on) { if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { pws = null; return; } if (dx > 12 && Math.abs(dx) > Math.abs(dy) * 1.4) { w.on = true; w.row.style.transition = 'none'; } else return; }
+  w.dx = Math.max(0, Math.min(110, dx)); w.row.style.transform = `translateX(${w.dx}px)`; });
+const pwsEnd = (e) => { const w = pws; pws = null; if (!w || !w.on) return; w.row.style.transition = 'transform .2s'; w.row.style.transform = '';
+  if (e.type === 'pointerup' && w.dx > 60) { suppress = true; setTimeout(() => { suppress = false; }, 300); try { if (navigator.vibrate) navigator.vibrate(8); } catch (_) {} projWork(w.row.dataset.ref); } };
+document.addEventListener('pointerup', pwsEnd); document.addEventListener('pointercancel', pwsEnd);
 
 // ---------- project files and viewers (2026-11-08) ----------
 // A project keeps files: its notes (G(p).notes), boards (M.boards with proj = p) and PDFs (G(p).files = [{ id, name, asset | src, upd, hl: [] }]).
@@ -5284,9 +5346,10 @@ function noteSheet(s) { const D = s.draft; const T = D.tags || [];
   const all = noteTags().concat(T.filter((t) => !noteTags().includes(t)));
   // tags and Delete live in the ⋯ menu, like the journal (2026-11-08)
   const tg = s.proj ? '' : `<span class="mono">Tags</span>${all.map((t) => `<button role="menuitemcheckbox" data-a="ntagtog" data-v="${esc(t)}" aria-checked="${T.includes(t)}">${esc(t)}${T.includes(t) ? icon('check', 16, 2) : ''}</button>`).join('')}${addOpen('nnewtag') ? `<div class="inrow jtagnew"><input class="inp" id="nnewtag" placeholder="New tag" enterkeyhint="done" autocomplete="off"><button class="btn" data-a="nnewtag">Add</button></div>` : `<button role="menuitem" data-a="openadd" data-v="nnewtag">${icon('plus', 16)} New tag</button>`}`;
+  const cp = `<button role="menuitem" data-a="ncopy">${mi('copynote', 'copy')}Copy</button>`;
   const del = s.isNew ? '' : `<button role="menuitem" class="ndel" data-a="ndelete">${mi('delnote', 'trash')}Delete note</button>`;
-  const dm = S.nTagOpen && (tg || del) ? `<span class="vsortx" data-a="ntagmenu"></span><span class="vdrop vsortm ntagm" role="menu">${tg}${del}</span>` : '';
-  return `<div class="ntop"><input class="ntitle" id="ntitle" value="${esc(D.title || '')}" aria-label="Title" ${s.isNew ? 'data-autofocus' : ''}>${s.proj && s.isNew ? '' : `<span class="vsortw"><button class="fbtn" data-a="ntagmenu" aria-label="More" aria-haspopup="menu" aria-expanded="${!!S.nTagOpen}">${icon('ellipsis', 18)}</button>${dm}</span>`}</div>
+  const dm = S.nTagOpen ? `<span class="vsortx" data-a="ntagmenu"></span><span class="vdrop vsortm ntagm" role="menu">${tg}${cp}${del}</span>` : '';
+  return `<div class="ntop"><input class="ntitle" id="ntitle" value="${esc(D.title || '')}" aria-label="Title" ${s.isNew ? 'data-autofocus' : ''}>${`<span class="vsortw"><button class="fbtn" data-a="ntagmenu" aria-label="More" aria-haspopup="menu" aria-expanded="${!!S.nTagOpen}">${icon('ellipsis', 18)}</button>${dm}</span>`}</div>
     <div class="notepaper"><textarea id="ntext" class="nlines" rows="8">${esc(D.text || '')}</textarea></div>`; }
 // notes save while I write; the notepad button only closes (2026-11-08)
 let nT = 0;
@@ -5303,8 +5366,9 @@ const stampOf = (d, at) => { const x = parse(d); return `${['Sunday', 'Monday', 
 // each has Write new and See all, which opens the Notepad or the Journal.
 // the page's filter sits on the breadcrumb row, at the right (2026-11-08)
 const nbCrumbs = (parts, tools = '') => `<nav class="crumbs" aria-label="Where I am">${parts.map(([l, v], i) => i < parts.length - 1 ? `<button data-a="nbgo" data-v="${v}">${esc(l)}</button><span aria-hidden="true">›</span>` : `<span aria-current="page">${esc(l)}</span>`).join('')}${tools ? `<span class="crtools">${tools}</span>` : ''}</nav>`;
-const postit = (n, i) => { const lines = (n.text || '').split('\n').filter((x) => x.trim()).slice(0, 4);
-  return `<button class="postit" data-a="nopen" data-ref="${n.id}" style="transform:rotate(${TILTS[i % TILTS.length]}deg)"><span class="pt">${esc(n.title || 'Untitled')}</span>${[0, 1, 2, 3].map((k) => `<span class="pl">${esc(lines[k] || '')}</span>`).join('')}<span class="ptag mono">${esc((n.tags || []).join(' · '))}</span></button>`; };
+// the preview is one block of text over four ruled lines, so a sentence wraps and fills them (the owner, 2026-11-11)
+const postit = (n, i) => { const txt = (n.text || '').split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 4).join('\n');
+  return `<button class="postit" data-a="nopen" data-ref="${n.id}" style="transform:rotate(${TILTS[i % TILTS.length]}deg)"><span class="pt">${esc(n.title || 'Untitled')}</span><span class="pls">${esc(txt)}</span><span class="ptag mono">${esc((n.tags || []).join(' · '))}</span></button>`; };
 const jSorted = () => (M.journal || []).slice().sort((a, b) => (b.d + (b.at || '')).localeCompare(a.d + (a.at || '')));
 // previews show the page itself, shrunk (2026-11-08)
 const jcard = (e, i = 0) => `<button class="jcard${e.paper === 'blank' ? ' blank' : ''}" data-a="jopen" data-ref="${e.id}" style="transform:rotate(${TILTS[(i + 3) % TILTS.length]}deg)"><span class="mono jcs">${e.re ? icon('corner-down-right', 12) : ''}${esc(fmtDate(e.d))}</span><span class="jmini" aria-hidden="true"><span class="jmp" data-jref="${e.id}"><span class="jflow"></span><span class="jpics"></span></span></span><span class="ptag mono">${esc((e.tags || []).join(' · '))}</span></button>`;
@@ -5561,7 +5625,8 @@ let jT;
 function jFromBack() { S.jNewTags = null; if (S.jFrom) { S.area = S.jFrom; S.jFrom = null; S.nbView = 'home'; S.page = null; } }
 function jDropEmpty() { const e = jCurrent(); if (e && jEditable(e) && jEmpty(e)) M.journal = M.journal.filter((x) => x !== e); }
 document.addEventListener('input', (ev) => { const t = ev.target;
-  if (t && t.id === 'ntext') { t.style.height = 'auto'; t.style.height = Math.max(t.scrollHeight, 224) + 'px'; } });
+  // growing the page must not move where I am in a long note: the pop-up keeps its scroll position
+  if (t && t.id === 'ntext') { const sb = t.closest('.sb'); const y = sb ? sb.scrollTop : 0; t.style.height = 'auto'; t.style.height = Math.max(t.scrollHeight, 224) + 'px'; if (sb) sb.scrollTop = y; } });
 function notebookAction(act, a, ref, v) {
   switch (act) {
     case 'nnew': S.nTagOpen = false; openSheet({ kind: 'note', title: 'New note', isNew: true, draft: { title: '', text: '', tags: S.nTag && S.nTag !== 'all' ? [S.nTag] : [] } }); return true;
@@ -5572,6 +5637,7 @@ function notebookAction(act, a, ref, v) {
     case 'ntagmenu': ncapture(); S.nTagOpen = !S.nTagOpen; renderLayer(); return true;
     case 'notesave': { if (a && !a.dataset.ok && a.classList.contains('npad')) { nAuto(); a.dataset.ok = '1'; a.classList.add('peeled'); setTimeout(() => { a.dispatchEvent(new MouseEvent('click', { bubbles: true })); }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 700); return true; }
       S.nTagOpen = false; nAuto(); S.sheet = null; render(); return true; }
+    case 'ncopy': { ncapture(); S.nTagOpen = false; renderLayer(); const D = S.sheet.draft; noteCopy([D.title, D.text].filter((x) => (x || '').trim()).join('\n\n')); return true; }
     case 'ndelete': { const s = S.sheet; S.sheet = null; S.nTagOpen = false; change(() => { const L = noteList(s); const i = L.findIndex((x) => x.id === s.ref); if (i >= 0) L.splice(i, 1); }, 'Note deleted'); return true; }
     case 'nfopen': S.nFOpen = !S.nFOpen; render(); return true;
     case 'ntag': S.nTag = v; S.nFOpen = false; render(); return true;
@@ -5605,6 +5671,10 @@ function notebookAction(act, a, ref, v) {
   }
   return false;
 }
+
+async function noteCopy(t) { if (!t) { flash('Nothing in the note to copy'); return; }
+  try { await navigator.clipboard.writeText(t); flash('Note copied'); return; } catch (e) {}
+  try { const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); flash(ok ? 'Note copied' : 'Could not copy the note'); } catch (e) { flash('Could not copy the note'); } }
 
 // ---------- Notebook boards (2026-11-06): moodboards (photos, text, notes and colours placed freely) and mind maps (tidy automatic layout) ----------
 // M.boards = [{ id, kind: 'mood' | 'mind', title, upd, items: [...], bg, pat, snap, layout }]

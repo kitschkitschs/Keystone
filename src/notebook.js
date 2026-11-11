@@ -42,9 +42,10 @@ function noteSheet(s) { const D = s.draft; const T = D.tags || [];
   const all = noteTags().concat(T.filter((t) => !noteTags().includes(t)));
   // tags and Delete live in the ⋯ menu, like the journal (2026-11-08)
   const tg = s.proj ? '' : `<span class="mono">Tags</span>${all.map((t) => `<button role="menuitemcheckbox" data-a="ntagtog" data-v="${esc(t)}" aria-checked="${T.includes(t)}">${esc(t)}${T.includes(t) ? icon('check', 16, 2) : ''}</button>`).join('')}${addOpen('nnewtag') ? `<div class="inrow jtagnew"><input class="inp" id="nnewtag" placeholder="New tag" enterkeyhint="done" autocomplete="off"><button class="btn" data-a="nnewtag">Add</button></div>` : `<button role="menuitem" data-a="openadd" data-v="nnewtag">${icon('plus', 16)} New tag</button>`}`;
+  const cp = `<button role="menuitem" data-a="ncopy">${mi('copynote', 'copy')}Copy</button>`;
   const del = s.isNew ? '' : `<button role="menuitem" class="ndel" data-a="ndelete">${mi('delnote', 'trash')}Delete note</button>`;
-  const dm = S.nTagOpen && (tg || del) ? `<span class="vsortx" data-a="ntagmenu"></span><span class="vdrop vsortm ntagm" role="menu">${tg}${del}</span>` : '';
-  return `<div class="ntop"><input class="ntitle" id="ntitle" value="${esc(D.title || '')}" aria-label="Title" ${s.isNew ? 'data-autofocus' : ''}>${s.proj && s.isNew ? '' : `<span class="vsortw"><button class="fbtn" data-a="ntagmenu" aria-label="More" aria-haspopup="menu" aria-expanded="${!!S.nTagOpen}">${icon('ellipsis', 18)}</button>${dm}</span>`}</div>
+  const dm = S.nTagOpen ? `<span class="vsortx" data-a="ntagmenu"></span><span class="vdrop vsortm ntagm" role="menu">${tg}${cp}${del}</span>` : '';
+  return `<div class="ntop"><input class="ntitle" id="ntitle" value="${esc(D.title || '')}" aria-label="Title" ${s.isNew ? 'data-autofocus' : ''}>${`<span class="vsortw"><button class="fbtn" data-a="ntagmenu" aria-label="More" aria-haspopup="menu" aria-expanded="${!!S.nTagOpen}">${icon('ellipsis', 18)}</button>${dm}</span>`}</div>
     <div class="notepaper"><textarea id="ntext" class="nlines" rows="8">${esc(D.text || '')}</textarea></div>`; }
 // notes save while I write; the notepad button only closes (2026-11-08)
 let nT = 0;
@@ -61,8 +62,9 @@ const stampOf = (d, at) => { const x = parse(d); return `${['Sunday', 'Monday', 
 // each has Write new and See all, which opens the Notepad or the Journal.
 // the page's filter sits on the breadcrumb row, at the right (2026-11-08)
 const nbCrumbs = (parts, tools = '') => `<nav class="crumbs" aria-label="Where I am">${parts.map(([l, v], i) => i < parts.length - 1 ? `<button data-a="nbgo" data-v="${v}">${esc(l)}</button><span aria-hidden="true">›</span>` : `<span aria-current="page">${esc(l)}</span>`).join('')}${tools ? `<span class="crtools">${tools}</span>` : ''}</nav>`;
-const postit = (n, i) => { const lines = (n.text || '').split('\n').filter((x) => x.trim()).slice(0, 4);
-  return `<button class="postit" data-a="nopen" data-ref="${n.id}" style="transform:rotate(${TILTS[i % TILTS.length]}deg)"><span class="pt">${esc(n.title || 'Untitled')}</span>${[0, 1, 2, 3].map((k) => `<span class="pl">${esc(lines[k] || '')}</span>`).join('')}<span class="ptag mono">${esc((n.tags || []).join(' · '))}</span></button>`; };
+// the preview is one block of text over four ruled lines, so a sentence wraps and fills them (the owner, 2026-11-11)
+const postit = (n, i) => { const txt = (n.text || '').split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 4).join('\n');
+  return `<button class="postit" data-a="nopen" data-ref="${n.id}" style="transform:rotate(${TILTS[i % TILTS.length]}deg)"><span class="pt">${esc(n.title || 'Untitled')}</span><span class="pls">${esc(txt)}</span><span class="ptag mono">${esc((n.tags || []).join(' · '))}</span></button>`; };
 const jSorted = () => (M.journal || []).slice().sort((a, b) => (b.d + (b.at || '')).localeCompare(a.d + (a.at || '')));
 // previews show the page itself, shrunk (2026-11-08)
 const jcard = (e, i = 0) => `<button class="jcard${e.paper === 'blank' ? ' blank' : ''}" data-a="jopen" data-ref="${e.id}" style="transform:rotate(${TILTS[(i + 3) % TILTS.length]}deg)"><span class="mono jcs">${e.re ? icon('corner-down-right', 12) : ''}${esc(fmtDate(e.d))}</span><span class="jmini" aria-hidden="true"><span class="jmp" data-jref="${e.id}"><span class="jflow"></span><span class="jpics"></span></span></span><span class="ptag mono">${esc((e.tags || []).join(' · '))}</span></button>`;
@@ -319,7 +321,8 @@ let jT;
 function jFromBack() { S.jNewTags = null; if (S.jFrom) { S.area = S.jFrom; S.jFrom = null; S.nbView = 'home'; S.page = null; } }
 function jDropEmpty() { const e = jCurrent(); if (e && jEditable(e) && jEmpty(e)) M.journal = M.journal.filter((x) => x !== e); }
 document.addEventListener('input', (ev) => { const t = ev.target;
-  if (t && t.id === 'ntext') { t.style.height = 'auto'; t.style.height = Math.max(t.scrollHeight, 224) + 'px'; } });
+  // growing the page must not move where I am in a long note: the pop-up keeps its scroll position
+  if (t && t.id === 'ntext') { const sb = t.closest('.sb'); const y = sb ? sb.scrollTop : 0; t.style.height = 'auto'; t.style.height = Math.max(t.scrollHeight, 224) + 'px'; if (sb) sb.scrollTop = y; } });
 function notebookAction(act, a, ref, v) {
   switch (act) {
     case 'nnew': S.nTagOpen = false; openSheet({ kind: 'note', title: 'New note', isNew: true, draft: { title: '', text: '', tags: S.nTag && S.nTag !== 'all' ? [S.nTag] : [] } }); return true;
@@ -330,6 +333,7 @@ function notebookAction(act, a, ref, v) {
     case 'ntagmenu': ncapture(); S.nTagOpen = !S.nTagOpen; renderLayer(); return true;
     case 'notesave': { if (a && !a.dataset.ok && a.classList.contains('npad')) { nAuto(); a.dataset.ok = '1'; a.classList.add('peeled'); setTimeout(() => { a.dispatchEvent(new MouseEvent('click', { bubbles: true })); }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 700); return true; }
       S.nTagOpen = false; nAuto(); S.sheet = null; render(); return true; }
+    case 'ncopy': { ncapture(); S.nTagOpen = false; renderLayer(); const D = S.sheet.draft; noteCopy([D.title, D.text].filter((x) => (x || '').trim()).join('\n\n')); return true; }
     case 'ndelete': { const s = S.sheet; S.sheet = null; S.nTagOpen = false; change(() => { const L = noteList(s); const i = L.findIndex((x) => x.id === s.ref); if (i >= 0) L.splice(i, 1); }, 'Note deleted'); return true; }
     case 'nfopen': S.nFOpen = !S.nFOpen; render(); return true;
     case 'ntag': S.nTag = v; S.nFOpen = false; render(); return true;
@@ -363,3 +367,7 @@ function notebookAction(act, a, ref, v) {
   }
   return false;
 }
+
+async function noteCopy(t) { if (!t) { flash('Nothing in the note to copy'); return; }
+  try { await navigator.clipboard.writeText(t); flash('Note copied'); return; } catch (e) {}
+  try { const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); flash(ok ? 'Note copied' : 'Could not copy the note'); } catch (e) { flash('Could not copy the note'); } }
