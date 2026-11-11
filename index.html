@@ -1156,9 +1156,12 @@ function onDay(id, d) { const it = I(id); if (!it) return false;
   if (d >= T0 && firstRound(id)) return false;
   if (!it.afterTrain || d < T0 || it.type === 'checkin') return onDay0(id, d);
   if (it.made && d < it.made) return false; if (it.end && d > it.end) return false;
+  const w = it.when || {};
+  // moved to a later day by hand (2026-11-11): nothing before that day, that day for sure, the usual rhythm after it
+  const later = w.date && w.date > T0; if (later && d < w.date) return isDone(id, d); if (later && d === w.date) return true;
   // after every workout: it shows on each workout day, and its own rhythm counts on from there
-  if (workoutOn(d)) return true; const w = it.when || {}; if (w.mode !== 'every') return onDay0(id, d);
-  const n = Math.max(1, w.n || 1); const last = lastDoneBefore(id, T0); let anchor = isDone(id, T0) || workoutOn(T0) || !last || diff(last, T0) >= n ? T0 : last; if (d === T0) return anchor === T0;
+  if (workoutOn(d)) return true; if (w.mode !== 'every') return onDay0(id, d);
+  const n = Math.max(1, w.n || 1); const last = lastDoneBefore(id, T0); let anchor = later ? w.date : isDone(id, T0) || workoutOn(T0) || !last || diff(last, T0) >= n ? T0 : last; if (d === T0) return anchor === T0;
   for (let x = addDays(anchor > T0 ? anchor : T0, 1); x <= d; x = addDays(x, 1)) { if (workoutOn(x) || diff(anchor, x) >= n) anchor = x; } return anchor === d; }
 function onDay0(id, d) {
   const it = I(id); if (!it) return false;
