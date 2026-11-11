@@ -1,4 +1,4 @@
-// store.js: what Daybook keeps on this phone (IndexedDB). Shared by the app and the service worker (sw.js).
+// store.js: what Almanac keeps on this phone (IndexedDB). Shared by the app and the service worker (sw.js).
 //   kv:    small named values: 'model' (everything I've entered, as text), 'rem' (the reminder list the
 //          service worker reads when a ping arrives), 'remshown', 'backupAt'
 //   files: photos and PDFs, kept as files instead of inside the model

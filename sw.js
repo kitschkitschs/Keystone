@@ -1,4 +1,4 @@
-// sw.js: the service worker. It keeps a copy of the app on the phone, so Daybook opens
+// sw.js: the service worker. It keeps a copy of the app on the phone, so Almanac opens
 // without a connection, and it shows my reminders when the sender pings the phone.
 //
 // How updates work: with a connection, the app opens with the newest files and saves a copy.
@@ -86,7 +86,7 @@ async function showDueReminders() {
   if (due.length) await DBK.set('remshown', shown);
 }
 
-// Tapping a reminder opens Daybook.
+// Tapping a reminder opens Almanac.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil((async () => {

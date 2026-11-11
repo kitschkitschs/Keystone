@@ -1,4 +1,4 @@
-# Daybook
+# Almanac
 
 A personal day app for Android, built as an installable web app: planner,
 health, study, home, hobbies, notebook and insight in one place. It works
@@ -14,7 +14,7 @@ The app lives at https://kitschkitschs.github.io/Keystone/
 | `store.js` | Saves and reads data on the phone (IndexedDB). Used by the app and by `sw.js`. |
 | `sw.js` | The service worker: keeps a copy of the app so it opens offline, and shows reminders when a ping arrives. |
 | `manifest.webmanifest` | Name and icon used when the app is installed to the home screen. |
-| `icons/` | The app icon. `badge.png` is the small symbol on reminder notifications. |
+| `icons/` | The app icon (the blossom from the calendar marks). `badge.png` is the small symbol on reminder notifications. |
 | `worker/` | The reminder sender, a tiny program that runs on Cloudflare. |
 | `.github/workflows/deploy-reminders.yml` | Publishes `worker/` to Cloudflare when it changes. |
 | `src/` | The app's source: `page.html` (layout and styles), `app.js` and the other parts, the icons, and `build.py`. |
@@ -43,7 +43,7 @@ exception: reminder times (see below).
 In the ⋯ menu, under Data:
 
 - **Save a backup** opens Android's share menu with a file named like
-  `daybook-2026-11-11-0915.txt`. Send it to Proton Drive. Every save is a new
+  `almanac-2026-11-11-0915.txt`. Send it to Proton Drive. Every save is a new
   file with everything in it, photos included. On a computer the file
   downloads instead. The file is JSON inside, but ends in `.txt` because
   Chrome won't share `.json` files.
