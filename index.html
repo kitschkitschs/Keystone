@@ -968,13 +968,14 @@ html.dark #viewer.vwph{background:rgba(29,27,25,.3)}
 html.dark img{opacity:.96}
 html.dark .feelcard.empty{background:#33302C}html.dark .jcard .jct,html.dark .jct{color:var(--ink2)}html.dark .pjpdf{background:#3A3732}
 /* breaks (2026-11-11): a named stretch of a block, nothing to tick */
-.brkt{display:flex;align-items:center;justify-content:center;width:100%;min-height:34px;margin:4px 0;box-sizing:border-box;border-top:1px dashed var(--faint2);border-bottom:1px dashed var(--faint2);background:none;padding:0}
-.brkt .bkt{font-size:10px;gap:6px}
+.brkt{display:flex;align-items:center;justify-content:center;width:100%;height:16px;min-height:0;margin:6px 0;box-sizing:border-box;border-top:1px dashed var(--faint2);border-bottom:1px dashed var(--faint2);background:none;padding:0}
+.brkt .bkt{font-size:8.5px;gap:6px}
 .row.brkrow{gap:8px}.row.brkmin{padding:0;min-height:0}.row.brkrow .bico{display:grid;place-items:center;width:28px;height:28px;margin:-6px -4px;color:var(--ink2);flex:none}
 .row.brkrow .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tl .box.brk{background:transparent!important;border:0!important;border-top:1px dashed var(--faint2)!important;border-bottom:1px dashed var(--faint2)!important;border-radius:0!important;box-shadow:none!important;left:-2px;right:-2px;color:var(--faint)!important;display:flex;align-items:center;justify-content:center;padding:0}
 .bkt{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);line-height:1;white-space:nowrap;overflow:hidden;max-width:100%}
 .bkt svg{flex:none}
+.tl .box.brk.nt{border-top-color:transparent!important}.tl .box.brk.nb{border-bottom-color:transparent!important}
 .tl .blab.bkl{display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:2}
 /* block titles sit centred over the weekday columns, not over the hour column too */
 .bl{padding-left:24px}
@@ -1133,7 +1134,11 @@ function homeOf(ref) { return placements(ref)[0]; }
 // lives in a day block alone takes the block's colour (2026-11-11: circles changed colour when a chore went into a block)
 // a generic item without its own colour wears its section's (2026-11-11)
 const slotCol = (it) => { const o = it.opens; const A = M.areas || {}, P = M.pages || {}; return o === 'study' ? (A.study || {}).color : o === 'chores' ? (P.chores || A.home || {}).color : o === 'hobbies' ? (A.hobbies || {}).color : o === 'training' || o === 'move' ? (P.training || {}).color : null; };
-function colorOf(id) { const it = I(id); if (it && it.color) return it.color; if (it && it.type === 'slot' && slotCol(it)) return slotCol(it); const P = placements(id); const pl = P.find((p) => !(G(p) && (G(p).style === 'dayblock' || G(p).holds === 'slot'))) || P[0]; if (!pl) return '#9A9387'; if (pl.startsWith('s:')) return colorOf(pl.slice(2)); const g = G(pl); if (!g.color && g.style === 'project' && typeof hobOf === 'function' && G(hobOf(pl))) return G(hobOf(pl)).color; return g.color || '#9A9387'; }
+function colorOf(id) { const it = I(id); if (it && it.color) return it.color; if (it && it.type === 'slot' && slotCol(it)) return slotCol(it); const P = placements(id); const pl = P.find((p) => !(G(p) && (G(p).style === 'dayblock' || G(p).holds === 'slot'))) || P[0]; if (!pl) return '#9A9387'; if (pl.startsWith('s:')) return colorOf(pl.slice(2)); const g = G(pl);
+  // Home's sections keep their colour on their tab (2026-11-11): Homemaking, Cooking, Chores; a room without its own colour wears Chores'
+  const PG = { 'g-tend': 'homemaking', 'g-prep': 'cooking', 'g-oneoff': 'chores' }[pl] || (g.style === 'room' && !g.color ? 'chores' : null);
+  if (PG && ((M.pages || {})[PG] || {}).color) return M.pages[PG].color; if (g.style === 'sgroup' && !g.color) return ((M.areas || {}).study || {}).color || '#9A9387';
+  if (!g.color && g.style === 'project' && typeof hobOf === 'function' && G(hobOf(pl))) return G(hobOf(pl)).color; return g.color || '#9A9387'; }
 function blockOfItem(id) { const pl = placements(id).find((p) => G(p) && G(p).style === 'dayblock'); return pl || blockIds()[blockIds().length - 1]; }
 function blockAtTime(t) { const m = hm(t); return blockIds().find((b) => hm(G(b).start) <= m && m < hm(G(b).end)) || blockIds()[blockIds().length - 1]; }
 function placeName(p) { if (p.startsWith('s:')) return (I(p.slice(2)) || {}).name + ' (steps)'; const g = G(p); return g.style === 'dayblock' ? 'Day block · ' + g.name : g.style === 'acat' ? 'Appointments · ' + g.name : g.name; }
@@ -1445,7 +1450,7 @@ function itemRow(id, list, d) {
   // a break looks like a day block's title (2026-11-11): its icon, its name in small capitals, its length on the right
   if (it.brk) { const bi = icon(it.icon || 'coffee', 16); const ln = `${it.time ? esc(it.time) + ' · ' : ''}${estHM((it.dur || 15) / 60)}`;
     // outside edit mode it's a minimal title like the block titles on Schedule (2026-11-11): dashed lines, small capitals
-    if (!S.edit) return `<div class="row brkrow brkmin" data-ref="${id}"><button class="brkt" data-a="${live ? 'open' : 'peek'}" data-ref="${id}" data-d="${d}" aria-label="${esc(it.name)}, a break, ${ln}"><span class="bkt">${icon(it.icon || 'coffee', 12, 2)}<span>${esc(it.name)} · ${ln}</span></span></button></div>`;
+    if (!S.edit) return `<div class="row brkrow brkmin" data-ref="${id}"><button class="brkt" data-a="${live ? 'open' : 'peek'}" data-ref="${id}" data-d="${d}" aria-label="${esc(it.name)}, a break, ${ln}"><span class="bkt"><span>${esc(it.name)} · ${ln}</span></span></button></div>`;
     return `<div class="row brkrow" data-ref="${id}">${grip()}<button class="bico" data-a="iconfor" data-v="${id}" aria-label="Change icon">${bi}</button><span class="nm mono" style="flex:1">${nm(id, it.name)}</span><span class="cnt">${ln}</span>${tail(id, list)}</div>`; }
   if (it.type === 'checkin') return `<div class="row" data-ref="${id}" data-fixed="1">${S.edit ? '<span class="grip"></span>' : ''}${tickCircle(id, d, live)}<button class="lbl" data-a="checkin" data-ref="${id}">${nm(id, it.name)}</button><span class="chev">›</span></div>`;
   const much = String(val(d, id) || '').startsWith('much');
@@ -1609,8 +1614,13 @@ function placeDay(d) {
     fixed.forEach((f) => { const k = o.indexOf(f.id); if (k < 0) return; o.slice(k + 1).forEach((id) => { after[id] = Math.max(after[id] || 0, f.b); }); });
     // moved behind a set-time item for every day: it.behind names that item (a day's own order wins)
     items.forEach((id) => { const bh = I(id).behind; if (!bh || o.includes(id)) return; const f = fixed.find((q) => q.id === bh); if (f) after[id] = Math.max(after[id] || 0, f.b); });
-    items.filter((id) => !I(id).time).forEach((id) => { const len = I(id).dur || 30; let moved = true; if (after[id]) cur = Math.max(cur, after[id]);
-      while (moved) { moved = false; fixed.forEach((f) => { if (cur < f.b && cur + len > f.a) { cur = f.b; moved = true; } }); }
+    // tacked in front of a set-time item (2026-11-11): it ends right where that item starts, several in a row stack up
+    // backwards; a day's own choice wins over the every-day one (it.before)
+    const dt = (M.dayTack || {})[d] || {}; const tackOf = (id) => (id in dt ? dt[id] : I(id).before) || null;
+    const tacked = new Set(); const busy = fixed.slice();
+    fixed.forEach((f) => { let end = f.a; items.filter((id) => !I(id).time && tackOf(id) === f.id).reverse().forEach((id) => { const len = I(id).dur || 30; if (end - len < hm(g.start)) return; /* no room before the block starts: it flows as usual */ const q = { id, a: end - len, b: end, blk: b }; out.push(q); busy.push(q); tacked.add(id); end -= len; }); });
+    items.filter((id) => !I(id).time && !tacked.has(id)).forEach((id) => { const len = I(id).dur || 30; let moved = true; if (after[id]) cur = Math.max(cur, after[id]);
+      while (moved) { moved = false; busy.forEach((f) => { if (cur < f.b && cur + len > f.a) { cur = f.b; moved = true; } }); }
       out.push({ id, a: cur, b: cur + len, blk: b }); cur += len; });
   });
   return out;
@@ -1619,7 +1629,7 @@ const dur = (m) => m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? '
 // the default icon for a kind of task, changed in edit mode on its page (2026-11-11)
 const DEFIC = { study: 'book-open', chores: 'spray-can', tend: 'sprout', prep: 'cooking-pot' };
 const defKind = (id) => { const P = placements(id); return P.some((p) => G(p) && G(p).style === 'sgroup') ? 'study' : P.some((p) => p === 'g-oneoff' || (G(p) && G(p).style === 'room')) ? 'chores' : P.includes('g-tend') ? 'tend' : P.includes('g-prep') ? 'prep' : ''; };
-const defIcon = (id) => { const it = I(id); const k = defKind(it && it.part && I(it.part) ? it.part : id); return k ? uiIc('def-' + k, '') : ''; };
+const defIcon = (id) => { const it = I(id); const k = defKind(it && it.part && I(it.part) ? it.part : id); return k ? uiIc('def-' + k, DEFIC[k] || '') : ''; }; // the section's icon until I pick one (2026-11-11)
 const defBlock = (k) => { const b = ((M.settings || {}).defBlock || {})[k]; return b && G(b) && blockIds().includes(b) ? b : k === 'study' ? studyBlock0() : eveBlock(); };
 function boxIcon(o) { const it = I(o.id); return it.icon || (it.brk ? 'coffee' : '') || defIcon(o.id) || (o.appt ? G(catOf(o.id)).icon : it.type === 'checkin' ? (it.which === 'morning' ? 'sun' : 'moon') : it.type === 'routine' ? (hm(G(blockOfItem(o.id)).start) >= 18 * 60 ? 'moon' : 'sun') : 'check'); }
 function renderSchedule() {
@@ -1660,11 +1670,13 @@ function renderSchedule() {
   const faded = (k, o) => days[k] >= T0 && isDone(o.id, days[k]); // past days keep full colour (2026-11-06)
   days.forEach((d, di) => {
     h += `<div class="col" data-day="${d}" style="height:${H}px">` + PD[di].map((o) => { const it = I(o.id); const c = o.appt ? G(catOf(o.id)).color : colorOf(o.id); const top = yIn(o.a, o.blk), ht = Math.max(14, yIn(o.b - 0.01, o.blk) - yIn(o.a, o.blk) - (!o.appt && (OV[o.blk] ? o.b >= ends[o.blk] + OV[o.blk] : o.b >= ends[o.blk]) ? 0 : 2)); // the last box of a block (or of its red stretch) sits flush on the next block's border (2026-11-03/04)
+      // a break fills its time exactly so its lines sit on the hour lines; a line that would double a block title's line is left out
+      const bkE = !o.appt && it.brk ? [starts.includes(o.a) ? 'nt' : '', starts.includes(o.b) || o.b >= ends[o.blk] ? 'nb' : ''].join(' ') : '';
       const solo = dayV || clash(di, o); const jl = !solo && same(di - 1, o), jr = !solo && same(di + 1, o); let run = 1; if (!jl && !solo) while (same(di + run, o)) run++;
       let st = di; if (jl) while (same(st - 1, o)) st--; const rk = jl || jr ? o.id + '@' + days[st] : '';
       // a break is drawn like a block title (2026-11-11): dashed lines above and below, its name small in the middle
-      const bk = !o.appt && it.brk; const fitsB = bk && (S.colW || 42) - 6 >= it.name.length * 6.2 + 12;
-      const inner = bk ? (jl || run > 1 ? '' : `<span class="bkt">${icon(boxIcon(o), 10, 2)}${dayV || fitsB ? `<span>${esc(it.name)}</span>` : ''}</span>`)
+      const bk = !o.appt && it.brk; const fitsB = bk && (S.colW || 42) - 6 >= it.name.length * 6.2;
+      const inner = bk ? (jl || run > 1 ? '' : `<span class="bkt">${dayV || fitsB ? `<span>${esc(it.name)}</span>` : ''}</span>`)
         : dayV ? `<span class="bi">${icon(boxIcon(o), 14, 2)}</span><span class="bn">${esc(it.name)}</span><span class="bt">${fmtHM(o.a)}</span>`
         : jl || run > 1 ? '' : (ht >= 14 ? icon(boxIcon(o), 12, 2) : '');
       // the joined block's label sits beside the boxes in the column (not inside a button), spanning the joined days
@@ -1672,10 +1684,10 @@ function renderSchedule() {
       const fits = run * ((S.colW || 42) + 4) - 4 - 10 >= it.name.length * 6.3 + (ht >= 30 ? 0 : 18);
       // faded = past or done; drawn with paler solid colours, never see-through, so no lines show through (2026-11-03)
       const fd = faded(di, o); const allFaded = [...Array(run).keys()].every((r) => faded(di + r, o));
-      const lab = bk && !dayV && !jl && run > 1 ? `<span class="blab bkl" data-run="${rk}" style="top:${top}px;height:${ht}px;width:calc(${run} * (100% + 4px) - 4px)" aria-hidden="true"><span class="bkt">${icon(boxIcon(o), 10, 2)}<span>${esc(it.name)}</span></span></span>`
+      const lab = bk && !dayV && !jl && run > 1 ? `<span class="blab bkl" data-run="${rk}" style="top:${top}px;height:${ht}px;width:calc(${run} * (100% + 4px) - 4px)" aria-hidden="true"><span class="bkt"><span>${esc(it.name)}</span></span></span>`
         : !dayV && !jl && run > 1 && ht >= 14 ? `<span class="blab ${ht >= 30 ? '' : 'brow'} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''}" data-run="${rk}" style="top:${top}px;height:${ht}px;width:calc(${run} * (100% + 4px) - 4px);color:${allFaded ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" aria-hidden="true">${icon(boxIcon(o), 12, 2)}${fits ? `<span class="bn">${esc(it.name)}</span>` : ''}</span>` : '';
       const mv = !o.appt && !it.time && it.type !== 'checkin' && d >= T0;
-      return `<button class="box ${dayV ? 'wide' : ''} ${mv ? 'mv' : ''} ${jl ? 'jl' : ''} ${jr ? 'jr' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && I(o.id) && I(o.id).brk ? ' brk' : ''}" style="top:${top}px;height:${ht}px;--c:${c};--bg:${fd ? mix(pale(c), TH.page, 0.5) : pale(c)};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" ${rk ? `data-run="${rk}"` : ''} data-from="${o.a}" data-to="${o.b}" aria-label="${esc(it.name)}, ${fmtHM(o.a)}">${inner}</button>${lab}`; }).join('') + '</div>';
+      return `<button class="box ${dayV ? 'wide' : ''} ${mv ? 'mv' : ''} ${jl ? 'jl' : ''} ${jr ? 'jr' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && I(o.id) && I(o.id).brk ? ' brk ' + bkE : ''}" style="top:${top}px;height:${!o.appt && it.brk ? Math.max(14, yIn(o.b, o.blk) - top) : ht}px;--c:${c};--bg:${fd ? mix(pale(c), TH.page, 0.5) : pale(c)};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" ${rk ? `data-run="${rk}"` : ''} data-from="${o.a}" data-to="${o.b}" aria-label="${esc(it.name)}, ${fmtHM(o.a)}">${inner}</button>${lab}`; }).join('') + '</div>';
   });
   S.ymap = { y, h0, h1, zones: blockIds().filter((b) => OV[b]).map((b) => ({ b, top: yIn(ends[b], b), h: OV[b] / 60 * PX })) };
   h += '</div>';
@@ -2435,7 +2447,10 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
   const PD = placeDay(day); const inB = PD.filter((o) => o.blk === b && I(o.id).type !== 'checkin' && o.id !== x.id);
   const prev = inB.filter((o) => mid(o) < m).sort((p, q) => p.b - q.b).pop();
   const idx = inB.filter((o) => mid(o) < m).length;
-  if (!S.edit && day === x.from) { change(() => moveOnDay(x.id, day, b, idx), 'Moved ' + it.name + ' on ' + fmtDate(day)); return; }
+  // dropped in front of an item with a set time (a routine at 22:00): it's tacked on, ending right where that item starts
+  const nxt = inB.filter((o) => mid(o) >= m).sort((p, q) => p.a - q.a)[0]; const tk0 = (id) => { const T = (M.dayTack || {})[day] || {}; return (id in T ? T[id] : I(id).before) || null; }; /* in front of something already tacked on: it joins that row */ const tack = !nxt ? null : nxt.appt || I(nxt.id).time ? nxt.id : tk0(nxt.id);
+  const setTack = () => { const T = (M.dayTack = M.dayTack || {})[day] = (M.dayTack[day] || {}); T[x.id] = tack; };
+  if (!S.edit && day === x.from) { change(() => { moveOnDay(x.id, day, b, idx); setTack(); }, 'Moved ' + it.name + ' on ' + fmtDate(day)); return; }
   change(() => {
     blockIds().forEach((k) => { const ks = G(k).kids; const i = ks.indexOf(x.id); if (i >= 0) ks.splice(i, 1); });
     // in front of or behind anything in the block, routines too (2026-11-11): right after the item before the drop, or
@@ -2445,10 +2460,10 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
     const at = pk ? ks.indexOf(pk.id) + 1 : nx ? ks.indexOf(nx.id) : ks.length;
     ks.splice(at, 0, x.id);
     if (day !== x.from) it.when.date = day;
-    if (prev && (prev.appt || I(prev.id).time)) it.behind = prev.id; else delete it.behind;
+    if (tack) { it.before = tack; delete it.behind; } else { delete it.before; if (prev && (prev.appt || I(prev.id).time)) it.behind = prev.id; else delete it.behind; }
     syncDayOrders(x.id);
     // the day I dropped it on shows it exactly where it was dropped
-    moveOnDay(x.id, day, b, idx);
+    moveOnDay(x.id, day, b, idx); setTack();
   }, 'Moved ' + it.name + (day !== x.from ? ' to ' + fmtDate(day) : S.edit && !(it.when && it.when.mode === 'once') ? ' on every day' : ''));
 });
 
