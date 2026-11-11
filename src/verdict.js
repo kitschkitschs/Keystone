@@ -73,7 +73,7 @@ const roomIds = () => (G('g-rooms') ? G('g-rooms').kids.filter(G) : []);
 const kidsOf = (gid) => (G(gid) ? G(gid).kids.filter((k) => I(k)) : []);
 const everDone = (id) => Object.keys(M.log).some((d) => val(d, id));
 // study tasks (2026-11-10): a one-off is finished once ticked and goes to the Archive; a repeat never finishes, a tick just starts the count to the next one
-const sFinished = (k) => !repeatable(I(k)) && everDone(k);
+const sFinished = (k) => !repeatable(I(k)) && !keeps(k) && everDone(k);
 const sLastDone = (k) => isDone(k, T0) ? T0 : lastDoneBefore(k, T0);
 // how many days a repeat lasts before it's due again
 function period(it) { const w = (it && it.when) || {}; const n = Math.max(1, w.n || 1);
@@ -84,7 +84,7 @@ function freshOf(id, place) { const n = period(I(id)) || 7; const last = isDone(
   const since = last ? diff(last, T0) : n; const left = n - since;
   return { id, place, n, last, since, left, fresh: Math.max(0, Math.min(1, left / n)), urg: since / n }; }
 // a job with no frequency still belongs to its room: it needs doing until it has been done once
-const jobsIn = (gid) => kidsOf(gid).filter((k) => period(I(k)) || (!repeatable(I(k)) && (!lastDoneBefore(k, T0) || isDone(k, T0)))).map((k) => freshOf(k, gid));
+const jobsIn = (gid) => kidsOf(gid).filter((k) => period(I(k)) || (!repeatable(I(k)) && (keeps(k) || !lastDoneBefore(k, T0) || isDone(k, T0)))).map((k) => freshOf(k, gid));
 const allJobs = () => roomIds().flatMap(jobsIn);
 function verdict(jobs, W) { if (!jobs.length) return { lvl: 0, word: W[0] };
   const avg = jobs.reduce((a, j) => a + j.fresh, 0) / jobs.length; let lvl = avg >= 0.75 ? 0 : avg >= 0.5 ? 1 : avg >= 0.25 ? 2 : 3;
@@ -260,7 +260,7 @@ function choresPage() {
     h += vlab(pick ? G(pick).name : 'Needs care') + (listed.length ? listed.map((j) => jobRow(j, G(j.place).name)).join('') : `<p class="empty">${pick ? 'No jobs in this room yet.' : 'Nothing needs care right now.'}</p>`);
     // no Open button for a picked room; tapping its card again opens it (2026-11-10)
   }
-  const oo = kidsOf('g-oneoff').filter((k) => !everDone(k) || val(T0, k)).sort((a, b) => ((I(a).when || {}).date || '9999').localeCompare((I(b).when || {}).date || '9999'));
+  const oo = kidsOf('g-oneoff').filter((k) => keeps(k) || !everDone(k) || val(T0, k)).sort((a, b) => ((I(a).when || {}).date || '9999').localeCompare((I(b).when || {}).date || '9999'));
   h += S.edit ? vlab('One-off') + eList('g-oneoff', kidsOf('g-oneoff'), 'Add chore', 'vadd', (k) => onceSub(k)) + vDefaults('chores', 'chores')
     : lcard('v:oneoff', 'One-off', oo.length || '', (oo.map((k) => tickRow(k, onceSub(k))).join('') || '<p class="empty">No chores.</p>'));
   return h;
@@ -287,7 +287,7 @@ function tendPage() {
 function cookPage() {
   let h = crumbs([['Home', ''], ['Cooking']]) + cookCard();
   if (S.edit) return h + vlab('Planned prep') + eList('g-prep', kidsOf('g-prep'), 'Add prep', 'vadd', (k) => onceSub(k)) + vDefaults('prep', 'prep');
-  const P = kidsOf('g-prep').filter((k) => !everDone(k) || val(T0, k)).sort((a, b) => ((I(a).when || {}).date || '9999').localeCompare((I(b).when || {}).date || '9999'));
+  const P = kidsOf('g-prep').filter((k) => keeps(k) || !everDone(k) || val(T0, k)).sort((a, b) => ((I(a).when || {}).date || '9999').localeCompare((I(b).when || {}).date || '9999'));
   // a prep with sub-tasks shows them under it, indented, each with its own tick (2026-11-06: Pizza › Dough)
   const subs = (k) => (I(k).steps || []).filter(I).map((sid) => { const on = everDone(sid); return `<div class="row substep" data-ref="${sid}"><button class="tickbtn" data-a="psub" data-ref="${sid}" aria-label="Tick ${esc(I(sid).name)}"><span class="circ ${on ? 'done' : ''}" style="--c:${colorOf(k)}">${on ? '✓' : ''}</span></button><span class="lbl">${esc(I(sid).name)}</span></div>`; }).join('');
   const subCount = (k) => { const st = (I(k).steps || []).filter(I); return st.length ? ` · ${st.filter(everDone).length} of ${st.length} done` : ''; };
