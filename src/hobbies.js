@@ -40,7 +40,8 @@ const hobProjs = (h) => G(h).kids.filter((k) => G(k) && G(k).style === 'project'
 const hobOf = (pid) => hobIds().find((h) => G(h).kids.includes(pid));
 const projTasks = (p) => G(p).kids.filter((k) => I(k));
 const lastEver = (id) => Object.keys(M.log).filter((d) => d <= T0 && val(d, id)).sort().pop() || null;
-const projLast = (p) => projTasks(p).map(lastEver).concat((G(p).photos || []).map((x) => x.d)).concat(G(p).worked || []).filter(Boolean).sort().pop() || null;
+// last worked on: days I marked it, or ticked one of its tasks; a photo alone doesn't count, so undoing today really undoes it (2026-11-11)
+const projLast = (p) => projTasks(p).map(lastEver).concat(G(p).worked || []).filter(Boolean).sort().pop() || null;
 const hobLast = (h) => hobActs(h).map(lastEver).concat(hobProjs(h).map(projLast)).filter(Boolean).sort().pop() || null;
 const agoText = (d) => { const n = diff(d, T0); return n <= 0 ? 'today' : n === 1 ? 'yesterday' : n < 14 ? n + ' days ago' : n < 60 ? Math.round(n / 7) + ' weeks ago' : Math.round(n / 30) + ' months ago'; };
 const projSrc = (x) => x.asset ? blobUrl(x.asset) : x.src;
