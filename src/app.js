@@ -445,7 +445,9 @@ function whereOf(id) { const it = I(id); const src = it && it.part && I(it.part)
 function itemRow(id, list, d) {
   const it = I(id); const live = d === T0;
   if (it.type === 'slot') return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, false)}<span class="lbl">${S.edit ? nm(id, it.name) : `<button data-a="${live ? 'slot' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left;display:flex;align-items:center;gap:8px"><span style="flex:1">${esc(it.name)}${live && it.opens === 'study' && supMin(T0) < sessLen() ? `<span class="tdur">${estHM(minOn(null, T0) / 60)} of ${estHM(sessLen() / 60)}</span>` : ''}${live && slotSub(it) ? `<span class="sub">${esc(slotSub(it))}</span>` : ''}</span>${live ? '<span class="chev" aria-hidden="true">›</span>' : ''}</button>`}</span>${tail(id, list)}</div>`;
-  if (it.brk) return `<div class="row brkrow" data-ref="${id}">${grip()}<span class="brkic" aria-hidden="true">${icon(it.icon || 'coffee', 16)}</span><span class="lbl">${S.edit ? nm(id, it.name) : `<button data-a="${live ? 'open' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left">${esc(it.name)}${tdur(it)}</button>`}</span>${tail(id, list)}</div>`;
+  // a break looks like a day block's title (2026-11-11): its icon, its name in small capitals, its length on the right
+  if (it.brk) { const bi = icon(it.icon || 'coffee', 16); const ln = `<span class="cnt">${it.time ? esc(it.time) + ' · ' : ''}${estHM((it.dur || 15) / 60)}</span>`;
+    return `<div class="row brkrow" data-ref="${id}">${grip()}${S.edit ? `<button class="bico" data-a="iconfor" data-v="${id}" aria-label="Change icon">${bi}</button><span class="nm mono" style="flex:1">${nm(id, it.name)}</span>${ln}${tail(id, list)}` : `<button data-a="${live ? 'open' : 'peek'}" data-ref="${id}" data-d="${d}" style="display:flex;align-items:center;gap:8px;width:100%;min-height:40px;text-align:left"><span class="bico" aria-hidden="true">${bi}</span><span class="nm mono" style="flex:1">${esc(it.name)}</span>${ln}</button>`}</div>`; }
   if (it.type === 'checkin') return `<div class="row" data-ref="${id}" data-fixed="1">${S.edit ? '<span class="grip"></span>' : ''}${tickCircle(id, d, live)}<button class="lbl" data-a="checkin" data-ref="${id}">${nm(id, it.name)}</button><span class="chev">›</span></div>`;
   const much = String(val(d, id) || '').startsWith('much');
   const late = live ? lateBy(id) : 0;
@@ -968,7 +970,7 @@ function itemSheet(s) {
       <div class="fld"><span class="mono">Category</span><div class="chips">${G('g-appts').kids.filter(G).map((c) => `<button class="chip" style="--c:${G(c).color}" data-a="dset" data-k="cat" data-v="${c}" aria-pressed="${s.cat === c}"><span class="d"></span>${esc(G(c).name)}</button>`).join('')}</div></div>`;
   } else if (D.type !== 'checkin' && D.type !== 'step') {
     h += schedUI(s, D);
-    if (D.brk) { if (s.ref && !s.isNew) h += `<div class="btns"><button class="btn danger" data-a="ddelete">Delete</button></div>`; return h; } // a break: a name, its time and length, its days
+    if (D.brk) { h += `<div class="fld"><span class="mono">Icon</span><div><button class="btn" data-a="iconfor" data-v="draft" style="display:inline-flex;gap:8px;align-items:center">${icon(D.icon || 'coffee', 18)}Change</button></div></div>`; if (s.ref && !s.isNew) h += `<div class="btns"><button class="btn danger" data-a="ddelete">Delete</button></div>`; return h; } // a break: a name, its time and length, its days
     if (D.type === 'task' || D.type === 'routine') h += (isTrainSheet(s) ? afterField(D) : '') + sw('optional', 'Optional', D.optional) + ((D.when || {}).mode === 'once' ? sw('persist', 'Persistent', D.persist) : '');
     // study items: everything under Estimate waits behind More settings too (2026-11-06)
     if (isStudyItem(s, D)) s._more = h.length;
@@ -1427,22 +1429,23 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
   if (day !== x.from && !(it.when && it.when.mode === 'once')) { flash('Repeats keep their days. Change the rule in its settings.'); render(); return; }
   if (day < T0) { flash('Past days stay as they were'); render(); return; }
   // the untimed items already in that block on that day, in time order; drop after the last one that starts before m
-  const PD = placeDay(day); const before = PD.filter((o) => o.blk === b && !o.appt && !I(o.id).time && I(o.id).type !== 'checkin' && o.id !== x.id && mid(o) < m).map((o) => o.id);
-  const prev = PD.filter((o) => o.blk === b && I(o.id).type !== 'checkin' && o.id !== x.id && mid(o) < m).sort((p, q) => p.b - q.b).pop();
-  if (!S.edit && day === x.from) {
-    const cur = seqOf(day, b, x.id);
-    const idx = PD.filter((o) => o.blk === b && I(o.id).type !== 'checkin' && o.id !== x.id && mid(o) < m).length;
-    change(() => moveOnDay(x.id, day, b, idx), 'Moved ' + it.name + ' on ' + fmtDate(day));
-    return;
-  }
+  const PD = placeDay(day); const inB = PD.filter((o) => o.blk === b && I(o.id).type !== 'checkin' && o.id !== x.id);
+  const prev = inB.filter((o) => mid(o) < m).sort((p, q) => p.b - q.b).pop();
+  const idx = inB.filter((o) => mid(o) < m).length;
+  if (!S.edit && day === x.from) { change(() => moveOnDay(x.id, day, b, idx), 'Moved ' + it.name + ' on ' + fmtDate(day)); return; }
   change(() => {
     blockIds().forEach((k) => { const ks = G(k).kids; const i = ks.indexOf(x.id); if (i >= 0) ks.splice(i, 1); });
-    const ks = g.kids; let at = before.length ? ks.indexOf(before[before.length - 1]) + 1 : ks.findIndex((k) => I(k) && I(k).which !== 'morning' && I(k).type !== 'checkin');
-    const ev = ks.findIndex((k) => I(k) && I(k).which === 'evening'); if (at < 0) at = ev >= 0 ? ev : ks.length; if (ev >= 0 && at > ev) at = ev;
+    // in front of or behind anything in the block, routines too (2026-11-11): right after the item before the drop, or
+    // right in front of the item after it
+    const ks = g.kids; const flow = (o) => !o.appt && !I(o.id).time && ks.includes(o.id); /* items with a set time sit by their time, not by their place in the list */ const pk = inB.filter((o) => mid(o) < m && flow(o)).sort((p, q) => p.b - q.b).pop();
+    const nx = inB.filter((o) => mid(o) >= m && flow(o)).sort((p, q) => p.a - q.a)[0];
+    const at = pk ? ks.indexOf(pk.id) + 1 : nx ? ks.indexOf(nx.id) : ks.length;
     ks.splice(at, 0, x.id);
     if (day !== x.from) it.when.date = day;
     if (prev && (prev.appt || I(prev.id).time)) it.behind = prev.id; else delete it.behind;
     syncDayOrders(x.id);
+    // the day I dropped it on shows it exactly where it was dropped
+    moveOnDay(x.id, day, b, idx);
   }, 'Moved ' + it.name + (day !== x.from ? ' to ' + fmtDate(day) : S.edit && !(it.when && it.when.mode === 'once') ? ' on every day' : ''));
 });
 
