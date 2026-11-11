@@ -967,6 +967,10 @@ html.dark .menu,html.dark .sheet{box-shadow:0 12px 32px rgba(0,0,0,.55)}
 html.dark #viewer.vwph{background:rgba(29,27,25,.3)}
 html.dark img{opacity:.96}
 html.dark .feelcard.empty{background:#33302C}html.dark .jcard .jct,html.dark .jct{color:var(--ink2)}html.dark .pjpdf{background:#3A3732}
+/* breaks (2026-11-11): a named stretch of a block, nothing to tick */
+.row.brkrow .brkic{width:22px;height:22px;display:flex;align-items:center;justify-content:center;color:var(--quiet);flex:none;margin-right:2px}
+.row.brkrow .lbl button{color:var(--quiet)}
+.tl .box.brk{background:transparent!important;border:1.5px dashed var(--deep,var(--quiet))!important;box-shadow:none!important}
 </style>
 <div class="phone" id="phone">
   <header class="top"><div class="ttl" id="ttl"></div><button class="hb" id="plusbtn" aria-label="Add something">+</button><button class="hb donebtn2" id="donebtn" aria-label="Done editing" hidden>Done</button><button class="hb" id="menubtn" aria-label="Menu">⋯</button></header>
@@ -1120,7 +1124,9 @@ function placements(ref) { const out = []; for (const [gid, g] of Object.entries
 function homeOf(ref) { return placements(ref)[0]; }
 // the colour comes from where the item lives (a room, a subject group, a project), not from the day block it was put in; only an item that
 // lives in a day block alone takes the block's colour (2026-11-11: circles changed colour when a chore went into a block)
-function colorOf(id) { const it = I(id); if (it && it.color) return it.color; const P = placements(id); const pl = P.find((p) => !(G(p) && (G(p).style === 'dayblock' || G(p).holds === 'slot'))) || P[0]; if (!pl) return '#9A9387'; if (pl.startsWith('s:')) return colorOf(pl.slice(2)); const g = G(pl); if (!g.color && g.style === 'project' && typeof hobOf === 'function' && G(hobOf(pl))) return G(hobOf(pl)).color; return g.color || '#9A9387'; }
+// a generic item without its own colour wears its section's (2026-11-11)
+const slotCol = (it) => { const o = it.opens; const A = M.areas || {}, P = M.pages || {}; return o === 'study' ? (A.study || {}).color : o === 'chores' ? (P.chores || A.home || {}).color : o === 'hobbies' ? (A.hobbies || {}).color : o === 'training' || o === 'move' ? (P.training || {}).color : null; };
+function colorOf(id) { const it = I(id); if (it && it.color) return it.color; if (it && it.type === 'slot' && slotCol(it)) return slotCol(it); const P = placements(id); const pl = P.find((p) => !(G(p) && (G(p).style === 'dayblock' || G(p).holds === 'slot'))) || P[0]; if (!pl) return '#9A9387'; if (pl.startsWith('s:')) return colorOf(pl.slice(2)); const g = G(pl); if (!g.color && g.style === 'project' && typeof hobOf === 'function' && G(hobOf(pl))) return G(hobOf(pl)).color; return g.color || '#9A9387'; }
 function blockOfItem(id) { const pl = placements(id).find((p) => G(p) && G(p).style === 'dayblock'); return pl || blockIds()[blockIds().length - 1]; }
 function blockAtTime(t) { const m = hm(t); return blockIds().find((b) => hm(G(b).start) <= m && m < hm(G(b).end)) || blockIds()[blockIds().length - 1]; }
 function placeName(p) { if (p.startsWith('s:')) return (I(p.slice(2)) || {}).name + ' (steps)'; const g = G(p); return g.style === 'dayblock' ? 'Day block · ' + g.name : g.style === 'acat' ? 'Appointments · ' + g.name : g.name; }
@@ -1144,25 +1150,28 @@ function whenOn(it, d) {
   if (w.mode !== 'once' && w.date && it.made && it.made < w.date && !(it.past || []).length) return Object.assign({}, w, { date: null });
   return w;
 }
-// Workout days (2026-11-11): a day with a training session or a trip on it (general movement like a walk doesn't count).
+// Always after (2026-11-11): a workout item names the tasks that always follow it (a shower after a hike). A task named
+// this way shows on every day one of its workouts is on, right after it, and its own rhythm counts on from there.
 const WKC = new Map();
-function workoutOn(d) { if (WKC.has(d)) return WKC.get(d); let r = false;
-  try { r = (typeof trainCats === 'function' ? trainCats().filter((c) => c !== 'tc-move').flatMap(kidsOf) : []).some((k) => I(k) && !I(k).afterTrain && onDay0(k, d)) || (typeof tripsOn === 'function' && tripsOn(d).length > 0); } catch (e) { r = false; }
-  WKC.set(d, r); return r; }
+function afterSrc() { if (WKC.has('_src')) return WKC.get('_src'); const m = {};
+  Object.keys(M.items).forEach((k) => (I(k).then || []).forEach((t) => { if (I(t) && t !== k) (m[t] = m[t] || []).push(k); })); WKC.set('_src', m); return m; }
+function workoutOn(d, id) { const key = d + '|' + id; if (WKC.has(key)) return WKC.get(key); let r = false;
+  try { r = (afterSrc()[id] || []).some((k) => onDay0(k, d)); } catch (e) { r = false; }
+  WKC.set(key, r); return r; }
 // a repeat from Home or Studies that I've never done stays off my days: I get through everything once first, from its own page
 const firstRound = (id) => { const it = I(id); if (!it || !it.when || it.when.mode === 'once' || it.type !== 'task') return false; if (it.when.set && it.when.date) return false; // a day I picked myself always counts (2026-11-11)
   if (!placements(id).some((p) => p === 'g-tend' || (G(p) && (G(p).style === 'room' || G(p).style === 'sgroup')))) return false; return !Object.keys(M.log).some((k) => val(k, id)); };
 function onDay(id, d) { const it = I(id); if (!it) return false;
   if (d >= T0 && firstRound(id)) return false;
-  if (!it.afterTrain || d < T0 || it.type === 'checkin') return onDay0(id, d);
+  if (!afterSrc()[id] || d < T0 || it.type === 'checkin') return onDay0(id, d);
   if (it.made && d < it.made) return false; if (it.end && d > it.end) return false;
   const w = it.when || {};
   // moved to a later day by hand (2026-11-11): nothing before that day, that day for sure, the usual rhythm after it
   const later = w.date && w.date > T0; if (later && d < w.date) return isDone(id, d); if (later && d === w.date) return true;
   // after every workout: it shows on each workout day, and its own rhythm counts on from there
-  if (workoutOn(d)) return true; if (w.mode !== 'every') return onDay0(id, d);
-  const n = Math.max(1, w.n || 1); const last = lastDoneBefore(id, T0); let anchor = later ? w.date : isDone(id, T0) || workoutOn(T0) || !last || diff(last, T0) >= n ? T0 : last; if (d === T0) return anchor === T0;
-  for (let x = addDays(anchor > T0 ? anchor : T0, 1); x <= d; x = addDays(x, 1)) { if (workoutOn(x) || diff(anchor, x) >= n) anchor = x; } return anchor === d; }
+  if (workoutOn(d, id)) return true; if (w.mode !== 'every') return onDay0(id, d);
+  const n = Math.max(1, w.n || 1); const last = lastDoneBefore(id, T0); let anchor = later ? w.date : isDone(id, T0) || workoutOn(T0, id) || !last || diff(last, T0) >= n ? T0 : last; if (d === T0) return anchor === T0;
+  for (let x = addDays(anchor > T0 ? anchor : T0, 1); x <= d; x = addDays(x, 1)) { if (workoutOn(x, id) || diff(anchor, x) >= n) anchor = x; } return anchor === d; }
 function onDay0(id, d) {
   const it = I(id); if (!it) return false;
   if (it.type === 'checkin') return true;
@@ -1213,14 +1222,15 @@ function dayList(d) { const out = dayListRaw(d); if (frozenOf(d)) return out;
   return out; }
 // A task set to follow every workout (a shower) goes right after the workout, in the same block when there's room for it, otherwise
 // first thing in the next block (2026-11-11). Room = the block's length against the minutes already in it.
-function afterWork(out, d) { if (typeof trainCats !== 'function') return; const W = new Set(trainCats().filter((c) => c !== 'tc-move').flatMap(kidsOf));
-  const after = out.flatMap((x) => x.items).filter((id) => I(id) && I(id).afterTrain); if (!after.length) return;
-  const bi = out.findIndex((x) => x.items.some((id) => W.has(id))); if (bi < 0) return;
+function afterWork(out, d) { const src = afterSrc();
+  const after = out.flatMap((x) => x.items).filter((id) => I(id) && src[id] && workoutOn(d, id)); if (!after.length) return;
   out.forEach((x) => { x.items = x.items.filter((id) => !after.includes(id)); });
-  const x = out[bi]; const g = G(x.b); const len = g && g.start && g.end ? hm(g.end) - hm(g.start) : 1e9;
-  const used = x.items.filter((id) => !I(id).time).reduce((t, id) => t + (I(id).dur || 30), 0) + after.reduce((t, id) => t + (I(id).dur || 30), 0);
-  const wi = x.items.reduce((p, id, i) => W.has(id) ? i : p, -1);
-  if (used <= len || bi === out.length - 1) x.items.splice(wi + 1, 0, ...after); else out[bi + 1].items.unshift(...after); }
+  // each workout takes its own followers along; a task that follows two workouts that day goes after the first one
+  const byW = new Map(); after.forEach((id) => { let at = null; out.some((x, bi) => x.items.some((k, i) => { if (src[id].includes(k)) { at = [bi, k]; return true; } return false; })); if (!at) { out[out.length - 1].items.push(id); return; } const key = at[1]; byW.set(key, (byW.get(key) || { bi: at[0], ids: [] })); byW.get(key).ids.push(id); });
+  byW.forEach(({ bi, ids }, wk) => { const x = out[bi]; const g = G(x.b); const len = g && g.start && g.end ? hm(g.end) - hm(g.start) : 1e9;
+    const used = x.items.filter((id) => !I(id).time).reduce((t, id) => t + (I(id).dur || 30), 0) + ids.reduce((t, id) => t + (I(id).dur || 30), 0);
+    const wi = x.items.indexOf(wk);
+    if (used <= len || bi === out.length - 1) x.items.splice(wi + 1, 0, ...ids); else out[bi + 1].items.unshift(...ids); }); }
 function dayListRaw(d, raw) {
   const fz = raw ? null : frozenOf(d);
   if (fz) { const out = blockIds().map((b) => ({ b, items: [], appts: [] })); fz.slice().sort((p, q) => p.a - q.a).forEach((o) => { const x = out.find((y) => y.b === o.blk); if (x) (o.appt ? x.appts : x.items).push(o.id); }); return dropMissed(slotDrop(out), d); }
@@ -1316,7 +1326,7 @@ const keeps = (k) => !!(I(k) && I(k).persist);
 // 'ln:<target>' = the item that ticked it, so unticking takes it off again, and a tick I made myself is never touched.
 const linkDone = (id, d) => { const it = I(id); const v = hval(d, id); if (!it) return false; if (it.type === 'tracker') return v === 'yes' || v === 'faced' || (typeof v === 'number' && v > 0) || (Array.isArray(v) && v.length > 0); return isDone(id, d); };
 const linkVal = (t) => { const it = I(t); return it.type === 'tracker' ? (it.scale === 'avoid' ? 'faced' : 'yes') : 'done'; };
-const LINKABLE = (k) => { const it = I(k); return !!it && ((it.type === 'tracker' && (it.scale === 'yesno' || it.scale === 'avoid')) || it.type === 'task' || it.type === 'routine'); };
+const LINKABLE = (k) => { const it = I(k); return !!it && !it.brk && ((it.type === 'tracker' && (it.scale === 'yesno' || it.scale === 'avoid')) || it.type === 'task' || it.type === 'routine'); };
 function linkPass(d) { const L0 = M.log[d] = M.log[d] || {};
   Object.keys(L0).filter((k) => k.startsWith('ln:')).forEach((k) => { const t = k.slice(3), src = L0[k]; if (!I(src) || !(I(src).links || []).includes(t) || !linkDone(src, d)) { delete L0[k]; delete L0[t]; } });
   Object.keys(M.items).forEach((id) => { const ls = I(id).links; if (!ls || !ls.length || !linkDone(id, d)) return; ls.forEach((t) => { if (!I(t) || t === id || L0[t] != null) return; L0[t] = linkVal(t); L0['ln:' + t] = id; }); });
@@ -1425,6 +1435,7 @@ function whereOf(id) { const it = I(id); const src = it && it.part && I(it.part)
 function itemRow(id, list, d) {
   const it = I(id); const live = d === T0;
   if (it.type === 'slot') return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, false)}<span class="lbl">${S.edit ? nm(id, it.name) : `<button data-a="${live ? 'slot' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left;display:flex;align-items:center;gap:8px"><span style="flex:1">${esc(it.name)}${live && it.opens === 'study' && supMin(T0) < sessLen() ? `<span class="tdur">${estHM(minOn(null, T0) / 60)} of ${estHM(sessLen() / 60)}</span>` : ''}${live && slotSub(it) ? `<span class="sub">${esc(slotSub(it))}</span>` : ''}</span>${live ? '<span class="chev" aria-hidden="true">›</span>' : ''}</button>`}</span>${tail(id, list)}</div>`;
+  if (it.brk) return `<div class="row brkrow" data-ref="${id}">${grip()}<span class="brkic" aria-hidden="true">${icon(it.icon || 'coffee', 16)}</span><span class="lbl">${S.edit ? nm(id, it.name) : `<button data-a="${live ? 'open' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left">${esc(it.name)}${tdur(it)}</button>`}</span>${tail(id, list)}</div>`;
   if (it.type === 'checkin') return `<div class="row" data-ref="${id}" data-fixed="1">${S.edit ? '<span class="grip"></span>' : ''}${tickCircle(id, d, live)}<button class="lbl" data-a="checkin" data-ref="${id}">${nm(id, it.name)}</button><span class="chev">›</span></div>`;
   const much = String(val(d, id) || '').startsWith('much');
   const late = live ? lateBy(id) : 0;
@@ -1503,7 +1514,7 @@ const uiIc = (key, def) => ((M.settings || {}).uiIcons || {})[key] || def;
 const mi = (key, def) => S.edit ? `<span class="miic" data-a="iconfor" data-v="ui:${key}" role="button" aria-label="Change this icon">${icon(uiIc(key, def), 18)}</span>` : icon(uiIc(key, def), 18);
 // what a day had on it and how much got done, kept for the calendar's marks. Counted after every change, wherever I tick
 // (a chore page, the + sheet, Studies), not only while Today is on screen, so yesterday's mark is always right (2026-11-10)
-function snapDay(d, DL) { DL = DL || dayList(d); const opt = (id) => !!(I(id) && I(id).optional); let due = missedOn(d).filter((id) => !opt(id)).length, done = 0; DL.forEach((x) => x.items.concat(x.appts || []).forEach((id) => { const dn = isDone(id, d); if (opt(id) && !dn) return; due++; if (dn) done++; })); /* an optional item only counts once it's done */ M.snap[d] = { due, done };
+function snapDay(d, DL) { DL = DL || dayList(d); const opt = (id) => !!(I(id) && I(id).optional); let due = missedOn(d).filter((id) => !opt(id)).length, done = 0; DL.forEach((x) => x.items.concat(x.appts || []).forEach((id) => { if (I(id) && I(id).brk) return; const dn = isDone(id, d); if (opt(id) && !dn) return; due++; if (dn) done++; })); /* an optional item only counts once it's done */ M.snap[d] = { due, done };
   // a bad day is finished when its own list and the day's appointments are done (2026-11-10: an empty Bad day list never finished)
   if (isBad(d)) { const bl = badList().concat(DL.flatMap((x) => x.appts || [])).filter((id, i, A) => A.indexOf(id) === i); Object.assign(M.snap[d], { bad: 1, bdue: bl.length, bdone: bl.filter((id) => isDone(id, d)).length }); }
   return M.snap[d]; }
@@ -1582,8 +1593,11 @@ function placeDay(d) {
     const fixed = allFixed.filter((f) => f.blk === b);
     allFixed.filter((f) => f.blk === b).forEach((f) => out.push(f));
     // a day's own order may say an item comes after an appointment: then it starts after that appointment ends
+    // ... and the same after an item with a set time (2026-11-11), even when that leaves room in front of it
     const o = ((M.dayOrder || {})[d] || {})[b] || []; const after = {};
-    (appts || []).forEach((ap) => { const k = o.indexOf(ap); if (k < 0) return; o.slice(k + 1).forEach((id) => { after[id] = Math.max(after[id] || 0, hm(I(ap).time || g.start) + (I(ap).dur || 30)); }); });
+    fixed.forEach((f) => { const k = o.indexOf(f.id); if (k < 0) return; o.slice(k + 1).forEach((id) => { after[id] = Math.max(after[id] || 0, f.b); }); });
+    // moved behind a set-time item for every day: it.behind names that item (a day's own order wins)
+    items.forEach((id) => { const bh = I(id).behind; if (!bh || o.includes(id)) return; const f = fixed.find((q) => q.id === bh); if (f) after[id] = Math.max(after[id] || 0, f.b); });
     items.filter((id) => !I(id).time).forEach((id) => { const len = I(id).dur || 30; let moved = true; if (after[id]) cur = Math.max(cur, after[id]);
       while (moved) { moved = false; fixed.forEach((f) => { if (cur < f.b && cur + len > f.a) { cur = f.b; moved = true; } }); }
       out.push({ id, a: cur, b: cur + len, blk: b }); cur += len; });
@@ -1596,7 +1610,7 @@ const DEFIC = { study: 'book-open', chores: 'spray-can', tend: 'sprout', prep: '
 const defKind = (id) => { const P = placements(id); return P.some((p) => G(p) && G(p).style === 'sgroup') ? 'study' : P.some((p) => p === 'g-oneoff' || (G(p) && G(p).style === 'room')) ? 'chores' : P.includes('g-tend') ? 'tend' : P.includes('g-prep') ? 'prep' : ''; };
 const defIcon = (id) => { const it = I(id); const k = defKind(it && it.part && I(it.part) ? it.part : id); return k ? uiIc('def-' + k, '') : ''; };
 const defBlock = (k) => { const b = ((M.settings || {}).defBlock || {})[k]; return b && G(b) && blockIds().includes(b) ? b : k === 'study' ? studyBlock0() : eveBlock(); };
-function boxIcon(o) { const it = I(o.id); return it.icon || defIcon(o.id) || (o.appt ? G(catOf(o.id)).icon : it.type === 'checkin' ? (it.which === 'morning' ? 'sun' : 'moon') : it.type === 'routine' ? (hm(G(blockOfItem(o.id)).start) >= 18 * 60 ? 'moon' : 'sun') : 'check'); }
+function boxIcon(o) { const it = I(o.id); return it.icon || (it.brk ? 'coffee' : '') || defIcon(o.id) || (o.appt ? G(catOf(o.id)).icon : it.type === 'checkin' ? (it.which === 'morning' ? 'sun' : 'moon') : it.type === 'routine' ? (hm(G(blockOfItem(o.id)).start) >= 18 * 60 ? 'moon' : 'sun') : 'check'); }
 function renderSchedule() {
   const dayV = S.sview === 'day'; const w0 = weekStart(S.sday);
   const days = dayV ? [S.sday] : [0, 1, 2, 3, 4, 5, 6].map((i) => addDays(w0, i));
@@ -1646,7 +1660,7 @@ function renderSchedule() {
       const fd = faded(di, o); const allFaded = [...Array(run).keys()].every((r) => faded(di + r, o));
       const lab = !dayV && !jl && run > 1 && ht >= 14 ? `<span class="blab ${ht >= 30 ? '' : 'brow'} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''}" data-run="${rk}" style="top:${top}px;height:${ht}px;width:calc(${run} * (100% + 4px) - 4px);color:${allFaded ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" aria-hidden="true">${icon(boxIcon(o), 12, 2)}${fits ? `<span class="bn">${esc(it.name)}</span>` : ''}</span>` : '';
       const mv = !o.appt && !it.time && it.type !== 'checkin' && d >= T0;
-      return `<button class="box ${dayV ? 'wide' : ''} ${mv ? 'mv' : ''} ${jl ? 'jl' : ''} ${jr ? 'jr' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}" style="top:${top}px;height:${ht}px;--c:${c};--bg:${fd ? mix(pale(c), TH.page, 0.5) : pale(c)};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" ${rk ? `data-run="${rk}"` : ''} data-from="${o.a}" data-to="${o.b}" aria-label="${esc(it.name)}, ${fmtHM(o.a)}">${inner}</button>${lab}`; }).join('') + '</div>';
+      return `<button class="box ${dayV ? 'wide' : ''} ${mv ? 'mv' : ''} ${jl ? 'jl' : ''} ${jr ? 'jr' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && I(o.id) && I(o.id).brk ? ' brk' : ''}" style="top:${top}px;height:${ht}px;--c:${c};--bg:${fd ? mix(pale(c), TH.page, 0.5) : pale(c)};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" ${rk ? `data-run="${rk}"` : ''} data-from="${o.a}" data-to="${o.b}" aria-label="${esc(it.name)}, ${fmtHM(o.a)}">${inner}</button>${lab}`; }).join('') + '</div>';
   });
   S.ymap = { y, h0, h1, zones: blockIds().filter((b) => OV[b]).map((b) => ({ b, top: yIn(ends[b], b), h: OV[b] / 60 * PX })) };
   h += '</div>';
@@ -1658,6 +1672,7 @@ function renderPlan() {
   const inPlan = (id) => placements(id).some((p) => p.startsWith('s:') || (G(p) && G(p).style === 'dayblock'));
   const F = S.planF || 'all';
   const tasks = Object.keys(M.items).filter((id) => ['task', 'routine'].includes(I(id).type) && !I(id).part && !(typeof hobArea === 'function' && hobArea(id)) && (F === 'home' ? homeItem(id) : F === 'plan' ? inPlan(id) && !homeItem(id) : inPlan(id) || homeItem(id)));
+  const brks = tasks.filter((id) => I(id).brk); tasks.splice(0, tasks.length, ...tasks.filter((id) => !I(id).brk));
   const nos = tasks.filter((id) => (I(id).when || {}).mode === 'once' && !I(id).when.date && !keeps(id) && !Object.keys(M.log).some((d) => val(d, id)));
   const per = tasks.filter((id) => keeps(id) && !repeatable(I(id)));
   const sch = tasks.filter((id) => (I(id).when || {}).mode === 'once' && I(id).when.date && (I(id).when.date >= T0 || onDay(id, T0))).sort((a, b) => I(a).when.date.localeCompare(I(b).when.date));
@@ -1670,7 +1685,7 @@ function renderPlan() {
   const FO = [['all', 'All'], ['plan', 'Planner'], ['home', 'Home']];
   const fbar = `<span class="vsortw"><button class="fbtn" data-a="planfopen" aria-label="Filter" aria-haspopup="menu" aria-expanded="${!!S.planFOpen}" aria-pressed="${fOn || !!S.planFOpen}">${icon('sliders-horizontal', 18)}</button>${S.planFOpen ? `<span class="vsortx" data-a="planfopen"></span><span class="vdrop vsortm" role="menu"><span class="mono">Show</span>${FO.map(([k, l]) => `<button role="menuitemradio" data-a="planf" data-v="${k}" aria-checked="${F === k}" aria-current="${F === k}">${l}${F === k ? icon('check', 16, 2) : ''}</button>`).join('')}</span>` : ''}</span>`;
   // one row over the categories: Add (a dropdown) on the left, the filter on the right (2026-11-04)
-  const AO = [['once', 'One-off task'], ['every', 'Repeat task'], ['routine', 'Routine']];
+  const AO = [['once', 'One-off task'], ['every', 'Repeat task'], ['routine', 'Routine'], ['break', 'Break']];
   // generic items (2026-11-11): they stand in on a day with nothing specific from their section, and open it to pick the real thing
   const GO = [['study', 'Studies'], ['chores', 'Chores'], ['hobbies', 'Hobbies'], ['training', 'Training']];
   const slots = Object.keys(M.items).filter((id) => I(id).type === 'slot' && placements(id).some((p) => G(p) && G(p).style === 'dayblock'));
@@ -1679,7 +1694,7 @@ function renderPlan() {
   const abar = `<span class="vsortw"><button class="fbtn" data-a="planaddopen" aria-label="Add" aria-haspopup="menu" aria-expanded="${!!S.planAddOpen}" aria-pressed="${!!S.planAddOpen}">${icon('plus', 18)}</button>${S.planAddOpen ? `<span class="vsortx" data-a="planaddopen"></span><span class="vdrop vsortm vaddm" role="menu">${AO.map(([k, l]) => `<button role="menuitem" data-a="new" data-v="${k}">${l}</button>`).join('')}<span class="mono">Generic</span>${GO.map(([k, l]) => `<button role="menuitem" data-a="slotadd" data-v="${k}">${l}</button>`).join('')}</span>` : ''}</span>`;
   if (S.open['p:Repeat'] === undefined) S.open['p:Repeat'] = false; // Repeat starts folded
   // an add icon on the left balances the filter icon (2026-11-08)
-  return `<div class="ptools">${abar}${fbar}</div>` + sec('Not scheduled', nos, 'Nothing waiting. Tasks without a date land here.') + sec('Scheduled', sch, 'No dated tasks yet.') + sec('Repeat', rep, 'No repeat tasks yet.') + (per.length ? sec('Persistent', per, '') : '') + (slots.length ? lcard('p:Generic', 'Generic', slots.length, slots.map(slotRow).join('')) : '');
+  return `<div class="ptools">${abar}${fbar}</div>` + sec('Not scheduled', nos, 'Nothing waiting. Tasks without a date land here.') + sec('Scheduled', sch, 'No dated tasks yet.') + sec('Repeat', rep, 'No repeat tasks yet.') + (per.length ? sec('Persistent', per, '') : '') + (brks.length ? sec('Breaks', brks, '') : '') + (slots.length ? lcard('p:Generic', 'Generic', slots.length, slots.map(slotRow).join('')) : '');
 }
 
 // Appointments: categories (Social is one of them), then Today / Coming up / Past.
@@ -1943,7 +1958,8 @@ function itemSheet(s) {
       <div class="fld"><span class="mono">Category</span><div class="chips">${G('g-appts').kids.filter(G).map((c) => `<button class="chip" style="--c:${G(c).color}" data-a="dset" data-k="cat" data-v="${c}" aria-pressed="${s.cat === c}"><span class="d"></span>${esc(G(c).name)}</button>`).join('')}</div></div>`;
   } else if (D.type !== 'checkin' && D.type !== 'step') {
     h += schedUI(s, D);
-    if (D.type === 'task' || D.type === 'routine') h += sw('afterTrain', 'After every workout', D.afterTrain) + sw('optional', 'Optional', D.optional) + ((D.when || {}).mode === 'once' ? sw('persist', 'Persistent', D.persist) : '');
+    if (D.brk) { if (s.ref && !s.isNew) h += `<div class="btns"><button class="btn danger" data-a="ddelete">Delete</button></div>`; return h; } // a break: a name, its time and length, its days
+    if (D.type === 'task' || D.type === 'routine') h += (isTrainSheet(s) ? afterField(D) : '') + sw('optional', 'Optional', D.optional) + ((D.when || {}).mode === 'once' ? sw('persist', 'Persistent', D.persist) : '');
     // study items: everything under Estimate waits behind More settings too (2026-11-06)
     if (isStudyItem(s, D)) s._more = h.length;
     if (isPrep(s)) { h += subField(s); s._more = h.length; }
@@ -2023,6 +2039,8 @@ function capture() { const s = S.sheet; if (!s || s.kind !== 'item') return; con
 function openItem(id) { const it = I(id); if (!it) return; if (it.type === 'step') { const r = placements(id)[0]; if (r) id = r.slice(2); } if (it.part && I(it.part)) id = it.part;
   const x = I(id); openSheet({ kind: 'item', ref: id, title: x.type === 'appt' ? 'Appointment' : x.type === 'routine' ? 'Routine' : x.type === 'checkin' ? 'Check-in' : 'Task', draft: JSON.parse(JSON.stringify(x)), block: placements(id).find((p) => G(p) && G(p).style === 'dayblock') || (vHomed({ ref: id }) ? '' : blockOfItem(id)), cat: catOf(id), parts: (x.parts || []).filter(I).map((p) => Object.assign({ id: p, date: (I(p).when || {}).date, min: I(p).dur || 30 }, I(p).time ? { time: I(p).time } : {})), steps: (x.steps || []).map((s) => ({ id: s, name: I(s).name })) }); }
 function newItem(mode, block) {
+  // Breaks (2026-11-11): a named stretch of a day block, like Lunch. It takes up time but there's nothing to tick.
+  if (mode === 'break') { openSheet({ kind: 'item', isNew: true, title: 'New break', draft: { name: '', brk: true, type: 'task', when: { mode: 'days', days: [0, 1, 2, 3, 4, 5, 6], n: 1, date: T0 }, made: T0, dur: 15, tags: [] }, block: block || blockIds()[0], steps: [] }); return; }
   const D = { name: '', type: mode === 'routine' ? 'routine' : 'task', when: mode === 'every' ? { mode: 'every', n: 1, date: T0 } : mode === 'routine' ? { mode: 'once', date: T0 } : { mode: 'once', date: mode === 'once' && S.page === 'plan' ? null : T0 }, kind: 'behaviour', tags: [], insight: mode !== 'once', made: T0, dur: 30 };
   openSheet({ kind: 'item', isNew: true, title: mode === 'routine' ? 'New routine' : mode === 'every' ? 'New repeat task' : 'New task', draft: D, block: block || blockIds()[blockIds().length - 1], steps: [] });
 }
@@ -2288,7 +2306,7 @@ document.addEventListener('contextmenu', (e) => { if (e.target.closest('#main'))
 let swp = null;
 document.addEventListener('pointerdown', (e) => { if (e.target.closest('.swmiss')) return; if (swp || drag || S.sheet || S.edit || S.area !== 'plan' || S.page !== 'today' || S.day !== T0 || e.button > 0) return;
   if (e.target.closest('.steps, .grip, [data-fixed]')) return; const row = e.target.closest('#view .row[data-ref], #view .appt[data-appt], #view div[data-ref] > .row'); if (!row) return;
-  const host = row.dataset.ref || row.dataset.appt ? row : row.parentElement; const id = host.dataset.ref || host.dataset.appt; if (!I(id) || I(id).type === 'checkin' || isDone(id, T0)) return;
+  const host = row.dataset.ref || row.dataset.appt ? row : row.parentElement; const id = host.dataset.ref || host.dataset.appt; if (!I(id) || I(id).type === 'checkin' || I(id).brk || isDone(id, T0)) return;
   swp = { row, id, x: e.clientX, y: e.clientY, on: false }; });
 document.addEventListener('pointermove', (e) => { const w = swp; if (!w) return; const dx = e.clientX - w.x, dy = e.clientY - w.y;
   if (!w.on) { if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { swp = null; return; } if (dx < -12 && Math.abs(dx) > Math.abs(dy) * 1.4) { w.on = true; if (lp) { clearTimeout(lp.t); lp = null; } w.row.style.transition = 'none'; } else return; }
@@ -2392,15 +2410,18 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
   suppress = true; setTimeout(() => { suppress = false; }, 300);
   const top = e.clientY - x.off * x.sc; x.el.style.transform = ''; x.el.classList.remove('lift');
   const cols = [...document.querySelectorAll('.tl .col[data-day]')]; const col = cols.find((c) => { const r = c.getBoundingClientRect(); return e.clientX >= r.left - 2 && e.clientX <= r.right + 2; }) || cols.find((c) => c.dataset.day === x.from);
-  if (!col) return; const day = col.dataset.day; const cr = col.getBoundingClientRect(); const m = minuteAt((top - cr.top) / x.sc + 2);
+  if (!col) return; const day = col.dataset.day; const cr = col.getBoundingClientRect();
+  // the middle of the box decides (2026-11-11): above another item's middle = in front of it, below = behind it
+  const m = minuteAt((top - cr.top) / x.sc + (x.el.offsetHeight || 0) / 2); const mid = (o) => (o.a + o.b) / 2;
   const it = I(x.id); const b = blockAtTime(fmtHM(m)); const g = G(b);
   if (day !== x.from && !(it.when && it.when.mode === 'once')) { flash('Repeats keep their days. Change the rule in its settings.'); render(); return; }
   if (day < T0) { flash('Past days stay as they were'); render(); return; }
   // the untimed items already in that block on that day, in time order; drop after the last one that starts before m
-  const before = placeDay(day).filter((o) => o.blk === b && !o.appt && !I(o.id).time && I(o.id).type !== 'checkin' && o.id !== x.id && o.a < m).map((o) => o.id);
+  const PD = placeDay(day); const before = PD.filter((o) => o.blk === b && !o.appt && !I(o.id).time && I(o.id).type !== 'checkin' && o.id !== x.id && mid(o) < m).map((o) => o.id);
+  const prev = PD.filter((o) => o.blk === b && I(o.id).type !== 'checkin' && o.id !== x.id && mid(o) < m).sort((p, q) => p.b - q.b).pop();
   if (!S.edit && day === x.from) {
     const cur = seqOf(day, b, x.id);
-    const idx = placeDay(day).filter((o) => o.blk === b && I(o.id).type !== 'checkin' && o.id !== x.id && o.a < m).length;
+    const idx = PD.filter((o) => o.blk === b && I(o.id).type !== 'checkin' && o.id !== x.id && mid(o) < m).length;
     change(() => moveOnDay(x.id, day, b, idx), 'Moved ' + it.name + ' on ' + fmtDate(day));
     return;
   }
@@ -2410,6 +2431,7 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
     const ev = ks.findIndex((k) => I(k) && I(k).which === 'evening'); if (at < 0) at = ev >= 0 ? ev : ks.length; if (ev >= 0 && at > ev) at = ev;
     ks.splice(at, 0, x.id);
     if (day !== x.from) it.when.date = day;
+    if (prev && (prev.appt || I(prev.id).time)) it.behind = prev.id; else delete it.behind;
     syncDayOrders(x.id);
   }, 'Moved ' + it.name + (day !== x.from ? ' to ' + fmtDate(day) : S.edit && !(it.when && it.when.mode === 'once') ? ' on every day' : ''));
 });
@@ -2572,7 +2594,7 @@ function migrate(m) {
   tMigrate(m); cMigrate(m); sSessMigrate(m); hMigrate(m); nMigrate(m); shMigrate(m); wMigrate(m); wMigrate2(m); wMigrate3(m); oeMigrate(m); oeMigrate2(m); remMigrate(m); // Training and Expeditions folders (2026-11-04)
   ciRepair(m);
   // 2026-11-11: snack day = the first snack logged in a week; training extras link to a training item, not a kind and distance
-  snackFix(m);
+  snackFix(m); afterFix(m);
   return m;
 }
 // the check-in questions live in the Morning and Evening tabs of Check-ins, and sleep quality in the Sleep group. An emptied app
@@ -2817,6 +2839,11 @@ function foodAnswers(d) {
 const KINDS3 = [['meal', 'Meal', 'Meals'], ['snack', 'Bite', 'Bites'], ['treat', 'Snack', 'Snacks']];
 const mealKind = (p) => p.kind || ((p.tags || []).includes('Snacks') ? 'snack' : (p.tags || []).includes('Treat') ? 'treat' : 'meal');
 function PLAN0() { return { week: [0, 1, 2, 3, 4, 5, 6].map(() => ({ meal: 2, snack: 2, treat: 0 })), extras: [{ id: 'x-snackday', name: 'Snack day', meal: 0, snack: 0, any: 0, treat: 1, weekly: true }, { id: 'x-sugar', name: 'Low blood sugar', meal: 0, snack: 0, any: 1 }, { id: 'x-light', name: 'Light hike', meal: 0, snack: 1, any: 0 }, { id: 'x-hike', name: 'Proper hike', meal: 1, snack: 1, any: 0 }], days: {} }; }
+// "After every workout" on a task became "Always after" on the workout items (2026-11-11): each workout (not general
+// movement) names the tasks that had the switch on
+function afterFix(m) { if (!m.settings || m.settings.after2) return; m.settings.after2 = true; const g = (m.groups || {})['g-train']; const its = m.items || {};
+  const W = g ? g.kids.filter((c) => c !== 'tc-move' && m.groups[c]).flatMap((c) => m.groups[c].kids.filter((k) => its[k])) : [];
+  Object.keys(its).forEach((t) => { if (!its[t].afterTrain) return; delete its[t].afterTrain; W.forEach((k) => { if (k === t) return; const a = its[k].then = its[k].then || []; if (!a.includes(t)) a.push(t); }); }); }
 function snackFix(m) { if (!(m.settings && m.settings.plan3) || m.settings.snack2) return; m.settings.snack2 = true; const p3 = m.settings.plan3; const sd = (p3.extras || []).find((x) => x.id === 'x-snackday'); if (sd) { sd.when = { src: 'treat' }; sd.weekly = true; }
     const tri = (m.groups['g-train'] ? m.groups['g-train'].kids : []).flatMap((c) => (m.groups[c] ? m.groups[c].kids : [])).filter((k) => m.items[k]);
     (p3.extras || []).forEach((x) => { if (x.when && x.when.src === 'train' && !x.when.id) { const k = tri.find((t) => (m.items[t].name || '').toLowerCase().includes((x.when.kind || '').toLowerCase())); if (k) x.when = { src: 'train', id: k }; else delete x.when; } }); }
@@ -2929,7 +2956,7 @@ function dayMeals(d) {
 // What shows under the calendar (2026-11-02): calendar closed = the picked day (today by default) with its plan;
 // calendar open = the log for the month, or for a picked week, or the picked day.
 function diarySheet() {
-  const F = S.fd; const d = F.day; const c = '#6FA24A';
+  const F = S.fd; const d = F.day; const c = (M.pages.food && M.pages.food.color) || '#6FA24A'; // the Food diary tab's own colour (2026-11-11)
   let h = foodCal();
   if (F.month && F.sel !== 'day') {
     const days = F.sel === 'week' ? [0, 1, 2, 3, 4, 5, 6].map((i) => addDays(F.week, i)) : monthGrid(F.monthOf);
@@ -3128,6 +3155,10 @@ function mcapture() { const p = curMeal(); const t = document.getElementById('me
 function tcapture() { const s = S.sheet; if (!s || s.kind !== 'tracker') return; const n = document.getElementById('dname'); if (n && n.value.trim()) s.draft.name = n.value.trim();
   document.querySelectorAll('[data-opt]').forEach((el) => { s.draft.options[+el.dataset.opt] = el.value; }); document.querySelectorAll('#layer [data-part]').forEach((el) => { s.draft.parts[+el.dataset.part] = el.value; }); }
 // the items this one ticks with it, in its editor: chips to take off, a list to add from
+const isTrainSheet = (s) => typeof trainCats === 'function' && ((s.home && trainCats().includes(s.home)) || (s.ref && trainCats().some((c) => kidsOf(c).includes(s.ref))));
+function afterField(D) { const L = (D.then || []).filter(I); const self = S.sheet && S.sheet.ref; const tr = new Set(trainCats().flatMap(kidsOf));
+  const all = Object.keys(M.items).filter((k) => k !== self && !L.includes(k) && !tr.has(k) && (I(k).type === 'task' || I(k).type === 'routine') && !I(k).part && !I(k).brk && !(!repeatable(I(k)) && everDone(k)) && placements(k).some((p) => G(p) && G(p).style === 'dayblock')).sort((a, b) => I(a).name.localeCompare(I(b).name));
+  return `<div class="fld"><span class="mono">Always after</span>${L.length ? `<div class="chips">${L.map((k) => `<button class="chip" data-a="afterrm" data-v="${k}" aria-label="Stop putting ${esc(I(k).name)} after it">${esc(I(k).name)} ✕</button>`).join('')}</div>` : ''}<select class="inp" data-afteradd="1" aria-label="Add a task that always comes after it" style="margin-top:6px"><option value="">+ Add a task</option>${all.map((k) => `<option value="${k}">${esc(I(k).name)}</option>`).join('')}</select></div>`; }
 function linkField2(D) { const L = (D.links || []).filter(I); const self = S.sheet && S.sheet.ref; const all = Object.keys(M.items).filter((k) => LINKABLE(k) && k !== self && !L.includes(k) && !(I(k).type === 'task' && !repeatable(I(k)) && everDone(k))).sort((a, b) => I(a).name.localeCompare(I(b).name));
   return `<div class="fld"><span class="mono">Also ticks</span>${L.length ? `<div class="chips">${L.map((k) => `<button class="chip" data-a="linkrm" data-v="${k}" aria-label="Stop ticking ${esc(I(k).name)}">${esc(I(k).name)} ✕</button>`).join('')}</div>` : ''}<select class="inp" data-linkadd="1" aria-label="Add an item it ticks" style="margin-top:6px"><option value="">+ Add an item</option>${all.map((k) => `<option value="${k}">${esc(I(k).name)}${I(k).type === 'tracker' ? ' · tag' : ''}</option>`).join('')}</select></div>`; }
 
@@ -3156,6 +3187,7 @@ function xcapture() { document.querySelectorAll('[data-xname]').forEach((el) => 
 document.addEventListener('change', (e) => { if (e.target.dataset && e.target.dataset.xname) { xcapture(); save(); return; }
   const ds = e.target.dataset || {};
   if (ds.fadd != null) { const w = e.target.value.trim().toLowerCase(); if (w && !feelSet().some((x) => x[2].includes(w))) change(() => { const set = JSON.parse(JSON.stringify(feelSet())); set[+ds.fadd][2].push(w); M.settings.feelings = set; }); renderLayer(); return; }
+  if (ds.afteradd) { const k = e.target.value; const s = S.sheet; if (k && s && s.draft) { capture(); s.draft.then = (s.draft.then || []).concat(k); } renderLayer(); return; }
   if (ds.linkadd) { const k = e.target.value; const s = S.sheet; if (k && s && s.draft) { if (s.kind === 'item') capture(); else tcapture(); s.draft.links = (s.draft.links || []).concat(k); } renderLayer(); return; }
   if (ds.badd) { const k = e.target.value; if (k) change(() => { const mp = mealPlan(); (mp.breaks = mp.breaks || []).push({ id: k, min: 1 }); }); renderLayer(); return; }
   if (ds.bmin) { const b = (mealPlan().breaks || []).find((x) => x.id === ds.bmin); if (b) change(() => { b.min = +e.target.value; }); renderLayer(); return; }
@@ -3228,6 +3260,7 @@ function healthAction(act, a, ref, v) {
     case 'tset': tcapture(); S.sheet.draft[a.dataset.k] = v; if (a.dataset.k === 'scale' && v === 'choices' && !(S.sheet.draft.options || []).length) S.sheet.draft.options = ['Option']; renderLayer(); return true;
     case 'ttag': { tcapture(); const tg = S.sheet.draft.tags = S.sheet.draft.tags || []; const i = tg.indexOf(v); if (i >= 0) tg.splice(i, 1); else tg.push(v); renderLayer(); return true; }
     case 'tcolor': tcapture(); if (v) S.sheet.draft.color = v; else delete S.sheet.draft.color; renderLayer(); return true;
+    case 'afterrm': { const s = S.sheet; if (s && s.draft) { capture(); s.draft.then = (s.draft.then || []).filter((x) => x !== v); if (!s.draft.then.length) delete s.draft.then; } renderLayer(); return true; }
     case 'linkrm': { const s = S.sheet; if (s && s.draft) { if (s.kind === 'item') capture(); else tcapture(); s.draft.links = (s.draft.links || []).filter((x) => x !== v); if (!s.draft.links.length) delete s.draft.links; } renderLayer(); return true; }
     case 'tpartadd': tcapture(); (S.sheet.draft.parts = S.sheet.draft.parts || []).push(''); renderLayer(); { const el = [...document.querySelectorAll('#layer [data-part]')].pop(); if (el) el.focus(); } return true;
     case 'tpartrm': tcapture(); S.sheet.draft.parts.splice(+v, 1); renderLayer(); return true;
@@ -3328,7 +3361,7 @@ function slotAdd(k) { const DEF = { study: ['sl-study', 'Study session', 'gradua
   const placed = I(id) && placements(id).some((p) => G(p) && G(p).style === 'dayblock');
   S.sheet = null; S.planAddOpen = false;
   if (placed) { render(); flash(I(id).name + ' is already on my days'); return; }
-  change(() => { if (!M.items[id]) M.items[id] = { name, type: 'slot', opens: k, when: { mode: 'every', n: 1 }, icon: ic, color, dur, made: T0 };
+  change(() => { if (!M.items[id]) M.items[id] = { name, type: 'slot', opens: k, when: { mode: 'every', n: 1 }, icon: ic, dur, made: T0 };
     const gs = M.groups['g-slots'] = M.groups['g-slots'] || { name: 'Slots', holds: 'slot', kids: [] }; if (!gs.kids.includes(id)) gs.kids.push(id);
     if (blk && G(blk) && !G(blk).kids.includes(id)) G(blk).kids.push(id); }, 'Added ' + name); }
 function slotRm(id) { const n = (I(id) || {}).name; change(() => { Object.values(M.groups).forEach((g) => { if (g && g.kids && (g.style === 'dayblock' || g.holds === 'slot')) g.kids = g.kids.filter((x) => x !== id); }); delete M.items[id]; }, 'Removed ' + n); }
@@ -3909,7 +3942,7 @@ const iavg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
 const ITICK = ['task', 'step', 'routine'];
 // trackers a circle can count (2026-11-08: Insight gathers items from tags, so a Sleep tag brings Sleep quality and the sleep tags too)
 const insTrkOk = (k) => { const it = I(k); return !!it && it.type === 'tracker' && (SCALES[it.scale] || ['yesno', 'avoid'].includes(it.scale)); };
-const insCountable = (k) => !!I(k) && (ITICK.includes(I(k).type) || insTrkOk(k));
+const insCountable = (k) => !!I(k) && !I(k).brk && (ITICK.includes(I(k).type) || insTrkOk(k));
 const insTagged = (tags) => Object.keys(M.items).filter((k) => (I(k).tags || []).some((t) => (tags || []).includes(t)));
 // how often an item is meant to happen: num0 times in den0 days (Loop's frequency)
 function insFreq(id) { const it = I(id); let w = it.when;
@@ -4503,10 +4536,10 @@ function insName(D, k) { return { avoid: 'Avoidance', health: 'Health', feel: 'F
 // setting up my own circle: name, colour, and the things it counts
 function inscSheet(s) { const D0 = s.draft; const Dd = insightData(); let groups;
   if (s.target === 'health') { const hs = Object.keys(M.items).filter((k) => I(k).type === 'tracker' && SCALES[I(k).scale] && I(k).scale !== 'symptom3'); groups = [['Health items', D0.ids.filter((k) => hs.includes(k)).concat(hs.filter((k) => !D0.ids.includes(k)))]]; }
-  else { const own = (c) => { const ids = Object.keys(M.items).filter((k) => ITICK.includes(I(k).type)); const t = c.key; // the circle's own starting set, before my picks
+  else { const own = (c) => { const ids = Object.keys(M.items).filter((k) => ITICK.includes(I(k).type) && !I(k).brk); const t = c.key; // the circle's own starting set, before my picks
       if (t.startsWith('r:')) return [t.slice(2)].concat(I(t.slice(2)) ? I(t.slice(2)).steps || [] : []).filter((k) => ids.includes(k)); return c.ids; };
     groups = Dd.circles.filter((c) => !c.mine).map((c) => [c.name, own(c)]); const seen = new Set(groups.flatMap((g) => g[1]));
-    const rest = Object.keys(M.items).filter((k) => ITICK.includes(I(k).type) && !seen.has(k)); if (rest.length) groups.push(['Other', rest]);
+    const rest = Object.keys(M.items).filter((k) => ITICK.includes(I(k).type) && !I(k).brk && !seen.has(k)); if (rest.length) groups.push(['Other', rest]);
     const trk = Object.keys(M.items).filter(insTrkOk); if (trk.length) groups.push(['Health', trk]); }
   return `${s.target === 'health' ? '' : `<div class="fld"><span class="mono">Name</span><input class="inp" id="iscname" value="${esc(D0.name)}" placeholder="e.g. Self-care" data-autofocus></div>`}
     <div class="fld"><span class="mono">Colour</span>${colorField('draft', D0.color)}</div>

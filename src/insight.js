@@ -12,7 +12,7 @@ const iavg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
 const ITICK = ['task', 'step', 'routine'];
 // trackers a circle can count (2026-11-08: Insight gathers items from tags, so a Sleep tag brings Sleep quality and the sleep tags too)
 const insTrkOk = (k) => { const it = I(k); return !!it && it.type === 'tracker' && (SCALES[it.scale] || ['yesno', 'avoid'].includes(it.scale)); };
-const insCountable = (k) => !!I(k) && (ITICK.includes(I(k).type) || insTrkOk(k));
+const insCountable = (k) => !!I(k) && !I(k).brk && (ITICK.includes(I(k).type) || insTrkOk(k));
 const insTagged = (tags) => Object.keys(M.items).filter((k) => (I(k).tags || []).some((t) => (tags || []).includes(t)));
 // how often an item is meant to happen: num0 times in den0 days (Loop's frequency)
 function insFreq(id) { const it = I(id); let w = it.when;
@@ -606,10 +606,10 @@ function insName(D, k) { return { avoid: 'Avoidance', health: 'Health', feel: 'F
 // setting up my own circle: name, colour, and the things it counts
 function inscSheet(s) { const D0 = s.draft; const Dd = insightData(); let groups;
   if (s.target === 'health') { const hs = Object.keys(M.items).filter((k) => I(k).type === 'tracker' && SCALES[I(k).scale] && I(k).scale !== 'symptom3'); groups = [['Health items', D0.ids.filter((k) => hs.includes(k)).concat(hs.filter((k) => !D0.ids.includes(k)))]]; }
-  else { const own = (c) => { const ids = Object.keys(M.items).filter((k) => ITICK.includes(I(k).type)); const t = c.key; // the circle's own starting set, before my picks
+  else { const own = (c) => { const ids = Object.keys(M.items).filter((k) => ITICK.includes(I(k).type) && !I(k).brk); const t = c.key; // the circle's own starting set, before my picks
       if (t.startsWith('r:')) return [t.slice(2)].concat(I(t.slice(2)) ? I(t.slice(2)).steps || [] : []).filter((k) => ids.includes(k)); return c.ids; };
     groups = Dd.circles.filter((c) => !c.mine).map((c) => [c.name, own(c)]); const seen = new Set(groups.flatMap((g) => g[1]));
-    const rest = Object.keys(M.items).filter((k) => ITICK.includes(I(k).type) && !seen.has(k)); if (rest.length) groups.push(['Other', rest]);
+    const rest = Object.keys(M.items).filter((k) => ITICK.includes(I(k).type) && !I(k).brk && !seen.has(k)); if (rest.length) groups.push(['Other', rest]);
     const trk = Object.keys(M.items).filter(insTrkOk); if (trk.length) groups.push(['Health', trk]); }
   return `${s.target === 'health' ? '' : `<div class="fld"><span class="mono">Name</span><input class="inp" id="iscname" value="${esc(D0.name)}" placeholder="e.g. Self-care" data-autofocus></div>`}
     <div class="fld"><span class="mono">Colour</span>${colorField('draft', D0.color)}</div>
