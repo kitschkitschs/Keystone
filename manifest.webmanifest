@@ -1,6 +1,6 @@
 {
-  "name": "Daybook",
-  "short_name": "Daybook",
+  "name": "Almanac",
+  "short_name": "Almanac",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

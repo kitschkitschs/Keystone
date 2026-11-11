@@ -1,4 +1,5 @@
 # Backup files hold personal data. Never commit them.
+almanac-*.txt
 daybook-*.txt
 keystone-*.txt
 node_modules/

@@ -15,6 +15,9 @@ async function hostBoot() {
   try { for (const [k, b] of await DBK.fileAll()) FILES[k] = URL.createObjectURL(b); } catch (e) {}
   try { const s = LS_ONLY ? null : await DBK.get('model'); if (s) M = migrate(JSON.parse(s)); else if (!HAD_LS) M = blank(); } catch (e) {} // a new phone starts empty, never with examples
   try { BK.at = (await DBK.get('backupAt')) || 0; BK.first = (await DBK.get('firstAt')) || 0; if (!BK.first) { BK.first = Date.now(); DBK.set('firstAt', BK.first); } } catch (e) {}
+  // The first day's hosted build started with leftover example categories. A phone that still has them and nothing logged starts clean instead.
+  try { if (!M.settings.clean1) { const used = Object.values(M.log || {}).some((d) => Object.keys(d).length) || [M.journal, M.notes, M.shop, M.words, M.reminders, M.trips, M.conds, M.events].some((a) => (a || []).length) || Object.keys(M.photos || {}).length || Object.keys(M.feel || {}).length;
+      if (!used && M.items['tr-anx'] && M.groups['rm-kitchen'] && M.groups['h-knit']) M = blank(); M.settings.clean1 = true; } } catch (e) {}
   freezePast(); save(); render();
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {} // ask the browser not to clear my data when space runs low
   try { if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {}
@@ -30,11 +33,11 @@ function bkMenu() { if (!HOSTED) return ""; return `<button role="menuitem" data
 function bkDot() { const b = document.getElementById('menubtn'); if (b) b.classList.toggle('dot', bkDue()); }
 const b64 = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(blob); });
 async function bkText() { const files = {}; if (HOSTED) for (const [k, b] of await DBK.fileAll()) files[k] = { type: b.type || '', data: await b64(b) };
-  return JSON.stringify({ format: 'daybook-backup', version: 1, savedAt: new Date().toISOString(), model: M, files }); }
+  return JSON.stringify({ format: 'almanac-backup', version: 1, savedAt: new Date().toISOString(), model: M, files }); }
 // On the phone the share menu opens, so the file can go straight to Proton Drive; on a computer it downloads.
 // The file ends in .txt because Chrome won't share .json files.
 async function bkSave() {
-  try { const text = await bkText(); const d = new Date(); const name = 'daybook-' + iso(d) + '-' + nowHM().replace(':', '') + '.txt'; const file = new File([text], name, { type: 'text/plain' });
+  try { const text = await bkText(); const d = new Date(); const name = 'almanac-' + iso(d) + '-' + nowHM().replace(':', '') + '.txt'; const file = new File([text], name, { type: 'text/plain' });
     const phone = navigator.userAgentData ? navigator.userAgentData.mobile : /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
     if (phone && navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: name }); } catch (e) { if (e.name === 'AbortError') return; throw e; } }
     else { const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000); }
@@ -42,9 +45,9 @@ async function bkSave() {
   } catch (e) { flash('Could not save the backup'); }
 }
 function bkPick() { const f = document.createElement('input'); f.type = 'file'; f.accept = '.txt,.json,text/plain,application/json'; f.onchange = async () => { const file = f.files && f.files[0]; if (!file) return;
-    try { const b = JSON.parse(await file.text()); if (!b || b.format !== 'daybook-backup' || !b.model || !b.model.groups) throw 0; BK.pending = b;
+    try { const b = JSON.parse(await file.text()); if (!b || !/^(almanac|daybook)-backup$/.test(b.format) || !b.model || !b.model.groups) throw 0; BK.pending = b;
       S.ask = { q: 'Replace everything on this phone with the backup from ' + lowDay(String(b.savedAt).slice(0, 10)) + '?', yes: 'Load it', data: { a: 'bkapply' } }; renderLayer(); }
-    catch (e) { flash('That file isn’t a Daybook backup'); } }; f.click(); }
+    catch (e) { flash('That file isn’t an Almanac backup'); } }; f.click(); }
 async function bkApply() { const b = BK.pending; BK.pending = null; if (!b) return;
   try { if (HOSTED) { await DBK.fileClear(); Object.keys(FILES).forEach((k) => { URL.revokeObjectURL(FILES[k]); delete FILES[k]; });
       for (const [k, f] of Object.entries(b.files || {})) { const bytes = Uint8Array.from(atob(f.data), (c) => c.charCodeAt(0)); const blob = new Blob([bytes], { type: f.type }); await DBK.filePut(k, blob); FILES[k] = URL.createObjectURL(blob); } }
@@ -76,7 +79,7 @@ async function remSub() { if (!remCan() || Notification.permission !== 'granted'
 // asks for permission and signs this phone up; has to start from a tap
 async function remTurnOn() {
   if (!remCan()) { flash('Notifications aren’t available here'); return; }
-  try { if ((await Notification.requestPermission()) !== 'granted') { flash('Notifications are blocked for Daybook in the browser’s settings'); render(); return; }
+  try { if ((await Notification.requestPermission()) !== 'granted') { flash('Notifications are blocked for Almanac in the browser’s settings'); render(); return; }
     const reg = await navigator.serviceWorker.ready; let sub = await reg.pushManager.getSubscription();
     if (!sub) { const { publicKey } = await remSend('/public-key'); sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: Uint8Array.from(atob(publicKey.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)) }); }
     REM.sub = true; await remSync(true);

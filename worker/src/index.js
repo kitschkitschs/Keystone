@@ -13,7 +13,7 @@
 //     { time: "13:00", date: "2026-11-14" } (that one day only).
 //     A slot may carry skip: "2026-11-11", a day to stay quiet on (the thing
 //     was already done that day).
-// It never sees reminder texts, item names or any other Daybook data.
+// It never sees reminder texts, item names or any other Almanac data.
 // The pings are empty, so there is nothing in them to read.
 //
 // Addresses the app talks to:

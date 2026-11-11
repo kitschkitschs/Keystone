@@ -110,6 +110,13 @@ function blank() { const m = seed(); m.example = false; m.items = {}; m.log = {}
   m.study = {}; m.support = {}; m.trips = []; m.notes = []; m.journal = []; m.words = []; m.shop = []; m.shopLists = [{ id: 'sl-main', name: 'To get' }]; m.reminders = [];
   Object.keys(m.groups).filter((k) => m.groups[k].style === 'project').forEach((k) => { delete m.groups[k]; });
   Object.values(m.groups).forEach((g) => { g.kids = g.kids.filter((k) => m.groups[k] || m.items[k]); });
+  // Empty means EMPTY (2026-11-10/11): no symptoms, tags, social trackers, slots, rooms, subjects or hobbies either.
+  // What stays: the day blocks, the two routines with their check-ins, and the check-in questions.
+  const keep = ['ci-m', 'ci-e', 'r-morning', 'r-evening', 'tr-sleep', 'tr-mmood', 'tr-mmot', 'tr-mood', 'tr-mot', 'tr-energy', 'tr-prod'];
+  Object.keys(m.items).forEach((k) => { if (!keep.includes(k)) delete m.items[k]; });
+  Object.keys(m.groups).forEach((k) => { if (['room', 'subject', 'sgroup', 'hobby'].includes(m.groups[k].style)) delete m.groups[k]; });
+  Object.values(m.groups).forEach((g) => { g.kids = g.kids.filter((k) => m.groups[k] || m.items[k]); });
+  m.tags = {};
   return m; }
 
 const LAYOUT_V = 4; // bump when placeDay's rules change, so past snapshots are retaken
