@@ -140,6 +140,8 @@ function insightData() {
     D.info[t] = { lo: 1, hi: SCALES[sc].length, words: SCALES[sc] }; });
   D.symptoms = trackers.filter((t) => I(t).scale === 'symptom3');
   D.sym = {}; D.symptoms.forEach((t) => { D.sym[t] = days.map((d, k) => { const v = insVal(D, d, t); return typeof v === 'number' ? v : D.logged[k] ? 0 : null; }); });
+  // the load of a set of symptoms on a day: the worst one, or 4 when three or more are distressing with one debilitating
+  D.loadFor = (ids, k) => { if (!D.logged[k]) return null; const vs = ids.map((s0) => (D.sym[s0] ? D.sym[s0][k] : 0) || 0); const mx = Math.max(0, ...vs); return mx === 3 && vs.filter((v) => v >= 2).length >= 3 ? 4 : mx; };
   D.areas = trackers.filter((t) => I(t).scale === 'avoid');
   D.av = {}; D.areas.forEach((t) => { D.av[t] = days.map((d) => { const v = insVal(D, d, t); return v === 'faced' ? 1 : v === 'avoided' ? 0 : null; }); });
   // trackers in a circle: a ring each, its value = the average over the last 30 logged days (scales between their ends,
@@ -150,6 +152,9 @@ function insightData() {
         if (sc === 'symptom3') return typeof v === 'number' ? 1 : D.logged[k] ? 0 : null; const n = SCALES[sc].length; return typeof v === 'number' ? (v - 1) / (n - 1) : null; });
       const k0 = vals.findIndex((v) => v != null); if (k0 < 0) return null;
       return { id, name: it.name, trk: true, sym: sc === 'symptom3', vals, k0, strength: avRoll([vals]), states: vals.map((v) => v == null ? 'skip' : v > 0 ? 'done' : 'miss') }; }).filter(Boolean);
+    // I track many symptoms (2026-11-11): in a circle's rings they are one line, the average load of all its symptoms
+    { const sy = c.trk.filter((t) => t.sym).map((t) => t.id); const lv = sy.length ? days.map((d, k) => { if (d > T0) return null; const v = D.loadFor(sy, k); return v == null ? null : v / 4; }) : null;
+      c.trkR = c.trk.filter((t) => !t.sym).concat(lv && lv.some((v) => v != null) ? [{ name: 'Symptom load', strength: avRoll([lv]) }] : []); }
     // yes/no tags can be good or bad, so the circle's % leans on ticks and scales; tags only when there's nothing else
     const sc = c.trk.filter((t) => !t.sym && ['avoid'].concat(Object.keys(SCALES)).includes(I(t.id).scale)); let parts = c.all.concat(sc); if (!parts.length) parts = c.trk.filter((t) => !t.sym); if (c.trk.length) c.strength = days.map((_, k) => iavg(parts.map((h) => h.strength[k]))); });
   // everything that can go together, one value per day (null = not known that day)
@@ -334,10 +339,13 @@ function renderInsight() {
     if (D.areas.length) T.avoid = wrap('avoid', 'Avoidance', ihorizon(avoidV, 132, 30, avoidS.none), ipct(avoidV), [['ic:sun', SUN, 'showed up'], ['ic:shadow', SHADOW, 'avoided']]);
     if (ms.length) tile('Health', ms.slice(0, 5).map((m, k) => ({ label: I(m).name, v: mAvg(m), c: ciCol(k) })), ipct(healthV), '30 days', 'health', '', [['ic:health', CI_Y, 'Health']], true);
     if (D.feel.some((w) => w.length)) tile('Feelings', D.fams.map((x) => ({ label: x.f, v: fShare(x), c: x.c })), fDays() + '/30', 'days', 'feel', '', D.fams.map((x) => ['fc:' + x.f, x.c, x.f]));
-    if (D.symptoms.length) { const SY = '#E0644E'; const sAvg = (id) => { const v = D.sym[id].slice(-30).filter((x) => x != null); return v.length ? iavg(v) / 3 : 0; }; const ld = loads.slice(-30).filter((x) => x != null);
-      tile('Symptoms', D.symptoms.slice().sort((a, b) => sAvg(b) - sAvg(a)).slice(0, 5).map((id, k) => ({ label: I(id).name, v: sAvg(id), c: tint(SY, Math.min(0.66, k * 0.16)) })), ld.length ? (Math.round(iavg(ld) * 10) / 10).toFixed(1) : '0', 'load, 30 days', 'symptoms'); }
+    if (D.symptoms.length) { const SY = '#E0644E'; const ld = loads.slice(-30).filter((x) => x != null);
+      // one load line per symptom group (Mental, Physical, Behavioural): its average load over the last 30 logged days
+      const grp = {}; D.symptoms.forEach((id) => { const g = Object.keys(M.groups).find((k) => G(k).kids.includes(id)); const key = g && G(g).style === 'htab' ? g : 'all'; (grp[key] = grp[key] || []).push(id); });
+      const gAvg = (ids) => { const v = []; for (let k = N - 30; k < N; k++) { const x = D.loadFor(ids, k); if (x != null) v.push(x); } return v.length ? iavg(v) / 4 : 0; };
+      tile('Symptoms', Object.entries(grp).slice(0, 5).map(([g, ids], k) => ({ label: g === 'all' ? 'Symptoms' : G(g).name, v: gAvg(ids), c: tint(SY, Math.min(0.66, k * 0.2)) })), ld.length ? (Math.round(iavg(ld) * 10) / 10).toFixed(1) : '0', 'load, 30 days', 'symptoms'); }
     if (D.over.length) tile('Too much', D.over.slice(0, 5).map((id) => ({ label: I(id).name, v: mShare(id), c: MUCH_C })).map((r, k) => Object.assign(r, { c: tint(MUCH_C, Math.min(0.66, k * 0.16)) })), String(mDays('any')), 'days, 30', 'much', '', [['ic:much', MUCH_C, 'Too much'], ['ic:hyper', HYPER_C, 'hyperfixation'], ['ic:inert', INERT_C, 'inertia']]);
-    D.circles.forEach((c) => { const rs = (c.tileRings || c.all.map((hb) => ({ label: hb.name, v: hb.strength[last] }))).concat(c.trk.map((t) => ({ label: t.name, v: t.strength[last] }))).slice(0, 5); tile(c.name, shades(c, rs), ipct(c.strength[last]), c.ids.length === 1 ? '1 item' : c.ids.length + ' items', 'cat:' + c.key, '', [['ic:c:' + c.key, c.color, c.name]], true); });
+    D.circles.forEach((c) => { const rs = (c.tileRings || c.all.map((hb) => ({ label: hb.name, v: hb.strength[last] }))).concat(c.trkR.map((t) => ({ label: t.name, v: t.strength[last] }))).slice(0, 5); tile(c.name, shades(c, rs), ipct(c.strength[last]), c.ids.length === 1 ? '1 item' : c.ids.length + ' items', 'cat:' + c.key, '', [['ic:c:' + c.key, c.color, c.name]], true); });
     { const run = expList().filter((e) => !expResult(D, e).done).length; // Experiments at the top (2026-11-08)
       h += `<div class="ilist iexp">${irow({ label: 'Experiments', muted: run ? run + ' running' : expList().length ? 'none running' : 'none yet', go: 'exp' })}</div>`; }
     const order = insOrder(Object.keys(T)); const hid = M.settings.insHidden || [];
@@ -351,7 +359,7 @@ function renderInsight() {
       if (dn) return { state: 'done', t: dn / sts.length, c: acc }; return { state: sts.every((x) => x === 'skip') ? 'skip' : 'miss' }; });
     const full = share.slice(-30).filter((x) => x.state === 'done' && x.t === 1).length;
     const perWeek = Array.from({ length: 16 }, (_, w) => iavg(share.slice(N - (16 - w) * 7, N - (15 - w) * 7).filter((x) => x.state !== 'skip').map((x) => x.state === 'done' ? x.t : 0)));
-    h += iringSet([{ label: 'All', v: series[last], c: acc }].concat(shades(c, (c.tileRings || hs.map((hb) => ({ label: hb.name, v: hb.strength[last] }))).concat(c.trk.map((t) => ({ label: t.name, v: t.strength[last] }))).slice(0, 9)).map((r, k) => Object.assign(r, { c: tint(acc, Math.min(0.66, 0.12 + k * 0.16)) }))), ipct(series[last]), c.ids.length === 1 ? '1 item' : c.ids.length + ' items');
+    h += iringSet([{ label: 'All', v: series[last], c: acc }].concat(shades(c, (c.tileRings || hs.map((hb) => ({ label: hb.name, v: hb.strength[last] }))).concat(c.trkR.map((t) => ({ label: t.name, v: t.strength[last] }))).slice(0, 9)).map((r, k) => Object.assign(r, { c: tint(acc, Math.min(0.66, 0.12 + k * 0.16)) }))), ipct(series[last]), c.ids.length === 1 ? '1 item' : c.ids.length + ' items');
     h += istats([[ipct(series[last]), hs.length ? 'strength' : 'average'], [isigned(series[last] - series[last - 30]), 'this month'], [isigned(series[last] - series[0]), 'this year']].concat(hs.length ? [[String(full), 'full days, 30']] : []));
     if (hs.length) h += ilab('How much got done', '26 weeks') + ical(D, share) + ikey([[ibead('done', 1, acc), 'all done'], [ibead('done', 0.2, acc), 'some'], [ibead('miss'), 'none done'], [ibead('skip'), 'skipped']]);
     if (hs.length) h += ilab('Share done per week', '16 weeks') + icols(perWeek, perWeek.map((v) => Math.round(v * 100)), acc);

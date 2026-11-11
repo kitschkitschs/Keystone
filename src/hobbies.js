@@ -161,7 +161,7 @@ function rollPool(h) { const P = openProjs(h); const cov = P.map((p) => G(p).act
 function rollPick(h) { const L = rollPool(h); return L.length ? L[Math.floor(Math.random() * L.length)] : null; }
 function suggestion(h) { if (!G(h)) return null; const g = G(h); const L = rollPool(h); const ld = hobLast(h);
   const pk = L.includes(S.rollPick) ? S.rollPick : L[0]; const pj = pk && G(pk) ? pk : null; const act = pk && I(pk) ? pk : null;
-  return { hobby: g.name, color: g.color, text: pj ? 'Work on ' + G(pj).name : act ? I(act).name : 'Some ' + g.name.toLowerCase(), sub: ld ? 'Last done ' + agoText(ld) : 'Not done yet', go: pj || null, act }; }
+  return { hobby: g.name, color: g.color, text: pj ? 'Work on ' + G(pj).name.toLowerCase() : act ? I(act).name : 'Some ' + g.name.toLowerCase(), sub: ld ? 'Last done ' + agoText(ld) : 'Not done yet', go: pj || null, act }; }
 // Worked on it: a project gets today as a day I worked on it, and the activity it covers counts as done today
 function projWork(p) { const x = G(p); if (!x) return; const was = (x.worked || []).includes(T0);
   change(() => { if (was) { x.worked = x.worked.filter((d) => d !== T0); if (x.workAuto === T0 && x.act && M.log[T0]) { delete M.log[T0][x.act]; } delete x.workAuto; }

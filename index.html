@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-GB">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
 <meta name="theme-color" content="#F2EFEA">
@@ -1139,7 +1139,23 @@ function whenOn(it, d) {
   if (w.mode !== 'once' && w.date && it.made && it.made < w.date && !(it.past || []).length) return Object.assign({}, w, { date: null });
   return w;
 }
-function onDay(id, d) {
+// Workout days (2026-11-11): a day with a training session or a trip on it (general movement like a walk doesn't count).
+const WKC = new Map();
+function workoutOn(d) { if (WKC.has(d)) return WKC.get(d); let r = false;
+  try { r = (typeof trainCats === 'function' ? trainCats().filter((c) => c !== 'tc-move').flatMap(kidsOf) : []).some((k) => I(k) && !I(k).afterTrain && onDay0(k, d)) || (typeof tripsOn === 'function' && tripsOn(d).length > 0); } catch (e) { r = false; }
+  WKC.set(d, r); return r; }
+// a repeat from Home or Studies that I've never done stays off my days: I get through everything once first, from its own page
+const firstRound = (id) => { const it = I(id); if (!it || !it.when || it.when.mode === 'once' || it.type !== 'task') return false;
+  if (!placements(id).some((p) => p === 'g-tend' || (G(p) && (G(p).style === 'room' || G(p).style === 'sgroup')))) return false; return !Object.keys(M.log).some((k) => val(k, id)); };
+function onDay(id, d) { const it = I(id); if (!it) return false;
+  if (d >= T0 && firstRound(id)) return false;
+  if (!it.afterTrain || d < T0 || it.type === 'checkin') return onDay0(id, d);
+  if (it.made && d < it.made) return false; if (it.end && d > it.end) return false;
+  // after every workout: it shows on each workout day, and its own rhythm counts on from there
+  if (workoutOn(d)) return true; const w = it.when || {}; if (w.mode !== 'every') return onDay0(id, d);
+  const n = Math.max(1, w.n || 1); const last = lastDoneBefore(id, T0); let anchor = isDone(id, T0) || workoutOn(T0) || !last || diff(last, T0) >= n ? T0 : last; if (d === T0) return anchor === T0;
+  for (let x = addDays(anchor > T0 ? anchor : T0, 1); x <= d; x = addDays(x, 1)) { if (workoutOn(x) || diff(anchor, x) >= n) anchor = x; } return anchor === d; }
+function onDay0(id, d) {
   const it = I(id); if (!it) return false;
   if (it.type === 'checkin') return true;
   let w = it.when || { mode: 'once', date: null };
@@ -1286,7 +1302,7 @@ const nm = (ref, text) => S.edit ? `<span data-nm="${ref}" ${ce()}>${esc(text)}<
 const grip = (on = true) => S.edit && on ? `<span class="grip" aria-label="Drag to move">${icon('grip-vertical', 16)}</span>` : '';
 const tail = (ref, list, opts = {}) => S.edit ? `${opts.gear === false ? '' : `<button class="gear" data-a="gear" data-ref="${ref}" aria-label="Settings">${icon('settings', 18)}</button>`}${opts.rm === false ? '' : `<button class="rm" data-a="rm" data-ref="${ref}" data-in="${list}" aria-label="Remove">✕</button>`}` : '';
 
-function render() { bkDot();
+function render() { WKC.clear(); bkDot();
   try { localStorage.setItem('daybook3-open', JSON.stringify(S.open)); localStorage.setItem('daybook3-fold', JSON.stringify({ showDone: S.showDone, showMissed: S.showMissed, month: S.month, smonth: S.smonth, fmonth: S.fmonth, xmonth: S.xmonth })); } catch (e) {} // every open or closed section is remembered on this device (2026-11-06)
   const A = M.areas[S.area];
   const pg = A.pages.length ? M.pages[S.page] : null;
@@ -1382,7 +1398,7 @@ function itemRow(id, list, d) {
   const much = String(val(d, id) || '').startsWith('much');
   const late = live ? lateBy(id) : 0;
   const sub0 = much ? 'Too much' + (val(d, id) === 'much:hyper' ? ' · hyperfixation' : val(d, id) === 'much:inert' ? ' · inertia' : '') : late ? (late === 1 ? '1 day late' : late + ' days late') : '';
-  const sub = [whereOf(id), sub0].filter(Boolean).join(' · '); // a chore shows its room, a study task its subject
+  const sub = [whereOf(id), it.optional ? 'Optional' : '', sub0].filter(Boolean).join(' · '); // a chore shows its room, a study task its subject
   if (it.type === 'routine') {
     const open = S.edit || routineOpen(id, d); const steps = it.steps || [];
     return `<div data-ref="${id}"><div class="row">${grip()}${tickCircle(id, d, live)}
@@ -1456,7 +1472,7 @@ const uiIc = (key, def) => ((M.settings || {}).uiIcons || {})[key] || def;
 const mi = (key, def) => S.edit ? `<span class="miic" data-a="iconfor" data-v="ui:${key}" role="button" aria-label="Change this icon">${icon(uiIc(key, def), 18)}</span>` : icon(uiIc(key, def), 18);
 // what a day had on it and how much got done, kept for the calendar's marks. Counted after every change, wherever I tick
 // (a chore page, the + sheet, Studies), not only while Today is on screen, so yesterday's mark is always right (2026-11-10)
-function snapDay(d, DL) { DL = DL || dayList(d); let due = missedOn(d).length, done = 0; DL.forEach((x) => x.items.concat(x.appts || []).forEach((id) => { due++; if (isDone(id, d)) done++; })); M.snap[d] = { due, done };
+function snapDay(d, DL) { DL = DL || dayList(d); const opt = (id) => !!(I(id) && I(id).optional); let due = missedOn(d).filter((id) => !opt(id)).length, done = 0; DL.forEach((x) => x.items.concat(x.appts || []).forEach((id) => { const dn = isDone(id, d); if (opt(id) && !dn) return; due++; if (dn) done++; })); /* an optional item only counts once it's done */ M.snap[d] = { due, done };
   // a bad day is finished when its own list and the day's appointments are done (2026-11-10: an empty Bad day list never finished)
   if (isBad(d)) { const bl = badList().concat(DL.flatMap((x) => x.appts || [])).filter((id, i, A) => A.indexOf(id) === i); Object.assign(M.snap[d], { bad: 1, bdue: bl.length, bdone: bl.filter((id) => isDone(id, d)).length }); }
   return M.snap[d]; }
@@ -1517,9 +1533,9 @@ const frozenOf = (d) => d < T0 && M.frozen && M.frozen[d] ? M.frozen[d].filter((
 // Also used on frozen past days, so old snapshots follow the rule too (2026-11-06)
 function slotDrop(out) {
   const all = out.flatMap((x) => x.items); const sids = typeof subjIds === 'function' ? new Set(subjIds().flatMap(sIds)) : new Set(); const cids = typeof choreIds === 'function' ? new Set(choreIds()) : new Set();
-    const tids = typeof trainCats === 'function' ? new Set(trainCats().flatMap(kidsOf)) : new Set();
+    const tids = typeof trainCats === 'function' ? new Set(trainCats().flatMap(kidsOf)) : new Set(); const hobOn = typeof hobArea === 'function' && all.some((id) => hobArea(id));
     const studyOn = all.some((id) => sids.has(id) || (I(id) && I(id).part && sids.has(I(id).part))), choreOn = all.some((id) => cids.has(id)), moveOn = all.some((id) => tids.has(id));
-    if (studyOn || choreOn || moveOn) out.forEach((x) => { x.items = x.items.filter((id) => !(I(id) && I(id).type === 'slot' && ((I(id).opens === 'study' && studyOn) || (I(id).opens === 'chores' && choreOn) || (I(id).opens === 'training' && moveOn)))); });
+    if (studyOn || choreOn || moveOn || hobOn) out.forEach((x) => { x.items = x.items.filter((id) => !(I(id) && I(id).type === 'slot' && ((I(id).opens === 'study' && studyOn) || (I(id).opens === 'chores' && choreOn) || (I(id).opens === 'training' && moveOn) || (I(id).opens === 'hobbies' && hobOn)))); });
   return out; }
 function placeDay(d) {
   const fz = frozenOf(d); if (fz) { const keep = new Set(slotDrop([{ items: fz.filter((o) => !o.appt).map((o) => o.id) }])[0].items); return fz.filter((o) => !isMissed(o.id, d) && (o.appt || keep.has(o.id))).map((o) => Object.assign({}, o)); }
@@ -1544,7 +1560,12 @@ function placeDay(d) {
   return out;
 }
 const dur = (m) => m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) : '');
-function boxIcon(o) { const it = I(o.id); return it.icon || (o.appt ? G(catOf(o.id)).icon : it.type === 'checkin' ? (it.which === 'morning' ? 'sun' : 'moon') : it.type === 'routine' ? (hm(G(blockOfItem(o.id)).start) >= 18 * 60 ? 'moon' : 'sun') : 'check'); }
+// the default icon for a kind of task, changed in edit mode on its page (2026-11-11)
+const DEFIC = { study: 'book-open', chores: 'spray-can', tend: 'sprout', prep: 'cooking-pot' };
+const defKind = (id) => { const P = placements(id); return P.some((p) => G(p) && G(p).style === 'sgroup') ? 'study' : P.some((p) => p === 'g-oneoff' || (G(p) && G(p).style === 'room')) ? 'chores' : P.includes('g-tend') ? 'tend' : P.includes('g-prep') ? 'prep' : ''; };
+const defIcon = (id) => { const it = I(id); const k = defKind(it && it.part && I(it.part) ? it.part : id); return k ? uiIc('def-' + k, '') : ''; };
+const defBlock = (k) => { const b = ((M.settings || {}).defBlock || {})[k]; return b && G(b) && blockIds().includes(b) ? b : k === 'study' ? studyBlock0() : eveBlock(); };
+function boxIcon(o) { const it = I(o.id); return it.icon || defIcon(o.id) || (o.appt ? G(catOf(o.id)).icon : it.type === 'checkin' ? (it.which === 'morning' ? 'sun' : 'moon') : it.type === 'routine' ? (hm(G(blockOfItem(o.id)).start) >= 18 * 60 ? 'moon' : 'sun') : 'check'); }
 function renderSchedule() {
   const dayV = S.sview === 'day'; const w0 = weekStart(S.sday);
   const days = dayV ? [S.sday] : [0, 1, 2, 3, 4, 5, 6].map((i) => addDays(w0, i));
@@ -1618,10 +1639,15 @@ function renderPlan() {
   const fbar = `<span class="vsortw"><button class="fbtn" data-a="planfopen" aria-label="Filter" aria-haspopup="menu" aria-expanded="${!!S.planFOpen}" aria-pressed="${fOn || !!S.planFOpen}">${icon('sliders-horizontal', 18)}</button>${S.planFOpen ? `<span class="vsortx" data-a="planfopen"></span><span class="vdrop vsortm" role="menu"><span class="mono">Show</span>${FO.map(([k, l]) => `<button role="menuitemradio" data-a="planf" data-v="${k}" aria-checked="${F === k}" aria-current="${F === k}">${l}${F === k ? icon('check', 16, 2) : ''}</button>`).join('')}</span>` : ''}</span>`;
   // one row over the categories: Add (a dropdown) on the left, the filter on the right (2026-11-04)
   const AO = [['once', 'One-off task'], ['every', 'Repeat task'], ['routine', 'Routine']];
-  const abar = `<span class="vsortw"><button class="fbtn" data-a="planaddopen" aria-label="Add" aria-haspopup="menu" aria-expanded="${!!S.planAddOpen}" aria-pressed="${!!S.planAddOpen}">${icon('plus', 18)}</button>${S.planAddOpen ? `<span class="vsortx" data-a="planaddopen"></span><span class="vdrop vsortm vaddm" role="menu">${AO.map(([k, l]) => `<button role="menuitem" data-a="new" data-v="${k}">${l}</button>`).join('')}</span>` : ''}</span>`;
+  // generic items (2026-11-11): they stand in on a day with nothing specific from their section, and open it to pick the real thing
+  const GO = [['study', 'Studies'], ['chores', 'Chores'], ['hobbies', 'Hobbies'], ['training', 'Training']];
+  const slots = Object.keys(M.items).filter((id) => I(id).type === 'slot' && placements(id).some((p) => G(p) && G(p).style === 'dayblock'));
+  const slotRow = (id) => { const blk = placements(id).find((p) => G(p) && G(p).style === 'dayblock');
+    return `<div class="row" data-ref="${id}"><span class="circ" style="--c:${colorOf(id)}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : ''}></span><span class="lbl">${nm(id, I(id).name)}<span class="sub">${esc(blk ? G(blk).name : '')}</span></span>${S.edit ? `<button class="rm" data-a="slotrm" data-ref="${id}" aria-label="Remove ${esc(I(id).name)}">✕</button>` : ''}</div>`; };
+  const abar = `<span class="vsortw"><button class="fbtn" data-a="planaddopen" aria-label="Add" aria-haspopup="menu" aria-expanded="${!!S.planAddOpen}" aria-pressed="${!!S.planAddOpen}">${icon('plus', 18)}</button>${S.planAddOpen ? `<span class="vsortx" data-a="planaddopen"></span><span class="vdrop vsortm vaddm" role="menu">${AO.map(([k, l]) => `<button role="menuitem" data-a="new" data-v="${k}">${l}</button>`).join('')}<span class="mono">Generic</span>${GO.map(([k, l]) => `<button role="menuitem" data-a="slotadd" data-v="${k}">${l}</button>`).join('')}</span>` : ''}</span>`;
   if (S.open['p:Repeat'] === undefined) S.open['p:Repeat'] = false; // Repeat starts folded
   // an add icon on the left balances the filter icon (2026-11-08)
-  return `<div class="ptools">${abar}${fbar}</div>` + sec('Not scheduled', nos, 'Nothing waiting. Tasks without a date land here.') + sec('Scheduled', sch, 'No dated tasks yet.') + sec('Repeat', rep, 'No repeat tasks yet.');
+  return `<div class="ptools">${abar}${fbar}</div>` + sec('Not scheduled', nos, 'Nothing waiting. Tasks without a date land here.') + sec('Scheduled', sch, 'No dated tasks yet.') + sec('Repeat', rep, 'No repeat tasks yet.') + (slots.length ? lcard('p:Generic', 'Generic', slots.length, slots.map(slotRow).join('')) : '');
 }
 
 // Appointments: categories (Social is one of them), then Today / Coming up / Past.
@@ -1653,6 +1679,7 @@ function askDelete(act, a, ref, v) {
   const nm = (x) => x ? '“' + x + '”' : 'this';
   switch (act) {
     case 'rm': { const list = a.dataset.in || ''; if (I(ref) && placements(ref).length > 1 && !list.startsWith('s:')) return null; const o = I(ref) || G(ref); return { q: 'Delete ' + nm(o && o.name) + '?', yes: 'Delete' }; }
+    case 'slotrm': return { q: 'Remove the generic item ' + nm(I(ref) && I(ref).name) + ' from my days?', yes: 'Remove' };
     case 'ddelete': return { q: 'Delete ' + nm(S.sheet && S.sheet.draft && S.sheet.draft.name) + '?', yes: 'Delete' };
     case 'hevrm': { const e = M.events.find((x) => x.id === ref); return { q: 'Delete the life event ' + nm(e && e.text) + '?', yes: 'Delete' }; }
     case 'xrm': { const x = mealPlan().extras.find((e) => e.id === v); return { q: 'Delete the extra ' + nm(x && x.name) + '?', yes: 'Delete' }; }
@@ -1772,9 +1799,9 @@ function sheetBody() {
       if (it.type === 'routine') lines.push(['Steps', (it.steps || []).map((x) => (val(d, x) ? '✓ ' : '') + I(x).name).join(', ')]); }
     if (it.note) lines.push(['Note', it.note]);
     lines.push(['Status', done ? (String(val(d, s.ref)).startsWith('much') ? 'Too much' : 'Done') : d < T0 ? 'Not done' : d === T0 ? 'Not done yet' : 'Coming up']);
-    return `<div class="peekhd"><span class="aic" style="background:${pale(c)};color:${mix(c, TH.ink, 0.35)}">${icon(it.icon || (isA ? G(catOf(s.ref)).icon : 'check') || 'circle', 20, 1.9)}</span></div>
+    return `<div class="peekhd"><span class="aic" style="background:${pale(c)};color:${mix(c, TH.ink, 0.35)}">${icon(it.icon || defIcon(s.ref) || (isA ? G(catOf(s.ref)).icon : 'check') || 'circle', 20, 1.9)}</span></div>
       <dl class="peek">${lines.map(([k, v]) => `<dt class="mono">${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
-      <div class="btns">${d === T0 && it.type !== 'checkin' && it.type !== 'routine' ? `<button class="btn dark" data-a="peektick">${it.type === 'slot' ? 'Open ' + (it.opens === 'study' ? 'Study' : it.opens === 'training' ? 'Training' : 'Chores') : done ? 'Untick' : 'Tick as done'}</button>` : ''}${d <= T0 && !done && it.type !== 'checkin' ? `<button class="btn" data-a="miss" data-ref="${s.ref}" data-d="${d}">Missed</button>` : ''}<button class="btn" data-a="peekedit">Edit</button></div>`; }
+      <div class="btns">${d === T0 && it.type !== 'checkin' && it.type !== 'routine' ? `<button class="btn dark" data-a="peektick">${it.type === 'slot' ? 'Open ' + (it.opens === 'study' ? 'Study' : it.opens === 'training' ? 'Training' : it.opens === 'hobbies' ? 'Hobbies' : 'Chores') : done ? 'Untick' : 'Tick as done'}</button>` : ''}${d <= T0 && !done && it.type !== 'checkin' ? `<button class="btn" data-a="miss" data-ref="${s.ref}" data-d="${d}">Missed</button>` : ''}<button class="btn" data-a="peekedit">Edit</button></div>`; }
   if (s.kind === 'add') {
     // Add or log, redone (2026-11-08): compact, everything in reach. Always on top: a feeling, plan items, notebook items.
     // The search finds anything tickable and ticks it right there; Tick as done = everything on Today plus what I ticked lately.
@@ -1793,7 +1820,7 @@ function sheetBody() {
     // which study task group: picked right here when there's more than one (2026-11-08)
     // a task from Capture first asks what kind it is (2026-11-10): a plain task, a chore, a study task or a prep
     if (s.pickTask && !s.pickStudy) { const row = (a, v, ic, l) => `<button class="arow" data-a="${a}" ${v ? `data-v="${v}"` : ''} style="text-align:left"><span class="an" style="display:flex;align-items:center;gap:12px">${icon(ic, 20)}${l}</span><span class="chev" aria-hidden="true">›</span></button>`;
-      return `<div class="fld"><div class="afind">${row('new', 'once', 'check', 'Task')}${row('vadd', 'g-oneoff', 'spray-can', 'Chore')}${row('addstudy', '', 'book-open', 'Study task')}${row('vadd', 'g-prep', 'cooking-pot', 'Prep')}</div></div><div class="fld"><span class="mono">Generic</span><div class="afind">${row('slotadd', 'chores', 'spray-can', 'Daily chore')}${row('slotadd', 'training', 'footprints', 'Movement')}${row('slotadd', 'study', 'graduation-cap', 'Study session')}</div></div>`; }
+      return `<div class="fld"><div class="afind">${row('new', 'once', 'check', 'Task')}${row('vadd', 'g-oneoff', 'spray-can', 'Chore')}${row('addstudy', '', 'book-open', 'Study task')}${row('vadd', 'g-prep', 'cooking-pot', 'Prep')}</div></div>`; }
     if (s.pickStudy) { const subs = S.subj && G(S.subj) ? [S.subj] : subjIds();
       return `<div class="fld"><span class="mono">Study task in</span><div class="afind">${subs.map((sb) => sgroupsOf(sb).map((g) => `<button class="arow" data-a="vadd" data-v="${g}" style="text-align:left"><span class="an">${esc(G(g).name)}<span class="sub">${esc(G(sb).name)}</span></span><span class="chev" aria-hidden="true">›</span></button>`).join('')).join('') || '<p class="empty">No task groups yet.</p>'}</div></div>`; }
     // the page I'm on comes first, under This page (2026-11-08)
@@ -1835,7 +1862,8 @@ function setProp(ref, k, v) { if (ref.startsWith('wh:')) { if (k === 'color') { 
 // The item sheet edits a draft; Save writes it back (and places a new item).
 // STUDY SESSIONS (2026-11-06): a study task's estimate can be split into dated sessions (2 h = 1 h Monday, 30 min twice).
 // Each session is its own one-off item (part: the task's id) placed in a day block, so it shows on Today and Schedule that day.
-const studyBlock = () => (G('b-study') && blockIds().includes('b-study') ? 'b-study' : blockIds().find((b) => /study|^day$/i.test(G(b).name))) || blockIds()[0];
+const studyBlock = () => defBlock('study');
+const studyBlock0 = () => (G('b-study') && blockIds().includes('b-study') ? 'b-study' : blockIds().find((b) => /study|^day$/i.test(G(b).name))) || blockIds()[0];
 const eveBlock = () => (G('b-evening') && blockIds().includes('b-evening') ? 'b-evening' : blockIds()[blockIds().length - 1]);
 const isStudyItem = (s, D) => D.est != null || !!(G(s.home) && G(s.home).style === 'sgroup');
 // in the quick Schedule pop-up too: Estimate and Sessions are part of scheduling (2026-11-06)
@@ -1883,6 +1911,7 @@ function itemSheet(s) {
       <div class="fld"><span class="mono">Category</span><div class="chips">${G('g-appts').kids.filter(G).map((c) => `<button class="chip" style="--c:${G(c).color}" data-a="dset" data-k="cat" data-v="${c}" aria-pressed="${s.cat === c}"><span class="d"></span>${esc(G(c).name)}</button>`).join('')}</div></div>`;
   } else if (D.type !== 'checkin' && D.type !== 'step') {
     h += schedUI(s, D);
+    if (D.type === 'task' || D.type === 'routine') h += sw('afterTrain', 'After every workout', D.afterTrain) + sw('optional', 'Optional', D.optional);
     // study items: everything under Estimate waits behind More settings too (2026-11-06)
     if (isStudyItem(s, D)) s._more = h.length;
     if (isPrep(s)) { h += subField(s); s._more = h.length; }
@@ -2044,6 +2073,8 @@ document.addEventListener('click', (e) => {
     case 'pdbopen': S.area = 'notebook'; S.insOn = false; S.nbView = 'home'; boardAction('bdopen', a, ref, v); render(); break;
     case 'openadd': capAll(); S.openAdd = v; render(); { const el = document.getElementById(v); if (el) { el.focus(); el.scrollIntoView({ block: 'nearest' }); } } break;
     case 'slotadd': slotAdd(v); break;
+    case 'slotrm': slotRm(ref); break;
+    case 'vdefblk': change(() => { (M.settings.defBlock = M.settings.defBlock || {})[ref] = v; }); break;
     case 'newpick': if (S.sheet) { S.sheet.pickTask = true; S.sheet.title = 'Task'; renderLayer(); } break;
     case 'addstudy': { const gs = (S.subj && G(S.subj) ? [S.subj] : subjIds()).flatMap(sgroupsOf); if (gs.length === 1) vNew(gs[0]); else { S.sheet.pickStudy = true; S.sheet.title = 'Study task'; renderLayer(); } break; }
     case 'addcond': openSheet({ kind: 'cond', isNew: true, ref: uid('c'), title: 'New condition', draft: { name: '', start: T0, tags: ['ct-ill'].filter(ctag) } }); break;
@@ -2669,7 +2700,7 @@ function ciSentence(which, d) {
   const out = [cap(andList(clauses))];
   // feelings picked during the MORNING check-in (2026-11-02: evening feelings are the whole day's mix, so they're left out)
   const cf = which === 'morning' ? ((M.log[d] || {})['ci-mfeel'] || []) : [];
-  if (cf.length) out.push((clauses.length ? 'Also felt ' : 'Felt ') + andList(cf.slice(0, 3)) + '.');
+  if (cf.length) out.push((clauses.length ? 'Also felt ' : 'Felt ') + andList(cf) + '.');
   lists.forEach((l) => out.push(l + '.'));
   return out.filter(Boolean).join(' ');
 }
@@ -2784,6 +2815,7 @@ function dayCheck(d) {
   const r = { c, base, ex, mealOk: anyLeft >= 0, mealMax: base.meal + ex.meal + ex.any, snackOk: c.snack <= snackMax, snackMax, treatOk: c.treat <= base.treat + ex.treat, treatMax: base.treat + ex.treat };
   r.broken = breakHits(d); r.followed = d < T0 && mealsOn(d).length > 0 && r.mealOk && r.snackOk && r.treatOk && !r.broken.length; return r;
 }
+const dayBroke = (d) => { if (d > T0 || overOn(d)) return false; const r = dayCheck(d); return r.broken.length > 0 || !r.mealOk || !r.snackOk || !r.treatOk; };
 const followed = (d) => !overOn(d) && dayCheck(d).followed; // an overeating day gets only its red mark (2026-11-10)
 // Items that break a food diary day (2026-11-03): if any is logged, the day gets no star. A tag counts when ticked,
 // a scale when it's at or above the level picked, an avoidance item when avoided. mealPlan().breaks = [{id, min}]
@@ -2803,7 +2835,7 @@ function foodCal0() {
   if (F.month) { const [y, m] = F.monthOf.split('-').map(Number); let w = weekStart(iso(new Date(y, m - 1, 1))); weeks = []; while (weeks.length === 0 || w.slice(0, 7) <= F.monthOf) { weeks.push(w); w = addDays(w, 7); } }
   else weeks = [weekStart(F.day)];
   const cell = (d) => { const star = followed(d); const inM = !F.month || d.slice(0, 7) === F.monthOf; const ex = dayExtras(d).length; const ov = overOn(d);
-    return `<button class="day fday ${d === F.day && (!F.month || F.sel === 'day') ? 'sel' : ''} ${d === T0 ? 'today' : ''} ${inM ? '' : 'out'}${awayCls(awayOf('food', d), d)}" data-a="fdday" data-v="${d}" aria-label="${fmtDate(d)}${star ? ', meal plan followed' : ''}${ex ? ', with extras' : ''}${ov ? ', overeating: ' + SCALES.symptom3[ov - 1] : ''}">${awayOf('food', d) ? '' : calLines('food', d) + calDotsHtml('food', d)}<span class="n">${ov && !awayOf('food', d) ? markSvg('over', null, 'star', { col: overCol(ov) }) : star && !awayOf('food', d) ? markSvg('food', null, 'star') : ''}${parse(d).getDate()}</span></button>`; };
+    return `<button class="day fday ${d === F.day && (!F.month || F.sel === 'day') ? 'sel' : ''} ${d === T0 ? 'today' : ''} ${inM ? '' : 'out'}${awayCls(awayOf('food', d), d)}" data-a="fdday" data-v="${d}" aria-label="${fmtDate(d)}${star ? ', meal plan followed' : dayBroke(d) ? ', day broken' : ''}${ex ? ', with extras' : ''}${ov ? ', overeating: ' + SCALES.symptom3[ov - 1] : ''}">${awayOf('food', d) ? '' : calLines('food', d) + calDotsHtml('food', d)}<span class="n">${ov && !awayOf('food', d) ? markSvg('over', null, 'star', { col: overCol(ov) }) : dayBroke(d) && !awayOf('food', d) ? markSvg('over', null, 'star', { col: overCol(1) }) : star && !awayOf('food', d) ? markSvg('food', null, 'star') : ''}${parse(d).getDate()}</span></button>`; };
   return `<div class="stack calblk" style="gap:6px">${F.month ? `<div class="calnav"><button data-a="fdmonth" data-v="-1" aria-label="Previous month">‹</button><span>${MONTHS[+F.monthOf.slice(5) - 1]} ${F.monthOf.slice(0, 4)}</span><button data-a="fdmonth" data-v="1" aria-label="Next month">›</button></div>` : ''}
     <div><div class="wk wkh"><span style="text-align:left">W</span>${WD.map((x) => `<span>${x.toUpperCase()}</span>`).join('')}</div>
     ${weeks.map((w) => `<div class="wk wkr">${F.month ? `<button class="wkn ${F.sel === 'week' && F.week === w ? 'sel' : ''}" data-a="fdweek" data-v="${w}" aria-label="Show week ${isoWeek(w)}" aria-pressed="${F.sel === 'week' && F.week === w}">${isoWeek(w)}</button>` : `<span class="wkn">${isoWeek(w)}</span>`}${[0, 1, 2, 3, 4, 5, 6].map((i) => cell(addDays(w, i))).join('')}</div>`).join('')}</div>
@@ -2861,7 +2893,7 @@ function diarySheet() {
   }
   h += `<section class="hsec"><div class="hhead"><span class="hdot" style="background:${c}"></span><span class="mono" style="flex:1">${esc(dayLabel(d))}</span>
     ${d === T0 ? `<label class="hic" aria-label="Add a meal with a photo" title="Photo">${icon('camera', 20)}<input type="file" accept="image/*" id="photoin" hidden></label><button class="hic" data-a="mealnew" aria-label="Write a meal" title="Write it">${icon('pencil', 20)}</button>` : ''}
-    <button class="hic" data-a="mealweek" aria-label="Meal plan" title="Meal plan">${icon('salad', 20)}</button></div>
+    <button class="hic" data-a="${S.edit ? 'iconfor' : 'mealweek'}" data-v="ui:mealplan" aria-label="${S.edit ? 'Change the meal plan icon' : 'Meal plan'}" title="Meal plan">${icon(uiIc('mealplan', 'salad'), 20)}</button></div>
     ${planPanel(d)}${mealsOn(d).length || foodAnswers(d).length ? `<div style="margin-top:12px">${dayMeals(d)}</div>` : d <= T0 ? '<p class="note" style="margin-top:12px">Nothing logged.</p>' : ''}</section>`;
   return h;
 }
@@ -2874,7 +2906,7 @@ function logEntries(list, empty) {
     const sum = KINDS3.filter(([k]) => c[k]).map(([k, one, many]) => c[k] + ' ' + (c[k] === 1 ? one : many).toLowerCase()).join(' · ');
     const ov = overOn(d); if (ov) { const open = !!(S.fdOpen || {})[d];
       return `<section class="hsec"><button class="hhead fdh" data-a="fdexp" data-v="${d}" aria-expanded="${open}"><span class="lbl"><span class="mono">${esc(dayLabel(d))}</span>${open && sum ? `<small>${esc(sum)}</small>` : ''}</span><span role="img" aria-label="Overeating: ${SCALES.symptom3[ov - 1]}">${markSvg('over', 16, '', { col: overCol(ov) })}</span></button>${open ? dayMeals(d) : ''}</section>`; }
-    return `<section class="hsec"><button class="hhead fdh" data-a="fdday" data-v="${d}"><span class="lbl"><span class="mono">${esc(dayLabel(d))}</span>${sum ? `<small>${esc(sum)}</small>` : ''}</span>${followed(d) ? `<span role="img" aria-label="Meal plan followed">${markSvg('food', 16)}</span>` : ''}</button>${dayMeals(d)}</section>`; }).join('');
+    return `<section class="hsec"><button class="hhead fdh" data-a="fdday" data-v="${d}"><span class="lbl"><span class="mono">${esc(dayLabel(d))}</span>${sum ? `<small>${esc(sum)}</small>` : ''}</span>${followed(d) ? `<span role="img" aria-label="Meal plan followed">${markSvg('food', 16)}</span>` : dayBroke(d) ? `<span role="img" aria-label="Day broken">${markSvg('over', 16, '', { col: overCol(1) })}</span>` : ''}</button>${dayMeals(d)}</section>`; }).join('');
 }
 // More sample weeks (2026-11-02: the open month should have a full log to test with)
 function foodSampleMore(m) {
@@ -3239,20 +3271,22 @@ document.addEventListener('input', (e) => {
 
 // Generic items (2026-11-11): Daily chore, Movement and Study session. They sit on Today when nothing specific from their
 // section is planned that day, and open that section to pick the real thing.
-function slotAdd(k) { const DEF = { study: ['sl-study', 'Study session', 'graduation-cap', '#3FAFA6', 60], chores: ['sl-chore', 'Daily chore', 'spray-can', '#EDBB3A', 20], training: ['sl-move', 'Movement', 'footprints', '#6FA24A', 30] }[k]; if (!DEF) return;
-  const [id, name, ic, color, dur] = DEF; const blk = k === 'study' ? studyBlock() : k === 'chores' ? eveBlock() : blockIds()[0];
+function slotAdd(k) { const DEF = { study: ['sl-study', 'Study session', 'graduation-cap', '#3FAFA6', 60], chores: ['sl-chore', 'Daily chore', 'spray-can', '#EDBB3A', 20], hobbies: ['sl-hobby', 'Hobby time', 'palette', '#EC8FA8', 30], training: ['sl-move', 'Movement', 'footprints', '#6FA24A', 30] }[k]; if (!DEF) return;
+  const [id, name, ic, color, dur] = DEF; const blk = k === 'study' ? studyBlock() : k === 'chores' ? defBlock('chores') : k === 'hobbies' ? eveBlock() : blockIds()[0];
   const placed = I(id) && placements(id).some((p) => G(p) && G(p).style === 'dayblock');
-  if (placed) { S.sheet = null; S.area = 'plan'; S.page = 'today'; S.day = T0; render(); flash(name + ' is already on Today'); return; }
-  S.sheet = null; S.area = 'plan'; S.page = 'today'; S.day = T0;
+  S.sheet = null; S.planAddOpen = false;
+  if (placed) { render(); flash(I(id).name + ' is already on my days'); return; }
   change(() => { if (!M.items[id]) M.items[id] = { name, type: 'slot', opens: k, when: { mode: 'every', n: 1 }, icon: ic, color, dur, made: T0 };
     const gs = M.groups['g-slots'] = M.groups['g-slots'] || { name: 'Slots', holds: 'slot', kids: [] }; if (!gs.kids.includes(id)) gs.kids.push(id);
     if (blk && G(blk) && !G(blk).kids.includes(id)) G(blk).kids.push(id); }, 'Added ' + name); }
+function slotRm(id) { const n = (I(id) || {}).name; change(() => { Object.values(M.groups).forEach((g) => { if (g && g.kids && (g.style === 'dayblock' || g.holds === 'slot')) g.kids = g.kids.filter((x) => x !== id); }); delete M.items[id]; }, 'Removed ' + n); }
 // The phone keyboard (2026-11-11): pop-ups slide up so the field I'm writing in stays above it.
 (function () { const vv = window.visualViewport; if (!vv) return; let last = -1;
   const fit = () => { const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)); if (kb === last) return; last = kb; document.documentElement.style.setProperty('--kb', kb + 'px'); document.documentElement.classList.toggle('kbon', kb > 80);
-    const a = document.activeElement; if (kb > 80 && a && a.closest && a.closest('#layer')) setTimeout(() => { try { a.scrollIntoView({ block: 'center' }); } catch (e) {} }, 60); };
+    const a = document.activeElement; if (kb > 80 && a && a.closest && a.closest('#layer') && /^(INPUT|SELECT)$/.test(a.tagName)) setTimeout(() => { try { a.scrollIntoView({ block: 'nearest' }); } catch (e) {} }, 60); };
   vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); })();
-document.addEventListener('focusin', (e) => { const t = e.target; if (!t || !t.closest || !t.closest('#layer') || !/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) && !t.isContentEditable) return; setTimeout(() => { try { t.scrollIntoView({ block: 'center' }); } catch (_) {} }, 350); });
+// only one-line fields are brought into view; in a page of text the browser keeps the caret in view by itself, and moving the page made the text jump
+document.addEventListener('focusin', (e) => { const t = e.target; if (!t || !t.closest || !t.closest('#layer') || !/^(INPUT|SELECT)$/.test(t.tagName)) return; setTimeout(() => { try { t.scrollIntoView({ block: 'nearest' }); } catch (_) {} }, 350); });
 // ===================== Verdict pages: Study and Home (2026-11-03) =====================
 // One shared page system for both areas, big to small: a verdict card, a strip of smaller cards (rooms or subjects,
 // most urgent first; first tap picks and filters, second tap opens), then the list of what needs you most.
@@ -3416,12 +3450,13 @@ function slotDone(it, d) {
   if (it.opens === 'study') return minOn(null, d) >= sessLen() || supMin(d) >= sessLen();
   if (it.opens === 'chores') return choreIds().some((k) => val(d, k));
   if (it.opens === 'training') return typeof trainedOn === 'function' && trainedOn(d).length > 0;
+  if (it.opens === 'hobbies') return typeof hobIds === 'function' && hobIds().some((h) => hobActs(h).some((k) => val(d, k)) || hobProjs(h).some((p) => (G(p).worked || []).includes(d) || projTasks(p).some((k) => val(d, k))));
   return false; }
 function slotSub(it) { if (it.opens === 'study') { const m = minOn(null, T0), s = supMin(T0); return s >= sessLen() ? 'Study support done' : ''; } // no 'Opens …', the arrow says it (2026-11-04)
-  if (it.opens === 'training') return '';
+  if (it.opens === 'training' || it.opens === 'hobbies') return '';
   const n = choreIds().filter((k) => val(T0, k)).length; return n ? n + ' done today' : ''; }
 function slotGo(id) { const it = I(id); S.sheet = null; S.fromSlot = id; S.room = null; S.subj = null; S.pick = null; S.stv = null;
-  if (it.opens === 'study') { S.area = 'study'; S.page = null; } else if (it.opens === 'training') { S.area = 'health'; S.page = 'training'; } else { S.area = 'home'; S.page = 'chores'; }
+  if (it.opens === 'study') { S.area = 'study'; S.page = null; } else if (it.opens === 'training') { S.area = 'health'; S.page = 'training'; } else if (it.opens === 'hobbies') { S.area = 'hobbies'; S.page = null; S.proj = null; } else { S.area = 'home'; S.page = 'chores'; }
   render(); $('#main').scrollTop = 0; }
 
 // ---------- blocks ----------
@@ -3501,6 +3536,9 @@ function renderVerdict() {
 function homeLanding() {
   return choreCard('Chores', allJobs(), CHORE_W, 'data-a="vgo" data-v="chores"') + choreCard('Homemaking', jobsIn('g-tend'), TEND_W, 'data-a="vgo" data-v="homemaking"') + cookCard('data-a="vgo" data-v="cooking"') + shopBtn();
 }
+// edit mode on a Home page or Studies: which day block new tasks from here go in, and the icon they get by default (2026-11-11)
+function vDefaults(k, what) { const cur = defBlock(k);
+  return lcard(null, 'New ' + what, '', `<div class="vdef"><span class="mono">Day block</span><div class="chips">${blockIds().map((b) => `<button class="chip" data-a="vdefblk" data-ref="${k}" data-v="${b}" aria-pressed="${cur === b}">${esc(G(b).name)}</button>`).join('')}</div><span class="mono" style="display:block;margin-top:14px">Default icon</span><div><button class="btn" data-a="iconfor" data-v="ui:def-${k}" style="display:inline-flex;gap:8px;align-items:center;margin-top:6px">${icon(uiIc('def-' + k, DEFIC[k]), 18)} Change icon</button></div></div>`); }
 function choresPage() {
   const J = allJobs(); let h = crumbs([['Home', ''], ['Chores']]) + choreCard('Chores', J, CHORE_W, S.edit ? '' : 'data-a="vunpick" aria-label="Show what needs care in every room"', true);
   if (S.edit) h += vlab('Rooms') + eList('g-rooms', roomIds(), 'Add room', 'vaddroom', (r) => kidsOf(r).length + (kidsOf(r).length === 1 ? ' job' : ' jobs'));
@@ -3512,7 +3550,7 @@ function choresPage() {
     // no Open button for a picked room; tapping its card again opens it (2026-11-10)
   }
   const oo = kidsOf('g-oneoff').filter((k) => !everDone(k) || val(T0, k)).sort((a, b) => ((I(a).when || {}).date || '9999').localeCompare((I(b).when || {}).date || '9999'));
-  h += S.edit ? vlab('One-off') + eList('g-oneoff', kidsOf('g-oneoff'), 'Add chore', 'vadd', (k) => onceSub(k))
+  h += S.edit ? vlab('One-off') + eList('g-oneoff', kidsOf('g-oneoff'), 'Add chore', 'vadd', (k) => onceSub(k)) + vDefaults('chores', 'chores')
     : lcard('v:oneoff', 'One-off', oo.length || '', (oo.map((k) => tickRow(k, onceSub(k))).join('') || '<p class="empty">No chores.</p>'));
   return h;
 }
@@ -3532,12 +3570,12 @@ function roomPage(r) {
 }
 function tendPage() {
   const J = jobsIn('g-tend'); let h = crumbs([['Home', ''], ['Homemaking']]) + choreCard('Homemaking', J, TEND_W);
-  if (S.edit) return h + vlab('Tending') + eList('g-tend', kidsOf('g-tend'), 'Add something to tend', 'vadd', (k) => whenText(I(k)));
+  if (S.edit) return h + vlab('Tending') + eList('g-tend', kidsOf('g-tend'), 'Add something to tend', 'vadd', (k) => whenText(I(k))) + vDefaults('tend', 'homemaking tasks');
   return h + sect('v:tend', 'Tending', J.length + (J.length === 1 ? ' item' : ' items'), J.sort((a, b) => b.urg - a.urg).map((j) => jobRow(j, whenText(I(j.id)))).join(''));
 }
 function cookPage() {
   let h = crumbs([['Home', ''], ['Cooking']]) + cookCard();
-  if (S.edit) return h + vlab('Planned prep') + eList('g-prep', kidsOf('g-prep'), 'Add prep', 'vadd', (k) => onceSub(k));
+  if (S.edit) return h + vlab('Planned prep') + eList('g-prep', kidsOf('g-prep'), 'Add prep', 'vadd', (k) => onceSub(k)) + vDefaults('prep', 'prep');
   const P = kidsOf('g-prep').filter((k) => !everDone(k) || val(T0, k)).sort((a, b) => ((I(a).when || {}).date || '9999').localeCompare((I(b).when || {}).date || '9999'));
   // a prep with sub-tasks shows them under it, indented, each with its own tick (2026-11-06: Pizza › Dough)
   const subs = (k) => (I(k).steps || []).filter(I).map((sid) => { const on = everDone(sid); return `<div class="row substep" data-ref="${sid}"><button class="tickbtn" data-a="psub" data-ref="${sid}" aria-label="Tick ${esc(I(sid).name)}"><span class="circ ${on ? 'done' : ''}" style="--c:${colorOf(k)}">${on ? '✓' : ''}</span></button><span class="lbl">${esc(I(sid).name)}</span></div>`; }).join('');
@@ -3546,7 +3584,7 @@ function cookPage() {
 }
 function studyLanding() {
   const V = studyVerdict(); let h = vCard({ eyebrow: studyName(), word: V.word, lvl: V.lvl, sub: V.sub, segs: V.segs, foot: V.foot, go: S.edit ? '' : 'data-a="vunpick" aria-label="Show what needs me most in every subject"', nochev: true });
-  if (S.edit) return h + vlab('Subjects') + eList('g-subjects', subjIds(), 'Add subject', 'vaddsubj', (s) => sgroupsOf(s).length + (sgroupsOf(s).length === 1 ? ' group' : ' groups'));
+  if (S.edit) return h + vlab('Subjects') + eList('g-subjects', subjIds(), 'Add subject', 'vaddsubj', (s) => sgroupsOf(s).length + (sgroupsOf(s).length === 1 ? ' group' : ' groups')) + vDefaults('study', 'study tasks');
   if (!subjIds().length) return h;
   const pick = S.pick && subjIds().includes(S.pick) ? S.pick : null;
   h += vlab('Subjects') + `<div class="vstrip">${subjIds().slice().sort((a, b) => subjRank(b) - subjRank(a)).map((s) => { const v = subjVerdict(s); return stripCard(s, G(s).name, v.lvl, v.word, v.tasks.length ? v.tasks.map(taskInk) : [SEG0], pick === s); }).join('')}</div>`;
@@ -3684,11 +3722,11 @@ function vNew(gid) { const g = G(gid); if (!g) return; const st = g.style;
   if (st === 'room' || gid === 'g-tend') D.when = { mode: 'once', date: null };
   else if (st === 'tcat') Object.assign(D, { when: { mode: 'once', date: null }, dur: 45 });
   else if (st === 'sgroup') Object.assign(D, { when: { mode: 'once', date: null }, est: 1, dur: 60, insight: false });
-  else Object.assign(D, { when: { mode: 'once', date: gid === 'g-prep' ? T0 : null }, insight: false }, gid === 'g-prep' ? { icon: 'cooking-pot' } : {});
+  else Object.assign(D, { when: { mode: 'once', date: gid === 'g-prep' ? T0 : null }, insight: false }, {});
   const title = st === 'tcat' ? 'New session · ' + g.name : st === 'room' ? 'New job · ' + g.name : gid === 'g-tend' ? 'New thing to tend' : gid === 'g-prep' ? 'New prep' : gid === 'g-oneoff' ? 'New chore' : 'New study task';
   // prep goes on Today (Evening) so it isn't forgotten; the rest live only on their page unless you pick a day block
   // a new study task starts in the Study block, everything else in Evening (2026-11-06)
-  openSheet({ kind: 'item', isNew: true, title, draft: D, block: st === 'sgroup' ? studyBlock() : eveBlock(), home: gid, steps: [] });
+  openSheet({ kind: 'item', isNew: true, title, draft: D, block: st === 'sgroup' ? studyBlock() : defBlock(st === 'room' || gid === 'g-oneoff' ? 'chores' : gid === 'g-tend' ? 'tend' : gid === 'g-prep' ? 'prep' : ''), home: gid, steps: [] });
 }
 function vNewGroup(parent, o, msg) { const id = uid('g'); change(() => { M.groups[id] = Object.assign({ kids: [] }, o); G(parent).kids.push(id); }, msg, false);
   openSheet({ kind: 'group', ref: id, title: o.style === 'room' ? 'Room' : o.style === 'subject' ? 'Subject' : 'Task group', isNew: true }); }
@@ -3935,6 +3973,8 @@ function insightData() {
     D.info[t] = { lo: 1, hi: SCALES[sc].length, words: SCALES[sc] }; });
   D.symptoms = trackers.filter((t) => I(t).scale === 'symptom3');
   D.sym = {}; D.symptoms.forEach((t) => { D.sym[t] = days.map((d, k) => { const v = insVal(D, d, t); return typeof v === 'number' ? v : D.logged[k] ? 0 : null; }); });
+  // the load of a set of symptoms on a day: the worst one, or 4 when three or more are distressing with one debilitating
+  D.loadFor = (ids, k) => { if (!D.logged[k]) return null; const vs = ids.map((s0) => (D.sym[s0] ? D.sym[s0][k] : 0) || 0); const mx = Math.max(0, ...vs); return mx === 3 && vs.filter((v) => v >= 2).length >= 3 ? 4 : mx; };
   D.areas = trackers.filter((t) => I(t).scale === 'avoid');
   D.av = {}; D.areas.forEach((t) => { D.av[t] = days.map((d) => { const v = insVal(D, d, t); return v === 'faced' ? 1 : v === 'avoided' ? 0 : null; }); });
   // trackers in a circle: a ring each, its value = the average over the last 30 logged days (scales between their ends,
@@ -3945,6 +3985,9 @@ function insightData() {
         if (sc === 'symptom3') return typeof v === 'number' ? 1 : D.logged[k] ? 0 : null; const n = SCALES[sc].length; return typeof v === 'number' ? (v - 1) / (n - 1) : null; });
       const k0 = vals.findIndex((v) => v != null); if (k0 < 0) return null;
       return { id, name: it.name, trk: true, sym: sc === 'symptom3', vals, k0, strength: avRoll([vals]), states: vals.map((v) => v == null ? 'skip' : v > 0 ? 'done' : 'miss') }; }).filter(Boolean);
+    // I track many symptoms (2026-11-11): in a circle's rings they are one line, the average load of all its symptoms
+    { const sy = c.trk.filter((t) => t.sym).map((t) => t.id); const lv = sy.length ? days.map((d, k) => { if (d > T0) return null; const v = D.loadFor(sy, k); return v == null ? null : v / 4; }) : null;
+      c.trkR = c.trk.filter((t) => !t.sym).concat(lv && lv.some((v) => v != null) ? [{ name: 'Symptom load', strength: avRoll([lv]) }] : []); }
     // yes/no tags can be good or bad, so the circle's % leans on ticks and scales; tags only when there's nothing else
     const sc = c.trk.filter((t) => !t.sym && ['avoid'].concat(Object.keys(SCALES)).includes(I(t.id).scale)); let parts = c.all.concat(sc); if (!parts.length) parts = c.trk.filter((t) => !t.sym); if (c.trk.length) c.strength = days.map((_, k) => iavg(parts.map((h) => h.strength[k]))); });
   // everything that can go together, one value per day (null = not known that day)
@@ -4129,10 +4172,13 @@ function renderInsight() {
     if (D.areas.length) T.avoid = wrap('avoid', 'Avoidance', ihorizon(avoidV, 132, 30, avoidS.none), ipct(avoidV), [['ic:sun', SUN, 'showed up'], ['ic:shadow', SHADOW, 'avoided']]);
     if (ms.length) tile('Health', ms.slice(0, 5).map((m, k) => ({ label: I(m).name, v: mAvg(m), c: ciCol(k) })), ipct(healthV), '30 days', 'health', '', [['ic:health', CI_Y, 'Health']], true);
     if (D.feel.some((w) => w.length)) tile('Feelings', D.fams.map((x) => ({ label: x.f, v: fShare(x), c: x.c })), fDays() + '/30', 'days', 'feel', '', D.fams.map((x) => ['fc:' + x.f, x.c, x.f]));
-    if (D.symptoms.length) { const SY = '#E0644E'; const sAvg = (id) => { const v = D.sym[id].slice(-30).filter((x) => x != null); return v.length ? iavg(v) / 3 : 0; }; const ld = loads.slice(-30).filter((x) => x != null);
-      tile('Symptoms', D.symptoms.slice().sort((a, b) => sAvg(b) - sAvg(a)).slice(0, 5).map((id, k) => ({ label: I(id).name, v: sAvg(id), c: tint(SY, Math.min(0.66, k * 0.16)) })), ld.length ? (Math.round(iavg(ld) * 10) / 10).toFixed(1) : '0', 'load, 30 days', 'symptoms'); }
+    if (D.symptoms.length) { const SY = '#E0644E'; const ld = loads.slice(-30).filter((x) => x != null);
+      // one load line per symptom group (Mental, Physical, Behavioural): its average load over the last 30 logged days
+      const grp = {}; D.symptoms.forEach((id) => { const g = Object.keys(M.groups).find((k) => G(k).kids.includes(id)); const key = g && G(g).style === 'htab' ? g : 'all'; (grp[key] = grp[key] || []).push(id); });
+      const gAvg = (ids) => { const v = []; for (let k = N - 30; k < N; k++) { const x = D.loadFor(ids, k); if (x != null) v.push(x); } return v.length ? iavg(v) / 4 : 0; };
+      tile('Symptoms', Object.entries(grp).slice(0, 5).map(([g, ids], k) => ({ label: g === 'all' ? 'Symptoms' : G(g).name, v: gAvg(ids), c: tint(SY, Math.min(0.66, k * 0.2)) })), ld.length ? (Math.round(iavg(ld) * 10) / 10).toFixed(1) : '0', 'load, 30 days', 'symptoms'); }
     if (D.over.length) tile('Too much', D.over.slice(0, 5).map((id) => ({ label: I(id).name, v: mShare(id), c: MUCH_C })).map((r, k) => Object.assign(r, { c: tint(MUCH_C, Math.min(0.66, k * 0.16)) })), String(mDays('any')), 'days, 30', 'much', '', [['ic:much', MUCH_C, 'Too much'], ['ic:hyper', HYPER_C, 'hyperfixation'], ['ic:inert', INERT_C, 'inertia']]);
-    D.circles.forEach((c) => { const rs = (c.tileRings || c.all.map((hb) => ({ label: hb.name, v: hb.strength[last] }))).concat(c.trk.map((t) => ({ label: t.name, v: t.strength[last] }))).slice(0, 5); tile(c.name, shades(c, rs), ipct(c.strength[last]), c.ids.length === 1 ? '1 item' : c.ids.length + ' items', 'cat:' + c.key, '', [['ic:c:' + c.key, c.color, c.name]], true); });
+    D.circles.forEach((c) => { const rs = (c.tileRings || c.all.map((hb) => ({ label: hb.name, v: hb.strength[last] }))).concat(c.trkR.map((t) => ({ label: t.name, v: t.strength[last] }))).slice(0, 5); tile(c.name, shades(c, rs), ipct(c.strength[last]), c.ids.length === 1 ? '1 item' : c.ids.length + ' items', 'cat:' + c.key, '', [['ic:c:' + c.key, c.color, c.name]], true); });
     { const run = expList().filter((e) => !expResult(D, e).done).length; // Experiments at the top (2026-11-08)
       h += `<div class="ilist iexp">${irow({ label: 'Experiments', muted: run ? run + ' running' : expList().length ? 'none running' : 'none yet', go: 'exp' })}</div>`; }
     const order = insOrder(Object.keys(T)); const hid = M.settings.insHidden || [];
@@ -4146,7 +4192,7 @@ function renderInsight() {
       if (dn) return { state: 'done', t: dn / sts.length, c: acc }; return { state: sts.every((x) => x === 'skip') ? 'skip' : 'miss' }; });
     const full = share.slice(-30).filter((x) => x.state === 'done' && x.t === 1).length;
     const perWeek = Array.from({ length: 16 }, (_, w) => iavg(share.slice(N - (16 - w) * 7, N - (15 - w) * 7).filter((x) => x.state !== 'skip').map((x) => x.state === 'done' ? x.t : 0)));
-    h += iringSet([{ label: 'All', v: series[last], c: acc }].concat(shades(c, (c.tileRings || hs.map((hb) => ({ label: hb.name, v: hb.strength[last] }))).concat(c.trk.map((t) => ({ label: t.name, v: t.strength[last] }))).slice(0, 9)).map((r, k) => Object.assign(r, { c: tint(acc, Math.min(0.66, 0.12 + k * 0.16)) }))), ipct(series[last]), c.ids.length === 1 ? '1 item' : c.ids.length + ' items');
+    h += iringSet([{ label: 'All', v: series[last], c: acc }].concat(shades(c, (c.tileRings || hs.map((hb) => ({ label: hb.name, v: hb.strength[last] }))).concat(c.trkR.map((t) => ({ label: t.name, v: t.strength[last] }))).slice(0, 9)).map((r, k) => Object.assign(r, { c: tint(acc, Math.min(0.66, 0.12 + k * 0.16)) }))), ipct(series[last]), c.ids.length === 1 ? '1 item' : c.ids.length + ' items');
     h += istats([[ipct(series[last]), hs.length ? 'strength' : 'average'], [isigned(series[last] - series[last - 30]), 'this month'], [isigned(series[last] - series[0]), 'this year']].concat(hs.length ? [[String(full), 'full days, 30']] : []));
     if (hs.length) h += ilab('How much got done', '26 weeks') + ical(D, share) + ikey([[ibead('done', 1, acc), 'all done'], [ibead('done', 0.2, acc), 'some'], [ibead('miss'), 'none done'], [ibead('skip'), 'skipped']]);
     if (hs.length) h += ilab('Share done per week', '16 weeks') + icols(perWeek, perWeek.map((v) => Math.round(v * 100)), acc);
@@ -5062,7 +5108,7 @@ function rollPool(h) { const P = openProjs(h); const cov = P.map((p) => G(p).act
 function rollPick(h) { const L = rollPool(h); return L.length ? L[Math.floor(Math.random() * L.length)] : null; }
 function suggestion(h) { if (!G(h)) return null; const g = G(h); const L = rollPool(h); const ld = hobLast(h);
   const pk = L.includes(S.rollPick) ? S.rollPick : L[0]; const pj = pk && G(pk) ? pk : null; const act = pk && I(pk) ? pk : null;
-  return { hobby: g.name, color: g.color, text: pj ? 'Work on ' + G(pj).name : act ? I(act).name : 'Some ' + g.name.toLowerCase(), sub: ld ? 'Last done ' + agoText(ld) : 'Not done yet', go: pj || null, act }; }
+  return { hobby: g.name, color: g.color, text: pj ? 'Work on ' + G(pj).name.toLowerCase() : act ? I(act).name : 'Some ' + g.name.toLowerCase(), sub: ld ? 'Last done ' + agoText(ld) : 'Not done yet', go: pj || null, act }; }
 // Worked on it: a project gets today as a day I worked on it, and the activity it covers counts as done today
 function projWork(p) { const x = G(p); if (!x) return; const was = (x.worked || []).includes(T0);
   change(() => { if (was) { x.worked = x.worked.filter((d) => d !== T0); if (x.workAuto === T0 && x.act && M.log[T0]) { delete M.log[T0][x.act]; } delete x.workAuto; }
@@ -5349,13 +5395,15 @@ function noteSheet(s) { const D = s.draft; const T = D.tags || [];
   const cp = `<button role="menuitem" data-a="ncopy">${mi('copynote', 'copy')}Copy</button>`;
   const del = s.isNew ? '' : `<button role="menuitem" class="ndel" data-a="ndelete">${mi('delnote', 'trash')}Delete note</button>`;
   const dm = S.nTagOpen ? `<span class="vsortx" data-a="ntagmenu"></span><span class="vdrop vsortm ntagm" role="menu">${tg}${cp}${del}</span>` : '';
-  return `<div class="ntop"><input class="ntitle" id="ntitle" value="${esc(D.title || '')}" aria-label="Title" ${s.isNew ? 'data-autofocus' : ''}>${`<span class="vsortw"><button class="fbtn" data-a="ntagmenu" aria-label="More" aria-haspopup="menu" aria-expanded="${!!S.nTagOpen}">${icon('ellipsis', 18)}</button>${dm}</span>`}</div>
-    <div class="notepaper"><textarea id="ntext" class="nlines" rows="8">${esc(D.text || '')}</textarea></div>`; }
+  return `<div class="ntop"><input class="ntitle" id="ntitle" spellcheck="true" value="${esc(D.title || '')}" aria-label="Title" ${s.isNew ? 'data-autofocus' : ''}>${`<span class="vsortw"><button class="fbtn" data-a="ntagmenu" aria-label="More" aria-haspopup="menu" aria-expanded="${!!S.nTagOpen}">${icon('ellipsis', 18)}</button>${dm}</span>`}</div>
+    <div class="notepaper"><textarea id="ntext" class="nlines" rows="8" spellcheck="true" autocapitalize="sentences">${esc(D.text || '')}</textarea></div>`; }
 // notes save while I write; the notepad button only closes (2026-11-08)
 let nT = 0;
 function nAuto() { const s = S.sheet; if (!s || s.kind !== 'note') return; ncapture(); const D = s.draft; const L = noteList(s);
   if (s.isNew) { if (!D.title && !(D.text || '').trim()) return; D.id = D.id || uid('n'); D.upd = Date.now(); L.push(D); s.isNew = false; s.ref = D.id; }
-  else { const i = L.findIndex((x) => x.id === s.ref); D.upd = Date.now(); if (i >= 0) L[i] = D; else L.push(D); }
+  else { const i = L.findIndex((x) => x.id === s.ref); const o = i >= 0 ? L[i] : null;
+    // only a real change moves the note to the front (2026-11-11)
+    if (!o || o === D || (o.title || '') !== (D.title || '') || (o.text || '') !== (D.text || '') || JSON.stringify(o.tags || []) !== JSON.stringify(D.tags || [])) D.upd = Date.now(); if (i >= 0) L[i] = D; else L.push(D); }
   save(); }
 document.addEventListener('input', (ev) => { const t = ev.target; if (t && (t.id === 'ntitle' || t.id === 'ntext')) nAuto(); });
 function ncapture() { const s = S.sheet; if (!s || s.kind !== 'note') return; const t = document.getElementById('ntitle'), x = document.getElementById('ntext'); if (t) s.draft.title = t.value.trim(); if (x) s.draft.text = x.value; }
@@ -5615,7 +5663,7 @@ function renderNotebook() { const v = S.nbView || 'home';
   if (v === 'board') return renderBoard();
   if (v === 'words') return renderWords();
   return renderNbHome(); }
-const nbTitle = () => ({ notepad: 'Notes', journal: 'Journal', jpage: 'Journal', boards: 'Boards', board: 'Boards', words: 'Lexicon' })[S.nbView] || 'Notebook';
+const nbTitle = () => ({ notepad: 'Notes', journal: 'Journal', jpage: 'Journal', boards: 'Boards', board: 'Boards', words: 'Words' })[S.nbView] || 'Notebook';
 function jTagSheet(s) { const e = (M.journal || []).find((x) => x.id === s.ref) || { tags: [] }; const T = e.tags || [];
   return `<div class="chips">${jTags().map((t) => `<button class="chip" data-a="jtagtog" data-v="${esc(t)}" aria-pressed="${T.includes(t)}">${esc(t)}</button>`).join('')}${addChip('jnewtagin', 'New tag')}</div>${addOpen('jnewtagin') ? `<div class="inrow" style="margin-top:12px"><input class="inp" id="jnewtagin" placeholder="New tag" enterkeyhint="done" autocomplete="off"><button class="btn" data-a="jnewtag">Add</button></div>` : ''}`; }
 function jListSheet() { const J = (M.journal || []).slice().sort((a, b) => (b.d + (b.at || '')).localeCompare(a.d + (a.at || '')));
@@ -6883,7 +6931,7 @@ function wDeck() { return wDeckAll().filter((w) => w && !wLeftOut(w) && wPass(w)
 // word cards look like the Notepad post-its: the word on the title line, the meaning on its ruled lines (2026-11-10)
 const wTile = (w, i) => `<button class="postit wtile" data-a="wgo" data-ref="${w.id}" style="transform:rotate(${TILTS[i % TILTS.length]}deg)"><span class="pt">${esc(w.word)}</span><span class="wpl">${esc(w.mean || '')}</span><span class="wtfoot">${wFlag(w, 10)}<span class="ptag mono">${esc((w.tags || []).join(' · '))}</span></span></button>`;
 function wDeckAll() { const ids = wList().map((w) => w.id); if (S.wOrder) { const o = S.wOrder.filter((id) => ids.includes(id)); ids.forEach((id) => { if (!o.includes(id)) o.unshift(id); }); S.wOrder = o; return o.map((id) => wList().find((w) => w.id === id)); } return wSorted(); }
-const wHead = () => `<div class="nbhead"><button class="nbt" data-a="nbgo" data-v="words"><span class="mono">Lexicon</span><span class="chev" aria-hidden="true">›</span></button><button class="nbpen" data-a="wnew" aria-label="New word">${icon('pen-line', 20)}</button></div>`;
+const wHead = () => `<div class="nbhead"><button class="nbt" data-a="nbgo" data-v="words"><span class="mono">Words</span><span class="chev" aria-hidden="true">›</span></button><button class="nbpen" data-a="wnew" aria-label="New word">${icon('pen-line', 20)}</button></div>`;
 // on the landing: a little stack with the newest word on top
 function wRow() { const W = wSorted(); return wHead() + (W.length ? `<div class="hscroll postrow wprow">${W.map(wTile).join('')}</div>` : '<p class="empty">No words yet.</p>'); }
 // a card has two faces and really turns over (2026-11-09: "more tactile"); the ones underneath show their word
@@ -6897,15 +6945,15 @@ function renderWords() { const D = wDeck(); const N = D.length; const list = S.w
   // shuffle shuffles straight away, no menu (2026-11-10)
   const shuf = wList().length > 1 && !list ? `<button class="fbtn wshufb" data-a="wshuf" aria-label="Shuffle">${icon('shuffle', 13)}</button>` : '';
   const tools = `${list ? `<button class="fbtn" data-a="wnew" aria-label="New word">${icon('pen-line', 18)}</button>` : (N ? `<button class="fbtn" data-a="wopen" data-ref="${(D[((S.wI || 0) % N + N) % N] || {}).id}" aria-label="Edit this word">${icon('pencil', 18)}</button>` : '')}${wList().length ? `<span class="vsortw"><button class="fbtn" data-a="wfopen" aria-label="Filter" aria-haspopup="menu" aria-expanded="${!!S.wFOpen}" aria-pressed="${wF() !== 'all' || wFL() !== 'all' || !!S.wFOpen}">${icon('sliders-horizontal', 18)}</button>${S.wFOpen ? `<span class="vsortx" data-a="wfopen"></span><span class="vdrop vsortm" role="menu"><span class="mono">Language</span>${[['all', 'All']].concat(WLANGS).map(([k, l]) => `<button role="menuitemradio" data-a="wflang" data-v="${k}" aria-checked="${wFL() === k}"><span class="wfl1">${k === 'all' ? '' : flagSvg(k, 12)}${esc(l)}</span>${wFL() === k ? icon('check', 16, 2) : ''}</button>`).join('')}${wTags().length ? `<span class="mono">Tags</span>${[['all', 'All']].concat(wTags().map((t) => [t, t])).map(([k, l]) => `<button role="menuitemradio" data-a="wftag" data-v="${esc(k)}" aria-checked="${wF() === k}">${esc(l)}${wF() === k ? icon('check', 16, 2) : ''}</button>`).join('')}` : ''}</span>` : ''}</span>` : ''}`;
-  if (!N) return nbCrumbs([['Notebook', 'home'], ['Lexicon']], tools) + `<p class="empty">${wList().length ? 'No words here.' : 'No words yet.'}</p>`;
-  if (list) { const L = wSorted().filter(wPass); return nbCrumbs([['Notebook', 'home'], ['Lexicon']], tools) + (L.length ? `<div class="postits">${L.map(wTile).join('')}</div>` : '<p class="empty">No words here.</p>'); }
+  if (!N) return nbCrumbs([['Notebook', 'home'], ['Words']], tools) + `<p class="empty">${wList().length ? 'No words here.' : 'No words yet.'}</p>`;
+  if (list) { const L = wSorted().filter(wPass); return nbCrumbs([['Notebook', 'home'], ['Words']], tools) + (L.length ? `<div class="postits">${L.map(wTile).join('')}</div>` : '<p class="empty">No words here.</p>'); }
   S.wI = ((S.wI || 0) % N + N) % N;
   // flash cards in a vertical scroll (2026-11-10): one word to a screen, tap shows what it means. I move the words myself
   // (no browser scroll snapping), so nothing can pull them back or jump. A menu right of the stack/spread button edits the word and sets its language and tags (2026-11-10).
   const cur = D[S.wI];
   const menu = S.wMenu ? `<span class="vsortx" data-a="wmenu"></span><span class="vdrop vsortm wmenu" role="menu"><button role="menuitem" data-a="wopen" data-ref="${cur.id}">Edit this word</button><span class="mono">Language</span>${WLANGS.map(([k, l]) => `<button role="menuitemradio" data-a="wqlang" data-v="${k}" aria-checked="${wLang(cur) === k}"><span class="wfl1">${flagSvg(k, 12)}${l}</span>${wLang(cur) === k ? icon('check', 16, 2) : ''}</button>`).join('')}${(wTags().length || addOpen('wqtag')) ? '<span class="mono">Tags</span>' : ''}${wTags().map((t) => { const on = (cur.tags || []).includes(t); return `<button role="menuitemcheckbox" data-a="wqtag" data-v="${esc(t)}" aria-checked="${on}">${esc(t)}${on ? icon('check', 16, 2) : ''}</button>`; }).join('')}${addOpen('wqnew') ? `<span class="inrow wqrow"><input class="inp" id="wqnew" placeholder="New tag" enterkeyhint="done" autocomplete="off"></span>` : '<button role="menuitem" data-a="openadd" data-v="wqnew">+ New tag</button>'}</span>` : '';
-  // the flash cards have their own crumb; Lexicon takes me back to all the words (2026-11-10)
-  const h = nbCrumbs([['Notebook', 'home'], ['Lexicon', 'words'], ['Review']], tools);
+  // the flash cards have their own crumb; Words takes me back to all the words (2026-11-10)
+  const h = nbCrumbs([['Notebook', 'home'], ['Words', 'words'], ['Review']], tools);
   return h + `<div class="wpage"><div class="wscroll" id="wscroll"><div class="wtrack" id="wtrack" style="transform:translateY(calc(${-S.wI} * var(--wh,480px)))">${D.map((w, i) => wItem(w, i === S.wI && !!S.wFlip)).join('')}</div></div>
     <div class="wfoot"><span></span><span class="wcountw"><span class="mono wcount" id="wcount">${S.wI + 1} of ${N}</span>${shuf}</span><span></span></div></div>`; }
 // the word sits centred; when I turn it, the word and its meaning slide together so the whole lot is centred (2026-11-10)
@@ -6934,10 +6982,10 @@ function wSwEnd() { const d = wSw; if (!d) return; wSw = null;
 document.addEventListener('pointerup', wSwEnd); document.addEventListener('pointercancel', wSwEnd);
 let wWheelT = 0; document.addEventListener('wheel', (e) => { if (!(e.target.closest && e.target.closest('#wscroll'))) return; e.preventDefault(); const n = performance.now(); if (n - wWheelT < 450 || Math.abs(e.deltaY) < 8) return; wWheelT = n; wGo(S.wI + (e.deltaY > 0 ? 1 : -1)); }, { passive: false });
 function wordSheet(s) { const D = s.draft;
-  return `<div class="fld"><span class="mono">Word</span><input class="inp" id="wword" value="${esc(D.word || '')}" autocomplete="off" ${s.isNew ? 'data-autofocus' : ''}></div>
+  return `<div class="fld"><span class="mono">Word</span><input class="inp" id="wword" value="${esc(D.word || '')}" autocomplete="off" spellcheck="true" lang="${D.lang === 'no' || D.lang === 'nb' ? 'nb' : 'en-GB'}" ${s.isNew ? 'data-autofocus' : ''}></div>
     <div class="fld"><span class="mono">Language</span><div class="chips">${WLANGS.map(([k, l]) => `<button class="chip wlchip" data-a="wlang" data-v="${k}" aria-pressed="${wLang(D) === k}">${flagSvg(k, 12)}${l}</button>`).join('')}</div></div>
-    <div class="fld"><span class="mono">What it means</span><textarea class="inp" id="wmean" rows="3">${esc(D.mean || '')}</textarea></div>
-    <div class="fld"><span class="mono">Where I found it, or an example</span><textarea class="inp" id="wnote" rows="3">${esc(D.note || '')}</textarea></div>
+    <div class="fld"><span class="mono">What it means</span><textarea class="inp" id="wmean" rows="3" spellcheck="true">${esc(D.mean || '')}</textarea></div>
+    <div class="fld"><span class="mono">Where I found it, or an example</span><textarea class="inp" id="wnote" rows="3" spellcheck="true">${esc(D.note || '')}</textarea></div>
     <div class="fld"><span class="mono">Tags</span><div class="chips">${wTags().concat((D.tags || []).filter((t) => !wTags().includes(t))).map((t) => `<button class="chip" data-a="wtag" data-v="${esc(t)}" aria-pressed="${(D.tags || []).includes(t)}">${esc(t)}</button>`).join('')}${addChip('wnewtag', 'New tag')}</div>${addOpen('wnewtag') ? `<div class="inrow" style="margin-top:10px"><input class="inp" id="wnewtag" placeholder="New tag" enterkeyhint="done" autocomplete="off"><button class="btn" data-a="wtagadd">Add</button></div>` : ''}</div>
     ${s.isNew ? '' : `<button class="btn soft" style="width:100%;margin-top:8px;color:#B5503E" data-a="wdel" data-ref="${s.ref}">Delete this word</button>`}`; }
 function wCapture() { const s = S.sheet; if (!s || s.kind !== 'word') return; const g = (id) => (document.getElementById(id) || {}).value; s.draft.word = (g('wword') || '').trim(); s.draft.mean = (g('wmean') || '').trim(); s.draft.note = (g('wnote') || '').trim(); }
