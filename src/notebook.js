@@ -45,13 +45,15 @@ function noteSheet(s) { const D = s.draft; const T = D.tags || [];
   const cp = `<button role="menuitem" data-a="ncopy">${mi('copynote', 'copy')}Copy</button>`;
   const del = s.isNew ? '' : `<button role="menuitem" class="ndel" data-a="ndelete">${mi('delnote', 'trash')}Delete note</button>`;
   const dm = S.nTagOpen ? `<span class="vsortx" data-a="ntagmenu"></span><span class="vdrop vsortm ntagm" role="menu">${tg}${cp}${del}</span>` : '';
-  return `<div class="ntop"><input class="ntitle" id="ntitle" value="${esc(D.title || '')}" aria-label="Title" ${s.isNew ? 'data-autofocus' : ''}>${`<span class="vsortw"><button class="fbtn" data-a="ntagmenu" aria-label="More" aria-haspopup="menu" aria-expanded="${!!S.nTagOpen}">${icon('ellipsis', 18)}</button>${dm}</span>`}</div>
-    <div class="notepaper"><textarea id="ntext" class="nlines" rows="8">${esc(D.text || '')}</textarea></div>`; }
+  return `<div class="ntop"><input class="ntitle" id="ntitle" spellcheck="true" value="${esc(D.title || '')}" aria-label="Title" ${s.isNew ? 'data-autofocus' : ''}>${`<span class="vsortw"><button class="fbtn" data-a="ntagmenu" aria-label="More" aria-haspopup="menu" aria-expanded="${!!S.nTagOpen}">${icon('ellipsis', 18)}</button>${dm}</span>`}</div>
+    <div class="notepaper"><textarea id="ntext" class="nlines" rows="8" spellcheck="true" autocapitalize="sentences">${esc(D.text || '')}</textarea></div>`; }
 // notes save while I write; the notepad button only closes (2026-11-08)
 let nT = 0;
 function nAuto() { const s = S.sheet; if (!s || s.kind !== 'note') return; ncapture(); const D = s.draft; const L = noteList(s);
   if (s.isNew) { if (!D.title && !(D.text || '').trim()) return; D.id = D.id || uid('n'); D.upd = Date.now(); L.push(D); s.isNew = false; s.ref = D.id; }
-  else { const i = L.findIndex((x) => x.id === s.ref); D.upd = Date.now(); if (i >= 0) L[i] = D; else L.push(D); }
+  else { const i = L.findIndex((x) => x.id === s.ref); const o = i >= 0 ? L[i] : null;
+    // only a real change moves the note to the front (2026-11-11)
+    if (!o || o === D || (o.title || '') !== (D.title || '') || (o.text || '') !== (D.text || '') || JSON.stringify(o.tags || []) !== JSON.stringify(D.tags || [])) D.upd = Date.now(); if (i >= 0) L[i] = D; else L.push(D); }
   save(); }
 document.addEventListener('input', (ev) => { const t = ev.target; if (t && (t.id === 'ntitle' || t.id === 'ntext')) nAuto(); });
 function ncapture() { const s = S.sheet; if (!s || s.kind !== 'note') return; const t = document.getElementById('ntitle'), x = document.getElementById('ntext'); if (t) s.draft.title = t.value.trim(); if (x) s.draft.text = x.value; }
@@ -311,7 +313,7 @@ function renderNotebook() { const v = S.nbView || 'home';
   if (v === 'board') return renderBoard();
   if (v === 'words') return renderWords();
   return renderNbHome(); }
-const nbTitle = () => ({ notepad: 'Notes', journal: 'Journal', jpage: 'Journal', boards: 'Boards', board: 'Boards', words: 'Lexicon' })[S.nbView] || 'Notebook';
+const nbTitle = () => ({ notepad: 'Notes', journal: 'Journal', jpage: 'Journal', boards: 'Boards', board: 'Boards', words: 'Words' })[S.nbView] || 'Notebook';
 function jTagSheet(s) { const e = (M.journal || []).find((x) => x.id === s.ref) || { tags: [] }; const T = e.tags || [];
   return `<div class="chips">${jTags().map((t) => `<button class="chip" data-a="jtagtog" data-v="${esc(t)}" aria-pressed="${T.includes(t)}">${esc(t)}</button>`).join('')}${addChip('jnewtagin', 'New tag')}</div>${addOpen('jnewtagin') ? `<div class="inrow" style="margin-top:12px"><input class="inp" id="jnewtagin" placeholder="New tag" enterkeyhint="done" autocomplete="off"><button class="btn" data-a="jnewtag">Add</button></div>` : ''}`; }
 function jListSheet() { const J = (M.journal || []).slice().sort((a, b) => (b.d + (b.at || '')).localeCompare(a.d + (a.at || '')));

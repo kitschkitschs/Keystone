@@ -161,12 +161,13 @@ function slotDone(it, d) {
   if (it.opens === 'study') return minOn(null, d) >= sessLen() || supMin(d) >= sessLen();
   if (it.opens === 'chores') return choreIds().some((k) => val(d, k));
   if (it.opens === 'training') return typeof trainedOn === 'function' && trainedOn(d).length > 0;
+  if (it.opens === 'hobbies') return typeof hobIds === 'function' && hobIds().some((h) => hobActs(h).some((k) => val(d, k)) || hobProjs(h).some((p) => (G(p).worked || []).includes(d) || projTasks(p).some((k) => val(d, k))));
   return false; }
 function slotSub(it) { if (it.opens === 'study') { const m = minOn(null, T0), s = supMin(T0); return s >= sessLen() ? 'Study support done' : ''; } // no 'Opens …', the arrow says it (2026-11-04)
-  if (it.opens === 'training') return '';
+  if (it.opens === 'training' || it.opens === 'hobbies') return '';
   const n = choreIds().filter((k) => val(T0, k)).length; return n ? n + ' done today' : ''; }
 function slotGo(id) { const it = I(id); S.sheet = null; S.fromSlot = id; S.room = null; S.subj = null; S.pick = null; S.stv = null;
-  if (it.opens === 'study') { S.area = 'study'; S.page = null; } else if (it.opens === 'training') { S.area = 'health'; S.page = 'training'; } else { S.area = 'home'; S.page = 'chores'; }
+  if (it.opens === 'study') { S.area = 'study'; S.page = null; } else if (it.opens === 'training') { S.area = 'health'; S.page = 'training'; } else if (it.opens === 'hobbies') { S.area = 'hobbies'; S.page = null; S.proj = null; } else { S.area = 'home'; S.page = 'chores'; }
   render(); $('#main').scrollTop = 0; }
 
 // ---------- blocks ----------
@@ -246,6 +247,9 @@ function renderVerdict() {
 function homeLanding() {
   return choreCard('Chores', allJobs(), CHORE_W, 'data-a="vgo" data-v="chores"') + choreCard('Homemaking', jobsIn('g-tend'), TEND_W, 'data-a="vgo" data-v="homemaking"') + cookCard('data-a="vgo" data-v="cooking"') + shopBtn();
 }
+// edit mode on a Home page or Studies: which day block new tasks from here go in, and the icon they get by default (2026-11-11)
+function vDefaults(k, what) { const cur = defBlock(k);
+  return lcard(null, 'New ' + what, '', `<div class="vdef"><span class="mono">Day block</span><div class="chips">${blockIds().map((b) => `<button class="chip" data-a="vdefblk" data-ref="${k}" data-v="${b}" aria-pressed="${cur === b}">${esc(G(b).name)}</button>`).join('')}</div><span class="mono" style="display:block;margin-top:14px">Default icon</span><div><button class="btn" data-a="iconfor" data-v="ui:def-${k}" style="display:inline-flex;gap:8px;align-items:center;margin-top:6px">${icon(uiIc('def-' + k, DEFIC[k]), 18)} Change icon</button></div></div>`); }
 function choresPage() {
   const J = allJobs(); let h = crumbs([['Home', ''], ['Chores']]) + choreCard('Chores', J, CHORE_W, S.edit ? '' : 'data-a="vunpick" aria-label="Show what needs care in every room"', true);
   if (S.edit) h += vlab('Rooms') + eList('g-rooms', roomIds(), 'Add room', 'vaddroom', (r) => kidsOf(r).length + (kidsOf(r).length === 1 ? ' job' : ' jobs'));
@@ -257,7 +261,7 @@ function choresPage() {
     // no Open button for a picked room; tapping its card again opens it (2026-11-10)
   }
   const oo = kidsOf('g-oneoff').filter((k) => !everDone(k) || val(T0, k)).sort((a, b) => ((I(a).when || {}).date || '9999').localeCompare((I(b).when || {}).date || '9999'));
-  h += S.edit ? vlab('One-off') + eList('g-oneoff', kidsOf('g-oneoff'), 'Add chore', 'vadd', (k) => onceSub(k))
+  h += S.edit ? vlab('One-off') + eList('g-oneoff', kidsOf('g-oneoff'), 'Add chore', 'vadd', (k) => onceSub(k)) + vDefaults('chores', 'chores')
     : lcard('v:oneoff', 'One-off', oo.length || '', (oo.map((k) => tickRow(k, onceSub(k))).join('') || '<p class="empty">No chores.</p>'));
   return h;
 }
@@ -277,12 +281,12 @@ function roomPage(r) {
 }
 function tendPage() {
   const J = jobsIn('g-tend'); let h = crumbs([['Home', ''], ['Homemaking']]) + choreCard('Homemaking', J, TEND_W);
-  if (S.edit) return h + vlab('Tending') + eList('g-tend', kidsOf('g-tend'), 'Add something to tend', 'vadd', (k) => whenText(I(k)));
+  if (S.edit) return h + vlab('Tending') + eList('g-tend', kidsOf('g-tend'), 'Add something to tend', 'vadd', (k) => whenText(I(k))) + vDefaults('tend', 'homemaking tasks');
   return h + sect('v:tend', 'Tending', J.length + (J.length === 1 ? ' item' : ' items'), J.sort((a, b) => b.urg - a.urg).map((j) => jobRow(j, whenText(I(j.id)))).join(''));
 }
 function cookPage() {
   let h = crumbs([['Home', ''], ['Cooking']]) + cookCard();
-  if (S.edit) return h + vlab('Planned prep') + eList('g-prep', kidsOf('g-prep'), 'Add prep', 'vadd', (k) => onceSub(k));
+  if (S.edit) return h + vlab('Planned prep') + eList('g-prep', kidsOf('g-prep'), 'Add prep', 'vadd', (k) => onceSub(k)) + vDefaults('prep', 'prep');
   const P = kidsOf('g-prep').filter((k) => !everDone(k) || val(T0, k)).sort((a, b) => ((I(a).when || {}).date || '9999').localeCompare((I(b).when || {}).date || '9999'));
   // a prep with sub-tasks shows them under it, indented, each with its own tick (2026-11-06: Pizza › Dough)
   const subs = (k) => (I(k).steps || []).filter(I).map((sid) => { const on = everDone(sid); return `<div class="row substep" data-ref="${sid}"><button class="tickbtn" data-a="psub" data-ref="${sid}" aria-label="Tick ${esc(I(sid).name)}"><span class="circ ${on ? 'done' : ''}" style="--c:${colorOf(k)}">${on ? '✓' : ''}</span></button><span class="lbl">${esc(I(sid).name)}</span></div>`; }).join('');
@@ -291,7 +295,7 @@ function cookPage() {
 }
 function studyLanding() {
   const V = studyVerdict(); let h = vCard({ eyebrow: studyName(), word: V.word, lvl: V.lvl, sub: V.sub, segs: V.segs, foot: V.foot, go: S.edit ? '' : 'data-a="vunpick" aria-label="Show what needs me most in every subject"', nochev: true });
-  if (S.edit) return h + vlab('Subjects') + eList('g-subjects', subjIds(), 'Add subject', 'vaddsubj', (s) => sgroupsOf(s).length + (sgroupsOf(s).length === 1 ? ' group' : ' groups'));
+  if (S.edit) return h + vlab('Subjects') + eList('g-subjects', subjIds(), 'Add subject', 'vaddsubj', (s) => sgroupsOf(s).length + (sgroupsOf(s).length === 1 ? ' group' : ' groups')) + vDefaults('study', 'study tasks');
   if (!subjIds().length) return h;
   const pick = S.pick && subjIds().includes(S.pick) ? S.pick : null;
   h += vlab('Subjects') + `<div class="vstrip">${subjIds().slice().sort((a, b) => subjRank(b) - subjRank(a)).map((s) => { const v = subjVerdict(s); return stripCard(s, G(s).name, v.lvl, v.word, v.tasks.length ? v.tasks.map(taskInk) : [SEG0], pick === s); }).join('')}</div>`;
@@ -429,11 +433,11 @@ function vNew(gid) { const g = G(gid); if (!g) return; const st = g.style;
   if (st === 'room' || gid === 'g-tend') D.when = { mode: 'once', date: null };
   else if (st === 'tcat') Object.assign(D, { when: { mode: 'once', date: null }, dur: 45 });
   else if (st === 'sgroup') Object.assign(D, { when: { mode: 'once', date: null }, est: 1, dur: 60, insight: false });
-  else Object.assign(D, { when: { mode: 'once', date: gid === 'g-prep' ? T0 : null }, insight: false }, gid === 'g-prep' ? { icon: 'cooking-pot' } : {});
+  else Object.assign(D, { when: { mode: 'once', date: gid === 'g-prep' ? T0 : null }, insight: false }, {});
   const title = st === 'tcat' ? 'New session · ' + g.name : st === 'room' ? 'New job · ' + g.name : gid === 'g-tend' ? 'New thing to tend' : gid === 'g-prep' ? 'New prep' : gid === 'g-oneoff' ? 'New chore' : 'New study task';
   // prep goes on Today (Evening) so it isn't forgotten; the rest live only on their page unless you pick a day block
   // a new study task starts in the Study block, everything else in Evening (2026-11-06)
-  openSheet({ kind: 'item', isNew: true, title, draft: D, block: st === 'sgroup' ? studyBlock() : eveBlock(), home: gid, steps: [] });
+  openSheet({ kind: 'item', isNew: true, title, draft: D, block: st === 'sgroup' ? studyBlock() : defBlock(st === 'room' || gid === 'g-oneoff' ? 'chores' : gid === 'g-tend' ? 'tend' : gid === 'g-prep' ? 'prep' : ''), home: gid, steps: [] });
 }
 function vNewGroup(parent, o, msg) { const id = uid('g'); change(() => { M.groups[id] = Object.assign({ kids: [] }, o); G(parent).kids.push(id); }, msg, false);
   openSheet({ kind: 'group', ref: id, title: o.style === 'room' ? 'Room' : o.style === 'subject' ? 'Subject' : 'Task group', isNew: true }); }
