@@ -7,7 +7,9 @@
 const pad = (n) => String(n).padStart(2, '0');
 const iso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 const parse = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
-let T0 = iso(new Date()); // moves on at midnight, even while the app stays open (2026-11-10: feelings showed yesterday's colours)
+// a new day starts at 6 in the morning, not at midnight (2026-11-11)
+const DAY_H = 6; const appDay = () => { const n = new Date(); n.setHours(n.getHours() - DAY_H); return iso(n); };
+let T0 = appDay(); // moves on at 6am, even while the app stays open (2026-11-10: feelings showed yesterday's colours)
 const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
 const diff = (a, b) => Math.round((parse(b) - parse(a)) / 864e5);
 const wd = (s) => (parse(s).getDay() + 6) % 7;
@@ -136,11 +138,16 @@ function homeOf(ref) { return placements(ref)[0]; }
 // lives in a day block alone takes the block's colour (2026-11-11: circles changed colour when a chore went into a block)
 // a generic item without its own colour wears its section's (2026-11-11)
 const slotCol = (it) => { const o = it.opens; const A = M.areas || {}, P = M.pages || {}; return o === 'study' ? (A.study || {}).color : o === 'chores' ? (P.chores || A.home || {}).color : o === 'hobbies' ? (A.hobbies || {}).color : o === 'training' || o === 'move' ? (P.training || {}).color : null; };
-function colorOf(id) { const it = I(id); if (it && it.color) return it.color; if (it && it.type === 'slot' && slotCol(it)) return slotCol(it); const P = placements(id); const pl = P.find((p) => !(G(p) && (G(p).style === 'dayblock' || G(p).holds === 'slot'))) || P[0]; if (!pl) return '#9A9387'; if (pl.startsWith('s:')) return colorOf(pl.slice(2)); const g = G(pl);
-  // Home's sections keep their colour on their tab (2026-11-11): Homemaking, Cooking, Chores; a room without its own colour wears Chores'
-  const PG = { 'g-tend': 'homemaking', 'g-prep': 'cooking', 'g-oneoff': 'chores' }[pl] || (g.style === 'room' && !g.color ? 'chores' : null);
-  if (PG && ((M.pages || {})[PG] || {}).color) return M.pages[PG].color; if (g.style === 'sgroup' && !g.color) return ((M.areas || {}).study || {}).color || '#9A9387';
-  if (!g.color && g.style === 'project' && typeof hobOf === 'function' && G(hobOf(pl))) return G(hobOf(pl)).color; return g.color || '#9A9387'; }
+function colorOf(id) { const it = I(id); if (!it && G(id)) return grpCol(id); if (it && it.color) return it.color; if (it && it.type === 'slot' && slotCol(it)) return slotCol(it); const P = placements(id); const pl = P.find((p) => !(G(p) && (G(p).style === 'dayblock' || G(p).holds === 'slot'))) || P[0]; if (!pl) return '#9A9387'; if (pl.startsWith('s:')) return colorOf(pl.slice(2)); return grpCol(pl); }
+// a group without its own colour wears its parent's, up to the page or area it sits in (2026-11-11: items take their parent colour everywhere)
+// Home's sections keep their colour on their tab (2026-11-11): Homemaking, Cooking, Chores; a room without its own colour wears Chores'
+const ROOTCOL = { 'g-tend': ['pages', 'homemaking'], 'g-prep': ['pages', 'cooking'], 'g-oneoff': ['pages', 'chores'], 'g-rooms': ['pages', 'chores'], 'g-subjects': ['areas', 'study'], 'g-hobbies': ['areas', 'hobbies'], 'g-train': ['pages', 'training'], 'g-appts': ['pages', 'appts'], 'g-health': ['areas', 'health'], 'g-blocks': ['areas', 'plan'], 'g-slots': ['areas', 'plan'] };
+function parentGrp(k) { return Object.keys(M.groups).find((p) => (M.groups[p].kids || []).includes(k)) || null; }
+function grpCol(k, n) { const g = G(k); if (!g || (n || 0) > 8) return '#9A9387'; const R = ROOTCOL[k]; const rc = R && ((M[R[0]] || {})[R[1]] || {}).color;
+  if (R && R[0] === 'pages' && rc) return rc; if (g.color) return g.color; if (rc) return rc;
+  if (g.style === 'sgroup' || g.style === 'subject') { const p = parentGrp(k); return p && p !== 'g-subjects' && G(p).color ? G(p).color : ((M.areas || {}).study || {}).color || '#9A9387'; }
+  if (g.style === 'project' && typeof hobOf === 'function' && G(hobOf(k))) return grpCol(hobOf(k), (n || 0) + 1);
+  const p = parentGrp(k); return p ? grpCol(p, (n || 0) + 1) : '#9A9387'; }
 function blockOfItem(id) { const pl = placements(id).find((p) => G(p) && G(p).style === 'dayblock'); return pl || blockIds()[blockIds().length - 1]; }
 function blockAtTime(t) { const m = hm(t); return blockIds().find((b) => hm(G(b).start) <= m && m < hm(G(b).end)) || blockIds()[blockIds().length - 1]; }
 function placeName(p) { if (p.startsWith('s:')) return (I(p.slice(2)) || {}).name + ' (steps)'; const g = G(p); return g.style === 'dayblock' ? 'Day block · ' + g.name : g.style === 'acat' ? 'Appointments · ' + g.name : g.name; }
@@ -148,7 +155,16 @@ function placeName(p) { if (p.startsWith('s:')) return (I(p.slice(2)) || {}).nam
 // ---------- log ----------
 const L = (d) => M.log[d] || (M.log[d] = {});
 const val = (d, id) => (M.log[d] || {})[id];
-function isDone(id, d) { const it = I(id); if (it && it.type === 'slot') return slotDone(it, d); if (it && it.type === 'routine') return (it.steps || []).length ? it.steps.every((s) => val(d, s)) : !!val(d, id); return !!val(d, id); }
+function isDone(id, d) { const it = I(id); if (it && it.type === 'slot') return slotDone(it, d); if (it && it.type === 'routine') { const st = rSteps(id, d); return !!val(d, id) || (st.length ? st.every((s) => val(d, s)) : false); } return !!val(d, id); }
+// Routines (2026-11-11): a part can be optional, and can be variable (only on days without a workout, with one, or on certain weekdays).
+// Ticking the routine closes it: parts I didn't tick count as missed. It is complete when every part that isn't optional got ticked.
+const rStepsAll = (id) => ((I(id) || {}).steps || []).filter((s) => I(s));
+function workDay(d) { const k = 'wd|' + d; if (WKC.has(k)) return WKC.get(k); let r = false;
+  try { r = trainCats().filter((c) => c !== 'tc-move').some((c) => kidsOf(c).some((x) => I(x) && (onDay(x, d) || !!val(d, x)))); } catch (e) { r = false; } WKC.set(k, r); return r; }
+function stepOn(s, d) { const x = I(s) || {}; const o = x.only || ''; if (!o) return true; if (o === 'rest') return !workDay(d); if (o === 'train') return workDay(d); if (o === 'days') return (x.days || []).includes(wd(d)); return true; }
+const rSteps = (id, d) => rStepsAll(id).filter((s) => stepOn(s, d));
+const stepMissed = (s, d) => !!(((M.missed || {})[d] || {})[s]);
+function rComplete(id, d) { const st = rSteps(id, d); if (!st.length) return !!val(d, id); return st.every((s) => (I(s).optional) || (val(d, s) && !stepMissed(s, d))); }
 function lastDoneBefore(id, d) { const ks = Object.keys(M.log).filter((k) => k < d).sort().reverse(); for (const k of ks) if (isDone(id, k)) return k; return null; }
 function doneSince(id, from, to) { return Object.keys(M.log).some((k) => k >= from && k <= to && isDone(id, k)); }
 const repeatable = (it) => it.type === 'routine' || (it.when && it.when.mode !== 'once');
@@ -269,8 +285,8 @@ function dayListRaw(d, raw) {
 }
 // Missed (2026-11-02): an item marked missed leaves that day's list and schedule and drops into a Missed section.
 // It counts as not done. Kept in M.missed[day][id], apart from the day log.
-const isMissed = (id, d) => !!(((M.missed || {})[d] || {})[id]);
-const missedOn = (d) => Object.keys((M.missed || {})[d] || {}).filter((id) => I(id));
+const isMissed = (id, d) => { const v = ((M.missed || {})[d] || {})[id]; return !!v && v !== 'r'; };
+const missedOn = (d) => Object.entries((M.missed || {})[d] || {}).filter(([id, v]) => I(id) && v !== 'r' && I(id).type !== 'step').map(([id]) => id); // parts a ticked routine missed ('r') count in the routine, not on their own
 function dropMissed(out, d) { out.forEach((x) => { x.items = x.items.filter((id) => !isMissed(id, d)); if (x.appts) x.appts = x.appts.filter((id) => !isMissed(id, d)); }); return out; }
 // Move an item to place idx of block b on one day only (repeats and routines). One-off tasks move for good.
 function seqOf(day, b, excl) { return placeDay(day).filter((o) => o.blk === b && I(o.id).type !== 'checkin' && o.id !== excl).sort((p, q) => p.a - q.a).map((o) => o.id); }
@@ -346,7 +362,7 @@ function linkPass(d) { const L0 = M.log[d] = M.log[d] || {};
   Object.keys(M.items).forEach((id) => { const ls = I(id).links; if (!ls || !ls.length || !linkDone(id, d)) return; ls.forEach((t) => { if (!I(t) || t === id || L0[t] != null) return; L0[t] = linkVal(t); L0['ln:' + t] = id; }); });
   if (!Object.keys(L0).length) delete M.log[d]; }
 function change(fn, msg, canUndo = true) { freezePast(); const before = JSON.stringify(M); fn(); try { linkPass(T0); if (S.day && S.day < T0) linkPass(S.day); } catch (_) {} try { snapDay(T0); if (S.day && S.day < T0 && S.area === 'plan') snapDay(S.day); } catch (_) {} save(); render(); if (msg) { if (canUndo) { HIST.past.push({ s: before, msg }); if (HIST.past.length > 40) HIST.past.shift(); HIST.fut = []; } } } // no pop-up when I tick or save (2026-11-10)
-function dayTick() { const t = iso(new Date()); if (t === T0) return; const old = T0; T0 = t; if (S.day === old) S.day = t; if (S.sday === old) S.sday = t; if (S.monthOf === old.slice(0, 7)) S.monthOf = t.slice(0, 7); S.dayComp = null; render(); }
+function dayTick() { const t = appDay(); if (t === T0) return; const old = T0; T0 = t; if (S.day === old) S.day = t; if (S.sday === old) S.sday = t; if (S.monthOf === old.slice(0, 7)) S.monthOf = t.slice(0, 7); S.dayComp = null; render(); }
 setInterval(dayTick, 30000); document.addEventListener('visibilitychange', () => { if (!document.hidden) dayTick(); }); window.addEventListener('focus', dayTick);
 function histStep(back) { const A = back ? HIST.past : HIST.fut, B = back ? HIST.fut : HIST.past; const e = A.pop(); if (!e) return; B.push({ s: JSON.stringify(M), msg: e.msg }); M = JSON.parse(e.s); save(); render(); }
 function flash(msg, undo) { clearTimeout(S.tt); S.toast = { msg, undo }; renderLayer(); S.tt = setTimeout(() => { S.toast = null; renderLayer(); }, undo ? 5000 : 2200); }
@@ -435,6 +451,7 @@ function ciStepRow(s, rid, d, live) {
 }
 // A routine opens by itself once it's due today (its start time on Schedule has come) and stays open until closed.
 // Opening or closing by hand is kept for that day, also after a reload (2026-11-03).
+const stepNote = (s) => { const x = I(s) || {}; const W = { rest: 'Days without a workout', train: 'Days with a workout', days: (x.days || []).slice().sort().map((k) => WD[k]).join(', ') }; return [x.optional ? 'Optional' : '', W[x.only] || ''].filter(Boolean).join(' · '); };
 function routineOpen(id, d) {
   const set = ((M.rOpen || {})[d] || {})[id]; if (set !== undefined) return set;
   if (d !== T0 || isDone(id, d)) return false;
@@ -460,10 +477,10 @@ function itemRow(id, list, d) {
   const sub0 = much ? 'Too much' + (val(d, id) === 'much:hyper' ? ' · hyperfixation' : val(d, id) === 'much:inert' ? ' · inertia' : '') : late ? (late === 1 ? '1 day late' : late + ' days late') : '';
   const sub = [whereOf(id), it.optional ? 'Optional' : '', sub0].filter(Boolean).join(' · '); // a chore shows its room, a study task its subject
   if (it.type === 'routine') {
-    const open = S.edit || routineOpen(id, d); const steps = it.steps || [];
+    const open = S.edit || routineOpen(id, d); const steps = S.edit ? rStepsAll(id) : rSteps(id, d);
     return `<div data-ref="${id}"><div class="row">${grip()}${tickCircle(id, d, live)}
       <button class="lbl" data-a="ropen" data-ref="${id}" aria-expanded="${!!open}" style="display:flex;align-items:center;gap:10px">${S.edit ? `<span style="flex:1">${nm(id, it.name)}</span>` : `<span style="flex:1">${esc(it.name)}${tdur(it)}</span>`}${S.edit ? '' : `${fold(open)}`}</button>${tail(id, list)}</div>
-      ${open ? `<div class="steps" data-list="s:${id}">${steps.map((s) => I(s).type === 'checkin' ? ciStepRow(s, id, d, live) : `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" style="width:18px;height:40px" data-a="step" data-ref="${s}" aria-label="Tick ${esc(I(s).name)}"><span class="circ ${val(d, s) ? 'done' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span></button>` : `<span class="circ ${val(d, s) ? 'done' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span>`}<span class="lbl">${nm(s, I(s).name)}</span>${tail(s, 's:' + id, { gear: false })}</div>`).join('')}
+      ${open ? `<div class="steps" data-list="s:${id}">${steps.map((s) => I(s).type === 'checkin' ? ciStepRow(s, id, d, live) : `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" style="width:18px;height:40px" data-a="step" data-ref="${s}" aria-label="Tick ${esc(I(s).name)}"><span class="circ ${val(d, s) ? 'done' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span></button>` : `<span class="circ ${val(d, s) ? 'done' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span>`}<span class="lbl">${nm(s, I(s).name)}${stepNote(s) ? `<span class="sub">${esc(stepNote(s))}</span>` : ''}</span>${tail(s, 's:' + id, { gear: false })}</div>`).join('')}
         ${S.edit ? `<button class="addrow" data-a="addstep" data-ref="${id}"><span class="plus">+</span>Add step</button>` : ''}</div>` : ''}</div>`;
   }
   return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, live)}<span class="lbl">${S.edit ? nm(id, it.name) : `<button data-a="${live ? 'sched' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left">${esc(it.name)}${tdur(it)}</button>`}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>${tail(id, list)}</div>`; // estimate on the right (2026-11-04)
@@ -477,7 +494,7 @@ function pastDay(d) {
   const isTick = (v) => typeof v === 'string' && (v === 'done' || v.startsWith('done@') || v.startsWith('much'));
   const tk = Object.keys(lg).filter((id) => I(id) && ['task', 'routine', 'checkin', 'appt', 'slot'].includes(I(id).type) && isTick(lg[id]));
   Object.keys(M.items).filter((id) => I(id).type === 'routine' && !tk.includes(id) && (I(id).steps || []).some((st) => isTick(lg[st]))).forEach((id) => tk.push(id));
-  const sub = (id) => { const it = I(id); if (it.type === 'routine') { const st = (it.steps || []).filter((x) => I(x)); const dn = st.filter((x) => isTick(lg[x])); return st.length ? dn.length + ' of ' + st.length : ''; }
+  const sub = (id) => { const it = I(id); if (it.type === 'routine') { const st = rSteps(id, d); const dn = st.filter((x) => isTick(lg[x])); return st.length ? dn.length + ' of ' + st.length : ''; }
     if (String(lg[id]).startsWith('done@')) return lg[id].slice(5); if (String(lg[id]).startsWith('much')) return 'Too much'; return ''; }; // grey text only for values (2026-11-08)
   // routines sit with tasks; a check-in that's a step of its routine shows only as part of it (2026-11-08)
   const inRout = (id) => Object.values(M.items).some((x) => x.type === 'routine' && (x.steps || []).includes(id));
@@ -489,7 +506,7 @@ function pastDay(d) {
   const sm = {}; ((M.study || {})[d] || []).forEach((x) => { sm[x.id] = (sm[x.id] || 0) + (+x.min || 0); }); const sup = (M.support || {})[d];
   const mins = (m) => ((m >= 60 ? Math.floor(m / 60) + 'H ' : '') + (m % 60 ? (m % 60) + 'M' : m >= 60 ? '' : '0M')).trim();
   // missed = planned that day and not done; greyed in their own category (2026-11-08)
-  const mi = Object.keys((M.missed || {})[d] || {}).filter(I);
+  const mi = missedOn(d);
   dayList(d).forEach((x) => x.items.concat(x.appts || []).forEach((id) => { const it = I(id); if (it && !['checkin', 'slot'].includes(it.type) && !isDone(id, d) && !mi.includes(id) && !tk.includes(id)) mi.push(id); }));
   const ml0 = (id) => ln(I(id).name, '', '', `data-a="peek" data-ref="${id}" data-d="${d}"`, colorOf(id)).replace('class="pdl"', 'class="pdl pdmiss"');
   [['task', 'Tasks'], ['appt', 'Appointments'], ['home', 'Home'], ['study', 'Study'], ['train', 'Training'], ['hob', 'Hobbies']].forEach(([k, t]) => {
@@ -532,7 +549,7 @@ const uiIc = (key, def) => ((M.settings || {}).uiIcons || {})[key] || def;
 const mi = (key, def) => S.edit ? `<span class="miic" data-a="iconfor" data-v="ui:${key}" role="button" aria-label="Change this icon">${icon(uiIc(key, def), 18)}</span>` : icon(uiIc(key, def), 18);
 // what a day had on it and how much got done, kept for the calendar's marks. Counted after every change, wherever I tick
 // (a chore page, the + sheet, Studies), not only while Today is on screen, so yesterday's mark is always right (2026-11-10)
-function snapDay(d, DL) { DL = DL || dayList(d); const opt = (id) => !!(I(id) && I(id).optional); let due = missedOn(d).filter((id) => !opt(id)).length, done = 0; DL.forEach((x) => x.items.concat(x.appts || []).forEach((id) => { if (I(id) && I(id).brk) return; const dn = isDone(id, d); if (opt(id) && !dn) return; due++; if (dn) done++; })); /* an optional item only counts once it's done */ M.snap[d] = { due, done };
+function snapDay(d, DL) { DL = DL || dayList(d); const opt = (id) => !!(I(id) && I(id).optional); let due = missedOn(d).filter((id) => !opt(id)).length, done = 0; DL.forEach((x) => x.items.concat(x.appts || []).forEach((id) => { if (I(id) && I(id).brk) return; const dn = I(id) && I(id).type === 'routine' ? isDone(id, d) && rComplete(id, d) : isDone(id, d); if (opt(id) && !dn) return; due++; if (dn) done++; })); /* an optional item only counts once it's done */ M.snap[d] = { due, done };
   // a bad day is finished when its own list and the day's appointments are done (2026-11-10: an empty Bad day list never finished)
   if (isBad(d)) { const bl = badList().concat(DL.flatMap((x) => x.appts || [])).filter((id, i, A) => A.indexOf(id) === i); Object.assign(M.snap[d], { bad: 1, bdue: bl.length, bdone: bl.filter((id) => isDone(id, d)).length }); }
   return M.snap[d]; }
@@ -815,6 +832,12 @@ function openSheet(s) { S.openAdd = null; S.tagEdit = false; if (!s.back && S.sh
   if (s.kind === 'checkin' && !s.feel0) s.feel0 = (M.feel[T0] || []).slice(); S.sheet = s; S.menu = false; renderLayer(); const f = [...document.querySelectorAll('#layer [data-autofocus]')].pop(); if (f) f.focus(); }
 function closeSheet() { if (S.sheet && S.sheet.kind === 'note' && typeof nAuto === 'function') { nAuto(); S.nTagOpen = false; } S.sheet = S.sheet && S.sheet.back || null; render(); }
 const swRow = (cur, act, extra = '') => `<div class="sw">${extra}${PAL.map(([n, c]) => `<button style="--c:${c}" data-a="${act}" data-v="${c}" aria-label="${n}" title="${n}" aria-pressed="${(cur || '').toLowerCase() === c.toLowerCase()}"></button>`).join('')}</div>`;
+// a step's own options in the routine sheet: optional, which days it's part of the routine, its tags (2026-11-11)
+function stepOpts(x, i) { const ch = (a, v, on, l) => `<button class="chip" data-a="${a}" data-ref="${i}" data-v="${v}" aria-pressed="${!!on}">${esc(l)}</button>`;
+  return `<div class="stepopts"><div class="tg"><span class="l">Optional</span><button class="swt" role="switch" aria-checked="${!!x.optional}" data-a="dstep-opt" data-ref="${i}" aria-label="Optional"></button></div>
+    <span class="mono">Part of the routine</span><div class="chips">${[['', 'Every time'], ['rest', 'Days without a workout'], ['train', 'Days with a workout'], ['days', 'Certain days']].map(([v, l]) => ch('dstep-only', v, (x.only || '') === v, l)).join('')}</div>
+    ${x.only === 'days' ? `<div class="chips">${WD.map((w, k) => ch('dstep-day', k, (x.days || []).includes(k), w)).join('')}</div>` : ''}
+    <span class="mono">Tags</span><div class="chips">${Object.entries(M.tags).map(([t, n]) => ch('dstep-tag', t, (x.tags || []).includes(t), n)).join('') || '<span class="sub">No tags yet</span>'}</div></div>`; }
 const sw = (key, label, on, sub) => `<div class="tg"><span class="l">${label}</span><button class="swt" role="switch" aria-checked="${!!on}" data-a="dflag" data-v="${key}" aria-label="${label}"></button></div>`;
 // icon picker categories (Lucide's own), in the order I'm most likely to want them
 const ICON_CATS = [['custom', 'Custom'], ['home', 'Home'], ['food-beverage', 'Food and drink'], ['nature', 'Nature'], ['animals', 'Animals'], ['weather', 'Weather'], ['seasons', 'Seasons'], ['medical', 'Health'], ['sports', 'Sports'], ['people', 'People'], ['emoji', 'Faces'], ['time', 'Time'], ['travel', 'Travel'], ['transportation', 'Transport'], ['gaming', 'Games'], ['multimedia', 'Media'], ['photography', 'Photos'], ['shopping', 'Shopping'], ['tools', 'Tools'], ['science', 'Science'], ['buildings', 'Buildings'], ['communication', 'Talking'], ['mail', 'Mail'], ['text', 'Writing'], ['design', 'Art and design'], ['shapes', 'Shapes'], ['finance', 'Money'], ['devices', 'Devices'], ['files', 'Files'], ['charts', 'Charts'], ['math', 'Maths'], ['notifications', 'Alerts'], ['security', 'Security'], ['navigation', 'Places'], ['arrows', 'Arrows'], ['account', 'Account'], ['social', 'Social'], ['sustainability', 'Green living'], ['accessibility', 'Accessibility']];
@@ -858,7 +881,7 @@ function sheetBody() {
       <div class="fld"><span class="mono">Icon</span><div><button class="btn" data-a="iconfor" data-v="a:${s.ref}" style="display:inline-flex;gap:8px;align-items:center">${icon(a.icon, 18)} Change icon</button></div></div>`; }
   if (s.kind === 'remove') { const pl = placements(s.ref);
     return `<p class="note" style="font-size:14px">“${esc(I(s.ref).name)}” is in ${pl.length} places: ${pl.map((p) => esc(placeName(p))).join(', ')}. It is one item, so its history is shared.</p><div class="btns"><button class="btn" data-a="rmhere">Remove from here</button><button class="btn danger" data-a="rmall">Delete everywhere</button></div>`; }
-  if (s.kind === 'much') return `<p class="note" style="font-size:14px">Too much “${esc(I(s.ref).name)}”. What kind?</p><div class="btns"><button class="btn dark" data-a="much" data-v="hyper">Hyperfixation</button><button class="btn dark" data-a="much" data-v="inert">Inertia</button><button class="btn" data-a="much" data-v="">Skip</button></div>`;
+  if (s.kind === 'much') return `<p class="note" style="font-size:14px">Too much “${esc((I(s.ref) || G(s.ref) || {}).name || '')}”. What kind?</p><div class="btns"><button class="btn dark" data-a="much" data-v="hyper">Hyperfixation</button><button class="btn dark" data-a="much" data-v="inert">Inertia</button><button class="btn" data-a="much" data-v="">Skip</button></div>`;
   if (s.kind === 'checkin') return checkinSheet(s);
   if (s.kind === 'feel') return feelSheet();
   if (s.kind === 'tracker') return trackerSheet(s);
@@ -872,7 +895,7 @@ function sheetBody() {
     lines.push(['Day', relDay(d) === fmtDate(d) ? fmtDate(d) : relDay(d) + ', ' + fmtDate(d)]);
     if (isA) { lines.push(['Time', it.time || 'No time set']); lines.push(['Category', G(catOf(s.ref)).name]); if (it.when && it.when.mode !== 'once') lines.push(['Frequency', whenText(Object.assign({}, it, { when: Object.assign({}, it.when, { date: it.date }) }))]); else if (it.rep) lines.push(['Frequency', repText(it.rep)]); }
     else { if (s.from) lines.push(['Time', fmtHM(+s.from) + '–' + fmtHM(+s.to) + (it.time ? '' : ' · fills its block')]); if (it.type !== 'checkin') lines.push(['Day block', G(blockOfItem(s.ref)).name]); const wt = whenText(it); if (wt) lines.push(['Repeats', wt]);
-      if (it.type === 'routine') lines.push(['Steps', (it.steps || []).map((x) => (val(d, x) ? '✓ ' : '') + I(x).name).join(', ')]); }
+      if (it.type === 'routine') lines.push(['Steps', rSteps(s.ref, d).map((x) => (val(d, x) ? '✓ ' : stepMissed(x, d) ? '✕ ' : '') + I(x).name + (I(x).optional ? ' (optional)' : '')).join(', ')]); }
     if (it.note) lines.push(['Note', it.note]);
     lines.push(['Status', done ? (String(val(d, s.ref)).startsWith('much') ? 'Too much' : 'Done') : d < T0 ? 'Not done' : d === T0 ? 'Not done yet' : 'Coming up']);
     return `<div class="peekhd"><span class="aic" style="background:${pale(c)};color:${mix(c, TH.ink, 0.35)}">${icon(it.icon || defIcon(s.ref) || (isA ? G(catOf(s.ref)).icon : 'check') || 'circle', 20, 1.9)}</span></div>
@@ -917,7 +940,7 @@ const capKey = (l) => 'cap-' + l.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 function capTile(l, ic, attrs, file, named) { const k = capKey(l), i = icon(uiIc(k, ic), named ? 20 : 24) + (named ? `<span>${l}</span>` : '');
   if (S.sheet && S.sheet.capEdit) return `<button class="addtile ed" data-a="iconfor" data-v="ui:${k}" aria-label="Change the icon for ${l}" title="${l}">${i}</button>`;
   return file ? `<label class="addtile" aria-label="${l}" title="${l}">${i}${file}</label>` : `<button class="addtile" ${attrs} aria-label="${l}" title="${l}">${i}</button>`; }
-function pageAdds(ab) { if (S.insOn) return null; const fileIn = (id, ref, ic, l, acc) => capTile(l, ic, '', `<input type="file" accept="${acc}" id="${id}" data-ref="${ref}" hidden>`, true);
+function pageAdds(ab) { if (S.insOn) return null; const fileIn = (id, ref, ic, l, acc) => capTile(l, ic, '', `<input type="file" accept="${acc}"${acc.startsWith('image') ? ' multiple' : ''} id="${id}" data-ref="${ref}" hidden>`, true);
   if (S.area === 'hobbies' && S.proj && G(S.proj)) { const p = S.proj; return [ab('hobnewtask', 'check', 'Task', `data-v="${p}"`) + fileIn('projphoto', p, 'camera', 'Photo', 'image/*') + ab('pnnew', 'sticky-note', 'Note', `data-v="${p}"`) + ab('pjbnew', 'layout-dashboard', 'Board', `data-v="${p}"`) + fileIn('projpdf', p, 'file-text', 'PDF', 'application/pdf')]; }
   if (S.area === 'hobbies' && S.hob && G(S.hob)) return ab('hobnewproj', 'folder-plus', 'Project', `data-v="${S.hob}"`) + ab('hobnewact', 'plus', 'Activity', `data-v="${S.hob}"`);
   if (S.area === 'home' && S.page === 'shopping') return ab('shoplistnew', 'list-plus', 'List');
@@ -993,7 +1016,7 @@ function itemSheet(s) {
     if (isStudyItem(s, D)) s._more = h.length;
     if (isPrep(s)) { h += subField(s); s._more = h.length; }
     // a routine is a task with steps, added in More settings (2026-11-08)
-    if (D.type === 'routine' || (D.type === 'task' && !isPrep(s) && !isStudyItem(s, D) && !D.part)) h += `<div class="fld"><span class="mono">Steps</span>${(s.steps || []).map((x, i) => `<div class="inrow"><input class="inp" data-step="${i}" value="${esc(x.name)}"><button class="rm" data-a="dstep-rm" data-v="${i}" aria-label="Remove step">✕</button></div>`).join('')}<button class="addbtn" data-a="dstep-add"><span class="plus">+</span>Add step</button></div>`;
+    if (D.type === 'routine' || (D.type === 'task' && !isPrep(s) && !isStudyItem(s, D) && !D.part)) h += `<div class="fld"><span class="mono">Steps</span>${(s.steps || []).map((x, i) => `<div class="inrow"><input class="inp" data-step="${i}" value="${esc(x.name)}"><button class="hb" data-a="dstep-open" data-v="${i}" aria-label="Options for this step" aria-expanded="${s.stepOpen === i}">${icon('sliders-horizontal', 18)}</button><button class="rm" data-a="dstep-rm" data-v="${i}" aria-label="Remove step">✕</button></div>${s.stepOpen === i ? stepOpts(x, i) : (x.optional || x.only) ? `<p class="mono stepnote">${esc([x.optional ? 'Optional' : '', { rest: 'Days without a workout', train: 'Days with a workout', days: (x.days || []).slice().sort().map((k) => WD[k]).join(', ') }[x.only] || ''].filter(Boolean).join(' · '))}</p>` : ''}`).join('')}<button class="addbtn" data-a="dstep-add"><span class="plus">+</span>Add step</button></div>`;
   }
   // every item editor is the same shape (2026-11-10: clean up the editing menus): name, when, length, frequency, steps; the look, kind, tags and reminders wait behind More settings
   if (s._more == null && D.type !== 'checkin') s._more = h.length;
@@ -1066,7 +1089,7 @@ function capture() { const s = S.sheet; if (!s || s.kind !== 'item') return; con
   document.querySelectorAll('[data-step]').forEach((el) => { s.steps[+el.dataset.step].name = el.value; });
 }
 function openItem(id) { const it = I(id); if (!it) return; if (it.type === 'step') { const r = placements(id)[0]; if (r) id = r.slice(2); } if (it.part && I(it.part)) id = it.part;
-  const x = I(id); openSheet({ kind: 'item', ref: id, title: x.type === 'appt' ? 'Appointment' : x.type === 'routine' ? 'Routine' : x.type === 'checkin' ? 'Check-in' : 'Task', draft: JSON.parse(JSON.stringify(x)), block: placements(id).find((p) => G(p) && G(p).style === 'dayblock') || (vHomed({ ref: id }) ? '' : blockOfItem(id)), cat: catOf(id), parts: (x.parts || []).filter(I).map((p) => Object.assign({ id: p, date: (I(p).when || {}).date, min: I(p).dur || 30 }, I(p).time ? { time: I(p).time } : {})), steps: (x.steps || []).map((s) => ({ id: s, name: I(s).name })) }); }
+  const x = I(id); openSheet({ kind: 'item', ref: id, title: x.type === 'appt' ? 'Appointment' : x.type === 'routine' ? 'Routine' : x.type === 'checkin' ? 'Check-in' : 'Task', draft: JSON.parse(JSON.stringify(x)), block: placements(id).find((p) => G(p) && G(p).style === 'dayblock') || (vHomed({ ref: id }) ? '' : blockOfItem(id)), cat: catOf(id), parts: (x.parts || []).filter(I).map((p) => Object.assign({ id: p, date: (I(p).when || {}).date, min: I(p).dur || 30 }, I(p).time ? { time: I(p).time } : {})), steps: (x.steps || []).filter(I).map((s) => ({ id: s, name: I(s).name, optional: !!I(s).optional, only: I(s).only || '', days: (I(s).days || []).slice(), tags: (I(s).tags || []).slice() })) }); }
 function newItem(mode, block) {
   // Breaks (2026-11-11): a named stretch of a day block, like Lunch. It takes up time but there's nothing to tick.
   if (mode === 'break') { openSheet({ kind: 'item', isNew: true, title: 'New break', draft: { name: '', brk: true, type: 'task', when: { mode: 'days', days: [0, 1, 2, 3, 4, 5, 6], n: 1, date: T0 }, made: T0, dur: 15, tags: [] }, block: block || blockIds()[0], steps: [] }); return; }
@@ -1085,7 +1108,8 @@ function saveDraft() {
       if (old && old.when && JSON.stringify(old.when) !== JSON.stringify(D.when) && (old.made || T0) < T0) D.past = (old.past || []).concat([{ until: addDays(T0, -1), when: old.when }]);
       M.items[id] = D; }
     if (D.type === 'task' && !isPrep(s) && !isStudyItem(s, D) && !D.part && (s.steps || []).some((x) => x.name.trim())) { D.type = 'routine'; }
-    if (D.type === 'routine' || (isPrep(s) && s.steps)) { D.steps = s.steps.filter((x) => x.name.trim()).map((x) => { const sid = x.id && I(x.id) ? x.id : uid('s'); M.items[sid] = Object.assign(I(sid) || { type: 'step', kind: 'behaviour', tags: [], insight: true }, { name: x.name.trim() }); return sid; }); }
+    if (D.type === 'routine' || (isPrep(s) && s.steps)) { D.steps = s.steps.filter((x) => x.name.trim()).map((x) => { const sid = x.id && I(x.id) ? x.id : uid('s'); const st = M.items[sid] = Object.assign(I(sid) || { type: 'step', kind: 'behaviour', tags: [], insight: true }, { name: x.name.trim() });
+      if (x.optional !== undefined) { if (x.optional) st.optional = true; else delete st.optional; } if (x.only !== undefined) { if (x.only) st.only = x.only; else delete st.only; if (x.only === 'days') st.days = (x.days || []).slice(); else delete st.days; } if (x.tags) st.tags = x.tags.slice(); return sid; }); }
     if (s.parts) { const old = (D.parts || []).slice(), keep = []; const blk = (s.block && G(s.block)) ? s.block : studyBlock();
       s.parts.filter((x) => x.date).forEach((x) => { const pid = x.id && I(x.id) ? x.id : uid('p');
         const P = Object.assign(I(pid) || { type: 'task', kind: 'behaviour', tags: [], insight: false, made: T0 }, { name: D.name, part: id, when: { mode: 'once', date: x.date }, dur: +x.min || 30 }); if (x.time) P.time = x.time; else delete P.time;
@@ -1199,10 +1223,10 @@ document.addEventListener('click', (e) => {
     case 'miss': { const d = a.dataset.d || T0; S.sheet = null; change(() => { M.missed = M.missed || {}; (M.missed[d] = M.missed[d] || {})[ref] = true; }, 'Missed: ' + I(ref).name); break; }
     case 'unmiss': { const d = a.dataset.d || T0; change(() => { delete M.missed[d][ref]; }, 'Put back ' + I(ref).name); break; }
     case 'tick': tick(ref); break;
-    case 'step': { const it = I(ref); const was = val(T0, ref); change(() => { if (was) delete L(T0)[ref]; else L(T0)[ref] = 'done'; }, was ? 'Unticked ' + it.name : null); break; }
+    case 'step': { const it = I(ref); const was = val(T0, ref); change(() => { if (was) delete L(T0)[ref]; else { L(T0)[ref] = 'done'; if (M.missed && M.missed[T0]) delete M.missed[T0][ref]; } }, was ? 'Unticked ' + it.name : null); break; }
     case 'checkin': openSheet({ kind: 'checkin', ref, title: I(ref).name }); break;
     case 'cidone': { const was = val(T0, v); change(() => { if (was) { delete L(T0)[v]; if (I(v).which === 'morning') delete L(T0)['ci-mfeel']; } else L(T0)[v] = 'done'; }, was ? 'Check-in not done' : 'Check-in done'); S.sheet = null; render(); break; }
-    case 'much': { const r = S.sheet.ref; L(T0)[r] = v ? 'much:' + v : 'much'; save(); S.sheet = null; render(); break; }
+    case 'much': { const r = S.sheet.ref; if (G(r)) { const x = G(r); x.muchK = Object.assign({}, x.muchK || {}, { [T0]: v || '' }); if (x.act && x.muchAuto === T0 && I(x.act)) L(T0)[x.act] = v ? 'much:' + v : 'much'; } else L(T0)[r] = v ? 'much:' + v : 'much'; save(); S.sheet = null; render(); break; }
     case 'open': openItem(ref); break;
     case 'gear': if (I(ref) && I(ref).type === 'tracker') { openSheet({ kind: 'tracker', ref, title: 'Tracker', draft: JSON.parse(JSON.stringify(I(ref))) }); break; } if (G(ref)) openSheet({ kind: 'group', ref, title: G(ref).style === 'dayblock' ? 'Day block' : 'Category' }); else openItem(ref); break;
     case 'rm': { const list = a.dataset.in; if (I(ref) && placements(ref).length > 1 && !list.startsWith('s:')) { openSheet({ kind: 'remove', ref, list, title: 'Remove' }); break; }
@@ -1261,6 +1285,11 @@ document.addEventListener('click', (e) => {
     case 'dpart-rm': capture(); S.sheet.parts.splice(+v, 1); renderLayer(); break;
     case 'dmoreset': capture(); S.sheet.moreOpen = !S.sheet.moreOpen; renderLayer(); break;
     case 'dstep-rm': capture(); S.sheet.steps.splice(+v, 1); renderLayer(); break;
+    case 'dstep-open': capture(); S.sheet.stepOpen = S.sheet.stepOpen === +v ? null : +v; renderLayer(); break;
+    case 'dstep-opt': { capture(); const x = S.sheet.steps[+ref]; if (x) x.optional = !x.optional; renderLayer(); break; }
+    case 'dstep-only': { capture(); const x = S.sheet.steps[+ref]; if (x) { x.only = v; if (v === 'days' && !(x.days || []).length) x.days = [0, 1, 2, 3, 4, 5, 6]; } renderLayer(); break; }
+    case 'dstep-day': { capture(); const x = S.sheet.steps[+ref]; if (x) { const D0 = x.days = x.days || []; const k = +v; const j = D0.indexOf(k); if (j >= 0) D0.splice(j, 1); else D0.push(k); } renderLayer(); break; }
+    case 'dstep-tag': { capture(); const x = S.sheet.steps[+ref]; if (x) { const T = x.tags = x.tags || []; const j = T.indexOf(v); if (j >= 0) T.splice(j, 1); else T.push(v); } renderLayer(); break; }
     case 'dsave': saveDraft(); break;
     case 'ddelete': { const s = S.sheet; S.sheet = null; const parts = (I(s.ref) && I(s.ref).parts) || []; removeRef(s.ref, '', true); if (parts.length) { Object.values(M.groups).forEach((g) => { g.kids = g.kids.filter((k) => !parts.includes(k)); }); parts.forEach((p) => { delete M.items[p]; }); save(); render(); } break; }
   }
@@ -1295,7 +1324,10 @@ function celebrate(kind) { const ph = $('#phone'); if (!ph || !lastTick) return;
 function tick(id) {
   const it = I(id); const cur = val(T0, id) || null;
   if (it.type === 'slot') { slotGo(id); return; }
-  if (it.type === 'routine') { const all = isDone(id, T0); change(() => { (it.steps || []).forEach((s) => { if (all) delete L(T0)[s]; else L(T0)[s] = 'done'; }); if (!(it.steps || []).length) { if (all) delete L(T0)[id]; else L(T0)[id] = 'done'; } }, (all ? 'Unticked ' : 'Ticked ') + it.name); return; }
+  if (it.type === 'routine') { const all = isDone(id, T0); const st = rSteps(id, T0);
+    change(() => { const mm = M.missed = M.missed || {}; const md = mm[T0] = mm[T0] || {};
+      if (all) { if (val(T0, id)) { delete L(T0)[id]; st.forEach((s) => { if (md[s] === 'r') delete md[s]; }); } else st.forEach((s) => { delete L(T0)[s]; }); }
+      else { L(T0)[id] = 'done'; st.forEach((s) => { if (!val(T0, s)) md[s] = 'r'; }); } }, (all ? 'Unticked ' : 'Ticked ') + it.name); return; }
   if (it.type === 'checkin') { openSheet({ kind: 'checkin', ref: id, title: it.name }); return; }
   // a hobby item ticks like any other; Too much is a swipe to the left in Hobbies (2026-11-11)
   if (!it.overdo || (typeof hobArea === 'function' && hobArea(id))) { change(() => { if (cur) delete L(T0)[id]; else L(T0)[id] = 'done'; }, (cur ? 'Unticked ' : 'Ticked ') + it.name); return; }
@@ -1858,7 +1890,7 @@ function mealTile(p, d) {
 }
 function photosUI(d) {
   const ph = mealsOn(d);
-  return `<div class="hlist" style="margin-bottom:14px"><div class="thead"><span class="tname">Food diary</span><label class="hic" aria-label="Add a meal with a photo" title="Photo">${icon('camera', 20)}<input type="file" accept="image/*" id="photoin" hidden></label><button class="hic" data-a="mealnew" aria-label="Write a meal" title="Write it">${icon('pencil', 20)}</button></div>${ph.length ? `<div class="photos">${ph.map((p) => mealTile(p, d)).join('')}</div>` : ''}</div>`;
+  return `<div class="hlist" style="margin-bottom:14px"><div class="thead"><span class="tname">Food diary</span><label class="hic" aria-label="Add a meal with a photo" title="Photo">${icon('camera', 20)}<input type="file" accept="image/*" multiple id="photoin" hidden></label><button class="hic" data-a="mealnew" aria-label="Write a meal" title="Write it">${icon('pencil', 20)}</button></div>${ph.length ? `<div class="photos">${ph.map((p) => mealTile(p, d)).join('')}</div>` : ''}</div>`;
 }
 // the other Nutrition answers for a day (tags, and any scale you add to Nutrition), as words
 const foodGroup = () => Object.keys(M.groups).find((k) => M.groups[k].special === 'food' && M.groups[k].style === 'hgroup');
@@ -2208,22 +2240,26 @@ function linkField2(D) { const L = (D.links || []).filter(I); const self = S.she
 
 // photos: kept as artifact assets when that is available, otherwise as a small picture inside the saved data
 let assetsNS;
-async function addPhoto(file, into) {
-  try {
-    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
-    const k = Math.min(1, 720 / Math.max(img.width, img.height)); const cv = document.createElement('canvas'); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
-    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+// a canvas becomes a stored picture: an uploaded asset where there is a store, else a small inline image
+async function picFromCanvas(cv) {
     const pic = {};
     if (assetsNS === undefined) { try { assetsNS = window.claude && window.claude.use ? await window.claude.use('assets') : null; } catch (e) { assetsNS = null; } if (!assetsNS && HOSTED) assetsNS = LOCAL_ASSETS; }
     if (assetsNS) { const blob = await new Promise((r) => cv.toBlob(r, 'image/jpeg', 0.8)); const up = await assetsNS.upload(blob); pic.asset = up.id; }
     else { const c2 = document.createElement('canvas'); const k2 = Math.min(1, 320 / Math.max(cv.width, cv.height)); c2.width = cv.width * k2; c2.height = cv.height * k2; c2.getContext('2d').drawImage(cv, 0, 0, c2.width, c2.height); pic.src = c2.toDataURL('image/jpeg', 0.6); }
-    if (into === 'jimg') { jAddImg(pic, cv.width / cv.height); return; }
+  return pic; }
+async function addPhoto(file, into, nth, many) {
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
+    const k = Math.min(1, 720 / Math.max(img.width, img.height)); const cv = document.createElement('canvas'); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+    const pic = await picFromCanvas(cv);
+    if (into === 'jimg') { jAddImg(pic, cv.width / cv.height, nth || 0); return; }
     if (typeof into === 'string' && into.startsWith('board:')) { bPhoto(into.slice(6), pic, cv.width / cv.height); return; }
     if (typeof into === 'string' && into.startsWith('proj:')) { const g = G(into.slice(5)); if (g) change(() => { (g.photos = g.photos || []).push(Object.assign({ id: uid('ph'), d: T0 }, pic)); }, 'Photo added'); return; }
     if (into) { mcapture(); const p = curMeal(); if (p) { change(() => { Object.assign(p, pic); }, 'Photo added'); renderLayer(); } return; }
     const p = Object.assign({ id: uid('p'), tags: [], at: nowHM(), kind: 'meal' }, pic);
     change(() => { (M.photos[T0] = M.photos[T0] || []).push(p); }, 'Meal added');
-    openSheet({ kind: 'photo', ref: p.id, d: T0, title: 'Meal' });
+    if (!many || nth === many - 1) openSheet({ kind: 'photo', ref: p.id, d: T0, title: 'Meal' });
   } catch (e) { flash('Could not add that photo'); }
 }
 const nowHM = () => { const n = new Date(); return pad(n.getHours()) + ':' + pad(n.getMinutes()); };
@@ -2238,7 +2274,9 @@ document.addEventListener('change', (e) => { if (e.target.dataset && e.target.da
   if (ds.xwhen) { xcapture(); const x = mealPlan().extras.find((y) => y.id === ds.xwhen); const v = e.target.value; change(() => { if (!v) { delete x.when; const m0 = (x.more || []).shift(); if (m0) x.when = m0; if (x.more && !x.more.length) delete x.more; } else x.when = wParse(v); }); renderLayer(); return; }
   if (ds.xmore) { xcapture(); const x = mealPlan().extras.find((y) => y.id === ds.xmore); const v = e.target.value; if (x) change(() => { const L = x.more = x.more || []; if (ds.i === 'new') { if (v) L.push(wParse(v)); } else if (!v) L.splice(+ds.i, 1); else L[+ds.i] = wParse(v); if (!L.length) delete x.more; }); renderLayer(); return; }
   if (ds.xkm || ds.xkind) { const x = mealPlan().extras.find((y) => y.id === (ds.xkm || ds.xkind)); if (x && x.when) change(() => { if (ds.xkm) x.when.km = Math.max(0, +e.target.value || 0); else x.when.kind = e.target.value.trim() || 'Hike'; }); return; }
-  if (e.target.id === 'photoin' && e.target.files[0]) addPhoto(e.target.files[0]); if (e.target.id === 'photoin2' && e.target.files[0]) addPhoto(e.target.files[0], true); if (e.target.id === 'jimgin' && e.target.files[0]) addPhoto(e.target.files[0], 'jimg'); });
+  // several photos can be picked at once (2026-11-11): each one is added in turn
+  if (e.target.id === 'photoin' && e.target.files[0]) addPhotos(e.target.files); if (e.target.id === 'photoin2' && e.target.files[0]) addPhoto(e.target.files[0], true); if (e.target.id === 'jimgin' && e.target.files[0]) addPhotos(e.target.files, 'jimg'); });
+async function addPhotos(fl, into) { const L0 = Array.from(fl || []); for (let k = 0; k < L0.length; k++) await addPhoto(L0[k], into, k, L0.length); }
 
 // actions for Health; returns true when it handled the action
 function healthAction(act, a, ref, v) {

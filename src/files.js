@@ -46,16 +46,41 @@ function vwEl() { let el = document.getElementById('viewer'); if (!el) { el = do
 function vwClose() { VW = null; const el = document.getElementById('viewer'); if (el) el.remove(); }
 // one photo viewer for project photos, food diary photos and journal pictures (2026-11-08): VW.list() gives
 // [{ id, src, d, at, cap, rm: [act, ref, v], ed: [act, ref, v] }], newest first
-function phView(p, id) { vwOpen(() => (G(p).photos || []).slice().reverse().map((q) => ({ id: q.id, src: projSrc(q), d: q.d, rm: ['projphrm', p, q.id] })), id); }
+function phView(p, id) { vwOpen(() => (G(p).photos || []).slice().reverse().map((q) => ({ id: q.id, src: projSrc(q), d: q.d, rm: ['projphrm', p, q.id], set: (pic) => change(() => { delete q.asset; delete q.src; Object.assign(q, pic); }) })), id); }
 function vwOpen(list, id) { const L = list(); VW = { kind: 'photo', list, i: Math.max(0, L.findIndex((q) => q.id === id)) }; vwPhoto(); }
 function vwPhoto() { const L = VW.list(); if (!L.length) { vwClose(); return; } VW.i = Math.max(0, Math.min(VW.i, L.length - 1)); const q = L[VW.i];
   const btn = (x, ic, lab) => x ? `<button class="vwb" data-a="${x[0]}" data-ref="${esc(x[1])}" data-v="${esc(x[2])}" aria-label="${lab}">${icon(ic, 20)}</button>` : '';
-  const right = btn(q.ed, 'pencil', 'Edit') + btn(q.rm, 'trash', 'Delete this photo');
-  vwEl().className = 'vwph'; vwEl().innerHTML = `<div class="vwbar"><button class="vwb" data-a="vwx" aria-label="Close">${icon('x', 22)}</button>${q.ed && q.rm ? '<span class="vwb" aria-hidden="true"></span>' : ''}<span class="mono vwn">${L.length > 1 ? (VW.i + 1) + ' / ' + L.length : ''}</span>${right || '<span class="vwb" aria-hidden="true"></span>'}</div>
+  // the ⋯ menu sits where Delete was and holds Crop, Rotate and Delete; Close moved to the right (2026-11-11)
+  const mi = (a, ic, l, x) => `<button class="vwmi" data-a="${a}"${x || ''}>${icon(ic, 18)}<span>${l}</span></button>`;
+  const menu = VW.menu ? `<div class="pdmx" data-a="vwmenu"></div><div class="vwmenu" role="menu">${q.set ? mi('vwcrop', 'crop', 'Crop') + mi('vwrot', 'rotate-cw', 'Rotate') : ''}${q.rm ? mi(q.rm[0], 'trash', 'Delete', ` data-ref="${esc(q.rm[1])}" data-v="${esc(q.rm[2])}"`) : ''}</div>` : '';
+  const more = q.set || q.rm ? `<button class="vwb${VW.menu ? ' on' : ''}" data-a="vwmenu" aria-label="More" aria-expanded="${VW.menu ? 'true' : 'false'}">${icon('ellipsis', 22)}</button>` : '<span class="vwb" aria-hidden="true"></span>';
+  if (VW.crop) { vwCropDraw(q); return; }
+  vwEl().className = 'vwph'; vwEl().innerHTML = `<div class="vwbar">${more}${q.ed ? btn(q.ed, 'pencil', 'Edit') : ''}<span class="mono vwn">${L.length > 1 ? (VW.i + 1) + ' / ' + L.length : ''}</span>${q.ed ? '<span class="vwb" aria-hidden="true"></span>' : ''}<button class="vwb" data-a="vwx" aria-label="Close">${icon('x', 22)}</button>${menu}</div>
     <div class="vwimg"><img src="${esc(q.src)}" alt=""></div>${q.cap ? `<p class="vwcap">${esc(q.cap)}</p>` : ''}
     <div class="vwfoot"><button class="vwb vwnav" data-a="vwstep" data-v="-1" aria-label="Newer photo"${VW.i && L.length > 1 ? '' : ' disabled'}>${icon('chevron-left', 24)}</button><span class="mono vwd">${q.d ? esc(lowDay(q.d)) + (q.at ? ' · ' + esc(q.at) : '') : ''}</span><button class="vwb vwnav" data-a="vwstep" data-v="1" aria-label="Older photo"${VW.i < L.length - 1 ? '' : ' disabled'}>${icon('chevron-right', 24)}</button></div>`; }
+// crop and rotate: the picture is redrawn on a canvas and saved again in place of the old one
+function vwImg(src) { return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
+async function vwSave(q, cv) { const pic = await picFromCanvas(cv); q.set(pic, cv.width / cv.height); VW.crop = null; VW.menu = false; vwPhoto(); }
+async function vwRotate() { const q = VW.list()[VW.i]; if (!q || !q.set || VW.busy) return; VW.busy = true; VW.menu = false;
+  try { const im = await vwImg(q.src); const cv = document.createElement('canvas'); cv.width = im.naturalHeight; cv.height = im.naturalWidth; const g = cv.getContext('2d'); g.translate(cv.width, 0); g.rotate(Math.PI / 2); g.drawImage(im, 0, 0); await vwSave(q, cv); }
+  catch (e) { flash('Could not rotate that picture'); } VW.busy = false; }
+// crop: a frame over the picture with four corners to drag; Done keeps what is inside it
+function vwCropDraw(q) { const c = VW.crop; vwEl().className = 'vwph'; vwEl().innerHTML = `<div class="vwbar"><button class="vwb" data-a="vwcropx" aria-label="Cancel crop">${icon('undo-2', 20)}</button><span class="mono vwn">Crop</span><button class="vwb" data-a="vwcropok" aria-label="Done">${icon('check', 22)}</button></div>
+    <div class="vwimg"><div class="vwcrop"><img src="${esc(q.src)}" alt="" draggable="false"><div class="vwcf" style="left:${c.x * 100}%;top:${c.y * 100}%;width:${c.w * 100}%;height:${c.h * 100}%"><i data-c="move"></i><b data-c="nw"></b><b data-c="ne"></b><b data-c="sw"></b><b data-c="se"></b></div></div></div><div class="vwfoot"></div>`; }
+let vwcd = null;
+document.addEventListener('pointerdown', (e) => { const h = e.target.closest && e.target.closest('#viewer .vwcf [data-c]'); if (!h || !VW || !VW.crop) return; e.preventDefault();
+  const box = h.closest('.vwcrop').getBoundingClientRect(); vwcd = { c: h.dataset.c, x: e.clientX, y: e.clientY, box, o: Object.assign({}, VW.crop) }; });
+document.addEventListener('pointermove', (e) => { if (!vwcd || !VW || !VW.crop) return; const d = vwcd, o = d.o, c = VW.crop; const dx = (e.clientX - d.x) / d.box.width, dy = (e.clientY - d.y) / d.box.height; const mn = 0.08;
+  if (d.c === 'move') { c.x = Math.max(0, Math.min(1 - o.w, o.x + dx)); c.y = Math.max(0, Math.min(1 - o.h, o.y + dy)); }
+  else { let l = o.x, t = o.y, r = o.x + o.w, b = o.y + o.h; if (d.c.includes('w')) l = Math.max(0, Math.min(r - mn, l + dx)); if (d.c.includes('e')) r = Math.min(1, Math.max(l + mn, r + dx)); if (d.c.includes('n')) t = Math.max(0, Math.min(b - mn, t + dy)); if (d.c.includes('s')) b = Math.min(1, Math.max(t + mn, b + dy)); Object.assign(c, { x: l, y: t, w: r - l, h: b - t }); }
+  const f = document.querySelector('#viewer .vwcf'); if (f) Object.assign(f.style, { left: c.x * 100 + '%', top: c.y * 100 + '%', width: c.w * 100 + '%', height: c.h * 100 + '%' }); });
+document.addEventListener('pointerup', () => { vwcd = null; });
+async function vwCropOk() { const q = VW.list()[VW.i]; const c = VW.crop; if (!q || !c || VW.busy) return; VW.busy = true;
+  try { const im = await vwImg(q.src); const W = im.naturalWidth, H = im.naturalHeight; const cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(c.w * W)); cv.height = Math.max(1, Math.round(c.h * H));
+    cv.getContext('2d').drawImage(im, c.x * W, c.y * H, c.w * W, c.h * H, 0, 0, cv.width, cv.height); await vwSave(q, cv); }
+  catch (e) { flash('Could not crop that picture'); } VW.busy = false; }
 // food diary photos: every meal with a photo, newest first; the pencil opens the meal
-function mealView(d, id) { vwOpen(() => { const out = []; Object.keys(M.photos || {}).filter((k) => /^\d{4}-\d\d-\d\d$/.test(k)).sort().reverse().forEach((day) => mealsOn(day).slice().reverse().forEach((p) => { if (mealSrc(p)) out.push({ id: p.id, src: mealSrc(p), d: day, at: p.at, cap: p.text || '', rm: ['mealphrm', p.id, day], ed: ['mealedit', p.id, day] }); })); return out; }, id); }
+function mealView(d, id) { vwOpen(() => { const out = []; Object.keys(M.photos || {}).filter((k) => /^\d{4}-\d\d-\d\d$/.test(k)).sort().reverse().forEach((day) => mealsOn(day).slice().reverse().forEach((p) => { if (mealSrc(p)) out.push({ id: p.id, src: mealSrc(p), d: day, at: p.at, cap: p.text || '', rm: ['mealphrm', p.id, day], ed: ['mealedit', p.id, day], set: (pic) => change(() => { delete p.asset; delete p.src; Object.assign(p, pic); }) }); })); return out; }, id); }
 
 // PDFs open with pdf.js; a highlighter draws marks over the page, kept as fractions of the page
 const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
@@ -152,7 +177,12 @@ function fileAction(act, a, ref, v) {
   switch (act) {
     case 'phview': if (S.edit) return true; phView(ref, v); return true;
     case 'vwx': vwClose(); return true;
-    case 'vwstep': VW.i += +v; vwPhoto(); return true;
+    case 'vwstep': VW.menu = false; VW.i += +v; vwPhoto(); return true;
+    case 'vwmenu': VW.menu = !VW.menu; vwPhoto(); return true;
+    case 'vwrot': vwRotate(); return true;
+    case 'vwcrop': VW.menu = false; VW.crop = { x: 0.05, y: 0.05, w: 0.9, h: 0.9 }; vwPhoto(); return true;
+    case 'vwcropx': VW.crop = null; vwPhoto(); return true;
+    case 'vwcropok': vwCropOk(); return true;
     case 'mealview': mealView(v, ref); return true;
     case 'mealedit': vwClose(); openSheet({ kind: 'photo', ref, d: v || T0, title: 'Meal' }); return true;
     case 'mealphrm': { const p = mealsOn(v).find((x) => x.id === ref); if (!p) return true; change(() => { delete p.asset; delete p.src; }, 'Photo deleted'); if (VW && VW.kind === 'photo') vwPhoto(); if (S.sheet) renderLayer(); return true; }

@@ -94,6 +94,12 @@ nav.areas .pill{width:52px;height:36px;border-radius:18px;display:flex;align-ite
 #viewer .vwd{min-width:90px;text-align:center;color:var(--ink)}#viewer .vwnav{background:var(--card);box-shadow:0 1px 3px rgba(40,30,20,.15)}
 #viewer .pdcols{display:flex;gap:10px;width:100%;justify-content:flex-end;padding:2px 8px 4px}#viewer .pdcol{width:26px;height:26px;border-radius:13px;box-shadow:0 0 0 1px var(--line)}
 #viewer .pdmx{position:fixed;inset:0;z-index:4}#viewer .vwbar{position:relative}
+#viewer .vwmenu{position:absolute;left:8px;top:100%;z-index:5;margin-top:4px;min-width:170px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 24px rgba(40,30,20,.16);padding:6px;display:flex;flex-direction:column}
+#viewer .vwmi{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 12px;border-radius:10px;color:var(--ink);font-size:15px;text-align:left}#viewer .vwmi:active{background:var(--page)}
+#viewer .vwcrop{position:relative;display:inline-block;max-width:100%;max-height:100%;line-height:0;touch-action:none}#viewer .vwcrop img{max-height:calc(100dvh - 170px);pointer-events:none}
+#viewer .vwcf{position:absolute;box-shadow:0 0 0 9999px rgba(20,16,12,.45);outline:1.5px solid #fff}#viewer .vwcf i{position:absolute;inset:0;cursor:move}
+#viewer .vwcf b{position:absolute;width:26px;height:26px;border:3px solid #fff;margin:-4px}#viewer .vwcf b[data-c=nw]{left:0;top:0;border-right:0;border-bottom:0}#viewer .vwcf b[data-c=ne]{right:0;top:0;border-left:0;border-bottom:0}#viewer .vwcf b[data-c=sw]{left:0;bottom:0;border-right:0;border-top:0}#viewer .vwcf b[data-c=se]{right:0;bottom:0;border-left:0;border-top:0}
+#viewer .vwimg:has(.vwcrop){overflow:hidden}
 #viewer .pdmenu{position:absolute;right:8px;top:100%;z-index:5;margin-top:4px;min-width:210px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 24px rgba(40,30,20,.16);padding:12px 14px 6px;display:flex;flex-direction:column;gap:6px}
 #viewer .pdmenu .mono{font-size:10.5px;color:var(--ink2)}#viewer .pdmrow{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:6px}#viewer .pdadd{display:grid;place-items:center;background:none;box-shadow:none;border:1.5px dashed var(--faint);box-sizing:border-box;color:var(--ink2)}#viewer .pdcols{flex-wrap:wrap}#viewer .pdmrow .pdcol{width:30px;height:30px;border-radius:15px}
 #viewer .pdmdel{display:flex;align-items:center;gap:10px;min-height:44px;border-top:1px solid var(--line2);margin-top:2px;color:#B5503E;font-size:14px}
@@ -211,6 +217,7 @@ html.dark .jshut{background:rgba(29,27,25,.35)}
 .jpaper{position:relative}
 .jflow{position:relative;outline:none;caret-color:var(--ink);white-space:normal}
 .jl{position:absolute;display:block;white-space:pre;height:32px;line-height:32px;overflow:visible}
+.jl.cmp{white-space:pre-wrap;overflow-wrap:anywhere;height:auto;min-height:32px;z-index:1}.jpaper,.jpaper .jflow{overflow:clip}
 .jl.jprobe{visibility:hidden;left:-9999px;top:0;pointer-events:none}
 .jl .s-h,.jl.s-h{font-family:var(--serif);font-weight:600;font-size:21px}
 .jl .s-q,.jl.s-q{font-family:var(--serif);font-style:italic;font-size:17px;color:var(--ink2)}
@@ -979,6 +986,8 @@ html.dark .feelcard.empty{background:#33302C}html.dark .jcard .jct,html.dark .jc
 .tl .blab.bkl{display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:2}
 /* block titles sit centred over the weekday columns, not over the hour column too */
 .bl{padding-left:24px}
+
+.stepopts{margin:2px 0 12px;padding:10px 12px 4px;border-radius:12px;background:var(--page);display:flex;flex-direction:column;gap:6px}.stepopts .chips{margin-bottom:4px}.stepnote{margin:-2px 0 8px 4px;font-size:10.5px;color:var(--ink2)}
 </style>
 <div class="phone" id="phone">
   <header class="top"><div class="ttl" id="ttl"></div><button class="hb" id="plusbtn" aria-label="Add something">+</button><button class="hb donebtn2" id="donebtn" aria-label="Done editing" hidden>Done</button><button class="hb" id="menubtn" aria-label="Menu">⋯</button></header>
@@ -1005,7 +1014,9 @@ window.LUCIDE_CATS = window.LUCIDE_CATS || {}; window.LUCIDE_CATS.custom = ["yar
 const pad = (n) => String(n).padStart(2, '0');
 const iso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 const parse = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
-let T0 = iso(new Date()); // moves on at midnight, even while the app stays open (2026-11-10: feelings showed yesterday's colours)
+// a new day starts at 6 in the morning, not at midnight (2026-11-11)
+const DAY_H = 6; const appDay = () => { const n = new Date(); n.setHours(n.getHours() - DAY_H); return iso(n); };
+let T0 = appDay(); // moves on at 6am, even while the app stays open (2026-11-10: feelings showed yesterday's colours)
 const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
 const diff = (a, b) => Math.round((parse(b) - parse(a)) / 864e5);
 const wd = (s) => (parse(s).getDay() + 6) % 7;
@@ -1134,11 +1145,16 @@ function homeOf(ref) { return placements(ref)[0]; }
 // lives in a day block alone takes the block's colour (2026-11-11: circles changed colour when a chore went into a block)
 // a generic item without its own colour wears its section's (2026-11-11)
 const slotCol = (it) => { const o = it.opens; const A = M.areas || {}, P = M.pages || {}; return o === 'study' ? (A.study || {}).color : o === 'chores' ? (P.chores || A.home || {}).color : o === 'hobbies' ? (A.hobbies || {}).color : o === 'training' || o === 'move' ? (P.training || {}).color : null; };
-function colorOf(id) { const it = I(id); if (it && it.color) return it.color; if (it && it.type === 'slot' && slotCol(it)) return slotCol(it); const P = placements(id); const pl = P.find((p) => !(G(p) && (G(p).style === 'dayblock' || G(p).holds === 'slot'))) || P[0]; if (!pl) return '#9A9387'; if (pl.startsWith('s:')) return colorOf(pl.slice(2)); const g = G(pl);
-  // Home's sections keep their colour on their tab (2026-11-11): Homemaking, Cooking, Chores; a room without its own colour wears Chores'
-  const PG = { 'g-tend': 'homemaking', 'g-prep': 'cooking', 'g-oneoff': 'chores' }[pl] || (g.style === 'room' && !g.color ? 'chores' : null);
-  if (PG && ((M.pages || {})[PG] || {}).color) return M.pages[PG].color; if (g.style === 'sgroup' && !g.color) return ((M.areas || {}).study || {}).color || '#9A9387';
-  if (!g.color && g.style === 'project' && typeof hobOf === 'function' && G(hobOf(pl))) return G(hobOf(pl)).color; return g.color || '#9A9387'; }
+function colorOf(id) { const it = I(id); if (!it && G(id)) return grpCol(id); if (it && it.color) return it.color; if (it && it.type === 'slot' && slotCol(it)) return slotCol(it); const P = placements(id); const pl = P.find((p) => !(G(p) && (G(p).style === 'dayblock' || G(p).holds === 'slot'))) || P[0]; if (!pl) return '#9A9387'; if (pl.startsWith('s:')) return colorOf(pl.slice(2)); return grpCol(pl); }
+// a group without its own colour wears its parent's, up to the page or area it sits in (2026-11-11: items take their parent colour everywhere)
+// Home's sections keep their colour on their tab (2026-11-11): Homemaking, Cooking, Chores; a room without its own colour wears Chores'
+const ROOTCOL = { 'g-tend': ['pages', 'homemaking'], 'g-prep': ['pages', 'cooking'], 'g-oneoff': ['pages', 'chores'], 'g-rooms': ['pages', 'chores'], 'g-subjects': ['areas', 'study'], 'g-hobbies': ['areas', 'hobbies'], 'g-train': ['pages', 'training'], 'g-appts': ['pages', 'appts'], 'g-health': ['areas', 'health'], 'g-blocks': ['areas', 'plan'], 'g-slots': ['areas', 'plan'] };
+function parentGrp(k) { return Object.keys(M.groups).find((p) => (M.groups[p].kids || []).includes(k)) || null; }
+function grpCol(k, n) { const g = G(k); if (!g || (n || 0) > 8) return '#9A9387'; const R = ROOTCOL[k]; const rc = R && ((M[R[0]] || {})[R[1]] || {}).color;
+  if (R && R[0] === 'pages' && rc) return rc; if (g.color) return g.color; if (rc) return rc;
+  if (g.style === 'sgroup' || g.style === 'subject') { const p = parentGrp(k); return p && p !== 'g-subjects' && G(p).color ? G(p).color : ((M.areas || {}).study || {}).color || '#9A9387'; }
+  if (g.style === 'project' && typeof hobOf === 'function' && G(hobOf(k))) return grpCol(hobOf(k), (n || 0) + 1);
+  const p = parentGrp(k); return p ? grpCol(p, (n || 0) + 1) : '#9A9387'; }
 function blockOfItem(id) { const pl = placements(id).find((p) => G(p) && G(p).style === 'dayblock'); return pl || blockIds()[blockIds().length - 1]; }
 function blockAtTime(t) { const m = hm(t); return blockIds().find((b) => hm(G(b).start) <= m && m < hm(G(b).end)) || blockIds()[blockIds().length - 1]; }
 function placeName(p) { if (p.startsWith('s:')) return (I(p.slice(2)) || {}).name + ' (steps)'; const g = G(p); return g.style === 'dayblock' ? 'Day block · ' + g.name : g.style === 'acat' ? 'Appointments · ' + g.name : g.name; }
@@ -1146,7 +1162,16 @@ function placeName(p) { if (p.startsWith('s:')) return (I(p.slice(2)) || {}).nam
 // ---------- log ----------
 const L = (d) => M.log[d] || (M.log[d] = {});
 const val = (d, id) => (M.log[d] || {})[id];
-function isDone(id, d) { const it = I(id); if (it && it.type === 'slot') return slotDone(it, d); if (it && it.type === 'routine') return (it.steps || []).length ? it.steps.every((s) => val(d, s)) : !!val(d, id); return !!val(d, id); }
+function isDone(id, d) { const it = I(id); if (it && it.type === 'slot') return slotDone(it, d); if (it && it.type === 'routine') { const st = rSteps(id, d); return !!val(d, id) || (st.length ? st.every((s) => val(d, s)) : false); } return !!val(d, id); }
+// Routines (2026-11-11): a part can be optional, and can be variable (only on days without a workout, with one, or on certain weekdays).
+// Ticking the routine closes it: parts I didn't tick count as missed. It is complete when every part that isn't optional got ticked.
+const rStepsAll = (id) => ((I(id) || {}).steps || []).filter((s) => I(s));
+function workDay(d) { const k = 'wd|' + d; if (WKC.has(k)) return WKC.get(k); let r = false;
+  try { r = trainCats().filter((c) => c !== 'tc-move').some((c) => kidsOf(c).some((x) => I(x) && (onDay(x, d) || !!val(d, x)))); } catch (e) { r = false; } WKC.set(k, r); return r; }
+function stepOn(s, d) { const x = I(s) || {}; const o = x.only || ''; if (!o) return true; if (o === 'rest') return !workDay(d); if (o === 'train') return workDay(d); if (o === 'days') return (x.days || []).includes(wd(d)); return true; }
+const rSteps = (id, d) => rStepsAll(id).filter((s) => stepOn(s, d));
+const stepMissed = (s, d) => !!(((M.missed || {})[d] || {})[s]);
+function rComplete(id, d) { const st = rSteps(id, d); if (!st.length) return !!val(d, id); return st.every((s) => (I(s).optional) || (val(d, s) && !stepMissed(s, d))); }
 function lastDoneBefore(id, d) { const ks = Object.keys(M.log).filter((k) => k < d).sort().reverse(); for (const k of ks) if (isDone(id, k)) return k; return null; }
 function doneSince(id, from, to) { return Object.keys(M.log).some((k) => k >= from && k <= to && isDone(id, k)); }
 const repeatable = (it) => it.type === 'routine' || (it.when && it.when.mode !== 'once');
@@ -1267,8 +1292,8 @@ function dayListRaw(d, raw) {
 }
 // Missed (2026-11-02): an item marked missed leaves that day's list and schedule and drops into a Missed section.
 // It counts as not done. Kept in M.missed[day][id], apart from the day log.
-const isMissed = (id, d) => !!(((M.missed || {})[d] || {})[id]);
-const missedOn = (d) => Object.keys((M.missed || {})[d] || {}).filter((id) => I(id));
+const isMissed = (id, d) => { const v = ((M.missed || {})[d] || {})[id]; return !!v && v !== 'r'; };
+const missedOn = (d) => Object.entries((M.missed || {})[d] || {}).filter(([id, v]) => I(id) && v !== 'r' && I(id).type !== 'step').map(([id]) => id); // parts a ticked routine missed ('r') count in the routine, not on their own
 function dropMissed(out, d) { out.forEach((x) => { x.items = x.items.filter((id) => !isMissed(id, d)); if (x.appts) x.appts = x.appts.filter((id) => !isMissed(id, d)); }); return out; }
 // Move an item to place idx of block b on one day only (repeats and routines). One-off tasks move for good.
 function seqOf(day, b, excl) { return placeDay(day).filter((o) => o.blk === b && I(o.id).type !== 'checkin' && o.id !== excl).sort((p, q) => p.a - q.a).map((o) => o.id); }
@@ -1344,7 +1369,7 @@ function linkPass(d) { const L0 = M.log[d] = M.log[d] || {};
   Object.keys(M.items).forEach((id) => { const ls = I(id).links; if (!ls || !ls.length || !linkDone(id, d)) return; ls.forEach((t) => { if (!I(t) || t === id || L0[t] != null) return; L0[t] = linkVal(t); L0['ln:' + t] = id; }); });
   if (!Object.keys(L0).length) delete M.log[d]; }
 function change(fn, msg, canUndo = true) { freezePast(); const before = JSON.stringify(M); fn(); try { linkPass(T0); if (S.day && S.day < T0) linkPass(S.day); } catch (_) {} try { snapDay(T0); if (S.day && S.day < T0 && S.area === 'plan') snapDay(S.day); } catch (_) {} save(); render(); if (msg) { if (canUndo) { HIST.past.push({ s: before, msg }); if (HIST.past.length > 40) HIST.past.shift(); HIST.fut = []; } } } // no pop-up when I tick or save (2026-11-10)
-function dayTick() { const t = iso(new Date()); if (t === T0) return; const old = T0; T0 = t; if (S.day === old) S.day = t; if (S.sday === old) S.sday = t; if (S.monthOf === old.slice(0, 7)) S.monthOf = t.slice(0, 7); S.dayComp = null; render(); }
+function dayTick() { const t = appDay(); if (t === T0) return; const old = T0; T0 = t; if (S.day === old) S.day = t; if (S.sday === old) S.sday = t; if (S.monthOf === old.slice(0, 7)) S.monthOf = t.slice(0, 7); S.dayComp = null; render(); }
 setInterval(dayTick, 30000); document.addEventListener('visibilitychange', () => { if (!document.hidden) dayTick(); }); window.addEventListener('focus', dayTick);
 function histStep(back) { const A = back ? HIST.past : HIST.fut, B = back ? HIST.fut : HIST.past; const e = A.pop(); if (!e) return; B.push({ s: JSON.stringify(M), msg: e.msg }); M = JSON.parse(e.s); save(); render(); }
 function flash(msg, undo) { clearTimeout(S.tt); S.toast = { msg, undo }; renderLayer(); S.tt = setTimeout(() => { S.toast = null; renderLayer(); }, undo ? 5000 : 2200); }
@@ -1433,6 +1458,7 @@ function ciStepRow(s, rid, d, live) {
 }
 // A routine opens by itself once it's due today (its start time on Schedule has come) and stays open until closed.
 // Opening or closing by hand is kept for that day, also after a reload (2026-11-03).
+const stepNote = (s) => { const x = I(s) || {}; const W = { rest: 'Days without a workout', train: 'Days with a workout', days: (x.days || []).slice().sort().map((k) => WD[k]).join(', ') }; return [x.optional ? 'Optional' : '', W[x.only] || ''].filter(Boolean).join(' · '); };
 function routineOpen(id, d) {
   const set = ((M.rOpen || {})[d] || {})[id]; if (set !== undefined) return set;
   if (d !== T0 || isDone(id, d)) return false;
@@ -1458,10 +1484,10 @@ function itemRow(id, list, d) {
   const sub0 = much ? 'Too much' + (val(d, id) === 'much:hyper' ? ' · hyperfixation' : val(d, id) === 'much:inert' ? ' · inertia' : '') : late ? (late === 1 ? '1 day late' : late + ' days late') : '';
   const sub = [whereOf(id), it.optional ? 'Optional' : '', sub0].filter(Boolean).join(' · '); // a chore shows its room, a study task its subject
   if (it.type === 'routine') {
-    const open = S.edit || routineOpen(id, d); const steps = it.steps || [];
+    const open = S.edit || routineOpen(id, d); const steps = S.edit ? rStepsAll(id) : rSteps(id, d);
     return `<div data-ref="${id}"><div class="row">${grip()}${tickCircle(id, d, live)}
       <button class="lbl" data-a="ropen" data-ref="${id}" aria-expanded="${!!open}" style="display:flex;align-items:center;gap:10px">${S.edit ? `<span style="flex:1">${nm(id, it.name)}</span>` : `<span style="flex:1">${esc(it.name)}${tdur(it)}</span>`}${S.edit ? '' : `${fold(open)}`}</button>${tail(id, list)}</div>
-      ${open ? `<div class="steps" data-list="s:${id}">${steps.map((s) => I(s).type === 'checkin' ? ciStepRow(s, id, d, live) : `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" style="width:18px;height:40px" data-a="step" data-ref="${s}" aria-label="Tick ${esc(I(s).name)}"><span class="circ ${val(d, s) ? 'done' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span></button>` : `<span class="circ ${val(d, s) ? 'done' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span>`}<span class="lbl">${nm(s, I(s).name)}</span>${tail(s, 's:' + id, { gear: false })}</div>`).join('')}
+      ${open ? `<div class="steps" data-list="s:${id}">${steps.map((s) => I(s).type === 'checkin' ? ciStepRow(s, id, d, live) : `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" style="width:18px;height:40px" data-a="step" data-ref="${s}" aria-label="Tick ${esc(I(s).name)}"><span class="circ ${val(d, s) ? 'done' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span></button>` : `<span class="circ ${val(d, s) ? 'done' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span>`}<span class="lbl">${nm(s, I(s).name)}${stepNote(s) ? `<span class="sub">${esc(stepNote(s))}</span>` : ''}</span>${tail(s, 's:' + id, { gear: false })}</div>`).join('')}
         ${S.edit ? `<button class="addrow" data-a="addstep" data-ref="${id}"><span class="plus">+</span>Add step</button>` : ''}</div>` : ''}</div>`;
   }
   return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, live)}<span class="lbl">${S.edit ? nm(id, it.name) : `<button data-a="${live ? 'sched' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left">${esc(it.name)}${tdur(it)}</button>`}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>${tail(id, list)}</div>`; // estimate on the right (2026-11-04)
@@ -1475,7 +1501,7 @@ function pastDay(d) {
   const isTick = (v) => typeof v === 'string' && (v === 'done' || v.startsWith('done@') || v.startsWith('much'));
   const tk = Object.keys(lg).filter((id) => I(id) && ['task', 'routine', 'checkin', 'appt', 'slot'].includes(I(id).type) && isTick(lg[id]));
   Object.keys(M.items).filter((id) => I(id).type === 'routine' && !tk.includes(id) && (I(id).steps || []).some((st) => isTick(lg[st]))).forEach((id) => tk.push(id));
-  const sub = (id) => { const it = I(id); if (it.type === 'routine') { const st = (it.steps || []).filter((x) => I(x)); const dn = st.filter((x) => isTick(lg[x])); return st.length ? dn.length + ' of ' + st.length : ''; }
+  const sub = (id) => { const it = I(id); if (it.type === 'routine') { const st = rSteps(id, d); const dn = st.filter((x) => isTick(lg[x])); return st.length ? dn.length + ' of ' + st.length : ''; }
     if (String(lg[id]).startsWith('done@')) return lg[id].slice(5); if (String(lg[id]).startsWith('much')) return 'Too much'; return ''; }; // grey text only for values (2026-11-08)
   // routines sit with tasks; a check-in that's a step of its routine shows only as part of it (2026-11-08)
   const inRout = (id) => Object.values(M.items).some((x) => x.type === 'routine' && (x.steps || []).includes(id));
@@ -1487,7 +1513,7 @@ function pastDay(d) {
   const sm = {}; ((M.study || {})[d] || []).forEach((x) => { sm[x.id] = (sm[x.id] || 0) + (+x.min || 0); }); const sup = (M.support || {})[d];
   const mins = (m) => ((m >= 60 ? Math.floor(m / 60) + 'H ' : '') + (m % 60 ? (m % 60) + 'M' : m >= 60 ? '' : '0M')).trim();
   // missed = planned that day and not done; greyed in their own category (2026-11-08)
-  const mi = Object.keys((M.missed || {})[d] || {}).filter(I);
+  const mi = missedOn(d);
   dayList(d).forEach((x) => x.items.concat(x.appts || []).forEach((id) => { const it = I(id); if (it && !['checkin', 'slot'].includes(it.type) && !isDone(id, d) && !mi.includes(id) && !tk.includes(id)) mi.push(id); }));
   const ml0 = (id) => ln(I(id).name, '', '', `data-a="peek" data-ref="${id}" data-d="${d}"`, colorOf(id)).replace('class="pdl"', 'class="pdl pdmiss"');
   [['task', 'Tasks'], ['appt', 'Appointments'], ['home', 'Home'], ['study', 'Study'], ['train', 'Training'], ['hob', 'Hobbies']].forEach(([k, t]) => {
@@ -1530,7 +1556,7 @@ const uiIc = (key, def) => ((M.settings || {}).uiIcons || {})[key] || def;
 const mi = (key, def) => S.edit ? `<span class="miic" data-a="iconfor" data-v="ui:${key}" role="button" aria-label="Change this icon">${icon(uiIc(key, def), 18)}</span>` : icon(uiIc(key, def), 18);
 // what a day had on it and how much got done, kept for the calendar's marks. Counted after every change, wherever I tick
 // (a chore page, the + sheet, Studies), not only while Today is on screen, so yesterday's mark is always right (2026-11-10)
-function snapDay(d, DL) { DL = DL || dayList(d); const opt = (id) => !!(I(id) && I(id).optional); let due = missedOn(d).filter((id) => !opt(id)).length, done = 0; DL.forEach((x) => x.items.concat(x.appts || []).forEach((id) => { if (I(id) && I(id).brk) return; const dn = isDone(id, d); if (opt(id) && !dn) return; due++; if (dn) done++; })); /* an optional item only counts once it's done */ M.snap[d] = { due, done };
+function snapDay(d, DL) { DL = DL || dayList(d); const opt = (id) => !!(I(id) && I(id).optional); let due = missedOn(d).filter((id) => !opt(id)).length, done = 0; DL.forEach((x) => x.items.concat(x.appts || []).forEach((id) => { if (I(id) && I(id).brk) return; const dn = I(id) && I(id).type === 'routine' ? isDone(id, d) && rComplete(id, d) : isDone(id, d); if (opt(id) && !dn) return; due++; if (dn) done++; })); /* an optional item only counts once it's done */ M.snap[d] = { due, done };
   // a bad day is finished when its own list and the day's appointments are done (2026-11-10: an empty Bad day list never finished)
   if (isBad(d)) { const bl = badList().concat(DL.flatMap((x) => x.appts || [])).filter((id, i, A) => A.indexOf(id) === i); Object.assign(M.snap[d], { bad: 1, bdue: bl.length, bdone: bl.filter((id) => isDone(id, d)).length }); }
   return M.snap[d]; }
@@ -1813,6 +1839,12 @@ function openSheet(s) { S.openAdd = null; S.tagEdit = false; if (!s.back && S.sh
   if (s.kind === 'checkin' && !s.feel0) s.feel0 = (M.feel[T0] || []).slice(); S.sheet = s; S.menu = false; renderLayer(); const f = [...document.querySelectorAll('#layer [data-autofocus]')].pop(); if (f) f.focus(); }
 function closeSheet() { if (S.sheet && S.sheet.kind === 'note' && typeof nAuto === 'function') { nAuto(); S.nTagOpen = false; } S.sheet = S.sheet && S.sheet.back || null; render(); }
 const swRow = (cur, act, extra = '') => `<div class="sw">${extra}${PAL.map(([n, c]) => `<button style="--c:${c}" data-a="${act}" data-v="${c}" aria-label="${n}" title="${n}" aria-pressed="${(cur || '').toLowerCase() === c.toLowerCase()}"></button>`).join('')}</div>`;
+// a step's own options in the routine sheet: optional, which days it's part of the routine, its tags (2026-11-11)
+function stepOpts(x, i) { const ch = (a, v, on, l) => `<button class="chip" data-a="${a}" data-ref="${i}" data-v="${v}" aria-pressed="${!!on}">${esc(l)}</button>`;
+  return `<div class="stepopts"><div class="tg"><span class="l">Optional</span><button class="swt" role="switch" aria-checked="${!!x.optional}" data-a="dstep-opt" data-ref="${i}" aria-label="Optional"></button></div>
+    <span class="mono">Part of the routine</span><div class="chips">${[['', 'Every time'], ['rest', 'Days without a workout'], ['train', 'Days with a workout'], ['days', 'Certain days']].map(([v, l]) => ch('dstep-only', v, (x.only || '') === v, l)).join('')}</div>
+    ${x.only === 'days' ? `<div class="chips">${WD.map((w, k) => ch('dstep-day', k, (x.days || []).includes(k), w)).join('')}</div>` : ''}
+    <span class="mono">Tags</span><div class="chips">${Object.entries(M.tags).map(([t, n]) => ch('dstep-tag', t, (x.tags || []).includes(t), n)).join('') || '<span class="sub">No tags yet</span>'}</div></div>`; }
 const sw = (key, label, on, sub) => `<div class="tg"><span class="l">${label}</span><button class="swt" role="switch" aria-checked="${!!on}" data-a="dflag" data-v="${key}" aria-label="${label}"></button></div>`;
 // icon picker categories (Lucide's own), in the order I'm most likely to want them
 const ICON_CATS = [['custom', 'Custom'], ['home', 'Home'], ['food-beverage', 'Food and drink'], ['nature', 'Nature'], ['animals', 'Animals'], ['weather', 'Weather'], ['seasons', 'Seasons'], ['medical', 'Health'], ['sports', 'Sports'], ['people', 'People'], ['emoji', 'Faces'], ['time', 'Time'], ['travel', 'Travel'], ['transportation', 'Transport'], ['gaming', 'Games'], ['multimedia', 'Media'], ['photography', 'Photos'], ['shopping', 'Shopping'], ['tools', 'Tools'], ['science', 'Science'], ['buildings', 'Buildings'], ['communication', 'Talking'], ['mail', 'Mail'], ['text', 'Writing'], ['design', 'Art and design'], ['shapes', 'Shapes'], ['finance', 'Money'], ['devices', 'Devices'], ['files', 'Files'], ['charts', 'Charts'], ['math', 'Maths'], ['notifications', 'Alerts'], ['security', 'Security'], ['navigation', 'Places'], ['arrows', 'Arrows'], ['account', 'Account'], ['social', 'Social'], ['sustainability', 'Green living'], ['accessibility', 'Accessibility']];
@@ -1856,7 +1888,7 @@ function sheetBody() {
       <div class="fld"><span class="mono">Icon</span><div><button class="btn" data-a="iconfor" data-v="a:${s.ref}" style="display:inline-flex;gap:8px;align-items:center">${icon(a.icon, 18)} Change icon</button></div></div>`; }
   if (s.kind === 'remove') { const pl = placements(s.ref);
     return `<p class="note" style="font-size:14px">“${esc(I(s.ref).name)}” is in ${pl.length} places: ${pl.map((p) => esc(placeName(p))).join(', ')}. It is one item, so its history is shared.</p><div class="btns"><button class="btn" data-a="rmhere">Remove from here</button><button class="btn danger" data-a="rmall">Delete everywhere</button></div>`; }
-  if (s.kind === 'much') return `<p class="note" style="font-size:14px">Too much “${esc(I(s.ref).name)}”. What kind?</p><div class="btns"><button class="btn dark" data-a="much" data-v="hyper">Hyperfixation</button><button class="btn dark" data-a="much" data-v="inert">Inertia</button><button class="btn" data-a="much" data-v="">Skip</button></div>`;
+  if (s.kind === 'much') return `<p class="note" style="font-size:14px">Too much “${esc((I(s.ref) || G(s.ref) || {}).name || '')}”. What kind?</p><div class="btns"><button class="btn dark" data-a="much" data-v="hyper">Hyperfixation</button><button class="btn dark" data-a="much" data-v="inert">Inertia</button><button class="btn" data-a="much" data-v="">Skip</button></div>`;
   if (s.kind === 'checkin') return checkinSheet(s);
   if (s.kind === 'feel') return feelSheet();
   if (s.kind === 'tracker') return trackerSheet(s);
@@ -1870,7 +1902,7 @@ function sheetBody() {
     lines.push(['Day', relDay(d) === fmtDate(d) ? fmtDate(d) : relDay(d) + ', ' + fmtDate(d)]);
     if (isA) { lines.push(['Time', it.time || 'No time set']); lines.push(['Category', G(catOf(s.ref)).name]); if (it.when && it.when.mode !== 'once') lines.push(['Frequency', whenText(Object.assign({}, it, { when: Object.assign({}, it.when, { date: it.date }) }))]); else if (it.rep) lines.push(['Frequency', repText(it.rep)]); }
     else { if (s.from) lines.push(['Time', fmtHM(+s.from) + '–' + fmtHM(+s.to) + (it.time ? '' : ' · fills its block')]); if (it.type !== 'checkin') lines.push(['Day block', G(blockOfItem(s.ref)).name]); const wt = whenText(it); if (wt) lines.push(['Repeats', wt]);
-      if (it.type === 'routine') lines.push(['Steps', (it.steps || []).map((x) => (val(d, x) ? '✓ ' : '') + I(x).name).join(', ')]); }
+      if (it.type === 'routine') lines.push(['Steps', rSteps(s.ref, d).map((x) => (val(d, x) ? '✓ ' : stepMissed(x, d) ? '✕ ' : '') + I(x).name + (I(x).optional ? ' (optional)' : '')).join(', ')]); }
     if (it.note) lines.push(['Note', it.note]);
     lines.push(['Status', done ? (String(val(d, s.ref)).startsWith('much') ? 'Too much' : 'Done') : d < T0 ? 'Not done' : d === T0 ? 'Not done yet' : 'Coming up']);
     return `<div class="peekhd"><span class="aic" style="background:${pale(c)};color:${mix(c, TH.ink, 0.35)}">${icon(it.icon || defIcon(s.ref) || (isA ? G(catOf(s.ref)).icon : 'check') || 'circle', 20, 1.9)}</span></div>
@@ -1915,7 +1947,7 @@ const capKey = (l) => 'cap-' + l.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 function capTile(l, ic, attrs, file, named) { const k = capKey(l), i = icon(uiIc(k, ic), named ? 20 : 24) + (named ? `<span>${l}</span>` : '');
   if (S.sheet && S.sheet.capEdit) return `<button class="addtile ed" data-a="iconfor" data-v="ui:${k}" aria-label="Change the icon for ${l}" title="${l}">${i}</button>`;
   return file ? `<label class="addtile" aria-label="${l}" title="${l}">${i}${file}</label>` : `<button class="addtile" ${attrs} aria-label="${l}" title="${l}">${i}</button>`; }
-function pageAdds(ab) { if (S.insOn) return null; const fileIn = (id, ref, ic, l, acc) => capTile(l, ic, '', `<input type="file" accept="${acc}" id="${id}" data-ref="${ref}" hidden>`, true);
+function pageAdds(ab) { if (S.insOn) return null; const fileIn = (id, ref, ic, l, acc) => capTile(l, ic, '', `<input type="file" accept="${acc}"${acc.startsWith('image') ? ' multiple' : ''} id="${id}" data-ref="${ref}" hidden>`, true);
   if (S.area === 'hobbies' && S.proj && G(S.proj)) { const p = S.proj; return [ab('hobnewtask', 'check', 'Task', `data-v="${p}"`) + fileIn('projphoto', p, 'camera', 'Photo', 'image/*') + ab('pnnew', 'sticky-note', 'Note', `data-v="${p}"`) + ab('pjbnew', 'layout-dashboard', 'Board', `data-v="${p}"`) + fileIn('projpdf', p, 'file-text', 'PDF', 'application/pdf')]; }
   if (S.area === 'hobbies' && S.hob && G(S.hob)) return ab('hobnewproj', 'folder-plus', 'Project', `data-v="${S.hob}"`) + ab('hobnewact', 'plus', 'Activity', `data-v="${S.hob}"`);
   if (S.area === 'home' && S.page === 'shopping') return ab('shoplistnew', 'list-plus', 'List');
@@ -1991,7 +2023,7 @@ function itemSheet(s) {
     if (isStudyItem(s, D)) s._more = h.length;
     if (isPrep(s)) { h += subField(s); s._more = h.length; }
     // a routine is a task with steps, added in More settings (2026-11-08)
-    if (D.type === 'routine' || (D.type === 'task' && !isPrep(s) && !isStudyItem(s, D) && !D.part)) h += `<div class="fld"><span class="mono">Steps</span>${(s.steps || []).map((x, i) => `<div class="inrow"><input class="inp" data-step="${i}" value="${esc(x.name)}"><button class="rm" data-a="dstep-rm" data-v="${i}" aria-label="Remove step">✕</button></div>`).join('')}<button class="addbtn" data-a="dstep-add"><span class="plus">+</span>Add step</button></div>`;
+    if (D.type === 'routine' || (D.type === 'task' && !isPrep(s) && !isStudyItem(s, D) && !D.part)) h += `<div class="fld"><span class="mono">Steps</span>${(s.steps || []).map((x, i) => `<div class="inrow"><input class="inp" data-step="${i}" value="${esc(x.name)}"><button class="hb" data-a="dstep-open" data-v="${i}" aria-label="Options for this step" aria-expanded="${s.stepOpen === i}">${icon('sliders-horizontal', 18)}</button><button class="rm" data-a="dstep-rm" data-v="${i}" aria-label="Remove step">✕</button></div>${s.stepOpen === i ? stepOpts(x, i) : (x.optional || x.only) ? `<p class="mono stepnote">${esc([x.optional ? 'Optional' : '', { rest: 'Days without a workout', train: 'Days with a workout', days: (x.days || []).slice().sort().map((k) => WD[k]).join(', ') }[x.only] || ''].filter(Boolean).join(' · '))}</p>` : ''}`).join('')}<button class="addbtn" data-a="dstep-add"><span class="plus">+</span>Add step</button></div>`;
   }
   // every item editor is the same shape (2026-11-10: clean up the editing menus): name, when, length, frequency, steps; the look, kind, tags and reminders wait behind More settings
   if (s._more == null && D.type !== 'checkin') s._more = h.length;
@@ -2064,7 +2096,7 @@ function capture() { const s = S.sheet; if (!s || s.kind !== 'item') return; con
   document.querySelectorAll('[data-step]').forEach((el) => { s.steps[+el.dataset.step].name = el.value; });
 }
 function openItem(id) { const it = I(id); if (!it) return; if (it.type === 'step') { const r = placements(id)[0]; if (r) id = r.slice(2); } if (it.part && I(it.part)) id = it.part;
-  const x = I(id); openSheet({ kind: 'item', ref: id, title: x.type === 'appt' ? 'Appointment' : x.type === 'routine' ? 'Routine' : x.type === 'checkin' ? 'Check-in' : 'Task', draft: JSON.parse(JSON.stringify(x)), block: placements(id).find((p) => G(p) && G(p).style === 'dayblock') || (vHomed({ ref: id }) ? '' : blockOfItem(id)), cat: catOf(id), parts: (x.parts || []).filter(I).map((p) => Object.assign({ id: p, date: (I(p).when || {}).date, min: I(p).dur || 30 }, I(p).time ? { time: I(p).time } : {})), steps: (x.steps || []).map((s) => ({ id: s, name: I(s).name })) }); }
+  const x = I(id); openSheet({ kind: 'item', ref: id, title: x.type === 'appt' ? 'Appointment' : x.type === 'routine' ? 'Routine' : x.type === 'checkin' ? 'Check-in' : 'Task', draft: JSON.parse(JSON.stringify(x)), block: placements(id).find((p) => G(p) && G(p).style === 'dayblock') || (vHomed({ ref: id }) ? '' : blockOfItem(id)), cat: catOf(id), parts: (x.parts || []).filter(I).map((p) => Object.assign({ id: p, date: (I(p).when || {}).date, min: I(p).dur || 30 }, I(p).time ? { time: I(p).time } : {})), steps: (x.steps || []).filter(I).map((s) => ({ id: s, name: I(s).name, optional: !!I(s).optional, only: I(s).only || '', days: (I(s).days || []).slice(), tags: (I(s).tags || []).slice() })) }); }
 function newItem(mode, block) {
   // Breaks (2026-11-11): a named stretch of a day block, like Lunch. It takes up time but there's nothing to tick.
   if (mode === 'break') { openSheet({ kind: 'item', isNew: true, title: 'New break', draft: { name: '', brk: true, type: 'task', when: { mode: 'days', days: [0, 1, 2, 3, 4, 5, 6], n: 1, date: T0 }, made: T0, dur: 15, tags: [] }, block: block || blockIds()[0], steps: [] }); return; }
@@ -2083,7 +2115,8 @@ function saveDraft() {
       if (old && old.when && JSON.stringify(old.when) !== JSON.stringify(D.when) && (old.made || T0) < T0) D.past = (old.past || []).concat([{ until: addDays(T0, -1), when: old.when }]);
       M.items[id] = D; }
     if (D.type === 'task' && !isPrep(s) && !isStudyItem(s, D) && !D.part && (s.steps || []).some((x) => x.name.trim())) { D.type = 'routine'; }
-    if (D.type === 'routine' || (isPrep(s) && s.steps)) { D.steps = s.steps.filter((x) => x.name.trim()).map((x) => { const sid = x.id && I(x.id) ? x.id : uid('s'); M.items[sid] = Object.assign(I(sid) || { type: 'step', kind: 'behaviour', tags: [], insight: true }, { name: x.name.trim() }); return sid; }); }
+    if (D.type === 'routine' || (isPrep(s) && s.steps)) { D.steps = s.steps.filter((x) => x.name.trim()).map((x) => { const sid = x.id && I(x.id) ? x.id : uid('s'); const st = M.items[sid] = Object.assign(I(sid) || { type: 'step', kind: 'behaviour', tags: [], insight: true }, { name: x.name.trim() });
+      if (x.optional !== undefined) { if (x.optional) st.optional = true; else delete st.optional; } if (x.only !== undefined) { if (x.only) st.only = x.only; else delete st.only; if (x.only === 'days') st.days = (x.days || []).slice(); else delete st.days; } if (x.tags) st.tags = x.tags.slice(); return sid; }); }
     if (s.parts) { const old = (D.parts || []).slice(), keep = []; const blk = (s.block && G(s.block)) ? s.block : studyBlock();
       s.parts.filter((x) => x.date).forEach((x) => { const pid = x.id && I(x.id) ? x.id : uid('p');
         const P = Object.assign(I(pid) || { type: 'task', kind: 'behaviour', tags: [], insight: false, made: T0 }, { name: D.name, part: id, when: { mode: 'once', date: x.date }, dur: +x.min || 30 }); if (x.time) P.time = x.time; else delete P.time;
@@ -2197,10 +2230,10 @@ document.addEventListener('click', (e) => {
     case 'miss': { const d = a.dataset.d || T0; S.sheet = null; change(() => { M.missed = M.missed || {}; (M.missed[d] = M.missed[d] || {})[ref] = true; }, 'Missed: ' + I(ref).name); break; }
     case 'unmiss': { const d = a.dataset.d || T0; change(() => { delete M.missed[d][ref]; }, 'Put back ' + I(ref).name); break; }
     case 'tick': tick(ref); break;
-    case 'step': { const it = I(ref); const was = val(T0, ref); change(() => { if (was) delete L(T0)[ref]; else L(T0)[ref] = 'done'; }, was ? 'Unticked ' + it.name : null); break; }
+    case 'step': { const it = I(ref); const was = val(T0, ref); change(() => { if (was) delete L(T0)[ref]; else { L(T0)[ref] = 'done'; if (M.missed && M.missed[T0]) delete M.missed[T0][ref]; } }, was ? 'Unticked ' + it.name : null); break; }
     case 'checkin': openSheet({ kind: 'checkin', ref, title: I(ref).name }); break;
     case 'cidone': { const was = val(T0, v); change(() => { if (was) { delete L(T0)[v]; if (I(v).which === 'morning') delete L(T0)['ci-mfeel']; } else L(T0)[v] = 'done'; }, was ? 'Check-in not done' : 'Check-in done'); S.sheet = null; render(); break; }
-    case 'much': { const r = S.sheet.ref; L(T0)[r] = v ? 'much:' + v : 'much'; save(); S.sheet = null; render(); break; }
+    case 'much': { const r = S.sheet.ref; if (G(r)) { const x = G(r); x.muchK = Object.assign({}, x.muchK || {}, { [T0]: v || '' }); if (x.act && x.muchAuto === T0 && I(x.act)) L(T0)[x.act] = v ? 'much:' + v : 'much'; } else L(T0)[r] = v ? 'much:' + v : 'much'; save(); S.sheet = null; render(); break; }
     case 'open': openItem(ref); break;
     case 'gear': if (I(ref) && I(ref).type === 'tracker') { openSheet({ kind: 'tracker', ref, title: 'Tracker', draft: JSON.parse(JSON.stringify(I(ref))) }); break; } if (G(ref)) openSheet({ kind: 'group', ref, title: G(ref).style === 'dayblock' ? 'Day block' : 'Category' }); else openItem(ref); break;
     case 'rm': { const list = a.dataset.in; if (I(ref) && placements(ref).length > 1 && !list.startsWith('s:')) { openSheet({ kind: 'remove', ref, list, title: 'Remove' }); break; }
@@ -2259,6 +2292,11 @@ document.addEventListener('click', (e) => {
     case 'dpart-rm': capture(); S.sheet.parts.splice(+v, 1); renderLayer(); break;
     case 'dmoreset': capture(); S.sheet.moreOpen = !S.sheet.moreOpen; renderLayer(); break;
     case 'dstep-rm': capture(); S.sheet.steps.splice(+v, 1); renderLayer(); break;
+    case 'dstep-open': capture(); S.sheet.stepOpen = S.sheet.stepOpen === +v ? null : +v; renderLayer(); break;
+    case 'dstep-opt': { capture(); const x = S.sheet.steps[+ref]; if (x) x.optional = !x.optional; renderLayer(); break; }
+    case 'dstep-only': { capture(); const x = S.sheet.steps[+ref]; if (x) { x.only = v; if (v === 'days' && !(x.days || []).length) x.days = [0, 1, 2, 3, 4, 5, 6]; } renderLayer(); break; }
+    case 'dstep-day': { capture(); const x = S.sheet.steps[+ref]; if (x) { const D0 = x.days = x.days || []; const k = +v; const j = D0.indexOf(k); if (j >= 0) D0.splice(j, 1); else D0.push(k); } renderLayer(); break; }
+    case 'dstep-tag': { capture(); const x = S.sheet.steps[+ref]; if (x) { const T = x.tags = x.tags || []; const j = T.indexOf(v); if (j >= 0) T.splice(j, 1); else T.push(v); } renderLayer(); break; }
     case 'dsave': saveDraft(); break;
     case 'ddelete': { const s = S.sheet; S.sheet = null; const parts = (I(s.ref) && I(s.ref).parts) || []; removeRef(s.ref, '', true); if (parts.length) { Object.values(M.groups).forEach((g) => { g.kids = g.kids.filter((k) => !parts.includes(k)); }); parts.forEach((p) => { delete M.items[p]; }); save(); render(); } break; }
   }
@@ -2293,7 +2331,10 @@ function celebrate(kind) { const ph = $('#phone'); if (!ph || !lastTick) return;
 function tick(id) {
   const it = I(id); const cur = val(T0, id) || null;
   if (it.type === 'slot') { slotGo(id); return; }
-  if (it.type === 'routine') { const all = isDone(id, T0); change(() => { (it.steps || []).forEach((s) => { if (all) delete L(T0)[s]; else L(T0)[s] = 'done'; }); if (!(it.steps || []).length) { if (all) delete L(T0)[id]; else L(T0)[id] = 'done'; } }, (all ? 'Unticked ' : 'Ticked ') + it.name); return; }
+  if (it.type === 'routine') { const all = isDone(id, T0); const st = rSteps(id, T0);
+    change(() => { const mm = M.missed = M.missed || {}; const md = mm[T0] = mm[T0] || {};
+      if (all) { if (val(T0, id)) { delete L(T0)[id]; st.forEach((s) => { if (md[s] === 'r') delete md[s]; }); } else st.forEach((s) => { delete L(T0)[s]; }); }
+      else { L(T0)[id] = 'done'; st.forEach((s) => { if (!val(T0, s)) md[s] = 'r'; }); } }, (all ? 'Unticked ' : 'Ticked ') + it.name); return; }
   if (it.type === 'checkin') { openSheet({ kind: 'checkin', ref: id, title: it.name }); return; }
   // a hobby item ticks like any other; Too much is a swipe to the left in Hobbies (2026-11-11)
   if (!it.overdo || (typeof hobArea === 'function' && hobArea(id))) { change(() => { if (cur) delete L(T0)[id]; else L(T0)[id] = 'done'; }, (cur ? 'Unticked ' : 'Ticked ') + it.name); return; }
@@ -2856,7 +2897,7 @@ function mealTile(p, d) {
 }
 function photosUI(d) {
   const ph = mealsOn(d);
-  return `<div class="hlist" style="margin-bottom:14px"><div class="thead"><span class="tname">Food diary</span><label class="hic" aria-label="Add a meal with a photo" title="Photo">${icon('camera', 20)}<input type="file" accept="image/*" id="photoin" hidden></label><button class="hic" data-a="mealnew" aria-label="Write a meal" title="Write it">${icon('pencil', 20)}</button></div>${ph.length ? `<div class="photos">${ph.map((p) => mealTile(p, d)).join('')}</div>` : ''}</div>`;
+  return `<div class="hlist" style="margin-bottom:14px"><div class="thead"><span class="tname">Food diary</span><label class="hic" aria-label="Add a meal with a photo" title="Photo">${icon('camera', 20)}<input type="file" accept="image/*" multiple id="photoin" hidden></label><button class="hic" data-a="mealnew" aria-label="Write a meal" title="Write it">${icon('pencil', 20)}</button></div>${ph.length ? `<div class="photos">${ph.map((p) => mealTile(p, d)).join('')}</div>` : ''}</div>`;
 }
 // the other Nutrition answers for a day (tags, and any scale you add to Nutrition), as words
 const foodGroup = () => Object.keys(M.groups).find((k) => M.groups[k].special === 'food' && M.groups[k].style === 'hgroup');
@@ -3206,22 +3247,26 @@ function linkField2(D) { const L = (D.links || []).filter(I); const self = S.she
 
 // photos: kept as artifact assets when that is available, otherwise as a small picture inside the saved data
 let assetsNS;
-async function addPhoto(file, into) {
-  try {
-    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
-    const k = Math.min(1, 720 / Math.max(img.width, img.height)); const cv = document.createElement('canvas'); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
-    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+// a canvas becomes a stored picture: an uploaded asset where there is a store, else a small inline image
+async function picFromCanvas(cv) {
     const pic = {};
     if (assetsNS === undefined) { try { assetsNS = window.claude && window.claude.use ? await window.claude.use('assets') : null; } catch (e) { assetsNS = null; } if (!assetsNS && HOSTED) assetsNS = LOCAL_ASSETS; }
     if (assetsNS) { const blob = await new Promise((r) => cv.toBlob(r, 'image/jpeg', 0.8)); const up = await assetsNS.upload(blob); pic.asset = up.id; }
     else { const c2 = document.createElement('canvas'); const k2 = Math.min(1, 320 / Math.max(cv.width, cv.height)); c2.width = cv.width * k2; c2.height = cv.height * k2; c2.getContext('2d').drawImage(cv, 0, 0, c2.width, c2.height); pic.src = c2.toDataURL('image/jpeg', 0.6); }
-    if (into === 'jimg') { jAddImg(pic, cv.width / cv.height); return; }
+  return pic; }
+async function addPhoto(file, into, nth, many) {
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
+    const k = Math.min(1, 720 / Math.max(img.width, img.height)); const cv = document.createElement('canvas'); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+    const pic = await picFromCanvas(cv);
+    if (into === 'jimg') { jAddImg(pic, cv.width / cv.height, nth || 0); return; }
     if (typeof into === 'string' && into.startsWith('board:')) { bPhoto(into.slice(6), pic, cv.width / cv.height); return; }
     if (typeof into === 'string' && into.startsWith('proj:')) { const g = G(into.slice(5)); if (g) change(() => { (g.photos = g.photos || []).push(Object.assign({ id: uid('ph'), d: T0 }, pic)); }, 'Photo added'); return; }
     if (into) { mcapture(); const p = curMeal(); if (p) { change(() => { Object.assign(p, pic); }, 'Photo added'); renderLayer(); } return; }
     const p = Object.assign({ id: uid('p'), tags: [], at: nowHM(), kind: 'meal' }, pic);
     change(() => { (M.photos[T0] = M.photos[T0] || []).push(p); }, 'Meal added');
-    openSheet({ kind: 'photo', ref: p.id, d: T0, title: 'Meal' });
+    if (!many || nth === many - 1) openSheet({ kind: 'photo', ref: p.id, d: T0, title: 'Meal' });
   } catch (e) { flash('Could not add that photo'); }
 }
 const nowHM = () => { const n = new Date(); return pad(n.getHours()) + ':' + pad(n.getMinutes()); };
@@ -3236,7 +3281,9 @@ document.addEventListener('change', (e) => { if (e.target.dataset && e.target.da
   if (ds.xwhen) { xcapture(); const x = mealPlan().extras.find((y) => y.id === ds.xwhen); const v = e.target.value; change(() => { if (!v) { delete x.when; const m0 = (x.more || []).shift(); if (m0) x.when = m0; if (x.more && !x.more.length) delete x.more; } else x.when = wParse(v); }); renderLayer(); return; }
   if (ds.xmore) { xcapture(); const x = mealPlan().extras.find((y) => y.id === ds.xmore); const v = e.target.value; if (x) change(() => { const L = x.more = x.more || []; if (ds.i === 'new') { if (v) L.push(wParse(v)); } else if (!v) L.splice(+ds.i, 1); else L[+ds.i] = wParse(v); if (!L.length) delete x.more; }); renderLayer(); return; }
   if (ds.xkm || ds.xkind) { const x = mealPlan().extras.find((y) => y.id === (ds.xkm || ds.xkind)); if (x && x.when) change(() => { if (ds.xkm) x.when.km = Math.max(0, +e.target.value || 0); else x.when.kind = e.target.value.trim() || 'Hike'; }); return; }
-  if (e.target.id === 'photoin' && e.target.files[0]) addPhoto(e.target.files[0]); if (e.target.id === 'photoin2' && e.target.files[0]) addPhoto(e.target.files[0], true); if (e.target.id === 'jimgin' && e.target.files[0]) addPhoto(e.target.files[0], 'jimg'); });
+  // several photos can be picked at once (2026-11-11): each one is added in turn
+  if (e.target.id === 'photoin' && e.target.files[0]) addPhotos(e.target.files); if (e.target.id === 'photoin2' && e.target.files[0]) addPhoto(e.target.files[0], true); if (e.target.id === 'jimgin' && e.target.files[0]) addPhotos(e.target.files, 'jimg'); });
+async function addPhotos(fl, into) { const L0 = Array.from(fl || []); for (let k = 0; k < L0.length; k++) await addPhoto(L0[k], into, k, L0.length); }
 
 // actions for Health; returns true when it handled the action
 function healthAction(act, a, ref, v) {
@@ -3647,7 +3694,7 @@ const crumbs = (parts) => `<nav class="crumbs" aria-label="Where I am">${parts.m
 const vlab = (t, extra = '') => `<div class="vlab"><span class="mono">${esc(t)}</span>${extra}</div>`;
 const addRow = (act, v, label) => `<button class="addrow" data-a="${act}" data-v="${v}"><span class="plus">+</span>${esc(label)}</button>`;
 // edit mode: the same lists as rows you can rename, recolour, drag, open (⚙) and remove
-function eRow(id, list, sub) { const x = I(id) || G(id); const c = I(id) ? colorOf(id) : x.color || '#9A9387';
+function eRow(id, list, sub) { const x = I(id) || G(id); const c = colorOf(id);
   return `<div class="row" data-ref="${id}">${grip()}<span class="circ" style="--c:${c}" data-col="${id}" role="button" aria-label="Change colour"></span><span class="lbl">${nm(id, x.name)}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>${tail(id, list)}</div>`; }
 const eList = (gid, ids, label, act, subOf) => `<div class="card vecard"><div class="list" data-list="${gid}">${ids.map((k) => eRow(k, gid, subOf ? subOf(k) : '')).join('')}</div>${addRow(act, gid, label)}</div>`;
 function tickRow(k, sub) { const it = I(k); const on = !!val(T0, k);
@@ -3677,6 +3724,8 @@ function homeLanding() {
   return choreCard('Chores', allJobs(), CHORE_W, 'data-a="vgo" data-v="chores"') + choreCard('Homemaking', jobsIn('g-tend'), TEND_W, 'data-a="vgo" data-v="homemaking"') + cookCard('data-a="vgo" data-v="cooking"') + shopBtn();
 }
 // edit mode on a Home page or Studies: which day block new tasks from here go in, and the icon they get by default (2026-11-11)
+// the daily study minimum, set in Studies edit mode (2026-11-11)
+function vMinCard() { return lcard(null, 'Study minimum', '', `<div class="inrow" style="justify-content:center;gap:18px;padding:4px 0 2px"><button class="btn" data-a="vsesslen" data-v="-5" aria-label="5 minutes less">−</button><b style="font-size:22px;font-family:var(--serif);font-weight:400">${sessLen()} min</b><button class="btn" data-a="vsesslen" data-v="5" aria-label="5 minutes more">+</button></div>`); }
 function vDefaults(k, what) { const cur = defBlock(k);
   return lcard(null, 'New ' + what, '', `<div class="vdef"><span class="mono">Day block</span><div class="chips">${blockIds().map((b) => `<button class="chip" data-a="vdefblk" data-ref="${k}" data-v="${b}" aria-pressed="${cur === b}">${esc(G(b).name)}</button>`).join('')}</div><span class="mono" style="display:block;margin-top:14px">Default icon</span><div><button class="btn" data-a="iconfor" data-v="ui:def-${k}" style="display:inline-flex;gap:8px;align-items:center;margin-top:6px">${icon(uiIc('def-' + k, DEFIC[k]), 18)} Change icon</button></div></div>`); }
 function choresPage() {
@@ -3724,7 +3773,7 @@ function cookPage() {
 }
 function studyLanding() {
   const V = studyVerdict(); let h = vCard({ eyebrow: studyName(), word: V.word, lvl: V.lvl, sub: V.sub, segs: V.segs, foot: V.foot, go: S.edit ? '' : 'data-a="vunpick" aria-label="Show what needs me most in every subject"', nochev: true });
-  if (S.edit) return h + vlab('Subjects') + eList('g-subjects', subjIds(), 'Add subject', 'vaddsubj', (s) => sgroupsOf(s).length + (sgroupsOf(s).length === 1 ? ' group' : ' groups')) + vDefaults('study', 'study tasks');
+  if (S.edit) return h + vlab('Subjects') + eList('g-subjects', subjIds(), 'Add subject', 'vaddsubj', (s) => sgroupsOf(s).length + (sgroupsOf(s).length === 1 ? ' group' : ' groups')) + vMinCard() + vDefaults('study', 'study tasks');
   if (!subjIds().length) return h;
   const pick = S.pick && subjIds().includes(S.pick) ? S.pick : null;
   h += vlab('Subjects') + `<div class="vstrip">${subjIds().slice().sort((a, b) => subjRank(b) - subjRank(a)).map((s) => { const v = subjVerdict(s); return stripCard(s, G(s).name, v.lvl, v.word, v.tasks.length ? v.tasks.map(taskInk) : [SEG0], pick === s); }).join('')}</div>`;
@@ -3894,9 +3943,9 @@ function verdictAction(act, a, ref, v) {
     case 'vshow': M.settings.studyShow = v === 'today' ? 'today' : 'all'; S.vsortOpen = false; save(); render(); return true;
     case 'vsort': M.settings.studySort = v; S.vsortOpen = false; save(); render(); return true;
     case 'vsugg': { const [n, d] = v.split('|'); const id = uid('i'); change(() => { M.items[id] = { name: n, type: 'task', when: { mode: 'every', n: +d }, kind: 'behaviour', tags: [], insight: true, made: T0, dur: 20 }; G(ref).kids.push(id); }, 'Added ' + n); return true; }
-    case 'vaddroom': vNewGroup('g-rooms', { name: 'New room', style: 'room', holds: 'task', color: M.areas.home.color }, 'Added a room'); return true;
-    case 'vaddsubj': vNewGroup('g-subjects', { name: 'New subject', style: 'subject', holds: 'sgroups', color: '#3FAFA6' }, 'Added a subject'); return true;
-    case 'vaddsg': vNewGroup(v, { name: 'New group', style: 'sgroup', holds: 'task', color: G(v).color, deadline: null }, 'Added a task group'); return true;
+    case 'vaddroom': vNewGroup('g-rooms', { name: 'New room', style: 'room', holds: 'task' }, 'Added a room'); return true;
+    case 'vaddsubj': vNewGroup('g-subjects', { name: 'New subject', style: 'subject', holds: 'sgroups' }, 'Added a subject'); return true;
+    case 'vaddsg': vNewGroup(v, { name: 'New group', style: 'sgroup', holds: 'task', deadline: null }, 'Added a task group'); return true;
     case 'vtimer': { if (S.edit) { openItem(ref); return true; } const t = M.timer; if (t && tElapsed() > 0 && t.id !== ref) saveTimer('Saved ' + dur(Math.max(1, Math.round(tElapsed() / 60000))) + ' on ' + ((t.id && I(t.id)) ? I(t.id).name : 'study'));
       if (!M.timer) M.timer = { id: ref, start: null, acc: 0 }; S.stv = 'timer'; save(); render(); $('#main').scrollTop = 0; return true; }
     case 'vtpick': openSheet({ kind: 'vtpick', title: 'Working on' }); return true;
@@ -3908,7 +3957,7 @@ function verdictAction(act, a, ref, v) {
     case 'vstv': if (v === 'support') { supOpen(); return true; } if (S.area !== 'study') { S.area = 'study'; S.page = null; } S.menu = false; S.sheet = null; S.stv = S.stv === v && S.studyMode ? null : v; if (!S.studyMode && S.stv === v) S.area = 'study'; render(); $('#main').scrollTop = 0; return true;
     case 'studymode': S.menu = false; S.studyMode = !S.studyMode; if (S.studyMode) { S.area = 'study'; S.page = null; S.edit = false; S.nbView = 'home'; } else S.stv = null; render(); return true;
     case 'vsess': openSheet({ kind: 'vsess', title: 'Study session length' }); return true;
-    case 'vsesslen': M.settings.studyLen = Math.max(5, Math.min(240, sessLen() + (+v))); save(); renderLayer(); return true;
+    case 'vsesslen': M.settings.studyLen = Math.max(5, Math.min(240, sessLen() + (+v))); save(); if (S.sheet) renderLayer(); else render(); return true;
     case 'slot': slotGo(ref); return true;
   }
   return false;
@@ -3937,6 +3986,7 @@ try { const d = window.devicePixelRatio || 1; document.documentElement.style.set
 let tsw = null, tswOpen = null;
 function swClose() { if (!tswOpen) return; const o = tswOpen; tswOpen = null; o.el.style.transform = ''; setTimeout(() => { o.btn.remove(); o.el.classList.remove('swon'); }, 180); }
 function swTarget(t) { if (S.edit || S.sheet) return null; if (S.area === 'plan' && S.page === 'today' && S.day === T0) return null; // on Today the swipe offers Miss instead (2026-11-10)
+  if (S.area === 'hobbies') return null; // in Hobbies the left swipe is Too much (2026-11-11)
   return t.closest('#main .vtk') || t.closest('#main .vjob, #main .row'); }
 function swRef(el) { return el.dataset.ref || (el.parentElement && el.parentElement.dataset.ref) || ''; }
 function swList(el, ref) { const l = el.closest('[data-list]'); if (l && !l.dataset.list.startsWith('s:') && G(l.dataset.list)) return l.dataset.list;
@@ -3989,7 +4039,7 @@ const insCountable = (k) => !!I(k) && !I(k).brk && (ITICK.includes(I(k).type) ||
 const insTagged = (tags) => Object.keys(M.items).filter((k) => (I(k).tags || []).some((t) => (tags || []).includes(t)));
 // how often an item is meant to happen: num0 times in den0 days (Loop's frequency)
 function insFreq(id) { const it = I(id); let w = it.when;
-  if (it.type === 'step') { const r = Object.keys(M.items).find((k) => I(k).type === 'routine' && (I(k).steps || []).includes(id)); w = r ? I(r).when : { mode: 'every', n: 1 }; }
+  if (it.type === 'step') { const r = Object.keys(M.items).find((k) => I(k).type === 'routine' && (I(k).steps || []).includes(id)); w = r ? I(r).when : { mode: 'every', n: 1 }; } if (it.type === 'step' && it.only === 'days' && (it.days || []).length) return [it.days.length, 7];
   w = w || {}; const n = Math.max(1, w.n || 1);
   if (w.mode === 'days') return [Math.max(1, (w.days || []).length), 7 * n];
   if (w.mode === 'month') return [1, 30 * n]; if (w.mode === 'year') return [1, 365 * n];
@@ -4024,7 +4074,8 @@ function insSample(days) {
 }
 const insVal = (D, d, id) => { const v = (M.log[d] || {})[id]; return v !== undefined ? v : (D.sample[d] || {})[id]; };
 function insDone(D, id, d) { const it = I(id); if (!it) return false;
-  if (it.type === 'routine') return (it.steps || []).length ? it.steps.every((s) => insVal(D, d, s)) : !!insVal(D, d, id);
+  // a routine is complete when every part that isn't optional was ticked that day (2026-11-11)
+  if (it.type === 'routine') { const st = rSteps(id, d); return st.length ? st.every((s) => I(s).optional || (insVal(D, d, s) && !stepMissed(s, d))) : !!insVal(D, d, id); }
   if (it.type === 'slot') return isDone(id, d);
   if (minOn([id], d) > 0) return true; return !!insVal(D, d, id); }
 
@@ -5287,7 +5338,7 @@ function hobAction(act, a, ref, v) {
   }
   return fileAction(act, a, ref, v);
 }
-document.addEventListener('change', (e) => { if (e.target && e.target.id === 'projphoto' && e.target.files && e.target.files[0]) addPhoto(e.target.files[0], 'proj:' + e.target.dataset.ref); });
+document.addEventListener('change', (e) => { if (e.target && e.target.id === 'projphoto' && e.target.files && e.target.files[0]) addPhotos(e.target.files, 'proj:' + e.target.dataset.ref); });
 // a confetti burst from the wheel when it lands, in the hobby's colour and the palette (2026-11-10)
 function wheelBurst(h) { const ph = document.getElementById('phone'), sv = document.querySelector('.whsv'); if (!ph || !sv || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const P = ph.getBoundingClientRect(), R = sv.getBoundingClientRect(); const ox = R.left + R.width / 2 - P.left, oy = R.top + R.height / 2 - P.top;
@@ -5311,8 +5362,13 @@ document.addEventListener('pointermove', (e) => { const w = pws; if (!w) return;
 const pwsEnd = (e) => { const w = pws; pws = null; if (!w || !w.on) return; w.row.style.transition = 'transform .2s'; w.row.style.transform = '';
   if (e.type !== 'pointerup' || Math.abs(w.dx) <= 60) return; suppress = true; setTimeout(() => { suppress = false; }, 300); try { if (navigator.vibrate) navigator.vibrate(8); } catch (_) {}
   if (w.dx > 0) projWork(w.row.dataset.ref); else if (w.proj) projMuch(w.row.dataset.ref); else hobMuch(w.row.dataset.ref); };
-function projMuch(p) { const x = G(p); if (!x) return; const on = (x.much || []).includes(T0);
-  change(() => { if (on) x.much = x.much.filter((d) => d !== T0); else { x.much = (x.much || []).concat(T0).slice(-400); if (!(x.worked || []).includes(T0)) x.worked = (x.worked || []).concat(T0).slice(-400); } }, on ? 'Not too much' : 'Too much: ' + x.name); }
+function projMuch(p) { const x = G(p); if (!x) return; const on = (x.much || []).includes(T0); const act = x.act && I(x.act) ? x.act : null;
+  if (on) { change(() => { x.much = x.much.filter((d) => d !== T0); if (x.muchK) delete x.muchK[T0];
+    if (act && x.muchAuto === T0) { if (x.prevAct === undefined) delete L(T0)[act]; else L(T0)[act] = x.prevAct; } delete x.muchAuto; delete x.prevAct; }, 'Not too much'); return; }
+  // Too much on a project also makes its activity too much today, the way working on it ticks the activity (2026-11-11)
+  change(() => { x.much = (x.much || []).concat(T0).slice(-400); if (!(x.worked || []).includes(T0)) x.worked = (x.worked || []).concat(T0).slice(-400);
+    if (act) { const cur = val(T0, act); if (!String(cur || '').startsWith('much')) { x.prevAct = cur === undefined ? undefined : cur; if (x.prevAct === undefined) delete x.prevAct; L(T0)[act] = 'much'; x.muchAuto = T0; } } });
+  openSheet({ kind: 'much', ref: p, title: 'Too much' }); }
 function hobMuch(id) { const it = I(id); if (!it) return; const cur = String(val(T0, id) || '');
   if (cur.startsWith('much')) { change(() => { L(T0)[id] = 'done'; }, 'Not too much'); return; }
   change(() => { L(T0)[id] = 'much'; }); openSheet({ kind: 'much', ref: id, title: 'Too much' }); }
@@ -5366,16 +5422,41 @@ function vwEl() { let el = document.getElementById('viewer'); if (!el) { el = do
 function vwClose() { VW = null; const el = document.getElementById('viewer'); if (el) el.remove(); }
 // one photo viewer for project photos, food diary photos and journal pictures (2026-11-08): VW.list() gives
 // [{ id, src, d, at, cap, rm: [act, ref, v], ed: [act, ref, v] }], newest first
-function phView(p, id) { vwOpen(() => (G(p).photos || []).slice().reverse().map((q) => ({ id: q.id, src: projSrc(q), d: q.d, rm: ['projphrm', p, q.id] })), id); }
+function phView(p, id) { vwOpen(() => (G(p).photos || []).slice().reverse().map((q) => ({ id: q.id, src: projSrc(q), d: q.d, rm: ['projphrm', p, q.id], set: (pic) => change(() => { delete q.asset; delete q.src; Object.assign(q, pic); }) })), id); }
 function vwOpen(list, id) { const L = list(); VW = { kind: 'photo', list, i: Math.max(0, L.findIndex((q) => q.id === id)) }; vwPhoto(); }
 function vwPhoto() { const L = VW.list(); if (!L.length) { vwClose(); return; } VW.i = Math.max(0, Math.min(VW.i, L.length - 1)); const q = L[VW.i];
   const btn = (x, ic, lab) => x ? `<button class="vwb" data-a="${x[0]}" data-ref="${esc(x[1])}" data-v="${esc(x[2])}" aria-label="${lab}">${icon(ic, 20)}</button>` : '';
-  const right = btn(q.ed, 'pencil', 'Edit') + btn(q.rm, 'trash', 'Delete this photo');
-  vwEl().className = 'vwph'; vwEl().innerHTML = `<div class="vwbar"><button class="vwb" data-a="vwx" aria-label="Close">${icon('x', 22)}</button>${q.ed && q.rm ? '<span class="vwb" aria-hidden="true"></span>' : ''}<span class="mono vwn">${L.length > 1 ? (VW.i + 1) + ' / ' + L.length : ''}</span>${right || '<span class="vwb" aria-hidden="true"></span>'}</div>
+  // the ⋯ menu sits where Delete was and holds Crop, Rotate and Delete; Close moved to the right (2026-11-11)
+  const mi = (a, ic, l, x) => `<button class="vwmi" data-a="${a}"${x || ''}>${icon(ic, 18)}<span>${l}</span></button>`;
+  const menu = VW.menu ? `<div class="pdmx" data-a="vwmenu"></div><div class="vwmenu" role="menu">${q.set ? mi('vwcrop', 'crop', 'Crop') + mi('vwrot', 'rotate-cw', 'Rotate') : ''}${q.rm ? mi(q.rm[0], 'trash', 'Delete', ` data-ref="${esc(q.rm[1])}" data-v="${esc(q.rm[2])}"`) : ''}</div>` : '';
+  const more = q.set || q.rm ? `<button class="vwb${VW.menu ? ' on' : ''}" data-a="vwmenu" aria-label="More" aria-expanded="${VW.menu ? 'true' : 'false'}">${icon('ellipsis', 22)}</button>` : '<span class="vwb" aria-hidden="true"></span>';
+  if (VW.crop) { vwCropDraw(q); return; }
+  vwEl().className = 'vwph'; vwEl().innerHTML = `<div class="vwbar">${more}${q.ed ? btn(q.ed, 'pencil', 'Edit') : ''}<span class="mono vwn">${L.length > 1 ? (VW.i + 1) + ' / ' + L.length : ''}</span>${q.ed ? '<span class="vwb" aria-hidden="true"></span>' : ''}<button class="vwb" data-a="vwx" aria-label="Close">${icon('x', 22)}</button>${menu}</div>
     <div class="vwimg"><img src="${esc(q.src)}" alt=""></div>${q.cap ? `<p class="vwcap">${esc(q.cap)}</p>` : ''}
     <div class="vwfoot"><button class="vwb vwnav" data-a="vwstep" data-v="-1" aria-label="Newer photo"${VW.i && L.length > 1 ? '' : ' disabled'}>${icon('chevron-left', 24)}</button><span class="mono vwd">${q.d ? esc(lowDay(q.d)) + (q.at ? ' · ' + esc(q.at) : '') : ''}</span><button class="vwb vwnav" data-a="vwstep" data-v="1" aria-label="Older photo"${VW.i < L.length - 1 ? '' : ' disabled'}>${icon('chevron-right', 24)}</button></div>`; }
+// crop and rotate: the picture is redrawn on a canvas and saved again in place of the old one
+function vwImg(src) { return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
+async function vwSave(q, cv) { const pic = await picFromCanvas(cv); q.set(pic, cv.width / cv.height); VW.crop = null; VW.menu = false; vwPhoto(); }
+async function vwRotate() { const q = VW.list()[VW.i]; if (!q || !q.set || VW.busy) return; VW.busy = true; VW.menu = false;
+  try { const im = await vwImg(q.src); const cv = document.createElement('canvas'); cv.width = im.naturalHeight; cv.height = im.naturalWidth; const g = cv.getContext('2d'); g.translate(cv.width, 0); g.rotate(Math.PI / 2); g.drawImage(im, 0, 0); await vwSave(q, cv); }
+  catch (e) { flash('Could not rotate that picture'); } VW.busy = false; }
+// crop: a frame over the picture with four corners to drag; Done keeps what is inside it
+function vwCropDraw(q) { const c = VW.crop; vwEl().className = 'vwph'; vwEl().innerHTML = `<div class="vwbar"><button class="vwb" data-a="vwcropx" aria-label="Cancel crop">${icon('undo-2', 20)}</button><span class="mono vwn">Crop</span><button class="vwb" data-a="vwcropok" aria-label="Done">${icon('check', 22)}</button></div>
+    <div class="vwimg"><div class="vwcrop"><img src="${esc(q.src)}" alt="" draggable="false"><div class="vwcf" style="left:${c.x * 100}%;top:${c.y * 100}%;width:${c.w * 100}%;height:${c.h * 100}%"><i data-c="move"></i><b data-c="nw"></b><b data-c="ne"></b><b data-c="sw"></b><b data-c="se"></b></div></div></div><div class="vwfoot"></div>`; }
+let vwcd = null;
+document.addEventListener('pointerdown', (e) => { const h = e.target.closest && e.target.closest('#viewer .vwcf [data-c]'); if (!h || !VW || !VW.crop) return; e.preventDefault();
+  const box = h.closest('.vwcrop').getBoundingClientRect(); vwcd = { c: h.dataset.c, x: e.clientX, y: e.clientY, box, o: Object.assign({}, VW.crop) }; });
+document.addEventListener('pointermove', (e) => { if (!vwcd || !VW || !VW.crop) return; const d = vwcd, o = d.o, c = VW.crop; const dx = (e.clientX - d.x) / d.box.width, dy = (e.clientY - d.y) / d.box.height; const mn = 0.08;
+  if (d.c === 'move') { c.x = Math.max(0, Math.min(1 - o.w, o.x + dx)); c.y = Math.max(0, Math.min(1 - o.h, o.y + dy)); }
+  else { let l = o.x, t = o.y, r = o.x + o.w, b = o.y + o.h; if (d.c.includes('w')) l = Math.max(0, Math.min(r - mn, l + dx)); if (d.c.includes('e')) r = Math.min(1, Math.max(l + mn, r + dx)); if (d.c.includes('n')) t = Math.max(0, Math.min(b - mn, t + dy)); if (d.c.includes('s')) b = Math.min(1, Math.max(t + mn, b + dy)); Object.assign(c, { x: l, y: t, w: r - l, h: b - t }); }
+  const f = document.querySelector('#viewer .vwcf'); if (f) Object.assign(f.style, { left: c.x * 100 + '%', top: c.y * 100 + '%', width: c.w * 100 + '%', height: c.h * 100 + '%' }); });
+document.addEventListener('pointerup', () => { vwcd = null; });
+async function vwCropOk() { const q = VW.list()[VW.i]; const c = VW.crop; if (!q || !c || VW.busy) return; VW.busy = true;
+  try { const im = await vwImg(q.src); const W = im.naturalWidth, H = im.naturalHeight; const cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(c.w * W)); cv.height = Math.max(1, Math.round(c.h * H));
+    cv.getContext('2d').drawImage(im, c.x * W, c.y * H, c.w * W, c.h * H, 0, 0, cv.width, cv.height); await vwSave(q, cv); }
+  catch (e) { flash('Could not crop that picture'); } VW.busy = false; }
 // food diary photos: every meal with a photo, newest first; the pencil opens the meal
-function mealView(d, id) { vwOpen(() => { const out = []; Object.keys(M.photos || {}).filter((k) => /^\d{4}-\d\d-\d\d$/.test(k)).sort().reverse().forEach((day) => mealsOn(day).slice().reverse().forEach((p) => { if (mealSrc(p)) out.push({ id: p.id, src: mealSrc(p), d: day, at: p.at, cap: p.text || '', rm: ['mealphrm', p.id, day], ed: ['mealedit', p.id, day] }); })); return out; }, id); }
+function mealView(d, id) { vwOpen(() => { const out = []; Object.keys(M.photos || {}).filter((k) => /^\d{4}-\d\d-\d\d$/.test(k)).sort().reverse().forEach((day) => mealsOn(day).slice().reverse().forEach((p) => { if (mealSrc(p)) out.push({ id: p.id, src: mealSrc(p), d: day, at: p.at, cap: p.text || '', rm: ['mealphrm', p.id, day], ed: ['mealedit', p.id, day], set: (pic) => change(() => { delete p.asset; delete p.src; Object.assign(p, pic); }) }); })); return out; }, id); }
 
 // PDFs open with pdf.js; a highlighter draws marks over the page, kept as fractions of the page
 const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
@@ -5472,7 +5553,12 @@ function fileAction(act, a, ref, v) {
   switch (act) {
     case 'phview': if (S.edit) return true; phView(ref, v); return true;
     case 'vwx': vwClose(); return true;
-    case 'vwstep': VW.i += +v; vwPhoto(); return true;
+    case 'vwstep': VW.menu = false; VW.i += +v; vwPhoto(); return true;
+    case 'vwmenu': VW.menu = !VW.menu; vwPhoto(); return true;
+    case 'vwrot': vwRotate(); return true;
+    case 'vwcrop': VW.menu = false; VW.crop = { x: 0.05, y: 0.05, w: 0.9, h: 0.9 }; vwPhoto(); return true;
+    case 'vwcropx': VW.crop = null; vwPhoto(); return true;
+    case 'vwcropok': vwCropOk(); return true;
     case 'mealview': mealView(v, ref); return true;
     case 'mealedit': vwClose(); openSheet({ kind: 'photo', ref, d: v || T0, title: 'Meal' }); return true;
     case 'mealphrm': { const p = mealsOn(v).find((x) => x.id === ref); if (!p) return true; change(() => { delete p.asset; delete p.src; }, 'Photo deleted'); if (VW && VW.kind === 'photo') vwPhoto(); if (S.sheet) renderLayer(); return true; }
@@ -5524,7 +5610,8 @@ function nMigrate(m) { m.settings = m.settings || {};
 }
 const noteTags = () => { const s = new Set(); (M.notes || []).forEach((n) => (n.tags || []).forEach((t) => s.add(t))); (M.settings.noteTags || []).forEach((t) => s.add(t)); return [...s].sort((a, b) => a.localeCompare(b)); };
 // the Journal has its own tags, same system as the Notepad but not shared (2026-11-06)
-const jTags = () => { const s = new Set(); (M.journal || []).forEach((n) => (n.tags || []).forEach((t) => s.add(t))); return [...s].sort((a, b) => a.localeCompare(b)); };
+// journal tags stay once made, even when no page has them; a long press deletes one (2026-11-11)
+const jTags = () => { const s = new Set(M.jTagList || []); (M.journal || []).forEach((n) => (n.tags || []).forEach((t) => s.add(t))); return [...s].sort((a, b) => a.localeCompare(b)); };
 const TILTS = [-1.2, 0.8, 0.6, -0.9, -0.5, 1.1, 0.9, -0.7];
 function renderNotepad() {
   const F = S.nTag || 'all'; if (F !== 'all' && !noteTags().includes(F)) S.nTag = 'all';
@@ -5603,7 +5690,7 @@ const jBlank = (e) => e ? e.paper === 'blank' : M.jPaper === 'blank';
 function renderJournal() { const e = jCurrent(); const T = (e && e.tags) || []; const ed = jEditable(e);
   // extras live behind ⋯ (2026-11-08)
   const jmi = (ic, l) => `<span class="jmi">${mi('j-' + ic, ic)}${l}</span>`; // icons editable in edit mode (2026-11-08)
-  const items = (ed ? `<label role="menuitem" class="jmrow" tabindex="0">${jmi('image-plus', 'Add a picture')}<input type="file" accept="image/*" id="jimgin" hidden></label><span class="mono jmtag">Paper</span>${[['lined', 'Lined'], ['blank', 'Blank']].map(([k, l]) => `<button role="menuitemradio" data-a="jpaper" data-v="${k}" aria-checked="${jBlank(e) === (k === 'blank')}">${l}${jBlank(e) === (k === 'blank') ? icon('check', 16, 2) : ''}</button>`).join('')}<span class="mono jmtag">Text</span><span class="jtxtm jmtxt">${jTxtRows(e)}</span>` : `<button role="menuitem" data-a="jreply" data-ref="${e.id}">${jmi('reply', 'Write an answer')}</button>`)
+  const items = (ed ? `<label role="menuitem" class="jmrow" tabindex="0">${jmi('image-plus', 'Add a picture')}<input type="file" accept="image/*" multiple id="jimgin" hidden></label><span class="mono jmtag">Paper</span>${[['lined', 'Lined'], ['blank', 'Blank']].map(([k, l]) => `<button role="menuitemradio" data-a="jpaper" data-v="${k}" aria-checked="${jBlank(e) === (k === 'blank')}">${l}${jBlank(e) === (k === 'blank') ? icon('check', 16, 2) : ''}</button>`).join('')}<span class="mono jmtag">Text</span><span class="jtxtm jmtxt">${jTxtRows(e)}</span>` : `<button role="menuitem" data-a="jreply" data-ref="${e.id}">${jmi('reply', 'Write an answer')}</button>`)
     + `<button role="menuitem" data-a="jnew">${jmi('file-plus', 'Fresh page')}</button><button role="menuitem" data-a="jlistopen">${jmi('book-open', 'Earlier pages')}</button>` 
     + `<span class="mono jmtag">Tags</span>${jTags().map((t) => `<button role="menuitemcheckbox" data-a="jtagtog" data-v="${esc(t)}" aria-checked="${T.includes(t)}">${esc(t)}${T.includes(t) ? icon('check', 16, 2) : ''}</button>`).join('')}${addOpen('jnewtagin') ? `<div class="inrow jtagnew"><input class="inp" id="jnewtagin" placeholder="New tag" enterkeyhint="done" autocomplete="off"><button class="btn" data-a="jnewtag">Add</button></div>` : `<button role="menuitem" data-a="openadd" data-v="jnewtagin">${jmi('plus', 'New tag')}</button>`}`
     + (e ? `<button role="menuitem" class="ndel" data-a="jdelete" data-ref="${e.id}">${jmi('trash', 'Delete this page')}</button>` : ''); // Delete sits at the bottom (2026-11-08)
@@ -5741,10 +5828,30 @@ function jFromDom() { const fl = document.querySelector('.jpaper .jflow'); const
     else if (n.nodeType === 3) { if (an && an.startContainer === n) caret = out.length + an.startOffset; out += n.data.replace(/​/g, ''); } });
   return { text: out, caret }; }
 function jSyncDom() { const r = jFromDom(); if (!r) return; let e = jCurrent(); if (!e && !r.text.trim()) return; e = jMake(); if (r.text === e.text) return r; { const o = e.text || '', nw = r.text; let pf = 0; while (pf < o.length && pf < nw.length && o[pf] === nw[pf]) pf++; let sf = 0; while (sf < o.length - pf && sf < nw.length - pf && o[o.length - 1 - sf] === nw[nw.length - 1 - sf]) sf++; jShiftRuns(e, pf, o.length - sf, nw.length - pf - sf); } e.text = r.text; jFixPs(e); jSaveSoon(e); jLayoutText(); if (r.caret != null) jSetCaret(r.caret); return r; }
+// a long press on a journal tag asks to delete it
+let jtLp = null;
+document.addEventListener('pointerdown', (ev) => { const c = ev.target.closest && ev.target.closest('[data-a="jtagtog"], [data-a="jtagf"][data-v]:not([data-v=""])'); if (!c) return; const t = c.dataset.v; if (!t) return;
+  clearTimeout(jtLp && jtLp.t); jtLp = { x: ev.clientX, y: ev.clientY, t: setTimeout(() => { jtLp = null; suppress = true; setTimeout(() => { suppress = false; }, 400); try { if (navigator.vibrate) navigator.vibrate(8); } catch (_) {}
+    S.ask = { q: 'Delete the tag “' + t + '”? It comes off every journal page.', yes: 'Delete', data: { a: 'jtagdel', v: t } }; S.jMenu = false; S.jFOpen = false; renderLayer(); }, 550) }; });
+document.addEventListener('pointermove', (ev) => { if (jtLp && Math.hypot(ev.clientX - jtLp.x, ev.clientY - jtLp.y) > 10) { clearTimeout(jtLp.t); jtLp = null; } });
+['pointerup', 'pointercancel'].forEach((k) => document.addEventListener(k, () => { if (jtLp) { clearTimeout(jtLp.t); jtLp = null; } }));
+document.addEventListener('contextmenu', (ev) => { if (ev.target.closest && ev.target.closest('[data-a="jtagtog"], [data-a="jtagf"]')) ev.preventDefault(); });
+// keep the line I'm writing on in sight, above the keyboard (2026-11-11)
+function jFollow() { const fl = document.querySelector('.jpaper .jflow'); const mn = $('#main'); if (!fl || !mn || document.activeElement !== fl) return; const s = getSelection(); if (!s || !s.rangeCount) return;
+  const r0 = s.getRangeAt(0); let r = r0.getBoundingClientRect(); if (!r.height) { const n = r0.startContainer; const el = n.nodeType === 3 ? n.parentNode : n; const sp = el.closest ? el.closest('.jl') : null; if (sp) r = sp.getBoundingClientRect(); else return; }
+  const vv = window.visualViewport; const bot = (vv ? vv.offsetTop + vv.height : innerHeight) - 16; const mr = mn.getBoundingClientRect(); const top = Math.max(mr.top, vv ? vv.offsetTop : 0) + 8; const lim = Math.min(bot, mr.bottom - 8);
+  if (r.bottom > lim) mn.scrollTop += r.bottom - lim + JLH; else if (r.top < top) mn.scrollTop -= top - r.top + 4; }
+const jFollowSoon = () => requestAnimationFrame(jFollow);
+if (window.visualViewport) visualViewport.addEventListener('resize', jFollowSoon);
+// while a word is being composed it may run past the end of its line: let that line wrap until the word is done, instead of the page sliding sideways
+document.addEventListener('compositionupdate', (ev) => { const fl = ev.target.closest && ev.target.closest('.jflow'); if (!fl) return; const s = getSelection(); const n = s && s.rangeCount ? s.getRangeAt(0).startContainer : null; const el = n && (n.nodeType === 3 ? n.parentNode : n); const sp = el && el.closest && el.closest('.jl'); if (sp && sp.scrollWidth > sp.clientWidth + 1) sp.classList.add('cmp'); jFollowSoon(); });
 let jComp = false;
 document.addEventListener('compositionstart', (ev) => { if (ev.target.closest && ev.target.closest('.jflow')) jComp = true; });
 document.addEventListener('compositionend', (ev) => { if (!(ev.target.closest && ev.target.closest('.jflow'))) return; jComp = false; setTimeout(jSyncDom, 0); });
-document.addEventListener('beforeinput', (ev) => { const fl = ev.target.closest && ev.target.closest('.jflow'); if (!fl || !fl.isContentEditable) return; if (ev.isComposing || jComp || ev.inputType === 'insertCompositionText') return;
+document.addEventListener('beforeinput', (ev) => { const fl = ev.target.closest && ev.target.closest('.jflow'); if (!fl || !fl.isContentEditable) return; const brk = ev.inputType === 'insertParagraph' || ev.inputType === 'insertLineBreak';
+  // Enter while the keyboard is still composing a word: the word goes in first, then the new paragraph (2026-11-11: Enter jumped a line up)
+  if (brk && (ev.isComposing || jComp)) { jComp = false; jSyncDom(); }
+  else if (ev.isComposing || jComp || ev.inputType === 'insertCompositionText') return;
   // a word the keyboard just finished (composition) may not be in the page's text yet; take it in first, or the next key
   // (the space) rebuilds the lines from the old text and the word disappears (2026-11-11)
   { const r = jFromDom(); const e0 = jCurrent(); if (r && r.text !== ((e0 && e0.text) || '')) jSyncDom(); }
@@ -5762,16 +5869,16 @@ document.addEventListener('beforeinput', (ev) => { const fl = ev.target.closest 
   else if (ty === 'deleteByCut' || ty === 'deleteContent' || ty === 'deleteByDrag') { }
   else if (ty === 'historyUndo' || ty === 'historyRedo' || /^format/.test(ty)) { ev.preventDefault(); return; }
   else return;
-  ev.preventDefault(); if (s === t && !str) return; str = str.replace(/\r\n?/g, '\n'); const c = jEdit(s, t, str); jLayoutText(); jSetCaret(c); });
-document.addEventListener('input', (ev) => { const fl = ev.target.closest && ev.target.closest('.jflow'); if (!fl || !fl.isContentEditable) return; if (ev.isComposing || jComp) return; jSyncDom(); });
+  ev.preventDefault(); if (s === t && !str) return; str = str.replace(/\r\n?/g, '\n'); const c = jEdit(s, t, str); jLayoutText(); jSetCaret(c); S.jCaret = c; S.jCaretEnd = c; jFollowSoon(); });
+document.addEventListener('input', (ev) => { const fl = ev.target.closest && ev.target.closest('.jflow'); if (!fl || !fl.isContentEditable) return; if (ev.isComposing || jComp) { jFollowSoon(); return; } jSyncDom(); jFollowSoon(); });
 document.addEventListener('selectionchange', () => { const fl = document.querySelector('.jpaper .jflow'); if (!fl || document.activeElement !== fl) return; const so = jSelOffs(); if (so) { S.jCaret = so[0]; S.jCaretEnd = so[1]; } });
 document.addEventListener('selectionchange', () => requestAnimationFrame(jSelBar));
 // the entry being written; made on first use
 function jMake() { let e = jCurrent(); if (e) return e; e = { id: uid('j'), d: T0, at: nowHM(), text: '', tags: [], ps: [{}] }; if (M.jPaper === 'blank') e.paper = 'blank'; if (S.jRe) e.re = S.jRe; if (S.jNewTags) e.tags = S.jNewTags.slice(); (M.journal = M.journal || []).push(e); S.jEntry = e.id; const pa = document.querySelector('.jpaper'); if (pa && !pa.dataset.jref) { /* keeps following jCurrent */ } return e; }
 function jSync() { if (jComp) { jComp = false; jSyncDom(); } return jCurrent(); }
-function jAddImg(pic, r) { const e = jMake(); const PW = S.jPW || 336; const sp = S.jCaret != null ? jSpanAt(S.jCaret) : null; const row = sp ? Math.round(parseFloat(sp.style.top) / JLH) : 0; const z = Math.max(1, ...(e.imgs || []).map((q) => q.z || 1)) + 1;
-  const q = Object.assign({ id: uid('ji'), w: 0.45, x: 0, y: row * JLH + 4, z, r: r || 1 }, pic); (e.imgs = e.imgs || []).push(q); save(); S.jSel = q.id; S.jMenu = false; const c = S.jCaret != null ? S.jCaret : (e.text || '').length; render(); jLayout(); const fl = document.querySelector('.jflow'); if (fl) { fl.focus({ preventScroll: true }); jSetCaret(c); } }
-function jView(e, id) { const im = (e.imgs || []).slice().sort((a, b) => a.y - b.y || a.x - b.x); vwOpen(() => im.map((q) => ({ id: q.id, src: jImgSrc(q), d: e.d })), id); }
+function jAddImg(pic, r, nth) { nth = nth || 0; const e = jMake(); const PW = S.jPW || 336; const sp = S.jCaret != null ? jSpanAt(S.jCaret) : null; const row = sp ? Math.round(parseFloat(sp.style.top) / JLH) : 0; const z = Math.max(1, ...(e.imgs || []).map((q) => q.z || 1)) + 1;
+  const q = Object.assign({ id: uid('ji'), w: 0.45, x: Math.min(0.5, nth * 0.1), y: (row + nth) * JLH + 4, z, r: r || 1 }, pic); (e.imgs = e.imgs || []).push(q); save(); S.jSel = q.id; S.jMenu = false; const c = S.jCaret != null ? S.jCaret : (e.text || '').length; render(); jLayout(); const fl = document.querySelector('.jflow'); if (fl) { fl.focus({ preventScroll: true }); jSetCaret(c); } }
+function jView(e, id) { vwOpen(() => (e.imgs || []).slice().sort((a, b) => a.y - b.y || a.x - b.x).map((q) => ({ id: q.id, src: jImgSrc(q), d: e.d, rm: ['jimgrm', '', q.id], set: (pic, r) => { delete q.asset; delete q.src; Object.assign(q, pic); q.r = r || q.r; save(); jLayout(); } })), id); }
 const jImgs = () => { const e = jCurrent(); return (e && e.imgs) || []; };
 // paragraph look (2026-11-08: "basic text editing options like aligning evenly")
 function jParas(e) { const T = e.text || ''; const a = S.jCaret != null ? S.jCaret : T.length, b = S.jCaretEnd != null ? S.jCaretEnd : a; const p0 = (T.slice(0, a).match(/\n/g) || []).length, p1 = (T.slice(0, b).match(/\n/g) || []).length; const out = []; for (let i = p0; i <= p1; i++) out.push(i); return out; }
@@ -5848,15 +5955,16 @@ function notebookAction(act, a, ref, v) {
     case 'jfopen': S.jFOpen = !S.jFOpen; render(); return true;
     case 'jtagf': S.jTag = v; S.jFOpen = false; render(); return true;
     case 'jtags': { S.jMenu = false; if (S.jTagOpen) { S.jTagOpen = false; render(); return true; } jMake(); jSync(); save(); S.jTagOpen = true; render(); return true; }
+    case 'jtagdel': { M.jTagList = (M.jTagList || []).filter((t) => t !== v); (M.journal || []).forEach((e) => { if (e.tags) e.tags = e.tags.filter((t) => t !== v); }); if (S.jTag === v) S.jTag = null; save(); render(); return true; }
     case 'jtagtog': { jMake(); const e = jSync(); if (!e) return true; const T = e.tags = e.tags || []; const i = T.indexOf(v); if (i >= 0) T.splice(i, 1); else T.push(v); save(); render(); return true; }
-    case 'jnewtag': { if (document.getElementById('jnewtagin') && document.getElementById('jnewtagin').value.trim()) jMake(); const e = jSync(); const el = document.getElementById('jnewtagin'); const t = el && el.value.trim(); if (!e || !t) return true; e.tags = e.tags || []; if (!e.tags.includes(t)) e.tags.push(t); save(); render(); return true; }
+    case 'jnewtag': { if (document.getElementById('jnewtagin') && document.getElementById('jnewtagin').value.trim()) jMake(); const e = jSync(); const el = document.getElementById('jnewtagin'); const t = el && el.value.trim(); if (!e || !t) return true; M.jTagList = M.jTagList || []; if (!M.jTagList.includes(t)) M.jTagList.push(t); e.tags = e.tags || []; if (!e.tags.includes(t)) e.tags.push(t); save(); render(); return true; }
     case 'jmenu': jSync(); S.jTxt = false; S.jMenu = !S.jMenu; S.jTagOpen = false; render(); return true;
     case 'jlistopen': jSync(); S.jMenu = false; render(); openSheet({ kind: 'jlist', title: 'Earlier pages' }); return true;
     case 'jreply': { S.jMenu = false; S.jBack = S.jBack || 'home'; S.jTagOpen = false; S.jRe = ref; S.jSel = null; S.jCaret = null; S.jEntry = 'new'; render(); jGrow(); $('#main').scrollTop = 0; requestAnimationFrame(() => { const t = document.getElementById('jtext'); if (t) { jLayout(); t.focus(); jSetCaret(((jCurrent() || {}).text || '').length); } }); return true; }
     case 'jimgfrm': S.jFr = !S.jFr; jPick(S.jSel); return true;
     case 'jimgfr': { const e = jSync(); const p = e && (e.imgs || []).find((x) => x.id === S.jSel); if (!p) return true; if (v === 'plain') delete p.frame; else p.frame = v; save(); jLayout(); return true; }
     case 'jimgview': { const e = jSync(); if (e) jView(e, v); return true; }
-    case 'jimgrm': { const e = jSync(); if (!e) return true; e.imgs = (e.imgs || []).filter((q) => q.id !== v); S.jSel = null; S.jFr = false; save(); jLayout(); return true; }
+    case 'jimgrm': { const e = jSync(); if (!e) return true; e.imgs = (e.imgs || []).filter((q) => q.id !== v); S.jSel = null; S.jFr = false; save(); jLayout(); if (VW && VW.kind === 'photo') vwPhoto(); return true; }
     case 'jtxt': S.jTxt = !S.jTxt; S.jMenu = false; { const c = S.jCaret, c2 = S.jCaretEnd; render(); jLayout(); if (!S.jTxt && c != null) { const fl = document.querySelector('.jflow'); if (fl) { fl.focus(); jSetCaret(c, c2); } } } return true;
     case 'jdelete': { M.journal = (M.journal || []).filter((x) => x.id !== ref); (M.journal || []).forEach((x) => { if (x.re === ref) delete x.re; }); save(); S.jMenu = false; S.jTagOpen = false; S.jSel = null; S.jRe = null; S.nbView = S.jBack || 'home'; S.jEntry = null; jFromBack(); render(); return true; }
     case 'jpaper': { const e = jMake(); if (v === 'blank') e.paper = 'blank'; else delete e.paper; M.jPaper = v; save(); render(); jLayout(); return true; }
