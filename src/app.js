@@ -446,8 +446,10 @@ function itemRow(id, list, d) {
   const it = I(id); const live = d === T0;
   if (it.type === 'slot') return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, false)}<span class="lbl">${S.edit ? nm(id, it.name) : `<button data-a="${live ? 'slot' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left;display:flex;align-items:center;gap:8px"><span style="flex:1">${esc(it.name)}${live && it.opens === 'study' && supMin(T0) < sessLen() ? `<span class="tdur">${estHM(minOn(null, T0) / 60)} of ${estHM(sessLen() / 60)}</span>` : ''}${live && slotSub(it) ? `<span class="sub">${esc(slotSub(it))}</span>` : ''}</span>${live ? '<span class="chev" aria-hidden="true">›</span>' : ''}</button>`}</span>${tail(id, list)}</div>`;
   // a break looks like a day block's title (2026-11-11): its icon, its name in small capitals, its length on the right
-  if (it.brk) { const bi = icon(it.icon || 'coffee', 16); const ln = `<span class="cnt">${it.time ? esc(it.time) + ' · ' : ''}${estHM((it.dur || 15) / 60)}</span>`;
-    return `<div class="row brkrow" data-ref="${id}">${grip()}${S.edit ? `<button class="bico" data-a="iconfor" data-v="${id}" aria-label="Change icon">${bi}</button><span class="nm mono" style="flex:1">${nm(id, it.name)}</span>${ln}${tail(id, list)}` : `<button data-a="${live ? 'open' : 'peek'}" data-ref="${id}" data-d="${d}" style="display:flex;align-items:center;gap:8px;width:100%;min-height:40px;text-align:left"><span class="bico" aria-hidden="true">${bi}</span><span class="nm mono" style="flex:1">${esc(it.name)}</span>${ln}</button>`}</div>`; }
+  if (it.brk) { const bi = icon(it.icon || 'coffee', 16); const ln = `${it.time ? esc(it.time) + ' · ' : ''}${estHM((it.dur || 15) / 60)}`;
+    // outside edit mode it's a minimal title like the block titles on Schedule (2026-11-11): dashed lines, small capitals
+    if (!S.edit) return `<div class="row brkrow brkmin" data-ref="${id}"><button class="brkt" data-a="${live ? 'open' : 'peek'}" data-ref="${id}" data-d="${d}" aria-label="${esc(it.name)}, a break, ${ln}"><span class="bkt">${icon(it.icon || 'coffee', 12, 2)}<span>${esc(it.name)} · ${ln}</span></span></button></div>`;
+    return `<div class="row brkrow" data-ref="${id}">${grip()}<button class="bico" data-a="iconfor" data-v="${id}" aria-label="Change icon">${bi}</button><span class="nm mono" style="flex:1">${nm(id, it.name)}</span><span class="cnt">${ln}</span>${tail(id, list)}</div>`; }
   if (it.type === 'checkin') return `<div class="row" data-ref="${id}" data-fixed="1">${S.edit ? '<span class="grip"></span>' : ''}${tickCircle(id, d, live)}<button class="lbl" data-a="checkin" data-ref="${id}">${nm(id, it.name)}</button><span class="chev">›</span></div>`;
   const much = String(val(d, id) || '').startsWith('much');
   const late = live ? lateBy(id) : 0;
@@ -663,14 +665,18 @@ function renderSchedule() {
     h += `<div class="col" data-day="${d}" style="height:${H}px">` + PD[di].map((o) => { const it = I(o.id); const c = o.appt ? G(catOf(o.id)).color : colorOf(o.id); const top = yIn(o.a, o.blk), ht = Math.max(14, yIn(o.b - 0.01, o.blk) - yIn(o.a, o.blk) - (!o.appt && (OV[o.blk] ? o.b >= ends[o.blk] + OV[o.blk] : o.b >= ends[o.blk]) ? 0 : 2)); // the last box of a block (or of its red stretch) sits flush on the next block's border (2026-11-03/04)
       const solo = dayV || clash(di, o); const jl = !solo && same(di - 1, o), jr = !solo && same(di + 1, o); let run = 1; if (!jl && !solo) while (same(di + run, o)) run++;
       let st = di; if (jl) while (same(st - 1, o)) st--; const rk = jl || jr ? o.id + '@' + days[st] : '';
-      const inner = dayV ? `<span class="bi">${icon(boxIcon(o), 14, 2)}</span><span class="bn">${esc(it.name)}</span><span class="bt">${fmtHM(o.a)}</span>`
+      // a break is drawn like a block title (2026-11-11): dashed lines above and below, its name small in the middle
+      const bk = !o.appt && it.brk; const fitsB = bk && (S.colW || 42) - 6 >= it.name.length * 6.2 + 12;
+      const inner = bk ? (jl || run > 1 ? '' : `<span class="bkt">${icon(boxIcon(o), 10, 2)}${dayV || fitsB ? `<span>${esc(it.name)}</span>` : ''}</span>`)
+        : dayV ? `<span class="bi">${icon(boxIcon(o), 14, 2)}</span><span class="bn">${esc(it.name)}</span><span class="bt">${fmtHM(o.a)}</span>`
         : jl || run > 1 ? '' : (ht >= 14 ? icon(boxIcon(o), 12, 2) : '');
       // the joined block's label sits beside the boxes in the column (not inside a button), spanning the joined days
       // the name only shows when it fits the joined block; otherwise just the icon (2026-11-02)
       const fits = run * ((S.colW || 42) + 4) - 4 - 10 >= it.name.length * 6.3 + (ht >= 30 ? 0 : 18);
       // faded = past or done; drawn with paler solid colours, never see-through, so no lines show through (2026-11-03)
       const fd = faded(di, o); const allFaded = [...Array(run).keys()].every((r) => faded(di + r, o));
-      const lab = !dayV && !jl && run > 1 && ht >= 14 ? `<span class="blab ${ht >= 30 ? '' : 'brow'} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''}" data-run="${rk}" style="top:${top}px;height:${ht}px;width:calc(${run} * (100% + 4px) - 4px);color:${allFaded ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" aria-hidden="true">${icon(boxIcon(o), 12, 2)}${fits ? `<span class="bn">${esc(it.name)}</span>` : ''}</span>` : '';
+      const lab = bk && !dayV && !jl && run > 1 ? `<span class="blab bkl" data-run="${rk}" style="top:${top}px;height:${ht}px;width:calc(${run} * (100% + 4px) - 4px)" aria-hidden="true"><span class="bkt">${icon(boxIcon(o), 10, 2)}<span>${esc(it.name)}</span></span></span>`
+        : !dayV && !jl && run > 1 && ht >= 14 ? `<span class="blab ${ht >= 30 ? '' : 'brow'} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''}" data-run="${rk}" style="top:${top}px;height:${ht}px;width:calc(${run} * (100% + 4px) - 4px);color:${allFaded ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" aria-hidden="true">${icon(boxIcon(o), 12, 2)}${fits ? `<span class="bn">${esc(it.name)}</span>` : ''}</span>` : '';
       const mv = !o.appt && !it.time && it.type !== 'checkin' && d >= T0;
       return `<button class="box ${dayV ? 'wide' : ''} ${mv ? 'mv' : ''} ${jl ? 'jl' : ''} ${jr ? 'jr' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && I(o.id) && I(o.id).brk ? ' brk' : ''}" style="top:${top}px;height:${ht}px;--c:${c};--bg:${fd ? mix(pale(c), TH.page, 0.5) : pale(c)};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" ${rk ? `data-run="${rk}"` : ''} data-from="${o.a}" data-to="${o.b}" aria-label="${esc(it.name)}, ${fmtHM(o.a)}">${inner}</button>${lab}`; }).join('') + '</div>';
   });
@@ -683,7 +689,7 @@ function renderSchedule() {
 function renderPlan() {
   const inPlan = (id) => placements(id).some((p) => p.startsWith('s:') || (G(p) && G(p).style === 'dayblock'));
   const F = S.planF || 'all';
-  const tasks = Object.keys(M.items).filter((id) => ['task', 'routine'].includes(I(id).type) && !I(id).part && !(typeof hobArea === 'function' && hobArea(id)) && (F === 'home' ? homeItem(id) : F === 'plan' ? inPlan(id) && !homeItem(id) : inPlan(id) || homeItem(id)));
+  const tasks = Object.keys(M.items).filter((id) => ['task', 'routine'].includes(I(id).type) && !I(id).part && !placements(id).some((p) => G(p) && G(p).style === 'sgroup') /* Studies items live on Studies (2026-11-11) */ && !(typeof hobArea === 'function' && hobArea(id)) && (F === 'home' ? homeItem(id) : F === 'plan' ? inPlan(id) && !homeItem(id) : inPlan(id) || homeItem(id)));
   const brks = tasks.filter((id) => I(id).brk); tasks.splice(0, tasks.length, ...tasks.filter((id) => !I(id).brk));
   const nos = tasks.filter((id) => (I(id).when || {}).mode === 'once' && !I(id).when.date && !keeps(id) && !Object.keys(M.log).some((d) => val(d, id)));
   const per = tasks.filter((id) => keeps(id) && !repeatable(I(id)));
@@ -1876,11 +1882,15 @@ function trig(w, d) {
   return false;
 }
 const manualOn = (x, d) => ((mealPlan().days[d] || {}).extras || []).includes(x.id);
+// several conditions (2026-11-11): x.when is the first, x.more holds the rest; any one of them switches the extra on
+const xWhens = (x) => [x.when].concat(x.more || []).filter(Boolean);
+const anyTrig = (x, d) => xWhens(x).some((w) => trig(w, d));
 function autoOn(x, d) {
-  if (!x.when || !trig(x.when, d)) return false;
+  if (!x.when || !anyTrig(x, d)) return false;
   // the longest training link of a kind wins (a 16 km hike is a proper hike, not both)
+  if (!trig(x.when, d) || (x.more || []).some((w) => trig(w, d))) { if (x.weekly) { const w = weekStart(d); for (let o = w; o < d; o = addDays(o, 1)) if (anyTrig(x, o)) return false; } return true; }
   if (x.when.src === 'train' && !x.when.id && mealPlan().extras.some((y) => y !== x && y.when && y.when.src === 'train' && !y.when.id && (y.when.kind || '').toLowerCase() === (x.when.kind || '').toLowerCase() && (y.when.km || 0) > (x.when.km || 0) && trig(y.when, d))) return false;
-  if (x.weekly) { const w = weekStart(d); for (let o = w; o < d; o = addDays(o, 1)) if (trig(x.when, o)) return false; }
+  if (x.weekly) { const w = weekStart(d); for (let o = w; o < d; o = addDays(o, 1)) if (anyTrig(x, o)) return false; }
   return true;
 }
 // Extras only come from the linked logs; they are never switched by hand (2026-11-02)
@@ -1925,17 +1935,22 @@ function foodCal0() {
     <button class="toggle-cal" data-a="fdmode" aria-label="${F.month ? 'Show one week' : 'Show the month'}" aria-expanded="${F.month}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${F.month ? 180 : 0}deg)" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>`;
 }
 const stepper = (act, k, f, v) => `<span class="stp"><button data-a="${act}" data-k="${k}" data-f="${f}" data-v="-1" aria-label="Less">−</button><b>${v}</b><button data-a="${act}" data-k="${k}" data-f="${f}" data-v="1" aria-label="More">+</button></span>`;
+const wKey = (w) => !w ? '' : w.src === 'sym' ? 'sym:' + w.id : w.src === 'tag' ? 'tag:' + w.id + (w.opt ? ':' + w.opt : '') : w.src === 'treat' ? 'treat' : w.src === 'train' ? 'train:' + (w.id || '') : '';
+const wParse = (v) => !v ? null : v === 'treat' ? { src: 'treat' } : v.startsWith('train:') ? { src: 'train', id: v.slice(6) } : (([src, id, ...o]) => o.length ? { src, id, opt: o.join(':') } : { src, id })(v.split(':'));
 function linkField(x) {
-  const w = x.when || {}; const cur = w.src === 'sym' ? 'sym:' + w.id : w.src === 'tag' ? 'tag:' + w.id : w.src === 'treat' ? 'treat' : w.src === 'train' ? 'train:' + (w.id || '') : '';
   const tri = typeof trainCats === 'function' ? trainCats().flatMap(kidsOf).filter((k) => I(k)) : [];
   const syms = (G('hg-sym') ? G('hg-sym').kids : []).flatMap((t) => (G(t) || { kids: [] }).kids).filter((k) => I(k));
   const tags = (G(foodGroup()) ? G(foodGroup()).kids : []).filter((k) => I(k) && I(k).scale === 'yesno');
-  const opt = (v, l) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(l)}</option>`;
-  return `<div class="fld" style="margin-top:8px"><span class="mono">Switches on by itself</span><select class="inp" data-xwhen="${x.id}" aria-label="What switches ${esc(x.name)} on">${opt('', 'Not linked')}
+  const sel = (cur, attr, first, label) => { const opt = (v, l) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(l)}</option>`;
+    return `<select class="inp" ${attr} aria-label="${esc(label)}" style="margin-top:6px">${opt('', first)}
     <optgroup label="Symptom">${syms.map((k) => opt('sym:' + k, I(k).name)).join('')}</optgroup>
     <optgroup label="Nutrition tag">${tags.map((k) => opt('tag:' + k, I(k).name)).join('')}</optgroup>
     <optgroup label="Training">${tri.map((k) => opt('train:' + k, I(k).name)).join('')}</optgroup>
-    <optgroup label="Food diary">${opt('treat', 'The first snack of the week')}</optgroup></select></div>`;
+    <optgroup label="Food diary">${opt('treat', 'The first snack of the week')}</optgroup></select>`; };
+  // any one of the conditions switches it on; a second one is added under the first
+  return `<div class="fld" style="margin-top:8px"><span class="mono">Switches on by itself</span>${sel(wKey(x.when), `data-xwhen="${x.id}"`, 'Not linked', 'What switches ' + x.name + ' on')}
+    ${(x.more || []).map((w, i) => `<span class="mono" style="display:block;margin-top:6px">or</span>${sel(wKey(w), `data-xmore="${x.id}" data-i="${i}"`, 'Remove this one', 'Another thing that switches ' + x.name + ' on')}`).join('')}
+    ${x.when ? sel('', `data-xmore="${x.id}" data-i="new"`, '+ Add another condition', 'Add another thing that switches ' + x.name + ' on') : ''}</div>`;
 }
 function mealWeekSheet() {
   const mp = mealPlan();
@@ -2204,7 +2219,8 @@ document.addEventListener('change', (e) => { if (e.target.dataset && e.target.da
   if (ds.linkadd) { const k = e.target.value; const s = S.sheet; if (k && s && s.draft) { if (s.kind === 'item') capture(); else tcapture(); s.draft.links = (s.draft.links || []).concat(k); } renderLayer(); return; }
   if (ds.badd) { const k = e.target.value; if (k) change(() => { const mp = mealPlan(); (mp.breaks = mp.breaks || []).push({ id: k, min: 1 }); }); renderLayer(); return; }
   if (ds.bmin) { const b = (mealPlan().breaks || []).find((x) => x.id === ds.bmin); if (b) change(() => { b.min = +e.target.value; }); renderLayer(); return; }
-  if (ds.xwhen) { xcapture(); const x = mealPlan().extras.find((y) => y.id === ds.xwhen); const v = e.target.value; change(() => { if (!v) delete x.when; else if (v === 'treat') x.when = { src: 'treat' }; else if (v.startsWith('train:')) x.when = { src: 'train', id: v.slice(6) }; else { const [src, id, ...o] = v.split(':'); x.when = o.length ? { src, id, opt: o.join(':') } : { src, id }; } }); renderLayer(); return; }
+  if (ds.xwhen) { xcapture(); const x = mealPlan().extras.find((y) => y.id === ds.xwhen); const v = e.target.value; change(() => { if (!v) { delete x.when; const m0 = (x.more || []).shift(); if (m0) x.when = m0; if (x.more && !x.more.length) delete x.more; } else x.when = wParse(v); }); renderLayer(); return; }
+  if (ds.xmore) { xcapture(); const x = mealPlan().extras.find((y) => y.id === ds.xmore); const v = e.target.value; if (x) change(() => { const L = x.more = x.more || []; if (ds.i === 'new') { if (v) L.push(wParse(v)); } else if (!v) L.splice(+ds.i, 1); else L[+ds.i] = wParse(v); if (!L.length) delete x.more; }); renderLayer(); return; }
   if (ds.xkm || ds.xkind) { const x = mealPlan().extras.find((y) => y.id === (ds.xkm || ds.xkind)); if (x && x.when) change(() => { if (ds.xkm) x.when.km = Math.max(0, +e.target.value || 0); else x.when.kind = e.target.value.trim() || 'Hike'; }); return; }
   if (e.target.id === 'photoin' && e.target.files[0]) addPhoto(e.target.files[0]); if (e.target.id === 'photoin2' && e.target.files[0]) addPhoto(e.target.files[0], true); if (e.target.id === 'jimgin' && e.target.files[0]) addPhoto(e.target.files[0], 'jimg'); });
 
