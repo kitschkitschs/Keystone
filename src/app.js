@@ -455,6 +455,8 @@ function ciStepRow(s, rid, d, live) {
 }
 // A routine opens by itself once it's due today (its start time on Schedule has come) and stays open until closed.
 // Opening or closing by hand is kept for that day, also after a reload (2026-11-03).
+// the small mark for an optional item; its icon is mine to pick in edit mode
+const optMark = () => S.edit ? `<span class="optic" data-a="iconfor" data-v="ui:optional" role="button" aria-label="Optional. Change this icon">${icon(uiIc('optional', 'circle-dashed'), 14)}</span>` : `<span class="optic" role="img" aria-label="Optional">${icon(uiIc('optional', 'circle-dashed'), 14)}</span>`;
 const stepNote = (s, rid) => { const x = pOpt(rid, s); const W = { rest: 'Days without a workout', train: 'Days with a workout', days: (x.days || []).slice().sort().map((k) => WD[k]).join(', ') }; return [x.optional ? 'Optional' : '', W[x.only] || ''].filter(Boolean).join(' · '); };
 function routineOpen(id, d) {
   const set = ((M.rOpen || {})[d] || {})[id]; if (set !== undefined) return set;
@@ -479,15 +481,16 @@ function itemRow(id, list, d) {
   const much = String(val(d, id) || '').startsWith('much');
   const late = live ? lateBy(id) : 0;
   const sub0 = much ? 'Too much' + (val(d, id) === 'much:hyper' ? ' · hyperfixation' : val(d, id) === 'much:inert' ? ' · inertia' : '') : late ? (late === 1 ? '1 day late' : late + ' days late') : '';
-  const sub = [whereOf(id), it.optional ? 'Optional' : '', sub0].filter(Boolean).join(' · '); // a chore shows its room, a study task its subject
+  // Today keeps to names (2026-11-11: no grey text about how an item is set up); an optional item gets a small icon instead
+  const onToday = S.area === 'plan' && S.page === 'today'; const sub = onToday ? '' : [whereOf(id), it.optional ? 'Optional' : '', sub0].filter(Boolean).join(' · '); // a chore shows its room, a study task its subject
   if (it.type === 'routine') {
     const open = S.edit || routineOpen(id, d); const steps = S.edit ? rStepsAll(id) : rSteps(id, d);
     return `<div data-ref="${id}"><div class="row">${grip()}${tickCircle(id, d, live)}
-      <button class="lbl" data-a="ropen" data-ref="${id}" aria-expanded="${!!open}" style="display:flex;align-items:center;gap:10px">${S.edit ? `<span style="flex:1">${nm(id, it.name)}</span>` : `<span style="flex:1">${esc(it.name)}${tdur(it)}</span>`}${S.edit ? '' : `${fold(open)}`}</button>${tail(id, list)}</div>
-      ${open ? `<div class="steps" data-list="s:${id}">${steps.map((s) => I(s).type === 'checkin' ? ciStepRow(s, id, d, live) : `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" style="width:18px;height:40px" data-a="step" data-ref="${s}" aria-label="Tick ${esc(I(s).name)}"><span class="circ ${val(d, s) ? 'done' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span></button>` : `<span class="circ ${val(d, s) ? 'done' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span>`}<span class="lbl">${nm(s, I(s).name)}${stepNote(s, id) ? `<span class="sub">${esc(stepNote(s, id))}</span>` : ''}</span>${tail(s, 's:' + id, { gear: false })}</div>`).join('')}
+      <button class="lbl" data-a="ropen" data-ref="${id}" aria-expanded="${!!open}" style="display:flex;align-items:center;gap:10px">${S.edit ? `<span style="flex:1">${nm(id, it.name)}${it.optional ? optMark() : ''}</span>` : `<span style="flex:1">${esc(it.name)}${it.optional ? optMark() : ''}${tdur(it)}</span>`}${S.edit ? '' : `${fold(open)}`}</button>${tail(id, list)}</div>
+      ${open ? `<div class="steps" data-list="s:${id}">${steps.map((s) => I(s).type === 'checkin' ? ciStepRow(s, id, d, live) : `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" style="width:18px;height:40px" data-a="step" data-ref="${s}" aria-label="Tick ${esc(I(s).name)}"><span class="circ ${val(d, s) ? 'done' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span></button>` : `<span class="circ ${val(d, s) ? 'done' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span>`}<span class="lbl">${nm(s, I(s).name)}${pOpt(id, s).optional ? optMark() : ''}${S.edit && stepNote(s, id) && !(S.area === 'plan' && S.page === 'today') ? `<span class="sub">${esc(stepNote(s, id))}</span>` : ''}</span>${tail(s, 's:' + id, { gear: false })}</div>`).join('')}
         ${S.edit ? `<button class="addrow" data-a="addstep" data-ref="${id}"><span class="plus">+</span>Add step</button>` : ''}</div>` : ''}</div>`;
   }
-  return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, live)}<span class="lbl">${S.edit ? nm(id, it.name) : `<button data-a="${live ? 'sched' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left">${esc(it.name)}${tdur(it)}</button>`}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>${tail(id, list)}</div>`; // estimate on the right (2026-11-04)
+  return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, live)}<span class="lbl">${S.edit ? nm(id, it.name) + (onToday && it.optional ? optMark() : '') : `<button data-a="${live ? 'sched' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left">${esc(it.name)}${onToday && it.optional ? optMark() : ''}${tdur(it)}</button>`}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>${tail(id, list)}</div>`; // estimate on the right (2026-11-04)
 }
 // A past day is an overview of everything ticked, logged and added that day (2026-11-08), not the old list.
 function pastDay(d) {
