@@ -52,7 +52,7 @@ function insSample(days) {
 const insVal = (D, d, id) => { const v = (M.log[d] || {})[id]; return v !== undefined ? v : (D.sample[d] || {})[id]; };
 function insDone(D, id, d) { const it = I(id); if (!it) return false;
   // a routine is complete when every part that isn't optional was ticked that day (2026-11-11)
-  if (it.type === 'routine') { const st = rSteps(id, d); return st.length ? st.every((s) => I(s).optional || (insVal(D, d, s) && !stepMissed(s, d))) : !!insVal(D, d, id); }
+  if (it.type === 'routine') { const st = rSteps(id, d); return st.length ? st.every((s) => pOpt(id, s).optional || (insVal(D, d, s) && !stepMissed(s, d))) : !!insVal(D, d, id); }
   if (it.type === 'slot') return isDone(id, d);
   if (minOn([id], d) > 0) return true; return !!insVal(D, d, id); }
 
