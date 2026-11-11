@@ -62,7 +62,7 @@ const mkKept = () => ((M.settings || {}).mkKeep || MK_OLD);
 const MK_SIZES = [['s', 'Small', 32], ['m', 'Medium', 38], ['l', 'Large', 44]];
 const MK_LOOKS = [['fill', 'Filled'], ['soft', 'Soft'], ['line', 'Outline']];
 const MK_CALS = { plan: 'Today and Schedule', bad: 'Bad days', train: 'Training', food: 'Meal plan and diary' };
-const MK_DEF = { plan: { shape: 'star', size: 'l', look: 'fill' }, bad: { shape: 'cloud', size: 'l', look: 'fill' }, food: { shape: 'star', size: 'l', look: 'fill' }, train: { shape: 'flower', size: 'm', look: 'fill' }, over: { shape: 'circle', size: 'l', look: 'fill' } }; // over: overeating days on the food calendar, coloured by level (2026-11-10)
+const MK_DEF = { plan: { shape: 'star', size: 'l', look: 'fill' }, bad: { shape: 'cloud', size: 'l', look: 'fill' }, food: { shape: 'star', size: 'l', look: 'fill' }, train: { shape: 'flower', size: 'm', look: 'fill' }, over: { shape: 'circle', size: 'l', look: 'fill' }, broke: { shape: 'circle', size: 'l', look: 'soft' } }; // broke: a broken food diary day (2026-11-11) // over: overeating days on the food calendar, coloured by level (2026-11-10)
 const markOf = (k) => Object.assign({}, MK_DEF[k] || MK_DEF.plan, ((M.settings || {}).marks || {})[k]);
 // draw a mark: sz overrides the chosen size (small icons); shape/look can be forced for the picker tiles
 function markSvg(k, sz, cls = '', o = {}) {
@@ -81,7 +81,7 @@ function markSheet(s) { const k = s.ref; const m = markOf(k);
     <div class="fld"><span class="mono">Look</span><div class="chips">${MK_LOOKS.map(([v, l]) => chip('mklook', v, l, m.look === v)).join('')}</div></div>
     <div class="fld"><span class="mono">Size</span><div class="chips">${MK_SIZES.map(([v, l]) => chip('mksize', v, l, m.size === v)).join('')}</div></div>
     ${k === 'over' ? '' : `<div class="fld"><span class="mono">Colour</span>${colorField('star:' + k, starCol(k))}</div>
-    <button class="btn soft" style="width:100%;margin-top:6px" data-a="mkall" data-ref="${k}">Use this mark on every calendar</button>`}`; }
+    ${k === 'broke' ? '' : `<button class="btn soft" style="width:100%;margin-top:6px" data-a="mkall" data-ref="${k}">Use this mark on every calendar</button>`}`}`; }
 // every shape, old and new: tap to keep it in the picker or leave it out (2026-11-09)
 function mkPickSheet(s) { const k = s.ref; const K = mkKept(); const tile = ([v, l]) => `<button class="mktile mkkeep" data-a="mkkeep" data-v="${v}" aria-pressed="${K.includes(v)}" aria-label="${l}">${markSvg(k, 30, '', { shape: v })}<small>${l}</small></button>`;
   return `<p class="note" style="margin-top:0">${K.length} kept. Tap a shape to keep it or leave it out.</p><div class="fld"><span class="mono">The ones I had</span><div class="mkgrid">${MK_SHAPES.filter(([v]) => MK_OLD.includes(v)).map(tile).join('')}</div></div>
@@ -90,7 +90,7 @@ function mkPickSheet(s) { const k = s.ref; const K = mkKept(); const tile = ([v,
 const markEdit = (k) => S.edit ? `<div class="starcolw"><button class="starcol" data-a="mkopen" data-ref="${k}" aria-label="Change how completed days look">${markSvg(k, 20)}<span>Completed day mark</span></button></div>` : '';
 function markAction(act, a, ref, v) {
   switch (act) {
-    case 'mkopen': { const back = S.sheet && S.sheet.kind === 'cals' ? S.sheet : null; openSheet({ kind: 'mark', ref, title: ref === 'over' ? 'Overeating days' : 'Completed days · ' + MK_CALS[ref] }); if (back && S.sheet) { S.sheet.back = back; } return true; }
+    case 'mkopen': { const back = S.sheet && S.sheet.kind === 'cals' ? S.sheet : null; openSheet({ kind: 'mark', ref, title: ref === 'over' ? 'Overeating days' : ref === 'broke' ? 'Broken food days' : 'Completed days · ' + MK_CALS[ref] }); if (back && S.sheet) { S.sheet.back = back; } return true; }
     case 'mkshape': setMark(ref, { shape: v }); return true;
     case 'mkpickopen': openSheet({ kind: 'mkpick', ref, title: 'Which shapes I keep', back: S.sheet }); return true;
     case 'mkkeep': { const K = mkKept().slice(); const i = K.indexOf(v); if (i >= 0) { if (K.length === 1) { flash('Keep at least one shape'); return true; } K.splice(i, 1); } else K.push(v); change(() => { M.settings.mkKeep = MK_SHAPES.map((x) => x[0]).filter((x) => K.includes(x)); }); return true; }
