@@ -3,7 +3,10 @@
 // and projects (groups, style 'project') > project tasks (one-off tasks that can be scheduled like any other task).
 // A project can be on hold (its own folding row, closed by default) or finished (p.done = date): finished ones live in
 // the ⋯ menu's Archive. Surprise me is the dice tab at the top of the folders.
-function hMigrate(m) { m.settings = m.settings || {}; if (m.settings.hobbies1) return; m.settings.hobbies1 = true;
+// every hobby item can be overdone by default (2026-11-11): swipe it to the left in Hobbies for Too much
+function hobOverFix(m) { if (m.settings.hobOver1 || !m.groups || !m.groups['g-hobbies']) return; m.settings.hobOver1 = true;
+  const G0 = (k) => m.groups[k]; m.groups['g-hobbies'].kids.filter(G0).forEach((h) => G0(h).kids.forEach((k) => { if (m.items[k] && m.items[k].overdo === undefined) m.items[k].overdo = true; if (G0(k) && G0(k).style === 'project') G0(k).kids.forEach((t) => { if (m.items[t] && m.items[t].overdo === undefined) m.items[t].overdo = true; }); })); }
+function hMigrate(m) { m.settings = m.settings || {}; if (m.settings.hobbies1) { hobOverFix(m); return; } m.settings.hobbies1 = true;
   if (m.groups['g-hobbies']) return;
   const G0 = (id, o) => { m.groups[id] = Object.assign({ kids: [] }, o); return id; };
   const I0 = (id, o) => { if (!m.items[id]) m.items[id] = Object.assign({ type: 'task', when: { mode: 'every', n: 1 }, kind: 'behaviour', tags: ['t-hobby'], insight: true, made: '2026-10-01', dur: 30 }, o); return id; };
@@ -60,7 +63,7 @@ function renderHobbies() {
   const actRow = (id) => { const it = I(id); const done = isDone(id, T0); const ld = lastEver(id);
     return `<div class="row" data-ref="${id}">${tickCircle(id, T0, true)}<button class="lbl" data-a="${S.edit ? 'open' : 'hobact'}" data-ref="${id}" style="text-align:left">${nm(id, it.name)}<span class="sub">${done ? 'Logged today' : ld ? 'Last done ' + agoText(ld) : 'Not done yet'}</span></button>${tail(id, h)}</div>`; };
   const projRow = (p) => { const x = G(p); const ph = (x.photos || []).slice(-1)[0]; const ld = projLast(p); const T = projTasks(p); const left = T.filter((t) => !keeps(t) && !lastEver(t)).length;
-    return `<div class="row prow" data-ref="${p}"><span class="pthumb" style="--c:${g.color}">${ph ? `<img src="${esc(projSrc(ph))}" alt="">` : icon(g.icon || 'folder', 18)}</span><button class="lbl" data-a="${S.edit ? 'gear' : 'hobproj'}" data-ref="${p}" style="text-align:left">${nm(p, x.name)}<span class="sub">${(x.worked || []).includes(T0) ? 'Worked on today' : ld ? 'Last worked on ' + agoText(ld) : 'Not started'}${T.length ? ' · ' + left + ' left' : ''}</span></button>${S.edit ? tail(p, h) : `<span class="chev" aria-hidden="true">›</span>`}</div>`; };
+    return `<div class="row prow" data-ref="${p}"><span class="pthumb" style="--c:${g.color}">${ph ? `<img src="${esc(projSrc(ph))}" alt="">` : icon(g.icon || 'folder', 18)}</span><button class="lbl" data-a="${S.edit ? 'gear' : 'hobproj'}" data-ref="${p}" style="text-align:left">${nm(p, x.name)}<span class="sub">${(x.much || []).includes(T0) ? 'Too much today' : (x.worked || []).includes(T0) ? 'Worked on today' : ld ? 'Last worked on ' + agoText(ld) : 'Not started'}${T.length ? ' · ' + left + ' left' : ''}</span></button>${S.edit ? tail(p, h) : `<span class="chev" aria-hidden="true">›</span>`}</div>`; };
   const A = hobActs(h), P = hobProjs(h).filter((p) => !G(p).done), live = P.filter((p) => !G(p).hold), held = P.filter((p) => G(p).hold);
   const hk = 'hbhold:' + h; if (S.open[hk] === undefined) S.open[hk] = false;
   let out = '';
@@ -169,9 +172,9 @@ function projWork(p) { const x = G(p); if (!x) return; const was = (x.worked || 
 function rollHobby() { const pool = M.settings.hobPool || {}; const H = hobIds().filter((h) => pool[h] !== false && h !== S.roll); if (!H.length) return null;
   const w = H.map((h) => { const ld = hobLast(h); return 1 + (ld ? Math.min(30, diff(ld, T0)) : 30); }); let t = Math.random() * w.reduce((a, b) => a + b, 0);
   for (let i = 0; i < H.length; i++) { t -= w[i]; if (t <= 0) return H[i]; } return H[H.length - 1]; }
-function hobNewTask(p) { const D = { name: '', type: 'task', kind: 'behaviour', tags: [], made: T0, dur: 30, insight: false, when: { mode: 'once', date: null } };
+function hobNewTask(p) { const D = { name: '', type: 'task', kind: 'behaviour', overdo: true, tags: [], made: T0, dur: 30, insight: false, when: { mode: 'once', date: null } };
   openSheet({ kind: 'item', isNew: true, title: 'New task · ' + G(p).name, draft: D, block: eveBlock(), home: p, steps: [] }); }
-function hobNewAct(h) { const D = { name: '', type: 'task', kind: 'behaviour', tags: ['t-hobby'], made: T0, dur: 30, when: { mode: 'once', date: null }, icon: G(h).icon };
+function hobNewAct(h) { const D = { name: '', type: 'task', kind: 'behaviour', overdo: true, tags: ['t-hobby'], made: T0, dur: 30, when: { mode: 'once', date: null }, icon: G(h).icon };
   openSheet({ kind: 'item', isNew: true, title: 'New activity · ' + G(h).name, draft: D, block: null, home: h, steps: [], hobact: true }); }
 function finishedProjects() { return allHobIds().flatMap((h) => hobProjs(h).filter((p) => G(p).done).map((p) => ({ p, h }))).sort((a, b) => G(b.p).done.localeCompare(G(a.p).done)); }
 function hobAction(act, a, ref, v) {
@@ -212,10 +215,18 @@ function wheelBurst(h) { const ph = document.getElementById('phone'), sv = docum
 
 // swipe a project to the right to say I worked on it today; again to take it back (the owner, 2026-11-11)
 let pws = null;
-document.addEventListener('pointerdown', (e) => { if (S.edit || S.sheet || S.area !== 'hobbies' || e.button > 0) return; const row = e.target.closest && e.target.closest('#view .prow[data-ref]'); if (!row) return; pws = { row, x: e.clientX, y: e.clientY, on: false, dx: 0 }; });
+// swipe right to left on a project or a hobby item: Too much today, again to take it back (2026-11-11)
+document.addEventListener('pointerdown', (e) => { if (S.edit || S.sheet || S.area !== 'hobbies' || e.button > 0) return; const row = e.target.closest && e.target.closest('#view .row[data-ref]'); if (!row) return;
+  const ref = row.dataset.ref; const proj = row.classList.contains('prow'); if (!proj && !(I(ref) && I(ref).type === 'task')) return; pws = { row, proj, x: e.clientX, y: e.clientY, on: false, dx: 0 }; });
 document.addEventListener('pointermove', (e) => { const w = pws; if (!w) return; const dx = e.clientX - w.x, dy = e.clientY - w.y;
-  if (!w.on) { if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { pws = null; return; } if (dx > 12 && Math.abs(dx) > Math.abs(dy) * 1.4) { w.on = true; w.row.style.transition = 'none'; } else return; }
-  w.dx = Math.max(0, Math.min(110, dx)); w.row.style.transform = `translateX(${w.dx}px)`; });
+  if (!w.on) { if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { pws = null; return; } if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.4 && (w.proj || dx < 0)) { w.on = true; w.row.style.transition = 'none'; } else return; }
+  w.dx = Math.max(-110, Math.min(w.proj ? 110 : 0, dx)); w.row.style.transform = `translateX(${w.dx}px)`; });
 const pwsEnd = (e) => { const w = pws; pws = null; if (!w || !w.on) return; w.row.style.transition = 'transform .2s'; w.row.style.transform = '';
-  if (e.type === 'pointerup' && w.dx > 60) { suppress = true; setTimeout(() => { suppress = false; }, 300); try { if (navigator.vibrate) navigator.vibrate(8); } catch (_) {} projWork(w.row.dataset.ref); } };
+  if (e.type !== 'pointerup' || Math.abs(w.dx) <= 60) return; suppress = true; setTimeout(() => { suppress = false; }, 300); try { if (navigator.vibrate) navigator.vibrate(8); } catch (_) {}
+  if (w.dx > 0) projWork(w.row.dataset.ref); else if (w.proj) projMuch(w.row.dataset.ref); else hobMuch(w.row.dataset.ref); };
+function projMuch(p) { const x = G(p); if (!x) return; const on = (x.much || []).includes(T0);
+  change(() => { if (on) x.much = x.much.filter((d) => d !== T0); else { x.much = (x.much || []).concat(T0).slice(-400); if (!(x.worked || []).includes(T0)) x.worked = (x.worked || []).concat(T0).slice(-400); } }, on ? 'Not too much' : 'Too much: ' + x.name); }
+function hobMuch(id) { const it = I(id); if (!it) return; const cur = String(val(T0, id) || '');
+  if (cur.startsWith('much')) { change(() => { L(T0)[id] = 'done'; }, 'Not too much'); return; }
+  change(() => { L(T0)[id] = 'much'; }); openSheet({ kind: 'much', ref: id, title: 'Too much' }); }
 document.addEventListener('pointerup', pwsEnd); document.addEventListener('pointercancel', pwsEnd);
