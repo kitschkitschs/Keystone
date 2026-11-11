@@ -244,6 +244,9 @@ let jComp = false;
 document.addEventListener('compositionstart', (ev) => { if (ev.target.closest && ev.target.closest('.jflow')) jComp = true; });
 document.addEventListener('compositionend', (ev) => { if (!(ev.target.closest && ev.target.closest('.jflow'))) return; jComp = false; setTimeout(jSyncDom, 0); });
 document.addEventListener('beforeinput', (ev) => { const fl = ev.target.closest && ev.target.closest('.jflow'); if (!fl || !fl.isContentEditable) return; if (ev.isComposing || jComp || ev.inputType === 'insertCompositionText') return;
+  // a word the keyboard just finished (composition) may not be in the page's text yet; take it in first, or the next key
+  // (the space) rebuilds the lines from the old text and the word disappears (2026-11-11)
+  { const r = jFromDom(); const e0 = jCurrent(); if (r && r.text !== ((e0 && e0.text) || '')) jSyncDom(); }
   const so = jSelOffs(); if (!so) return; let [s, t] = so; const T = (jCurrent() || { text: '' }).text || ''; let str = '';
   const ty = ev.inputType;
   if (ty === 'insertText' || ty === 'insertReplacementText') str = ev.data != null ? ev.data : (ev.dataTransfer ? ev.dataTransfer.getData('text/plain') : '');
