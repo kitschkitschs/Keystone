@@ -164,7 +164,7 @@ function workoutOn(d) { if (WKC.has(d)) return WKC.get(d); let r = false;
   try { r = (typeof trainCats === 'function' ? trainCats().filter((c) => c !== 'tc-move').flatMap(kidsOf) : []).some((k) => I(k) && !I(k).afterTrain && onDay0(k, d)) || (typeof tripsOn === 'function' && tripsOn(d).length > 0); } catch (e) { r = false; }
   WKC.set(d, r); return r; }
 // a repeat from Home or Studies that I've never done stays off my days: I get through everything once first, from its own page
-const firstRound = (id) => { const it = I(id); if (!it || !it.when || it.when.mode === 'once' || it.type !== 'task') return false;
+const firstRound = (id) => { const it = I(id); if (!it || !it.when || it.when.mode === 'once' || it.type !== 'task') return false; if (it.when.set && it.when.date) return false; // a day I picked myself always counts (2026-11-11)
   if (!placements(id).some((p) => p === 'g-tend' || (G(p) && (G(p).style === 'room' || G(p).style === 'sgroup')))) return false; return !Object.keys(M.log).some((k) => val(k, id)); };
 function onDay(id, d) { const it = I(id); if (!it) return false;
   if (d >= T0 && firstRound(id)) return false;
@@ -192,7 +192,8 @@ function onDay0(id, d) {
   if (w.mode === 'every') {
     if (w.date && d < w.date) return false;
     const n = Math.max(1, w.n || 1); const last = lastDoneBefore(id, T0); const doneT = isDone(id, T0);
-    if (w.date && w.date > T0 && !last) return diff(w.date, d) >= 0 && diff(w.date, d) % n === 0;
+    // a start day ahead of today wins over the last time I did it, so moving it to a later day puts it on that day (2026-11-11)
+    if (w.date && w.date > T0) return diff(w.date, d) >= 0 && diff(w.date, d) % n === 0;
     const dueT = doneT || !last || diff(last, T0) >= n;
     if (d === T0) return dueT;
     const anchor = dueT ? T0 : last; const k = diff(anchor, d); return k > 0 && k % n === 0;
@@ -1203,7 +1204,7 @@ document.addEventListener('click', (e) => {
     case 'dmiss': { const id = S.sheet.ref; const it = I(id); S.sheet = null;
       if (repeatable(it)) change(() => { M.missed = M.missed || {}; (M.missed[T0] = M.missed[T0] || {})[id] = true; }, 'Missed: ' + it.name);
       else change(() => { it.when = Object.assign({}, it.when, { mode: 'once', date: null }); }, it.name + ' moved to Not scheduled'); break; }
-    case 'dq': { capture(); const D = S.sheet.draft; D.when.date = v && v !== D.when.date ? v : null; // tapping the picked day again takes the date away (the 'No date' button is gone) if (v) S.sheet.calM = v.slice(0, 7);
+    case 'dq': { capture(); const D = S.sheet.draft; D.when.date = v && v !== D.when.date ? v : null; if (D.when.date) D.when.set = 1; else delete D.when.set; // tapping the picked day again takes the date away (the 'No date' button is gone) if (v) S.sheet.calM = v.slice(0, 7);
       if (S.sheet.quick && D.when.mode === 'once' && !areaItem(S.sheet.ref)) { saveDraft(); break; } renderLayer(); break; }
     case 'dcalm': { const [y, m] = (S.sheet.calM || ((S.sheet.draft.when || {}).date || T0).slice(0, 7)).split('-').map(Number); S.sheet.calM = iso(new Date(y, m - 1 + (+v), 1)).slice(0, 7); renderLayer(); break; }
     case 'drule': { capture(); if (v === 'none') S.sheet.repOpen = false; const D = S.sheet.draft; const w = D.when; const start = w.date || T0;
