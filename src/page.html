@@ -84,6 +84,12 @@ nav.areas .pill{width:52px;height:36px;border-radius:18px;display:flex;align-ite
 #viewer .vwd{min-width:90px;text-align:center;color:var(--ink)}#viewer .vwnav{background:var(--card);box-shadow:0 1px 3px rgba(40,30,20,.15)}
 #viewer .pdcols{display:flex;gap:10px;width:100%;justify-content:flex-end;padding:2px 8px 4px}#viewer .pdcol{width:26px;height:26px;border-radius:13px;box-shadow:0 0 0 1px var(--line)}
 #viewer .pdmx{position:fixed;inset:0;z-index:4}#viewer .vwbar{position:relative}
+#viewer .vwmenu{position:absolute;left:8px;top:100%;z-index:5;margin-top:4px;min-width:170px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 24px rgba(40,30,20,.16);padding:6px;display:flex;flex-direction:column}
+#viewer .vwmi{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 12px;border-radius:10px;color:var(--ink);font-size:15px;text-align:left}#viewer .vwmi:active{background:var(--page)}
+#viewer .vwcrop{position:relative;display:inline-block;max-width:100%;max-height:100%;line-height:0;touch-action:none}#viewer .vwcrop img{max-height:calc(100dvh - 170px);pointer-events:none}
+#viewer .vwcf{position:absolute;box-shadow:0 0 0 9999px rgba(20,16,12,.45);outline:1.5px solid #fff}#viewer .vwcf i{position:absolute;inset:0;cursor:move}
+#viewer .vwcf b{position:absolute;width:26px;height:26px;border:3px solid #fff;margin:-4px}#viewer .vwcf b[data-c=nw]{left:0;top:0;border-right:0;border-bottom:0}#viewer .vwcf b[data-c=ne]{right:0;top:0;border-left:0;border-bottom:0}#viewer .vwcf b[data-c=sw]{left:0;bottom:0;border-right:0;border-top:0}#viewer .vwcf b[data-c=se]{right:0;bottom:0;border-left:0;border-top:0}
+#viewer .vwimg:has(.vwcrop){overflow:hidden}
 #viewer .pdmenu{position:absolute;right:8px;top:100%;z-index:5;margin-top:4px;min-width:210px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 24px rgba(40,30,20,.16);padding:12px 14px 6px;display:flex;flex-direction:column;gap:6px}
 #viewer .pdmenu .mono{font-size:10.5px;color:var(--ink2)}#viewer .pdmrow{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:6px}#viewer .pdadd{display:grid;place-items:center;background:none;box-shadow:none;border:1.5px dashed var(--faint);box-sizing:border-box;color:var(--ink2)}#viewer .pdcols{flex-wrap:wrap}#viewer .pdmrow .pdcol{width:30px;height:30px;border-radius:15px}
 #viewer .pdmdel{display:flex;align-items:center;gap:10px;min-height:44px;border-top:1px solid var(--line2);margin-top:2px;color:#B5503E;font-size:14px}
@@ -201,6 +207,7 @@ html.dark .jshut{background:rgba(29,27,25,.35)}
 .jpaper{position:relative}
 .jflow{position:relative;outline:none;caret-color:var(--ink);white-space:normal}
 .jl{position:absolute;display:block;white-space:pre;height:32px;line-height:32px;overflow:visible}
+.jl.cmp{white-space:pre-wrap;overflow-wrap:anywhere;height:auto;min-height:32px;z-index:1}.jpaper,.jpaper .jflow{overflow:clip}
 .jl.jprobe{visibility:hidden;left:-9999px;top:0;pointer-events:none}
 .jl .s-h,.jl.s-h{font-family:var(--serif);font-weight:600;font-size:21px}
 .jl .s-q,.jl.s-q{font-family:var(--serif);font-style:italic;font-size:17px;color:var(--ink2)}
@@ -969,6 +976,8 @@ html.dark .feelcard.empty{background:#33302C}html.dark .jcard .jct,html.dark .jc
 .tl .blab.bkl{display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:2}
 /* block titles sit centred over the weekday columns, not over the hour column too */
 .bl{padding-left:24px}
+
+.stepopts{margin:2px 0 12px;padding:10px 12px 4px;border-radius:12px;background:var(--page);display:flex;flex-direction:column;gap:6px}.stepopts .chips{margin-bottom:4px}.stepnote{margin:-2px 0 8px 4px;font-size:10.5px;color:var(--ink2)}
 </style>
 <div class="phone" id="phone">
   <header class="top"><div class="ttl" id="ttl"></div><button class="hb" id="plusbtn" aria-label="Add something">+</button><button class="hb donebtn2" id="donebtn" aria-label="Done editing" hidden>Done</button><button class="hb" id="menubtn" aria-label="Menu">⋯</button></header>

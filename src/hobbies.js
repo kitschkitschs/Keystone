@@ -200,7 +200,7 @@ function hobAction(act, a, ref, v) {
   }
   return fileAction(act, a, ref, v);
 }
-document.addEventListener('change', (e) => { if (e.target && e.target.id === 'projphoto' && e.target.files && e.target.files[0]) addPhoto(e.target.files[0], 'proj:' + e.target.dataset.ref); });
+document.addEventListener('change', (e) => { if (e.target && e.target.id === 'projphoto' && e.target.files && e.target.files[0]) addPhotos(e.target.files, 'proj:' + e.target.dataset.ref); });
 // a confetti burst from the wheel when it lands, in the hobby's colour and the palette (2026-11-10)
 function wheelBurst(h) { const ph = document.getElementById('phone'), sv = document.querySelector('.whsv'); if (!ph || !sv || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const P = ph.getBoundingClientRect(), R = sv.getBoundingClientRect(); const ox = R.left + R.width / 2 - P.left, oy = R.top + R.height / 2 - P.top;
@@ -224,8 +224,13 @@ document.addEventListener('pointermove', (e) => { const w = pws; if (!w) return;
 const pwsEnd = (e) => { const w = pws; pws = null; if (!w || !w.on) return; w.row.style.transition = 'transform .2s'; w.row.style.transform = '';
   if (e.type !== 'pointerup' || Math.abs(w.dx) <= 60) return; suppress = true; setTimeout(() => { suppress = false; }, 300); try { if (navigator.vibrate) navigator.vibrate(8); } catch (_) {}
   if (w.dx > 0) projWork(w.row.dataset.ref); else if (w.proj) projMuch(w.row.dataset.ref); else hobMuch(w.row.dataset.ref); };
-function projMuch(p) { const x = G(p); if (!x) return; const on = (x.much || []).includes(T0);
-  change(() => { if (on) x.much = x.much.filter((d) => d !== T0); else { x.much = (x.much || []).concat(T0).slice(-400); if (!(x.worked || []).includes(T0)) x.worked = (x.worked || []).concat(T0).slice(-400); } }, on ? 'Not too much' : 'Too much: ' + x.name); }
+function projMuch(p) { const x = G(p); if (!x) return; const on = (x.much || []).includes(T0); const act = x.act && I(x.act) ? x.act : null;
+  if (on) { change(() => { x.much = x.much.filter((d) => d !== T0); if (x.muchK) delete x.muchK[T0];
+    if (act && x.muchAuto === T0) { if (x.prevAct === undefined) delete L(T0)[act]; else L(T0)[act] = x.prevAct; } delete x.muchAuto; delete x.prevAct; }, 'Not too much'); return; }
+  // Too much on a project also makes its activity too much today, the way working on it ticks the activity (2026-11-11)
+  change(() => { x.much = (x.much || []).concat(T0).slice(-400); if (!(x.worked || []).includes(T0)) x.worked = (x.worked || []).concat(T0).slice(-400);
+    if (act) { const cur = val(T0, act); if (!String(cur || '').startsWith('much')) { x.prevAct = cur === undefined ? undefined : cur; if (x.prevAct === undefined) delete x.prevAct; L(T0)[act] = 'much'; x.muchAuto = T0; } } });
+  openSheet({ kind: 'much', ref: p, title: 'Too much' }); }
 function hobMuch(id) { const it = I(id); if (!it) return; const cur = String(val(T0, id) || '');
   if (cur.startsWith('much')) { change(() => { L(T0)[id] = 'done'; }, 'Not too much'); return; }
   change(() => { L(T0)[id] = 'much'; }); openSheet({ kind: 'much', ref: id, title: 'Too much' }); }

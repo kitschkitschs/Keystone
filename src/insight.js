@@ -16,7 +16,7 @@ const insCountable = (k) => !!I(k) && !I(k).brk && (ITICK.includes(I(k).type) ||
 const insTagged = (tags) => Object.keys(M.items).filter((k) => (I(k).tags || []).some((t) => (tags || []).includes(t)));
 // how often an item is meant to happen: num0 times in den0 days (Loop's frequency)
 function insFreq(id) { const it = I(id); let w = it.when;
-  if (it.type === 'step') { const r = Object.keys(M.items).find((k) => I(k).type === 'routine' && (I(k).steps || []).includes(id)); w = r ? I(r).when : { mode: 'every', n: 1 }; }
+  if (it.type === 'step') { const r = Object.keys(M.items).find((k) => I(k).type === 'routine' && (I(k).steps || []).includes(id)); w = r ? I(r).when : { mode: 'every', n: 1 }; } if (it.type === 'step' && it.only === 'days' && (it.days || []).length) return [it.days.length, 7];
   w = w || {}; const n = Math.max(1, w.n || 1);
   if (w.mode === 'days') return [Math.max(1, (w.days || []).length), 7 * n];
   if (w.mode === 'month') return [1, 30 * n]; if (w.mode === 'year') return [1, 365 * n];
@@ -51,7 +51,8 @@ function insSample(days) {
 }
 const insVal = (D, d, id) => { const v = (M.log[d] || {})[id]; return v !== undefined ? v : (D.sample[d] || {})[id]; };
 function insDone(D, id, d) { const it = I(id); if (!it) return false;
-  if (it.type === 'routine') return (it.steps || []).length ? it.steps.every((s) => insVal(D, d, s)) : !!insVal(D, d, id);
+  // a routine is complete when every part that isn't optional was ticked that day (2026-11-11)
+  if (it.type === 'routine') { const st = rSteps(id, d); return st.length ? st.every((s) => I(s).optional || (insVal(D, d, s) && !stepMissed(s, d))) : !!insVal(D, d, id); }
   if (it.type === 'slot') return isDone(id, d);
   if (minOn([id], d) > 0) return true; return !!insVal(D, d, id); }
 

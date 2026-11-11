@@ -218,7 +218,7 @@ const crumbs = (parts) => `<nav class="crumbs" aria-label="Where I am">${parts.m
 const vlab = (t, extra = '') => `<div class="vlab"><span class="mono">${esc(t)}</span>${extra}</div>`;
 const addRow = (act, v, label) => `<button class="addrow" data-a="${act}" data-v="${v}"><span class="plus">+</span>${esc(label)}</button>`;
 // edit mode: the same lists as rows you can rename, recolour, drag, open (⚙) and remove
-function eRow(id, list, sub) { const x = I(id) || G(id); const c = I(id) ? colorOf(id) : x.color || '#9A9387';
+function eRow(id, list, sub) { const x = I(id) || G(id); const c = colorOf(id);
   return `<div class="row" data-ref="${id}">${grip()}<span class="circ" style="--c:${c}" data-col="${id}" role="button" aria-label="Change colour"></span><span class="lbl">${nm(id, x.name)}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>${tail(id, list)}</div>`; }
 const eList = (gid, ids, label, act, subOf) => `<div class="card vecard"><div class="list" data-list="${gid}">${ids.map((k) => eRow(k, gid, subOf ? subOf(k) : '')).join('')}</div>${addRow(act, gid, label)}</div>`;
 function tickRow(k, sub) { const it = I(k); const on = !!val(T0, k);
@@ -248,6 +248,8 @@ function homeLanding() {
   return choreCard('Chores', allJobs(), CHORE_W, 'data-a="vgo" data-v="chores"') + choreCard('Homemaking', jobsIn('g-tend'), TEND_W, 'data-a="vgo" data-v="homemaking"') + cookCard('data-a="vgo" data-v="cooking"') + shopBtn();
 }
 // edit mode on a Home page or Studies: which day block new tasks from here go in, and the icon they get by default (2026-11-11)
+// the daily study minimum, set in Studies edit mode (2026-11-11)
+function vMinCard() { return lcard(null, 'Study minimum', '', `<div class="inrow" style="justify-content:center;gap:18px;padding:4px 0 2px"><button class="btn" data-a="vsesslen" data-v="-5" aria-label="5 minutes less">−</button><b style="font-size:22px;font-family:var(--serif);font-weight:400">${sessLen()} min</b><button class="btn" data-a="vsesslen" data-v="5" aria-label="5 minutes more">+</button></div>`); }
 function vDefaults(k, what) { const cur = defBlock(k);
   return lcard(null, 'New ' + what, '', `<div class="vdef"><span class="mono">Day block</span><div class="chips">${blockIds().map((b) => `<button class="chip" data-a="vdefblk" data-ref="${k}" data-v="${b}" aria-pressed="${cur === b}">${esc(G(b).name)}</button>`).join('')}</div><span class="mono" style="display:block;margin-top:14px">Default icon</span><div><button class="btn" data-a="iconfor" data-v="ui:def-${k}" style="display:inline-flex;gap:8px;align-items:center;margin-top:6px">${icon(uiIc('def-' + k, DEFIC[k]), 18)} Change icon</button></div></div>`); }
 function choresPage() {
@@ -295,7 +297,7 @@ function cookPage() {
 }
 function studyLanding() {
   const V = studyVerdict(); let h = vCard({ eyebrow: studyName(), word: V.word, lvl: V.lvl, sub: V.sub, segs: V.segs, foot: V.foot, go: S.edit ? '' : 'data-a="vunpick" aria-label="Show what needs me most in every subject"', nochev: true });
-  if (S.edit) return h + vlab('Subjects') + eList('g-subjects', subjIds(), 'Add subject', 'vaddsubj', (s) => sgroupsOf(s).length + (sgroupsOf(s).length === 1 ? ' group' : ' groups')) + vDefaults('study', 'study tasks');
+  if (S.edit) return h + vlab('Subjects') + eList('g-subjects', subjIds(), 'Add subject', 'vaddsubj', (s) => sgroupsOf(s).length + (sgroupsOf(s).length === 1 ? ' group' : ' groups')) + vMinCard() + vDefaults('study', 'study tasks');
   if (!subjIds().length) return h;
   const pick = S.pick && subjIds().includes(S.pick) ? S.pick : null;
   h += vlab('Subjects') + `<div class="vstrip">${subjIds().slice().sort((a, b) => subjRank(b) - subjRank(a)).map((s) => { const v = subjVerdict(s); return stripCard(s, G(s).name, v.lvl, v.word, v.tasks.length ? v.tasks.map(taskInk) : [SEG0], pick === s); }).join('')}</div>`;
@@ -465,9 +467,9 @@ function verdictAction(act, a, ref, v) {
     case 'vshow': M.settings.studyShow = v === 'today' ? 'today' : 'all'; S.vsortOpen = false; save(); render(); return true;
     case 'vsort': M.settings.studySort = v; S.vsortOpen = false; save(); render(); return true;
     case 'vsugg': { const [n, d] = v.split('|'); const id = uid('i'); change(() => { M.items[id] = { name: n, type: 'task', when: { mode: 'every', n: +d }, kind: 'behaviour', tags: [], insight: true, made: T0, dur: 20 }; G(ref).kids.push(id); }, 'Added ' + n); return true; }
-    case 'vaddroom': vNewGroup('g-rooms', { name: 'New room', style: 'room', holds: 'task', color: M.areas.home.color }, 'Added a room'); return true;
-    case 'vaddsubj': vNewGroup('g-subjects', { name: 'New subject', style: 'subject', holds: 'sgroups', color: '#3FAFA6' }, 'Added a subject'); return true;
-    case 'vaddsg': vNewGroup(v, { name: 'New group', style: 'sgroup', holds: 'task', color: G(v).color, deadline: null }, 'Added a task group'); return true;
+    case 'vaddroom': vNewGroup('g-rooms', { name: 'New room', style: 'room', holds: 'task' }, 'Added a room'); return true;
+    case 'vaddsubj': vNewGroup('g-subjects', { name: 'New subject', style: 'subject', holds: 'sgroups' }, 'Added a subject'); return true;
+    case 'vaddsg': vNewGroup(v, { name: 'New group', style: 'sgroup', holds: 'task', deadline: null }, 'Added a task group'); return true;
     case 'vtimer': { if (S.edit) { openItem(ref); return true; } const t = M.timer; if (t && tElapsed() > 0 && t.id !== ref) saveTimer('Saved ' + dur(Math.max(1, Math.round(tElapsed() / 60000))) + ' on ' + ((t.id && I(t.id)) ? I(t.id).name : 'study'));
       if (!M.timer) M.timer = { id: ref, start: null, acc: 0 }; S.stv = 'timer'; save(); render(); $('#main').scrollTop = 0; return true; }
     case 'vtpick': openSheet({ kind: 'vtpick', title: 'Working on' }); return true;
@@ -479,7 +481,7 @@ function verdictAction(act, a, ref, v) {
     case 'vstv': if (v === 'support') { supOpen(); return true; } if (S.area !== 'study') { S.area = 'study'; S.page = null; } S.menu = false; S.sheet = null; S.stv = S.stv === v && S.studyMode ? null : v; if (!S.studyMode && S.stv === v) S.area = 'study'; render(); $('#main').scrollTop = 0; return true;
     case 'studymode': S.menu = false; S.studyMode = !S.studyMode; if (S.studyMode) { S.area = 'study'; S.page = null; S.edit = false; S.nbView = 'home'; } else S.stv = null; render(); return true;
     case 'vsess': openSheet({ kind: 'vsess', title: 'Study session length' }); return true;
-    case 'vsesslen': M.settings.studyLen = Math.max(5, Math.min(240, sessLen() + (+v))); save(); renderLayer(); return true;
+    case 'vsesslen': M.settings.studyLen = Math.max(5, Math.min(240, sessLen() + (+v))); save(); if (S.sheet) renderLayer(); else render(); return true;
     case 'slot': slotGo(ref); return true;
   }
   return false;
@@ -508,6 +510,7 @@ try { const d = window.devicePixelRatio || 1; document.documentElement.style.set
 let tsw = null, tswOpen = null;
 function swClose() { if (!tswOpen) return; const o = tswOpen; tswOpen = null; o.el.style.transform = ''; setTimeout(() => { o.btn.remove(); o.el.classList.remove('swon'); }, 180); }
 function swTarget(t) { if (S.edit || S.sheet) return null; if (S.area === 'plan' && S.page === 'today' && S.day === T0) return null; // on Today the swipe offers Miss instead (2026-11-10)
+  if (S.area === 'hobbies') return null; // in Hobbies the left swipe is Too much (2026-11-11)
   return t.closest('#main .vtk') || t.closest('#main .vjob, #main .row'); }
 function swRef(el) { return el.dataset.ref || (el.parentElement && el.parentElement.dataset.ref) || ''; }
 function swList(el, ref) { const l = el.closest('[data-list]'); if (l && !l.dataset.list.startsWith('s:') && G(l.dataset.list)) return l.dataset.list;

@@ -23,7 +23,8 @@ function nMigrate(m) { m.settings = m.settings || {};
 }
 const noteTags = () => { const s = new Set(); (M.notes || []).forEach((n) => (n.tags || []).forEach((t) => s.add(t))); (M.settings.noteTags || []).forEach((t) => s.add(t)); return [...s].sort((a, b) => a.localeCompare(b)); };
 // the Journal has its own tags, same system as the Notepad but not shared (2026-11-06)
-const jTags = () => { const s = new Set(); (M.journal || []).forEach((n) => (n.tags || []).forEach((t) => s.add(t))); return [...s].sort((a, b) => a.localeCompare(b)); };
+// journal tags stay once made, even when no page has them; a long press deletes one (2026-11-11)
+const jTags = () => { const s = new Set(M.jTagList || []); (M.journal || []).forEach((n) => (n.tags || []).forEach((t) => s.add(t))); return [...s].sort((a, b) => a.localeCompare(b)); };
 const TILTS = [-1.2, 0.8, 0.6, -0.9, -0.5, 1.1, 0.9, -0.7];
 function renderNotepad() {
   const F = S.nTag || 'all'; if (F !== 'all' && !noteTags().includes(F)) S.nTag = 'all';
@@ -102,7 +103,7 @@ const jBlank = (e) => e ? e.paper === 'blank' : M.jPaper === 'blank';
 function renderJournal() { const e = jCurrent(); const T = (e && e.tags) || []; const ed = jEditable(e);
   // extras live behind ⋯ (2026-11-08)
   const jmi = (ic, l) => `<span class="jmi">${mi('j-' + ic, ic)}${l}</span>`; // icons editable in edit mode (2026-11-08)
-  const items = (ed ? `<label role="menuitem" class="jmrow" tabindex="0">${jmi('image-plus', 'Add a picture')}<input type="file" accept="image/*" id="jimgin" hidden></label><span class="mono jmtag">Paper</span>${[['lined', 'Lined'], ['blank', 'Blank']].map(([k, l]) => `<button role="menuitemradio" data-a="jpaper" data-v="${k}" aria-checked="${jBlank(e) === (k === 'blank')}">${l}${jBlank(e) === (k === 'blank') ? icon('check', 16, 2) : ''}</button>`).join('')}<span class="mono jmtag">Text</span><span class="jtxtm jmtxt">${jTxtRows(e)}</span>` : `<button role="menuitem" data-a="jreply" data-ref="${e.id}">${jmi('reply', 'Write an answer')}</button>`)
+  const items = (ed ? `<label role="menuitem" class="jmrow" tabindex="0">${jmi('image-plus', 'Add a picture')}<input type="file" accept="image/*" multiple id="jimgin" hidden></label><span class="mono jmtag">Paper</span>${[['lined', 'Lined'], ['blank', 'Blank']].map(([k, l]) => `<button role="menuitemradio" data-a="jpaper" data-v="${k}" aria-checked="${jBlank(e) === (k === 'blank')}">${l}${jBlank(e) === (k === 'blank') ? icon('check', 16, 2) : ''}</button>`).join('')}<span class="mono jmtag">Text</span><span class="jtxtm jmtxt">${jTxtRows(e)}</span>` : `<button role="menuitem" data-a="jreply" data-ref="${e.id}">${jmi('reply', 'Write an answer')}</button>`)
     + `<button role="menuitem" data-a="jnew">${jmi('file-plus', 'Fresh page')}</button><button role="menuitem" data-a="jlistopen">${jmi('book-open', 'Earlier pages')}</button>` 
     + `<span class="mono jmtag">Tags</span>${jTags().map((t) => `<button role="menuitemcheckbox" data-a="jtagtog" data-v="${esc(t)}" aria-checked="${T.includes(t)}">${esc(t)}${T.includes(t) ? icon('check', 16, 2) : ''}</button>`).join('')}${addOpen('jnewtagin') ? `<div class="inrow jtagnew"><input class="inp" id="jnewtagin" placeholder="New tag" enterkeyhint="done" autocomplete="off"><button class="btn" data-a="jnewtag">Add</button></div>` : `<button role="menuitem" data-a="openadd" data-v="jnewtagin">${jmi('plus', 'New tag')}</button>`}`
     + (e ? `<button role="menuitem" class="ndel" data-a="jdelete" data-ref="${e.id}">${jmi('trash', 'Delete this page')}</button>` : ''); // Delete sits at the bottom (2026-11-08)
@@ -240,10 +241,30 @@ function jFromDom() { const fl = document.querySelector('.jpaper .jflow'); const
     else if (n.nodeType === 3) { if (an && an.startContainer === n) caret = out.length + an.startOffset; out += n.data.replace(/​/g, ''); } });
   return { text: out, caret }; }
 function jSyncDom() { const r = jFromDom(); if (!r) return; let e = jCurrent(); if (!e && !r.text.trim()) return; e = jMake(); if (r.text === e.text) return r; { const o = e.text || '', nw = r.text; let pf = 0; while (pf < o.length && pf < nw.length && o[pf] === nw[pf]) pf++; let sf = 0; while (sf < o.length - pf && sf < nw.length - pf && o[o.length - 1 - sf] === nw[nw.length - 1 - sf]) sf++; jShiftRuns(e, pf, o.length - sf, nw.length - pf - sf); } e.text = r.text; jFixPs(e); jSaveSoon(e); jLayoutText(); if (r.caret != null) jSetCaret(r.caret); return r; }
+// a long press on a journal tag asks to delete it
+let jtLp = null;
+document.addEventListener('pointerdown', (ev) => { const c = ev.target.closest && ev.target.closest('[data-a="jtagtog"], [data-a="jtagf"][data-v]:not([data-v=""])'); if (!c) return; const t = c.dataset.v; if (!t) return;
+  clearTimeout(jtLp && jtLp.t); jtLp = { x: ev.clientX, y: ev.clientY, t: setTimeout(() => { jtLp = null; suppress = true; setTimeout(() => { suppress = false; }, 400); try { if (navigator.vibrate) navigator.vibrate(8); } catch (_) {}
+    S.ask = { q: 'Delete the tag “' + t + '”? It comes off every journal page.', yes: 'Delete', data: { a: 'jtagdel', v: t } }; S.jMenu = false; S.jFOpen = false; renderLayer(); }, 550) }; });
+document.addEventListener('pointermove', (ev) => { if (jtLp && Math.hypot(ev.clientX - jtLp.x, ev.clientY - jtLp.y) > 10) { clearTimeout(jtLp.t); jtLp = null; } });
+['pointerup', 'pointercancel'].forEach((k) => document.addEventListener(k, () => { if (jtLp) { clearTimeout(jtLp.t); jtLp = null; } }));
+document.addEventListener('contextmenu', (ev) => { if (ev.target.closest && ev.target.closest('[data-a="jtagtog"], [data-a="jtagf"]')) ev.preventDefault(); });
+// keep the line I'm writing on in sight, above the keyboard (2026-11-11)
+function jFollow() { const fl = document.querySelector('.jpaper .jflow'); const mn = $('#main'); if (!fl || !mn || document.activeElement !== fl) return; const s = getSelection(); if (!s || !s.rangeCount) return;
+  const r0 = s.getRangeAt(0); let r = r0.getBoundingClientRect(); if (!r.height) { const n = r0.startContainer; const el = n.nodeType === 3 ? n.parentNode : n; const sp = el.closest ? el.closest('.jl') : null; if (sp) r = sp.getBoundingClientRect(); else return; }
+  const vv = window.visualViewport; const bot = (vv ? vv.offsetTop + vv.height : innerHeight) - 16; const mr = mn.getBoundingClientRect(); const top = Math.max(mr.top, vv ? vv.offsetTop : 0) + 8; const lim = Math.min(bot, mr.bottom - 8);
+  if (r.bottom > lim) mn.scrollTop += r.bottom - lim + JLH; else if (r.top < top) mn.scrollTop -= top - r.top + 4; }
+const jFollowSoon = () => requestAnimationFrame(jFollow);
+if (window.visualViewport) visualViewport.addEventListener('resize', jFollowSoon);
+// while a word is being composed it may run past the end of its line: let that line wrap until the word is done, instead of the page sliding sideways
+document.addEventListener('compositionupdate', (ev) => { const fl = ev.target.closest && ev.target.closest('.jflow'); if (!fl) return; const s = getSelection(); const n = s && s.rangeCount ? s.getRangeAt(0).startContainer : null; const el = n && (n.nodeType === 3 ? n.parentNode : n); const sp = el && el.closest && el.closest('.jl'); if (sp && sp.scrollWidth > sp.clientWidth + 1) sp.classList.add('cmp'); jFollowSoon(); });
 let jComp = false;
 document.addEventListener('compositionstart', (ev) => { if (ev.target.closest && ev.target.closest('.jflow')) jComp = true; });
 document.addEventListener('compositionend', (ev) => { if (!(ev.target.closest && ev.target.closest('.jflow'))) return; jComp = false; setTimeout(jSyncDom, 0); });
-document.addEventListener('beforeinput', (ev) => { const fl = ev.target.closest && ev.target.closest('.jflow'); if (!fl || !fl.isContentEditable) return; if (ev.isComposing || jComp || ev.inputType === 'insertCompositionText') return;
+document.addEventListener('beforeinput', (ev) => { const fl = ev.target.closest && ev.target.closest('.jflow'); if (!fl || !fl.isContentEditable) return; const brk = ev.inputType === 'insertParagraph' || ev.inputType === 'insertLineBreak';
+  // Enter while the keyboard is still composing a word: the word goes in first, then the new paragraph (2026-11-11: Enter jumped a line up)
+  if (brk && (ev.isComposing || jComp)) { jComp = false; jSyncDom(); }
+  else if (ev.isComposing || jComp || ev.inputType === 'insertCompositionText') return;
   // a word the keyboard just finished (composition) may not be in the page's text yet; take it in first, or the next key
   // (the space) rebuilds the lines from the old text and the word disappears (2026-11-11)
   { const r = jFromDom(); const e0 = jCurrent(); if (r && r.text !== ((e0 && e0.text) || '')) jSyncDom(); }
@@ -261,16 +282,16 @@ document.addEventListener('beforeinput', (ev) => { const fl = ev.target.closest 
   else if (ty === 'deleteByCut' || ty === 'deleteContent' || ty === 'deleteByDrag') { }
   else if (ty === 'historyUndo' || ty === 'historyRedo' || /^format/.test(ty)) { ev.preventDefault(); return; }
   else return;
-  ev.preventDefault(); if (s === t && !str) return; str = str.replace(/\r\n?/g, '\n'); const c = jEdit(s, t, str); jLayoutText(); jSetCaret(c); });
-document.addEventListener('input', (ev) => { const fl = ev.target.closest && ev.target.closest('.jflow'); if (!fl || !fl.isContentEditable) return; if (ev.isComposing || jComp) return; jSyncDom(); });
+  ev.preventDefault(); if (s === t && !str) return; str = str.replace(/\r\n?/g, '\n'); const c = jEdit(s, t, str); jLayoutText(); jSetCaret(c); S.jCaret = c; S.jCaretEnd = c; jFollowSoon(); });
+document.addEventListener('input', (ev) => { const fl = ev.target.closest && ev.target.closest('.jflow'); if (!fl || !fl.isContentEditable) return; if (ev.isComposing || jComp) { jFollowSoon(); return; } jSyncDom(); jFollowSoon(); });
 document.addEventListener('selectionchange', () => { const fl = document.querySelector('.jpaper .jflow'); if (!fl || document.activeElement !== fl) return; const so = jSelOffs(); if (so) { S.jCaret = so[0]; S.jCaretEnd = so[1]; } });
 document.addEventListener('selectionchange', () => requestAnimationFrame(jSelBar));
 // the entry being written; made on first use
 function jMake() { let e = jCurrent(); if (e) return e; e = { id: uid('j'), d: T0, at: nowHM(), text: '', tags: [], ps: [{}] }; if (M.jPaper === 'blank') e.paper = 'blank'; if (S.jRe) e.re = S.jRe; if (S.jNewTags) e.tags = S.jNewTags.slice(); (M.journal = M.journal || []).push(e); S.jEntry = e.id; const pa = document.querySelector('.jpaper'); if (pa && !pa.dataset.jref) { /* keeps following jCurrent */ } return e; }
 function jSync() { if (jComp) { jComp = false; jSyncDom(); } return jCurrent(); }
-function jAddImg(pic, r) { const e = jMake(); const PW = S.jPW || 336; const sp = S.jCaret != null ? jSpanAt(S.jCaret) : null; const row = sp ? Math.round(parseFloat(sp.style.top) / JLH) : 0; const z = Math.max(1, ...(e.imgs || []).map((q) => q.z || 1)) + 1;
-  const q = Object.assign({ id: uid('ji'), w: 0.45, x: 0, y: row * JLH + 4, z, r: r || 1 }, pic); (e.imgs = e.imgs || []).push(q); save(); S.jSel = q.id; S.jMenu = false; const c = S.jCaret != null ? S.jCaret : (e.text || '').length; render(); jLayout(); const fl = document.querySelector('.jflow'); if (fl) { fl.focus({ preventScroll: true }); jSetCaret(c); } }
-function jView(e, id) { const im = (e.imgs || []).slice().sort((a, b) => a.y - b.y || a.x - b.x); vwOpen(() => im.map((q) => ({ id: q.id, src: jImgSrc(q), d: e.d })), id); }
+function jAddImg(pic, r, nth) { nth = nth || 0; const e = jMake(); const PW = S.jPW || 336; const sp = S.jCaret != null ? jSpanAt(S.jCaret) : null; const row = sp ? Math.round(parseFloat(sp.style.top) / JLH) : 0; const z = Math.max(1, ...(e.imgs || []).map((q) => q.z || 1)) + 1;
+  const q = Object.assign({ id: uid('ji'), w: 0.45, x: Math.min(0.5, nth * 0.1), y: (row + nth) * JLH + 4, z, r: r || 1 }, pic); (e.imgs = e.imgs || []).push(q); save(); S.jSel = q.id; S.jMenu = false; const c = S.jCaret != null ? S.jCaret : (e.text || '').length; render(); jLayout(); const fl = document.querySelector('.jflow'); if (fl) { fl.focus({ preventScroll: true }); jSetCaret(c); } }
+function jView(e, id) { vwOpen(() => (e.imgs || []).slice().sort((a, b) => a.y - b.y || a.x - b.x).map((q) => ({ id: q.id, src: jImgSrc(q), d: e.d, rm: ['jimgrm', '', q.id], set: (pic, r) => { delete q.asset; delete q.src; Object.assign(q, pic); q.r = r || q.r; save(); jLayout(); } })), id); }
 const jImgs = () => { const e = jCurrent(); return (e && e.imgs) || []; };
 // paragraph look (2026-11-08: "basic text editing options like aligning evenly")
 function jParas(e) { const T = e.text || ''; const a = S.jCaret != null ? S.jCaret : T.length, b = S.jCaretEnd != null ? S.jCaretEnd : a; const p0 = (T.slice(0, a).match(/\n/g) || []).length, p1 = (T.slice(0, b).match(/\n/g) || []).length; const out = []; for (let i = p0; i <= p1; i++) out.push(i); return out; }
@@ -347,15 +368,16 @@ function notebookAction(act, a, ref, v) {
     case 'jfopen': S.jFOpen = !S.jFOpen; render(); return true;
     case 'jtagf': S.jTag = v; S.jFOpen = false; render(); return true;
     case 'jtags': { S.jMenu = false; if (S.jTagOpen) { S.jTagOpen = false; render(); return true; } jMake(); jSync(); save(); S.jTagOpen = true; render(); return true; }
+    case 'jtagdel': { M.jTagList = (M.jTagList || []).filter((t) => t !== v); (M.journal || []).forEach((e) => { if (e.tags) e.tags = e.tags.filter((t) => t !== v); }); if (S.jTag === v) S.jTag = null; save(); render(); return true; }
     case 'jtagtog': { jMake(); const e = jSync(); if (!e) return true; const T = e.tags = e.tags || []; const i = T.indexOf(v); if (i >= 0) T.splice(i, 1); else T.push(v); save(); render(); return true; }
-    case 'jnewtag': { if (document.getElementById('jnewtagin') && document.getElementById('jnewtagin').value.trim()) jMake(); const e = jSync(); const el = document.getElementById('jnewtagin'); const t = el && el.value.trim(); if (!e || !t) return true; e.tags = e.tags || []; if (!e.tags.includes(t)) e.tags.push(t); save(); render(); return true; }
+    case 'jnewtag': { if (document.getElementById('jnewtagin') && document.getElementById('jnewtagin').value.trim()) jMake(); const e = jSync(); const el = document.getElementById('jnewtagin'); const t = el && el.value.trim(); if (!e || !t) return true; M.jTagList = M.jTagList || []; if (!M.jTagList.includes(t)) M.jTagList.push(t); e.tags = e.tags || []; if (!e.tags.includes(t)) e.tags.push(t); save(); render(); return true; }
     case 'jmenu': jSync(); S.jTxt = false; S.jMenu = !S.jMenu; S.jTagOpen = false; render(); return true;
     case 'jlistopen': jSync(); S.jMenu = false; render(); openSheet({ kind: 'jlist', title: 'Earlier pages' }); return true;
     case 'jreply': { S.jMenu = false; S.jBack = S.jBack || 'home'; S.jTagOpen = false; S.jRe = ref; S.jSel = null; S.jCaret = null; S.jEntry = 'new'; render(); jGrow(); $('#main').scrollTop = 0; requestAnimationFrame(() => { const t = document.getElementById('jtext'); if (t) { jLayout(); t.focus(); jSetCaret(((jCurrent() || {}).text || '').length); } }); return true; }
     case 'jimgfrm': S.jFr = !S.jFr; jPick(S.jSel); return true;
     case 'jimgfr': { const e = jSync(); const p = e && (e.imgs || []).find((x) => x.id === S.jSel); if (!p) return true; if (v === 'plain') delete p.frame; else p.frame = v; save(); jLayout(); return true; }
     case 'jimgview': { const e = jSync(); if (e) jView(e, v); return true; }
-    case 'jimgrm': { const e = jSync(); if (!e) return true; e.imgs = (e.imgs || []).filter((q) => q.id !== v); S.jSel = null; S.jFr = false; save(); jLayout(); return true; }
+    case 'jimgrm': { const e = jSync(); if (!e) return true; e.imgs = (e.imgs || []).filter((q) => q.id !== v); S.jSel = null; S.jFr = false; save(); jLayout(); if (VW && VW.kind === 'photo') vwPhoto(); return true; }
     case 'jtxt': S.jTxt = !S.jTxt; S.jMenu = false; { const c = S.jCaret, c2 = S.jCaretEnd; render(); jLayout(); if (!S.jTxt && c != null) { const fl = document.querySelector('.jflow'); if (fl) { fl.focus(); jSetCaret(c, c2); } } } return true;
     case 'jdelete': { M.journal = (M.journal || []).filter((x) => x.id !== ref); (M.journal || []).forEach((x) => { if (x.re === ref) delete x.re; }); save(); S.jMenu = false; S.jTagOpen = false; S.jSel = null; S.jRe = null; S.nbView = S.jBack || 'home'; S.jEntry = null; jFromBack(); render(); return true; }
     case 'jpaper': { const e = jMake(); if (v === 'blank') e.paper = 'blank'; else delete e.paper; M.jPaper = v; save(); render(); jLayout(); return true; }
