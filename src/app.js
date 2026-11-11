@@ -618,7 +618,7 @@ function placeDay(d) {
     items.forEach((id) => { const bh = I(id).behind; if (!bh || o.includes(id)) return; const f = fixed.find((q) => q.id === bh); if (f) after[id] = Math.max(after[id] || 0, f.b); });
     // tacked in front of a set-time item (2026-11-11): it ends right where that item starts, several in a row stack up
     // backwards; a day's own choice wins over the every-day one (it.before)
-    const dt = (M.dayTack || {})[d] || {}; const tackOf = (id) => (id in dt ? dt[id] : I(id).before) || null;
+    const dt = (M.dayTack || {})[d] || {}; const tackOf = (id) => { const t = (id in dt ? dt[id] : I(id).before) || null; return t && I(t) && !I(t).brk ? t : null; }; // never onto a break
     const tacked = new Set(); const busy = fixed.slice();
     fixed.forEach((f) => { let end = f.a; items.filter((id) => !I(id).time && tackOf(id) === f.id).reverse().forEach((id) => { const len = I(id).dur || 30; if (end - len < hm(g.start)) return; /* no room before the block starts: it flows as usual */ const q = { id, a: end - len, b: end, blk: b }; out.push(q); busy.push(q); tacked.add(id); end -= len; }); });
     items.filter((id) => !I(id).time && !tacked.has(id)).forEach((id) => { const len = I(id).dur || 30; let moved = true; if (after[id]) cur = Math.max(cur, after[id]);
@@ -671,7 +671,7 @@ function renderSchedule() {
   // past days don't fade (2026-11-04); only done items do
   const faded = (k, o) => days[k] >= T0 && isDone(o.id, days[k]); // past days keep full colour (2026-11-06)
   days.forEach((d, di) => {
-    h += `<div class="col" data-day="${d}" style="height:${H}px">` + PD[di].map((o) => { const it = I(o.id); const c = o.appt ? G(catOf(o.id)).color : colorOf(o.id); const top = yIn(o.a, o.blk), ht = Math.max(14, yIn(o.b - 0.01, o.blk) - yIn(o.a, o.blk) - (!o.appt && (OV[o.blk] ? o.b >= ends[o.blk] + OV[o.blk] : o.b >= ends[o.blk]) ? 0 : 2)); // the last box of a block (or of its red stretch) sits flush on the next block's border (2026-11-03/04)
+    h += `<div class="col" data-day="${d}" style="height:${H}px">` + PD[di].map((o) => { const it = I(o.id); const c = o.appt ? G(catOf(o.id)).color : colorOf(o.id); const top0 = yIn(o.a, o.blk), flush = !o.appt && (OV[o.blk] ? o.b >= ends[o.blk] + OV[o.blk] : o.b >= ends[o.blk]); const top = it.brk ? top0 : top0 + 1, ht = Math.max(14, yIn(o.b - 0.01, o.blk) - top0 - (flush ? 1 : 2)); // 1px in from the lines above and below, so boxes sit evenly on the hour lines (2026-11-11) // the last box of a block (or of its red stretch) sits flush on the next block's border (2026-11-03/04)
       // a break fills its time exactly so its lines sit on the hour lines; a line that would double a block title's line is left out
       const bkE = !o.appt && it.brk ? [starts.includes(o.a) ? 'nt' : '', starts.includes(o.b) || o.b >= ends[o.blk] ? 'nb' : ''].join(' ') : '';
       const solo = dayV || clash(di, o); const jl = !solo && same(di - 1, o), jr = !solo && same(di + 1, o); let run = 1; if (!jl && !solo) while (same(di + run, o)) run++;
@@ -1450,7 +1450,8 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
   const prev = inB.filter((o) => mid(o) < m).sort((p, q) => p.b - q.b).pop();
   const idx = inB.filter((o) => mid(o) < m).length;
   // dropped in front of an item with a set time (a routine at 22:00): it's tacked on, ending right where that item starts
-  const nxt = inB.filter((o) => mid(o) >= m).sort((p, q) => p.a - q.a)[0]; const tk0 = (id) => { const T = (M.dayTack || {})[day] || {}; return (id in T ? T[id] : I(id).before) || null; }; /* in front of something already tacked on: it joins that row */ const tack = !nxt ? null : nxt.appt || I(nxt.id).time ? nxt.id : tk0(nxt.id);
+  const nxt = inB.filter((o) => mid(o) >= m).sort((p, q) => p.a - q.a)[0]; const tk0 = (id) => { const T = (M.dayTack || {})[day] || {}; return (id in T ? T[id] : I(id).before) || null; }; /* in front of something already tacked on: it joins that row */ /* a break is never something to tack onto, and the drop has to be nearer the set-time item than the item before it (2026-11-11) */ const pv0 = inB.filter((o) => mid(o) < m).sort((p, q) => p.b - q.b).pop(); const near = (q) => !pv0 || (q.a - m) < (m - pv0.b);
+  const tack = !nxt || I(nxt.id).brk ? null : nxt.appt || I(nxt.id).time ? (near(nxt) ? nxt.id : null) : tk0(nxt.id);
   const setTack = () => { const T = (M.dayTack = M.dayTack || {})[day] = (M.dayTack[day] || {}); T[x.id] = tack; };
   if (!S.edit && day === x.from) { change(() => { moveOnDay(x.id, day, b, idx); setTack(); }, 'Moved ' + it.name + ' on ' + fmtDate(day)); return; }
   change(() => {
