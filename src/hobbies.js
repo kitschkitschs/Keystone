@@ -37,7 +37,7 @@ const hobProjs = (h) => G(h).kids.filter((k) => G(k) && G(k).style === 'project'
 const hobOf = (pid) => hobIds().find((h) => G(h).kids.includes(pid));
 const projTasks = (p) => G(p).kids.filter((k) => I(k));
 const lastEver = (id) => Object.keys(M.log).filter((d) => d <= T0 && val(d, id)).sort().pop() || null;
-const projLast = (p) => projTasks(p).map(lastEver).concat((G(p).photos || []).map((x) => x.d)).filter(Boolean).sort().pop() || null;
+const projLast = (p) => projTasks(p).map(lastEver).concat((G(p).photos || []).map((x) => x.d)).concat(G(p).worked || []).filter(Boolean).sort().pop() || null;
 const hobLast = (h) => hobActs(h).map(lastEver).concat(hobProjs(h).map(projLast)).filter(Boolean).sort().pop() || null;
 const agoText = (d) => { const n = diff(d, T0); return n <= 0 ? 'today' : n === 1 ? 'yesterday' : n < 14 ? n + ' days ago' : n < 60 ? Math.round(n / 7) + ' weeks ago' : Math.round(n / 30) + ' months ago'; };
 const projSrc = (x) => x.asset ? blobUrl(x.asset) : x.src;
@@ -49,6 +49,8 @@ function hobRail() {
     return `<button role="tab" data-a="hobpick" data-v="${h}" aria-selected="${S.hob === h}" style="${S.hob === h ? 'background:' + g.color + '2E' : ''}"><span class="dot" style="background:${g.color}" ${S.edit ? `data-col="${h}" role="button" aria-label="Change colour of ${esc(g.name)}"` : ''}></span><span class="vl">${esc(g.name)}</span></button>`; };
   return `<nav role="tablist" aria-label="Hobbies"><button role="tab" class="dice" data-a="hobpick" data-v="surprise" aria-selected="${S.hob === 'surprise'}" aria-label="Surprise me">${icon('dice-5', 18)}</button>${H.map(tab).join('')}${S.edit ? `<button class="dice" data-a="hobadd" aria-label="Add hobby">${icon('plus', 18)}</button>` : ''}</nav>`;
 }
+// edit mode: the tabs as a list, to rename them and drag them into another order (the owner, 2026-11-11)
+function hobTabsCard() { return lcard(null, 'Hobby tabs', '', `<div class="list" data-list="g-hobbies">${hobIds().map((h) => `<div class="row" data-ref="${h}">${grip()}<span class="hdot" data-col="${h}" role="button" aria-label="Change the ${esc(G(h).name)} colour" style="background:${G(h).color};width:16px;height:16px;flex:none;border-radius:8px;outline:1.5px dashed var(--faint);outline-offset:2px"></span><span class="lbl">${nm(h, G(h).name)}</span></div>`).join('')}</div>`); }
 function hobTitle() { if (S.hob === 'surprise') return 'Surprise me'; if (S.proj && G(S.proj)) return S.edit ? nm(S.proj, G(S.proj).name) : esc(G(S.proj).name); return S.edit ? nm(S.hob, G(S.hob).name) : esc(G(S.hob).name); }
 function renderHobbies() {
   if (!hobIds().length) return `<p class="empty">No hobbies yet.</p>` + (S.edit ? `<button class="addbtn" data-a="hobadd"><span class="plus">+</span>Hobby</button>` : '');
@@ -58,7 +60,7 @@ function renderHobbies() {
   const actRow = (id) => { const it = I(id); const done = isDone(id, T0); const ld = lastEver(id);
     return `<div class="row" data-ref="${id}">${tickCircle(id, T0, true)}<button class="lbl" data-a="${S.edit ? 'open' : 'hobact'}" data-ref="${id}" style="text-align:left">${nm(id, it.name)}<span class="sub">${done ? 'Logged today' : ld ? 'Last done ' + agoText(ld) : 'Not done yet'}</span></button>${tail(id, h)}</div>`; };
   const projRow = (p) => { const x = G(p); const ph = (x.photos || []).slice(-1)[0]; const ld = projLast(p); const T = projTasks(p); const left = T.filter((t) => !lastEver(t)).length;
-    return `<div class="row prow" data-ref="${p}"><span class="pthumb" style="--c:${g.color}">${ph ? `<img src="${esc(projSrc(ph))}" alt="">` : icon(g.icon || 'folder', 18)}</span><button class="lbl" data-a="${S.edit ? 'gear' : 'hobproj'}" data-ref="${p}" style="text-align:left">${nm(p, x.name)}<span class="sub">${ld ? 'Last worked on ' + agoText(ld) : 'Not started'}${T.length ? ' · ' + left + ' left' : ''}</span></button>${S.edit ? tail(p, h) : `<span class="chev" aria-hidden="true">›</span>`}</div>`; };
+    return `<div class="row prow" data-ref="${p}"><span class="pthumb" style="--c:${g.color}">${ph ? `<img src="${esc(projSrc(ph))}" alt="">` : icon(g.icon || 'folder', 18)}</span><button class="lbl" data-a="${S.edit ? 'gear' : 'hobproj'}" data-ref="${p}" style="text-align:left">${nm(p, x.name)}<span class="sub">${(x.worked || []).includes(T0) ? 'Worked on today' : ld ? 'Last worked on ' + agoText(ld) : 'Not started'}${T.length ? ' · ' + left + ' left' : ''}</span></button>${S.edit ? tail(p, h) : `<span class="chev" aria-hidden="true">›</span>`}</div>`; };
   const A = hobActs(h), P = hobProjs(h).filter((p) => !G(p).done), live = P.filter((p) => !G(p).hold), held = P.filter((p) => G(p).hold);
   const hk = 'hbhold:' + h; if (S.open[hk] === undefined) S.open[hk] = false;
   let out = '';
@@ -68,6 +70,7 @@ function renderHobbies() {
   // Add activity only in edit mode; outside it just + Project (2026-11-06)
   // no + Project button on the page; the top bar + has it (2026-11-08)
   // Archive and Delete for the hobby tab show only in edit mode (2026-11-10)
+  if (S.edit) out += hobTabsCard();
   if (S.edit) out += `<div class="pjbtns"><button class="btn" data-a="hobarch" data-ref="${h}">${icon('archive', 16)} Archive</button><button class="btn danger" data-a="hobdel" data-ref="${h}">Delete</button></div>`;
   return out;
 }
@@ -92,9 +95,9 @@ const whCol = (k) => (M.settings.wheelCols || {})[k] || WH_DEF[k];
 function surprisePage() {
   const pool = M.settings.hobPool || {};
   const dot = (k, l) => `<div class="tg"><span class="l"><span class="hdot" data-col="wh:${k}" role="button" aria-label="Change the ${l.toLowerCase()} colour" style="background:${whCol(k)};width:16px;height:16px;display:inline-block;border-radius:8px;margin-right:10px;vertical-align:-3px;outline:1.5px dashed var(--faint);outline-offset:2px"></span>${l}</span></div>`;
-  if (S.edit) return `<div class="card rollcard">${hobWheel()}</div>` + lcard(null, 'Wheel', '', dot('rim', 'Rim') + dot('pin', 'Pin') + dot('bulb', 'Lights')) + lcard(null, 'Surprise me picks from', '', hobIds().map((h) => `<div class="tg"><span class="l"><span class="hdot" data-col="${h}" role="button" aria-label="Change the ${esc(G(h).name)} colour" style="background:${G(h).color};width:16px;height:16px;display:inline-block;border-radius:8px;margin-right:10px;vertical-align:-3px;outline:1.5px dashed var(--faint);outline-offset:2px"></span>${esc(G(h).name)}</span><button class="fbtn hicb" data-ic="${h}" aria-label="Change the icon for ${esc(G(h).name)}" style="color:${mix(G(h).color || '#9A9387', TH.ink, 0.45)}">${icon(G(h).icon || 'star', 18)}</button><button class="swt" role="switch" aria-checked="${pool[h] !== false}" data-a="hobpool" data-v="${h}" aria-label="${esc(G(h).name)}"></button></div>`).join(''));
+  if (S.edit) return `<div class="card rollcard">${hobWheel()}</div>` + lcard(null, 'Wheel', '', dot('rim', 'Rim') + dot('pin', 'Pin') + dot('bulb', 'Lights')) + hobTabsCard() + lcard(null, 'Surprise me picks from', '', hobIds().map((h) => `<div class="tg"><span class="l"><span class="hdot" data-col="${h}" role="button" aria-label="Change the ${esc(G(h).name)} colour" style="background:${G(h).color};width:16px;height:16px;display:inline-block;border-radius:8px;margin-right:10px;vertical-align:-3px;outline:1.5px dashed var(--faint);outline-offset:2px"></span>${esc(G(h).name)}</span><button class="fbtn hicb" data-ic="${h}" aria-label="Change the icon for ${esc(G(h).name)}" style="color:${mix(G(h).color || '#9A9387', TH.ink, 0.45)}">${icon(G(h).icon || 'star', 18)}</button><button class="swt" role="switch" aria-checked="${pool[h] !== false}" data-a="hobpool" data-v="${h}" aria-label="${esc(G(h).name)}"></button></div>`).join(''));
   const r = S.roll && !S.spinning && suggestion(S.roll);
-  return `<div class="card rollcard">${hobWheel()}${r ? `<div class="rollin"><span class="mono" style="color:${r.color}">${esc(r.hobby)}</span><p class="rollt">${esc(r.text)}</p><p class="rolls">${esc(r.sub)}</p><div class="pjbtns" style="justify-content:center"><button class="btn" data-a="hobrollgo">Open</button></div></div>` : ''}</div>`;
+  return `<div class="card rollcard">${hobWheel()}${r ? `<div class="rollin"><span class="mono" style="color:${r.color}">${esc(r.hobby)}</span><p class="rollt">${esc(r.text)}</p><p class="rolls">${esc(r.sub)}</p><div class="pjbtns" style="justify-content:center"><button class="btn" data-a="hobrollgo">Open</button>${r.go ? `<button class="btn" data-a="projwork" data-ref="${r.go}" aria-pressed="${(G(r.go).worked || []).includes(T0)}">${(G(r.go).worked || []).includes(T0) ? 'Done today' : 'Worked on it'}</button>` : ''}</div></div>` : ''}</div>`;
 }
 // the spinning wheel (2026-11-08): a slice per hobby in the pool, in its colour with its icon; a tap spins it and it lands on the roll
 const wheelHobs = () => { const pool = M.settings.hobPool || {}; return hobIds().filter((h) => pool[h] !== false); };
@@ -152,16 +155,23 @@ function spinTo(h) { const H = wheelHobs(), i = H.indexOf(h); if (i < 0) return;
   setTimeout(() => { S.spinning = false; if (S.area === 'hobbies' && S.hob === 'surprise') { render(); const w2 = document.querySelector('.whl'); if (w2) { w2.classList.add('land'); wheelBurst(S.roll); } } }, 3300); }
 // a roll picks a hobby I haven't touched for longest more often; it suggests its first open project, else an activity
 // a random open project of the hobby, else a random activity, chosen once when the wheel lands (2026-11-08)
-function rollPick(h) { const P = hobProjs(h).filter((p) => !G(p).hold && !G(p).done); const L = P.length ? P : hobActs(h); return L.length ? L[Math.floor(Math.random() * L.length)] : null; }
-function suggestion(h) { if (!G(h)) return null; const g = G(h); const P = hobProjs(h).filter((p) => !G(p).hold && !G(p).done); const ld = hobLast(h);
-  const pk = S.rollPick; const pj = P.length ? (P.includes(pk) ? pk : P[0]) : null; const A = hobActs(h); const act = !pj ? (A.includes(pk) ? pk : A[0]) : null;
-  return { hobby: g.name, color: g.color, text: pj ? 'Work on the ' + G(pj).name.toLowerCase() : act ? I(act).name : 'Some ' + g.name.toLowerCase(), sub: ld ? 'Last done ' + agoText(ld) : 'Not done yet', go: pj || null }; }
+// what the wheel can land on: every open project, and every activity no open project covers (the owner, 2026-11-11)
+const openProjs = (h) => hobProjs(h).filter((p) => !G(p).hold && !G(p).done);
+function rollPool(h) { const P = openProjs(h); const cov = P.map((p) => G(p).act).filter(Boolean); return P.concat(hobActs(h).filter((a) => !cov.includes(a))); }
+function rollPick(h) { const L = rollPool(h); return L.length ? L[Math.floor(Math.random() * L.length)] : null; }
+function suggestion(h) { if (!G(h)) return null; const g = G(h); const L = rollPool(h); const ld = hobLast(h);
+  const pk = L.includes(S.rollPick) ? S.rollPick : L[0]; const pj = pk && G(pk) ? pk : null; const act = pk && I(pk) ? pk : null;
+  return { hobby: g.name, color: g.color, text: pj ? 'Work on ' + G(pj).name : act ? I(act).name : 'Some ' + g.name.toLowerCase(), sub: ld ? 'Last done ' + agoText(ld) : 'Not done yet', go: pj || null, act }; }
+// Worked on it: a project gets today as a day I worked on it, and the activity it covers counts as done today
+function projWork(p) { const x = G(p); if (!x) return; const was = (x.worked || []).includes(T0);
+  change(() => { if (was) { x.worked = x.worked.filter((d) => d !== T0); if (x.workAuto === T0 && x.act && M.log[T0]) { delete M.log[T0][x.act]; } delete x.workAuto; }
+    else { x.worked = (x.worked || []).concat(T0).slice(-400); if (x.act && I(x.act) && !val(T0, x.act)) { (M.log[T0] = M.log[T0] || {})[x.act] = 'done'; x.workAuto = T0; } } }); }
 function rollHobby() { const pool = M.settings.hobPool || {}; const H = hobIds().filter((h) => pool[h] !== false && h !== S.roll); if (!H.length) return null;
   const w = H.map((h) => { const ld = hobLast(h); return 1 + (ld ? Math.min(30, diff(ld, T0)) : 30); }); let t = Math.random() * w.reduce((a, b) => a + b, 0);
   for (let i = 0; i < H.length; i++) { t -= w[i]; if (t <= 0) return H[i]; } return H[H.length - 1]; }
 function hobNewTask(p) { const D = { name: '', type: 'task', kind: 'behaviour', tags: [], made: T0, dur: 30, insight: false, when: { mode: 'once', date: null } };
   openSheet({ kind: 'item', isNew: true, title: 'New task · ' + G(p).name, draft: D, block: eveBlock(), home: p, steps: [] }); }
-function hobNewAct(h) { const D = { name: '', type: 'task', kind: 'behaviour', tags: ['t-hobby'], made: T0, dur: 30, insight: true, when: { mode: 'every', n: 1 }, icon: G(h).icon };
+function hobNewAct(h) { const D = { name: '', type: 'task', kind: 'behaviour', tags: ['t-hobby'], made: T0, dur: 30, when: { mode: 'once', date: null }, icon: G(h).icon };
   openSheet({ kind: 'item', isNew: true, title: 'New activity · ' + G(h).name, draft: D, block: null, home: h, steps: [], hobact: true }); }
 function finishedProjects() { return allHobIds().flatMap((h) => hobProjs(h).filter((p) => G(p).done).map((p) => ({ p, h }))).sort((a, b) => G(b.p).done.localeCompare(G(a.p).done)); }
 function hobAction(act, a, ref, v) {
@@ -181,6 +191,7 @@ function hobAction(act, a, ref, v) {
     case 'projback': { const x = G(ref); change(() => { delete x.done; }, 'Brought back ' + x.name); return true; }
     case 'projphrm': { const x = G(ref); change(() => { x.photos = (x.photos || []).filter((q) => q.id !== v); }, 'Photo removed'); if (VW && VW.kind === 'photo') vwPhoto(); return true; }
     case 'hobpool': { change(() => { const P = M.settings.hobPool = M.settings.hobPool || {}; if (P[v] === false) delete P[v]; else P[v] = false; }); return true; }
+    case 'projwork': projWork(ref); return true;
     case 'hobroll': { if (S.spinning) return true; const h = rollHobby(); if (!h) { flash('Nothing in the pool'); return true; } spinTo(h); return true; }
     case 'hobrollgo': { const r = suggestion(S.roll); if (!r) return true; S.hob = S.roll; S.proj = r.go; S.roll = null; render(); return true; }
   }
@@ -198,3 +209,13 @@ function wheelBurst(h) { const ph = document.getElementById('phone'), sv = docum
     p.animate([{ transform: 'translate(-50%,-50%) rotate(0deg)', opacity: 1 }, { transform: `translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px)) rotate(${sp / 2}deg)`, opacity: 1, offset: 0.45 },
       { transform: `translate(calc(-50% + ${dx * 1.25}px),calc(-50% + ${dy + 260}px)) rotate(${sp}deg)`, opacity: 0 }], { duration: 1500 + Math.random() * 700, easing: 'cubic-bezier(.15,.7,.35,1)', fill: 'forwards' }); }
   try { if (navigator.vibrate) navigator.vibrate(12); } catch (_) {} }
+
+// swipe a project to the right to say I worked on it today; again to take it back (the owner, 2026-11-11)
+let pws = null;
+document.addEventListener('pointerdown', (e) => { if (S.edit || S.sheet || S.area !== 'hobbies' || e.button > 0) return; const row = e.target.closest && e.target.closest('#view .prow[data-ref]'); if (!row) return; pws = { row, x: e.clientX, y: e.clientY, on: false, dx: 0 }; });
+document.addEventListener('pointermove', (e) => { const w = pws; if (!w) return; const dx = e.clientX - w.x, dy = e.clientY - w.y;
+  if (!w.on) { if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { pws = null; return; } if (dx > 12 && Math.abs(dx) > Math.abs(dy) * 1.4) { w.on = true; w.row.style.transition = 'none'; } else return; }
+  w.dx = Math.max(0, Math.min(110, dx)); w.row.style.transform = `translateX(${w.dx}px)`; });
+const pwsEnd = (e) => { const w = pws; pws = null; if (!w || !w.on) return; w.row.style.transition = 'transform .2s'; w.row.style.transform = '';
+  if (e.type === 'pointerup' && w.dx > 60) { suppress = true; setTimeout(() => { suppress = false; }, 300); try { if (navigator.vibrate) navigator.vibrate(8); } catch (_) {} projWork(w.row.dataset.ref); } };
+document.addEventListener('pointerup', pwsEnd); document.addEventListener('pointercancel', pwsEnd);

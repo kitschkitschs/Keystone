@@ -11,7 +11,7 @@ const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const iavg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
 const ITICK = ['task', 'step', 'routine'];
 // trackers a circle can count (2026-11-08: Insight gathers items from tags, so a Sleep tag brings Sleep quality and the sleep tags too)
-const insTrkOk = (k) => { const it = I(k); return !!it && it.type === 'tracker' && it.insight !== false && (SCALES[it.scale] || ['yesno', 'avoid'].includes(it.scale)); };
+const insTrkOk = (k) => { const it = I(k); return !!it && it.type === 'tracker' && (SCALES[it.scale] || ['yesno', 'avoid'].includes(it.scale)); };
 const insCountable = (k) => !!I(k) && (ITICK.includes(I(k).type) || insTrkOk(k));
 const insTagged = (tags) => Object.keys(M.items).filter((k) => (I(k).tags || []).some((t) => (tags || []).includes(t)));
 // how often an item is meant to happen: num0 times in den0 days (Loop's frequency)
@@ -21,7 +21,7 @@ function insFreq(id) { const it = I(id); let w = it.when;
   if (w.mode === 'days') return [Math.max(1, (w.days || []).length), 7 * n];
   if (w.mode === 'month') return [1, 30 * n]; if (w.mode === 'year') return [1, 365 * n];
   if (w.mode === 'every') return [1, n]; return [1, 7]; }
-const detailed = (id) => { const it = I(id); return it && it.insight !== false && (it.type === 'step' || repeatable(it)); };
+const detailed = (id) => { const it = I(id); return it && (it.type === 'step' || repeatable(it)); };
 
 // Example history for Insight only (never saved, never shown outside Insight), while the example items are in.
 // Tick items get it only before my first real log day, so my own ticks stay honest; health answers fill the days I didn't log.
@@ -57,10 +57,8 @@ function insDone(D, id, d) { const it = I(id); if (!it) return false;
 
 function insCircles() {
   const C = []; const add = (key, name, color, ids, mine) => { ids = [...new Set(ids)].filter(insCountable); if (ids.length || mine) C.push({ key, name, color, ids, mine }); };
-  Object.keys(M.items).filter((k) => I(k).type === 'routine').forEach((r) => add('r:' + r, I(r).name, colorOf(r), [r].concat(I(r).steps || [])));
+  // the owner, 2026-11-11: only Chores and Studies get a circle by themselves; every tag gets one, with every item that carries it
   add('home:chores', 'Chores', '#EDBB3A', (typeof roomIds === 'function' ? roomIds().flatMap(kidsOf) : []).concat(kidsOf('g-oneoff')));
-  add('home:tend', 'Homemaking', '#7DBE9A', kidsOf('g-tend'));
-  add('home:cook', 'Cooking', '#F08A3E', kidsOf('g-prep'));
   add('study', studyName(), (M.areas.study || {}).color || '#3FAFA6', subjIds().flatMap(sIds)); if (C.length && C[C.length - 1].key === 'study') C[C.length - 1].subjects = subjIds().filter((sj) => sIds(sj).length);
   Object.entries(M.tags || {}).forEach(([t, n]) => { const ids = insTagged([t]).filter(insCountable); if (ids.length) add('tag:' + t, n, colorOf(ids[0]), ids); });
   // the built-in circles can be set up too (2026-11-08): my own name and my own pick of things
@@ -108,12 +106,22 @@ function insightData() {
     // today not ticked yet doesn't end the streak I'm on
     const prev = streaks[streaks.length - 1]; const current = run ? run.length : states[days.length - 1] === 'miss' && prev && prev.to === days[days.length - 2] ? prev.length : 0;
     return { id, name: it.name, states, strength, streaks, current, k0, freq: [num0, den0] }; };
-  D.habits = {}; D.circles = insCircles().map((c) => { const tick = c.ids.filter((k) => ITICK.includes(I(k).type)); c.trkIds = c.ids.filter(insTrkOk); const det = tick.filter(detailed); const rest = tick.filter((k) => !detailed(k));
+  // On time (the owner, 2026-11-11): chores and studies score on being done on time. A thing with a rhythm of n days is on time on a day
+  // when it was last done n days ago or less (a new one gets n days first); a deadline is on time until it passes with the task not done.
+  const kStart = (id) => { const made = I(id).made || days[0]; return Math.max(0, first, days.indexOf(made) >= 0 ? days.indexOf(made) : 0); };
+  const onTime = (id, n) => { const k0 = kStart(id); let lk = null; return days.map((d, k) => { if (first < 0 || k < k0 || d > T0) return null; if (insDone(D, id, d)) lk = k; return (lk == null ? k - k0 : k - lk) <= n ? 1 : 0; }); };
+  const byDeadline = (id, dl) => { const k0 = kStart(id); let dn = false; return days.map((d, k) => { if (first < 0 || k < k0 || d > T0) return null; if (insDone(D, id, d)) dn = true; return d > dl && !dn ? 0 : 1; }); };
+  const smooth = (vals) => { let v = 0, seen = false; const m = Math.pow(0.5, 1 / 13); return vals.map((x) => { if (x == null) return v; v = seen ? v * m + (1 - m) * x : x; seen = true; return v; }); };
+  D.habits = {}; D.circles = insCircles().map((c) => { const tick = c.ids.filter((k) => ITICK.includes(I(k).type)); c.trkIds = c.ids.filter(insTrkOk); const every = c.key.startsWith('tag:') || c.mine || c.set; const det = tick.filter((k) => every || detailed(k)); const rest = tick.filter((k) => !every && !detailed(k));
     det.forEach((k) => { if (!D.habits[k]) D.habits[k] = habit(k); });
+    if (c.key === 'home:chores' && !c.set) det.forEach((k) => { const n = period(I(k)); if (n && !D.habits[k].timely) { D.habits[k].strength = smooth(onTime(k, n)); D.habits[k].timely = true; } });
     let hs = det.map((k) => D.habits[k]);
     // Studies: one ring per subject, any of its tasks studied or ticked counts (aim: once a week)
     if (c.subjects) { hs = c.subjects.map((sj) => { const ids = sIds(sj); const st = days.map((d, k) => k < Math.max(0, first) || first < 0 || d > T0 ? 'skip' : ids.some((r) => insDone(D, r, d)) ? 'done' : 'miss');
-      const hb = habit(ids[0], st); hb.name = G(sj).name; hb.id = ''; hb.color = G(sj).color; hb.subj = true; return hb; }); rest.length = 0; }
+      const hb = habit(ids[0], st); hb.name = G(sj).name; hb.id = ''; hb.color = G(sj).color; hb.subj = true;
+      // its strength: how on time its open tasks are, reviews on their own rhythm and deadlines by their date
+      const open = sgroupsOf(sj).flatMap((g) => kidsOf(g).filter((k) => I(k) && !sFinished(k)).map((k) => { const dl = I(k).due || G(g).deadline || null; return smooth(dl ? byDeadline(k, dl) : onTime(k, period(I(k)) || SDEF)); }));
+      if (open.length) hb.strength = days.map((_, k) => iavg(open.map((o) => o[k]))); return hb; }); rest.length = 0; }
     let other = null;
     if (rest.length) { const st = days.map((d, k) => k < Math.max(0, first) || first < 0 || d > T0 ? 'skip' : rest.some((r) => insDone(D, r, d)) ? 'done' : 'miss');
       other = habit(rest[0], st); other.name = 'Other'; other.id = ''; other.other = true; other.n = rest.length; }
@@ -123,16 +131,16 @@ function insightData() {
   // health items: true averages on their own scale
   const inGroups = (gs) => gs.flatMap((g) => G(g) ? G(g).kids : []).filter((k) => I(k) && I(k).type === 'tracker');
   const ciIds = inGroups(['hg-sleep', 'hc-morning', 'hc-evening']).concat(inGroups(['hg-ci']));
-  D.measures = [...new Set(ciIds)].filter((k) => SCALES[I(k).scale] && I(k).scale !== 'symptom3' && I(k).insight !== false);
+  D.measures = [...new Set(ciIds)].filter((k) => SCALES[I(k).scale] && I(k).scale !== 'symptom3');
   if (M.settings.insHealth) D.measures = M.settings.insHealth.filter((k) => I(k) && I(k).type === 'tracker' && SCALES[I(k).scale] && I(k).scale !== 'symptom3');
   if (!M.settings.insHealth) D.measures.sort((a, b) => (/^morning /i.test(I(a).name) ? 1 : 0) - (/^morning /i.test(I(b).name) ? 1 : 0)); // the morning twins go last, so a small tile keeps the main ones
   D.raw = {}; D.info = {};
   trackers.forEach((t) => { const sc = I(t).scale; if (!SCALES[sc] || sc === 'symptom3') return;
     D.raw[t] = days.map((d) => { const v = insVal(D, d, t); return typeof v === 'number' ? v : null; });
     D.info[t] = { lo: 1, hi: SCALES[sc].length, words: SCALES[sc] }; });
-  D.symptoms = trackers.filter((t) => I(t).scale === 'symptom3' && I(t).insight !== false);
+  D.symptoms = trackers.filter((t) => I(t).scale === 'symptom3');
   D.sym = {}; D.symptoms.forEach((t) => { D.sym[t] = days.map((d, k) => { const v = insVal(D, d, t); return typeof v === 'number' ? v : D.logged[k] ? 0 : null; }); });
-  D.areas = trackers.filter((t) => I(t).scale === 'avoid' && I(t).insight !== false);
+  D.areas = trackers.filter((t) => I(t).scale === 'avoid');
   D.av = {}; D.areas.forEach((t) => { D.av[t] = days.map((d) => { const v = insVal(D, d, t); return v === 'faced' ? 1 : v === 'avoided' ? 0 : null; }); });
   // trackers in a circle: a ring each, its value = the average over the last 30 logged days (scales between their ends,
   // yes/no and showed up as the share of days; symptoms as the share of days present, left out of the circle's %)
@@ -146,7 +154,7 @@ function insightData() {
     const sc = c.trk.filter((t) => !t.sym && ['avoid'].concat(Object.keys(SCALES)).includes(I(t.id).scale)); let parts = c.all.concat(sc); if (!parts.length) parts = c.trk.filter((t) => !t.sym); if (c.trk.length) c.strength = days.map((_, k) => iavg(parts.map((h) => h.strength[k]))); });
   // everything that can go together, one value per day (null = not known that day)
   D.vars = []; const addVar = (id, name, group, vals, src) => { if (vals.filter((v) => v != null).length >= 7) D.vars.push({ id, name, group, vals, src: src || id }); };
-  trackers.forEach((t) => { const it = I(t); const sc = it.scale; if (it.insight === false) return;
+  trackers.forEach((t) => { const it = I(t); const sc = it.scale;
     const g = sc === 'symptom3' ? 'Symptoms' : sc === 'avoid' ? 'Avoidance' : D.measures.includes(t) ? 'Health' : 'Other';
     addVar(t, it.name, g, days.map((d, k) => { const v = insVal(D, d, t);
       if (sc === 'symptom3') return typeof v === 'number' ? v : D.logged[k] ? 0 : null;
@@ -205,7 +213,7 @@ function goesTogether(D, pid, lag) {
 function avRoll(arrs, n = 30) { let sum = 0, cnt = 0, cur = null; const len = arrs.length ? arrs[0].length : 0;
   const out = Array.from({ length: len }, (_, k) => { arrs.forEach((a) => { const v = a[k]; if (v != null) { sum += v; cnt++; } const o = k >= n ? a[k - n] : null; if (o != null) { sum -= o; cnt--; } });
     if (cnt) cur = sum / cnt; return cur; });
-  const f = out.find((x) => x != null); return out.map((x) => x == null ? (f == null ? 0.5 : f) : x); }
+  const f = out.find((x) => x != null); const res = out.map((x) => x == null ? (f == null ? 0 : f) : x); res.none = f == null; return res; }
 // Experiments: change one thing for a while; compare with the same number of days just before
 const expList = () => (M.settings.exps = M.settings.exps || []);
 function expSeries(D, id) { if (D.raw[id]) { const f = D.info[id]; return D.raw[id].map((v) => v == null ? null : (v - f.lo) / (f.hi - f.lo)); }
@@ -273,9 +281,9 @@ function iflower(vals, names, acc, size = 190, w = 350) { names = names || WD; c
     return `<ellipse cx="${cx}" cy="${(c - len / 2 - 5).toFixed(2)}" rx="${(6 + 4 * v).toFixed(2)}" ry="${(len / 2).toFixed(2)}" transform="rotate(${a.toFixed(1)} ${cx} ${c})" fill="${tint(acc, (1 - v) * 0.62)}"/>`; }).join('')}<circle cx="${cx}" cy="${c}" r="11" fill="${mix(acc, INK, 0.25)}"/></svg>
     ${vals.map((v, k) => { const rad = ((k / n) * 360 - 90) * Math.PI / 180, x = R * Math.cos(rad); const tx = Math.abs(x) < 12 ? 'translateX(-50%)' : x < 0 ? 'translateX(-100%)' : 'none';
       return `<span style="left:calc(50% + ${x.toFixed(1)}px);top:${(c + R * Math.sin(rad) - 7).toFixed(1)}px;transform:${tx}">${esc(names[k])}</span>`; }).join('')}</div>`; }
-function ihorizon(share, h, R) { const hy = h / 2, cy = hy + R - share * 2 * R;
+function ihorizon(share, h, R, none) { const hy = h / 2, cy = hy + R - share * 2 * R; if (none) return `<div class="ihz" style="height:${h}px"><b style="top:${hy}px"></b></div>`; // nothing answered yet: only the horizon
   return `<div class="ihz" style="height:${h}px"><div class="ihz-top" style="height:${hy}px"><i style="width:${2 * R}px;height:${2 * R}px;left:calc(50% - ${R}px);top:${cy - R}px;background:${SUN}"></i></div><div class="ihz-bot" style="top:${hy}px;height:${hy}px"><i style="width:${2 * R}px;height:${2 * R}px;left:calc(50% - ${R}px);top:${cy - R - hy}px;background:${SHADOW}"></i></div><b style="top:${hy}px"></b></div>`; }
-const iminiHz = (s) => { const cy = 7 + 6 - s * 12; return `<span class="ihzm"><span class="t"><i style="top:${(cy - 6).toFixed(1)}px;background:${SUN}"></i></span><span class="b"><i style="top:${(cy - 6 - 7).toFixed(1)}px;background:${SHADOW}"></i></span><b></b></span>`; };
+const iminiHz = (s, none) => { if (none) return `<span class="ihzm"><b></b></span>`; const cy = 7 + 6 - s * 12; return `<span class="ihzm"><span class="t"><i style="top:${(cy - 6).toFixed(1)}px;background:${SUN}"></i></span><span class="b"><i style="top:${(cy - 6 - 7).toFixed(1)}px;background:${SHADOW}"></i></span><b></b></span>`; };
 // a navigation row: mini ring, name, beads, number, chevron
 const irow = (o) => `<${o.go ? `button data-a="ins" data-v="${esc(o.go)}"` : 'div'} class="irow ${o.sub ? 'sub' : ''}">${o.lead || ''}<span class="nm">${esc(o.label)}</span>${o.mid || ''}${o.muted ? `<span class="mu">${esc(o.muted)}</span>` : ''}${o.num ? `<span class="nu">${esc(o.num)}</span>` : ''}${o.go ? '<span class="chev" aria-hidden="true">›</span>' : o.nochev ? '<span class="chev" aria-hidden="true" style="visibility:hidden">›</span>' : ''}</${o.go ? 'button' : 'div'}>`;
 const ichips = (k, opts, cur) => `<div class="chips ichips">${opts.map((o) => `<button class="chip sm" data-a="insz" data-ref="${k}" data-v="${o}" aria-pressed="${o === cur}">${o}</button>`).join('')}</div>`;
@@ -315,7 +323,7 @@ function renderInsight() {
     // the front page: every circle as its own tile (2026-11-04), from the ⋯ menu and from Health's Insight folder alike
     title = '';
     const ms = D.measures; const healthV = iavg(ms.filter((m) => mAvgRaw(m) != null).map((m) => mAvg(m)));
-    const avoidV = avRoll(D.areas.map((a) => D.av[a]))[last];
+    const avoidS = avRoll(D.areas.map((a) => D.av[a])); const avoidV = avoidS[last];
     // in edit mode a tile can be dragged, recoloured, hidden, and my own circles set up (2026-11-08)
     const T = {}; const ed = S.edit;
     const dots = (refs) => ed ? `<span class="itdots">${refs.map(([r, c, l]) => `<span class="hdot" style="background:${c}" data-col="${r}" role="button" aria-label="Change the ${esc(l)} colour"></span>`).join('')}</span>` : '';
@@ -323,9 +331,11 @@ function renderInsight() {
       ? `<div class="itile ed" data-ref="T:${key}"><span class="ithd">${grip()}<span class="mono">${esc(t)}</span>${mine ? `<button class="hb" data-a="inscedit" data-ref="${key}" aria-label="Set up ${esc(t)}">${icon('settings', 16)}</button>` : ''}<button class="hb" data-a="inshide" data-v="${key}" aria-label="Hide ${esc(t)}">${icon('eye-off', 16)}</button></span>${inner}${dots(cols)}</div>`
       : `<button class="itile" data-a="ins" data-v="${key}"><span class="mono">${esc(t)}</span>${right ? `<em>${esc(right)}</em>` : ''}${inner}</button>`;
     const tile = (t, rings, big, small, go, right, cols, mine) => { T[go] = wrap(go, t, iringSet(rings, big, small, 132, 7, 11, 9), right, cols || [], mine); };
-    if (D.areas.length) T.avoid = wrap('avoid', 'Avoidance', ihorizon(avoidV, 132, 30), ipct(avoidV), [['ic:sun', SUN, 'showed up'], ['ic:shadow', SHADOW, 'avoided']]);
+    if (D.areas.length) T.avoid = wrap('avoid', 'Avoidance', ihorizon(avoidV, 132, 30, avoidS.none), ipct(avoidV), [['ic:sun', SUN, 'showed up'], ['ic:shadow', SHADOW, 'avoided']]);
     if (ms.length) tile('Health', ms.slice(0, 5).map((m, k) => ({ label: I(m).name, v: mAvg(m), c: ciCol(k) })), ipct(healthV), '30 days', 'health', '', [['ic:health', CI_Y, 'Health']], true);
     if (D.feel.some((w) => w.length)) tile('Feelings', D.fams.map((x) => ({ label: x.f, v: fShare(x), c: x.c })), fDays() + '/30', 'days', 'feel', '', D.fams.map((x) => ['fc:' + x.f, x.c, x.f]));
+    if (D.symptoms.length) { const SY = '#E0644E'; const sAvg = (id) => { const v = D.sym[id].slice(-30).filter((x) => x != null); return v.length ? iavg(v) / 3 : 0; }; const ld = loads.slice(-30).filter((x) => x != null);
+      tile('Symptoms', D.symptoms.slice().sort((a, b) => sAvg(b) - sAvg(a)).slice(0, 5).map((id, k) => ({ label: I(id).name, v: sAvg(id), c: tint(SY, Math.min(0.66, k * 0.16)) })), ld.length ? (Math.round(iavg(ld) * 10) / 10).toFixed(1) : '0', 'load, 30 days', 'symptoms'); }
     if (D.over.length) tile('Too much', D.over.slice(0, 5).map((id) => ({ label: I(id).name, v: mShare(id), c: MUCH_C })).map((r, k) => Object.assign(r, { c: tint(MUCH_C, Math.min(0.66, k * 0.16)) })), String(mDays('any')), 'days, 30', 'much', '', [['ic:much', MUCH_C, 'Too much'], ['ic:hyper', HYPER_C, 'hyperfixation'], ['ic:inert', INERT_C, 'inertia']]);
     D.circles.forEach((c) => { const rs = (c.tileRings || c.all.map((hb) => ({ label: hb.name, v: hb.strength[last] }))).concat(c.trk.map((t) => ({ label: t.name, v: t.strength[last] }))).slice(0, 5); tile(c.name, shades(c, rs), ipct(c.strength[last]), c.ids.length === 1 ? '1 item' : c.ids.length + ' items', 'cat:' + c.key, '', [['ic:c:' + c.key, c.color, c.name]], true); });
     { const run = expList().filter((e) => !expResult(D, e).done).length; // Experiments at the top (2026-11-08)
@@ -470,16 +480,16 @@ function renderInsight() {
     const avKey = ikey([[`<i style="width:11px;height:11px;background:${SUN}"></i>`, 'showed up'], [`<i style="width:11px;height:11px;background:${SHADOW}"></i>`, 'avoided'], [ibead('miss'), 'skipped']]);
     if (kind === 'avoid') { title = 'Avoidance';
       const s = pooled; const allV = D.areas.flatMap((a) => D.av[a]);
-      h += `<div class="ibig"><b>${ipct(s[last])}</b><span>showed up, 30 days</span></div>` + ihorizon(s[last], 188, 44);
+      h += `<div class="ibig"><b>${ipct(s[last])}</b><span>showed up, 30 days</span></div>` + ihorizon(s[last], 188, 44, s.none);
       h += istats([[since(s, allDays, last - 30), 'this month'], [since(s, allDays, 0), 'this year'], [String(allV.filter((v) => v === 1).length), 'showed up'], [String(allV.filter((v) => v === 0).length), 'avoided']]);
-      h += ilab('Areas', 'last 7 days') + `<div class="ilist">${D.areas.map((a, i) => irow({ label: I(a).name, lead: iminiHz(series[i][last]), mid: ibeads(D.av[a].slice(-7).map((v) => v == null ? ibead('miss') : v ? ibead('done', 1, SUN) : ibead('avoid'))), num: ipct(series[i][last]), go: 'area:' + a })).join('')}</div>` + avKey;
+      h += ilab('Areas', 'last 7 days') + `<div class="ilist">${D.areas.map((a, i) => irow({ label: I(a).name, lead: iminiHz(series[i][last], series[i].none), mid: ibeads(D.av[a].slice(-7).map((v) => v == null ? ibead('miss') : v ? ibead('done', 1, SUN) : ibead('avoid'))), num: ipct(series[i][last]), go: 'area:' + a })).join('')}</div>` + avKey;
       if (!D.areas.length) h += inote('No avoidance areas yet.');
     } else { const id = name; if (!D.av[id]) { S.ins = 'avoid'; return renderInsight(); } title = I(id).name; const vals = D.av[id]; const s = sOf(vals);
       const runs = []; let run = null; vals.forEach((v, k) => { if (v === 1) { if (!run) run = { from: days[k], to: days[k], length: 0 }; run.to = days[k]; run.length++; } else if (v === 0) { if (run) runs.push(run); run = null; } }); if (run) runs.push(run);
       const best = runs.sort((a, b) => b.length - a.length).slice(0, 4); const bestMax = Math.max(1, ...best.map((r) => r.length));
       const byWd = (want) => WD.map((_, w) => { const vs = vals.filter((v, k) => v != null && wd(days[k]) === w).slice(-12); return vs.length ? iavg(vs.map((v) => v === want ? 1 : 0)) : 0; });
       const weeks = Array.from({ length: 12 }, (_, w) => vals.slice(N - (12 - w) * 7, N - (11 - w) * 7).filter((v) => v != null));
-      h += `<div class="ibig"><b>${ipct(s[last])}</b><span>showed up, 30 days</span></div>` + ihorizon(s[last], 172, 40);
+      h += `<div class="ibig"><b>${ipct(s[last])}</b><span>showed up, 30 days</span></div>` + ihorizon(s[last], 172, 40, s.none);
       h += istats([[since(s, vals, last - 30), 'this month'], [since(s, vals, 0), 'this year'], [String(vals.filter((v) => v === 1).length), 'showed up'], [String(vals.filter((v) => v === 0).length), 'avoided']]);
       { const L0 = ilineFrom(D, s, Math.max(0, vals.findIndex((v) => v != null)), acc); h += ilab('Score', L0.span) + L0.html; }
       h += ilab('Days', '13 weeks') + ical(D, vals.map((v) => v == null ? { state: 'miss' } : v ? { state: 'done', t: 1, c: SUN } : { state: 'avoid' }), 13) + avKey;
@@ -570,7 +580,7 @@ function insightAction(act, a, ref, v) {
 
 // Title dropdown (2026-11-04): like Home and Studies, the title names the section I'm in and lists the others
 function insSections() { insApplyCols(); const D = insightData(); const out = [];
-  if (D.areas.length) { const v = avRoll(D.areas.map((a) => D.av[a]))[D.last]; out.push(['avoid', 'Avoidance', v, iminiHz(v)]); }
+  if (D.areas.length) { const v = avRoll(D.areas.map((a) => D.av[a]))[D.last]; out.push(['avoid', 'Avoidance', v, iminiHz(v, !D.areas.some((a) => D.av[a].some((x) => x != null)))]); }
   if (D.measures.length) { const v = iavg(D.measures.map((m) => { const f = D.info[m]; const a = D.raw[m].slice(-30).filter((x) => x != null); return a.length ? (iavg(a) - f.lo) / (f.hi - f.lo) : null; }).filter((x) => x != null)); out.push(['health', 'Health', v, imini(v, CI_Y)]); }
   if (D.feel.some((w) => w.length)) { const cnt = D.fams.map((x) => D.feel.slice(-30).filter((w) => w.some((y) => x.ws.includes(y))).length); const i = cnt.indexOf(Math.max(...cnt)); const nd = D.feel.slice(-30).filter((w) => w.length).length;
     out.push(['feel', 'Feelings', null, imini(nd ? cnt[i] / nd : 0, D.fams[i].c)]); }
@@ -584,7 +594,7 @@ function insSections() { insApplyCols(); const D = insightData(); const out = []
 function insOrder(keys) { const want = keys.map((k) => 'T:' + k); const cur = (M.settings.insOrder || []).filter((k) => want.includes(k)); want.forEach((k) => { if (!cur.includes(k)) cur.push(k); });
   M.settings.insOrder = cur.concat((M.settings.insOrder || []).filter((k) => !want.includes(k))); return cur; }
 const insMine = () => (M.settings && M.settings.insCircles) || [];
-function insName(D, k) { return { avoid: 'Avoidance', health: 'Health', feel: 'Feelings', much: 'Too much' }[k] || ((D.circles.find((c) => 'cat:' + c.key === k) || {}).name) || k; }
+function insName(D, k) { return { avoid: 'Avoidance', health: 'Health', feel: 'Feelings', much: 'Too much', symptoms: 'Symptoms' }[k] || ((D.circles.find((c) => 'cat:' + c.key === k) || {}).name) || k; }
 // setting up my own circle: name, colour, and the things it counts
 function inscSheet(s) { const D0 = s.draft; const Dd = insightData(); let groups;
   if (s.target === 'health') { const hs = Object.keys(M.items).filter((k) => I(k).type === 'tracker' && SCALES[I(k).scale] && I(k).scale !== 'symptom3'); groups = [['Health items', D0.ids.filter((k) => hs.includes(k)).concat(hs.filter((k) => !D0.ids.includes(k)))]]; }

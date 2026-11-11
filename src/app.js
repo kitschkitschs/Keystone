@@ -27,7 +27,7 @@ const rgb = (h) => { h = h.replace('#', ''); return [0, 2, 4].map((i) => parseIn
 // dark mode (2026-11-08): warm near-black, cards that glow warmer as they need care; kept per device
 const THL = { card: '#FAF8F4', page: '#F2EFEA', ink: '#23211E', line: '#DDD6CA' }, THD = { card: '#2B2926', page: '#1D1B19', ink: '#EFEAE2', line: '#3D3934' };
 const TH = Object.assign({}, THL); let darkOn = false; try { darkOn = localStorage.getItem('daybook3-dark') === '1'; } catch (e) { /* no storage */ }
-function applyTheme() { Object.assign(TH, darkOn ? THD : THL); document.documentElement.classList.toggle('dark', darkOn); const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = TH.page; }
+function applyTheme() { Object.assign(TH, darkOn ? THD : THL); document.documentElement.classList.toggle('dark', darkOn); document.documentElement.style.colorScheme = darkOn ? 'dark' : 'only light'; /* tells the browser not to darken the page by itself, and to draw its own pickers to match */ const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = TH.page; }
 applyTheme();
 // in dark mode the colours I picked are toned down to fit: lighter, brighter ones get darker and a little softer.
 // Done on whatever gets drawn (backgrounds, borders, fills, --c / --bg tones), never on text colour or inside boards.
@@ -390,13 +390,16 @@ function routineOpen(id, d) {
 // without a length of its own an item counts as 30 min (2026-11-04)
 // Today shows no item lengths (2026-11-04): only the block totals and the Study session; kept as a hook in case they come back
 const tdur = (it) => '';
+function whereOf(id) { const it = I(id); const src = it && it.part && I(it.part) ? it.part : id; const r = placements(src).find((p) => G(p) && G(p).style === 'room'); if (r) return G(r).name;
+  if (typeof subjIds === 'function') { const sj = subjIds().find((s) => sIds(s).includes(src)); if (sj) return G(sj).name; } return ''; }
 function itemRow(id, list, d) {
   const it = I(id); const live = d === T0;
   if (it.type === 'slot') return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, false)}<span class="lbl">${S.edit ? nm(id, it.name) : `<button data-a="${live ? 'slot' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left;display:flex;align-items:center;gap:8px"><span style="flex:1">${esc(it.name)}${live && it.opens === 'study' && supMin(T0) < sessLen() ? `<span class="tdur">${estHM(minOn(null, T0) / 60)} of ${estHM(sessLen() / 60)}</span>` : ''}${live && slotSub(it) ? `<span class="sub">${esc(slotSub(it))}</span>` : ''}</span>${live ? '<span class="chev" aria-hidden="true">›</span>' : ''}</button>`}</span>${tail(id, list)}</div>`;
   if (it.type === 'checkin') return `<div class="row" data-ref="${id}" data-fixed="1">${S.edit ? '<span class="grip"></span>' : ''}${tickCircle(id, d, live)}<button class="lbl" data-a="checkin" data-ref="${id}">${nm(id, it.name)}</button><span class="chev">›</span></div>`;
   const much = String(val(d, id) || '').startsWith('much');
   const late = live ? lateBy(id) : 0;
-  const sub = much ? 'Too much' + (val(d, id) === 'much:hyper' ? ' · hyperfixation' : val(d, id) === 'much:inert' ? ' · inertia' : '') : late ? (late === 1 ? '1 day late' : late + ' days late') : '';
+  const sub0 = much ? 'Too much' + (val(d, id) === 'much:hyper' ? ' · hyperfixation' : val(d, id) === 'much:inert' ? ' · inertia' : '') : late ? (late === 1 ? '1 day late' : late + ' days late') : '';
+  const sub = [whereOf(id), sub0].filter(Boolean).join(' · '); // a chore shows its room, a study task its subject
   if (it.type === 'routine') {
     const open = S.edit || routineOpen(id, d); const steps = it.steps || [];
     return `<div data-ref="${id}"><div class="row">${grip()}${tickCircle(id, d, live)}
@@ -531,8 +534,9 @@ const frozenOf = (d) => d < T0 && M.frozen && M.frozen[d] ? M.frozen[d].filter((
 // Also used on frozen past days, so old snapshots follow the rule too (2026-11-06)
 function slotDrop(out) {
   const all = out.flatMap((x) => x.items); const sids = typeof subjIds === 'function' ? new Set(subjIds().flatMap(sIds)) : new Set(); const cids = typeof choreIds === 'function' ? new Set(choreIds()) : new Set();
-    const studyOn = all.some((id) => sids.has(id) || (I(id) && I(id).part && sids.has(I(id).part))), choreOn = all.some((id) => cids.has(id));
-    if (studyOn || choreOn) out.forEach((x) => { x.items = x.items.filter((id) => !(I(id) && I(id).type === 'slot' && ((I(id).opens === 'study' && studyOn) || (I(id).opens === 'chores' && choreOn)))); });
+    const tids = typeof trainCats === 'function' ? new Set(trainCats().flatMap(kidsOf)) : new Set();
+    const studyOn = all.some((id) => sids.has(id) || (I(id) && I(id).part && sids.has(I(id).part))), choreOn = all.some((id) => cids.has(id)), moveOn = all.some((id) => tids.has(id));
+    if (studyOn || choreOn || moveOn) out.forEach((x) => { x.items = x.items.filter((id) => !(I(id) && I(id).type === 'slot' && ((I(id).opens === 'study' && studyOn) || (I(id).opens === 'chores' && choreOn) || (I(id).opens === 'training' && moveOn)))); });
   return out; }
 function placeDay(d) {
   const fz = frozenOf(d); if (fz) { const keep = new Set(slotDrop([{ items: fz.filter((o) => !o.appt).map((o) => o.id) }])[0].items); return fz.filter((o) => !isMissed(o.id, d) && (o.appt || keep.has(o.id))).map((o) => Object.assign({}, o)); }
@@ -618,7 +622,7 @@ function renderSchedule() {
 function renderPlan() {
   const inPlan = (id) => placements(id).some((p) => p.startsWith('s:') || (G(p) && G(p).style === 'dayblock'));
   const F = S.planF || 'all';
-  const tasks = Object.keys(M.items).filter((id) => ['task', 'routine'].includes(I(id).type) && !I(id).part && (F === 'home' ? homeItem(id) : F === 'plan' ? inPlan(id) && !homeItem(id) : inPlan(id) || homeItem(id)));
+  const tasks = Object.keys(M.items).filter((id) => ['task', 'routine'].includes(I(id).type) && !I(id).part && !(typeof hobArea === 'function' && hobArea(id)) && (F === 'home' ? homeItem(id) : F === 'plan' ? inPlan(id) && !homeItem(id) : inPlan(id) || homeItem(id)));
   const nos = tasks.filter((id) => (I(id).when || {}).mode === 'once' && !I(id).when.date && !Object.keys(M.log).some((d) => val(d, id)));
   const sch = tasks.filter((id) => (I(id).when || {}).mode === 'once' && I(id).when.date && (I(id).when.date >= T0 || onDay(id, T0))).sort((a, b) => I(a).when.date.localeCompare(I(b).when.date));
   const rep = tasks.filter((id) => repeatable(I(id)));
@@ -717,6 +721,7 @@ function renderLayer() {
   const lastSb = () => [...document.querySelectorAll('#layer .sb')].pop(); const sb0 = lastSb(); const keep = sb0 && S.sheet && S._lastSheet === S.sheet ? sb0.scrollTop : 0; $('#layer').innerHTML = h; S._lastSheet = S.sheet; if (keep) { const sb1 = lastSb(); if (sb1) sb1.scrollTop = keep; }
   // a message while a pop-up is open shows inside that pop-up, under its title (never hidden behind it)
   if (S.toast && S.sheet) { const hd = [...document.querySelectorAll('#layer > .scrim > .sheet > header, #layer > .cifull > header, #layer > .cifull .cihd')].pop(); if (hd) { const m = document.createElement('div'); m.className = 'shmsg'; m.setAttribute('role', 'alert'); m.textContent = S.toast.msg; hd.after(m); } }
+  { const nt = document.getElementById('ntext'); if (nt) { nt.style.height = 'auto'; nt.style.height = Math.max(nt.scrollHeight, 224) + 'px'; } } // a long note opens at its full height, so the pop-up can scroll through it
   // the + sheet keeps the size it opened at while I search (2026-11-08)
   if (S.sheet && S.sheet.kind === 'add') { const sh = [...document.querySelectorAll('#layer .sheet')].pop(); if (sh) { if (!(S.sheet.q || '').trim()) S.sheet.h = sh.offsetHeight; else if (S.sheet.h) sh.style.height = S.sheet.h + 'px'; } }
 }
@@ -757,6 +762,7 @@ function sheetBody() {
   if (s.kind === 'group') { const g = G(s.ref);
     return `<div class="fld"><span class="mono">Name</span><input class="inp" id="gname" value="${esc(g.name)}"></div>
       ${g.style === 'sgroup' ? `<div class="fld"><span class="mono">Deadline</span><div class="inrow"><input class="inp" type="date" id="gdl" value="${g.deadline || ''}"><span class="note">optional</span></div></div>` : ''}
+      ${g.style === 'project' && typeof hobOf === 'function' && hobOf(s.ref) && hobActs(hobOf(s.ref)).length ? `<div class="fld"><span class="mono">Activity it covers</span><div class="chips">${[['', 'None']].concat(hobActs(hobOf(s.ref)).map((k) => [k, I(k).name])).map(([k, l]) => `<button class="chip" data-a="projact" data-ref="${s.ref}" data-v="${k}" aria-pressed="${(g.act || '') === k}">${esc(l)}</button>`).join('')}</div></div>` : ''}
       ${g.style === 'dayblock' ? `<div class="fld"><span class="mono">Time</span><div class="inrow"><input class="inp" type="time" id="gstart" value="${g.start}"><span>to</span><input class="inp" type="time" id="gend" value="${g.end}"></div></div>` : ''}
       <div class="fld"><span class="mono">Colour</span>${colorField(s.ref, g.color)}</div>
       ${g.style === 'hgroup' && g.special !== 'checkins' ? `<div class="fld"><span class="mono">Asked in a check-in</span><div class="chips">${[['', 'No'], ['morning', 'Morning'], ['evening', 'Evening']].map(([k, l]) => `<button class="chip" data-a="gci" data-ref="${s.ref}" data-v="${k}" aria-pressed="${(g.ci || '') === k}">${l}</button>`).join('')}</div></div>` : ''}
@@ -785,7 +791,7 @@ function sheetBody() {
     lines.push(['Status', done ? (String(val(d, s.ref)).startsWith('much') ? 'Too much' : 'Done') : d < T0 ? 'Not done' : d === T0 ? 'Not done yet' : 'Coming up']);
     return `<div class="peekhd"><span class="aic" style="background:${pale(c)};color:${mix(c, TH.ink, 0.35)}">${icon(it.icon || (isA ? G(catOf(s.ref)).icon : 'check') || 'circle', 20, 1.9)}</span></div>
       <dl class="peek">${lines.map(([k, v]) => `<dt class="mono">${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
-      <div class="btns">${d === T0 && it.type !== 'checkin' && it.type !== 'routine' ? `<button class="btn dark" data-a="peektick">${it.type === 'slot' ? 'Open ' + (it.opens === 'study' ? 'Study' : 'Chores') : done ? 'Untick' : 'Tick as done'}</button>` : ''}${d <= T0 && !done && it.type !== 'checkin' ? `<button class="btn" data-a="miss" data-ref="${s.ref}" data-d="${d}">Missed</button>` : ''}<button class="btn" data-a="peekedit">Edit</button></div>`; }
+      <div class="btns">${d === T0 && it.type !== 'checkin' && it.type !== 'routine' ? `<button class="btn dark" data-a="peektick">${it.type === 'slot' ? 'Open ' + (it.opens === 'study' ? 'Study' : it.opens === 'training' ? 'Training' : 'Chores') : done ? 'Untick' : 'Tick as done'}</button>` : ''}${d <= T0 && !done && it.type !== 'checkin' ? `<button class="btn" data-a="miss" data-ref="${s.ref}" data-d="${d}">Missed</button>` : ''}<button class="btn" data-a="peekedit">Edit</button></div>`; }
   if (s.kind === 'add') {
     // Add or log, redone (2026-11-08): compact, everything in reach. Always on top: a feeling, plan items, notebook items.
     // The search finds anything tickable and ticks it right there; Tick as done = everything on Today plus what I ticked lately.
@@ -804,7 +810,7 @@ function sheetBody() {
     // which study task group: picked right here when there's more than one (2026-11-08)
     // a task from Capture first asks what kind it is (2026-11-10): a plain task, a chore, a study task or a prep
     if (s.pickTask && !s.pickStudy) { const row = (a, v, ic, l) => `<button class="arow" data-a="${a}" ${v ? `data-v="${v}"` : ''} style="text-align:left"><span class="an" style="display:flex;align-items:center;gap:12px">${icon(ic, 20)}${l}</span><span class="chev" aria-hidden="true">›</span></button>`;
-      return `<div class="fld"><div class="afind">${row('new', 'once', 'check', 'Task')}${row('vadd', 'g-oneoff', 'spray-can', 'Chore')}${row('addstudy', '', 'book-open', 'Study task')}${row('vadd', 'g-prep', 'cooking-pot', 'Prep')}</div></div>`; }
+      return `<div class="fld"><div class="afind">${row('new', 'once', 'check', 'Task')}${row('vadd', 'g-oneoff', 'spray-can', 'Chore')}${row('addstudy', '', 'book-open', 'Study task')}${row('vadd', 'g-prep', 'cooking-pot', 'Prep')}</div></div><div class="fld"><span class="mono">Generic</span><div class="afind">${row('slotadd', 'chores', 'spray-can', 'Daily chore')}${row('slotadd', 'training', 'footprints', 'Movement')}${row('slotadd', 'study', 'graduation-cap', 'Study session')}</div></div>`; }
     if (s.pickStudy) { const subs = S.subj && G(S.subj) ? [S.subj] : subjIds();
       return `<div class="fld"><span class="mono">Study task in</span><div class="afind">${subs.map((sb) => sgroupsOf(sb).map((g) => `<button class="arow" data-a="vadd" data-v="${g}" style="text-align:left"><span class="an">${esc(G(g).name)}<span class="sub">${esc(G(sb).name)}</span></span><span class="chev" aria-hidden="true">›</span></button>`).join('')).join('') || '<p class="empty">No task groups yet.</p>'}</div></div>`; }
     // the page I'm on comes first, under This page (2026-11-08)
@@ -907,7 +913,6 @@ function itemSheet(s) {
     if (D.type !== 'appt') {
     h += `<div class="fld"><span class="mono">Kind</span><div class="chips">${[['', 'None'], ['behaviour', 'Behaviour'], ['experience', 'Experience'], ['circumstance', 'Circumstance']].map(([k, l]) => `<button class="chip" data-a="dset" data-k="kind" data-v="${k}" aria-pressed="${(D.kind || '') === k}">${l}</button>`).join('')}</div>${D.kind === 'behaviour' ? sw('unwanted', 'Unwanted', D.unwanted, 'Behaviour I want less of') : ''}${D.kind === 'behaviour' && D.type === 'task' ? sw('overdo', 'Can overdo', D.overdo, 'Tap twice for Too much') : ''}</div>`;
     h += tagField(D, 'dtag');
-    if (repeatable(D) || D.type === 'step') h += sw('insight', 'Show in Insight', D.insight !== false, 'Its own statistics. When off it still counts in its circle\'s Other ring.');
     }
   }
   if (s.ref && I(s.ref) && !s.isNew) h += remField(s.ref);
@@ -957,6 +962,8 @@ function freqUI(s, D) {
 function apptWhen(D) { const r = D.rep, d = D.date || T0; if (!r) return { mode: 'once', date: d }; const n = Math.max(1, r.n || 1);
   if (r.unit === 'week') return { mode: 'days', days: [wd(d)], n, date: d }; if (r.unit === 'month') return { mode: 'month', n, date: d };
   return n === 1 ? { mode: 'days', days: [0, 1, 2, 3, 4, 5, 6], n: 1, date: d } : { mode: 'every', n, date: d }; }
+// whatever pop-up is open, keep what is typed in it before it is drawn again (a New tag box used to wipe a word's text)
+function capAll() { const s = S.sheet; if (!s) return; try { const k = s.kind; if (k === 'item') capture(); else if (k === 'word') wCapture(); else if (k === 'note') ncapture(); else if (k === 'rem') remCapture(); else if (k === 'trip') tripCapture(); else if (k === 'cond') condCapture(); else if (k === 'tracker') tcapture(); else if (k === 'photo') mcapture(); } catch (e) {} }
 function capture() { const s = S.sheet; if (!s || s.kind !== 'item') return; const D = s.draft;
   const g = (id) => document.getElementById(id); if (g('dname')) D.name = g('dname').value.trim() || D.name;
   if (g('ddate') && D.type === 'appt') { D.date = g('ddate').value || T0; if (D.when) D.when.date = D.date; }
@@ -972,7 +979,7 @@ function capture() { const s = S.sheet; if (!s || s.kind !== 'item') return; con
 function openItem(id) { const it = I(id); if (!it) return; if (it.type === 'step') { const r = placements(id)[0]; if (r) id = r.slice(2); } if (it.part && I(it.part)) id = it.part;
   const x = I(id); openSheet({ kind: 'item', ref: id, title: x.type === 'appt' ? 'Appointment' : x.type === 'routine' ? 'Routine' : x.type === 'checkin' ? 'Check-in' : 'Task', draft: JSON.parse(JSON.stringify(x)), block: placements(id).find((p) => G(p) && G(p).style === 'dayblock') || (vHomed({ ref: id }) ? '' : blockOfItem(id)), cat: catOf(id), parts: (x.parts || []).filter(I).map((p) => Object.assign({ id: p, date: (I(p).when || {}).date, min: I(p).dur || 30 }, I(p).time ? { time: I(p).time } : {})), steps: (x.steps || []).map((s) => ({ id: s, name: I(s).name })) }); }
 function newItem(mode, block) {
-  const D = { name: '', type: mode === 'routine' ? 'routine' : 'task', when: mode === 'every' ? { mode: 'every', n: 1, date: T0 } : mode === 'routine' ? { mode: 'days', days: [0, 1, 2, 3, 4, 5, 6], n: 1, date: T0 } : { mode: 'once', date: mode === 'once' && S.page === 'plan' ? null : T0 }, kind: 'behaviour', tags: [], insight: mode !== 'once', made: T0, dur: 30 };
+  const D = { name: '', type: mode === 'routine' ? 'routine' : 'task', when: mode === 'every' ? { mode: 'every', n: 1, date: T0 } : mode === 'routine' ? { mode: 'once', date: T0 } : { mode: 'once', date: mode === 'once' && S.page === 'plan' ? null : T0 }, kind: 'behaviour', tags: [], insight: mode !== 'once', made: T0, dur: 30 };
   openSheet({ kind: 'item', isNew: true, title: mode === 'routine' ? 'New routine' : mode === 'every' ? 'New repeat task' : 'New task', draft: D, block: block || blockIds()[blockIds().length - 1], steps: [] });
 }
 function newAppt(pick) { const cat = pick && G(pick) ? pick : S.cat !== 'all' && G(S.cat) ? S.cat : G('g-appts').kids[0];
@@ -1052,7 +1059,8 @@ document.addEventListener('click', (e) => {
   switch (act) {
     case 'pdjopen': S.area = 'notebook'; S.insOn = false; notebookAction('jopen', a, ref, v); break;
     case 'pdbopen': S.area = 'notebook'; S.insOn = false; S.nbView = 'home'; boardAction('bdopen', a, ref, v); render(); break;
-    case 'openadd': S.openAdd = v; render(); { const el = document.getElementById(v); if (el) { el.focus(); el.scrollIntoView({ block: 'nearest' }); } } break;
+    case 'openadd': capAll(); S.openAdd = v; render(); { const el = document.getElementById(v); if (el) { el.focus(); el.scrollIntoView({ block: 'nearest' }); } } break;
+    case 'slotadd': slotAdd(v); break;
     case 'newpick': if (S.sheet) { S.sheet.pickTask = true; S.sheet.title = 'Task'; renderLayer(); } break;
     case 'addstudy': { const gs = (S.subj && G(S.subj) ? [S.subj] : subjIds()).flatMap(sgroupsOf); if (gs.length === 1) vNew(gs[0]); else { S.sheet.pickStudy = true; S.sheet.title = 'Study task'; renderLayer(); } break; }
     case 'addcond': openSheet({ kind: 'cond', isNew: true, ref: uid('c'), title: 'New condition', draft: { name: '', start: T0, tags: ['ct-ill'].filter(ctag) } }); break;
@@ -1257,9 +1265,9 @@ document.addEventListener('wheel', (e) => { if (S.sheet || S.edit || S.area !== 
 
 // Drag and drop: a grip moves its row within its list, or into another list that takes that kind of thing.
 const kindOf = (ref) => G(ref) ? G(ref).style : (I(ref) || {}).type;
-const ACCEPT = { task: ['task', 'routine', 'slot'], slot: ['slot'], rooms: ['room'], subjects: ['subject'], sgroups: ['sgroup'], blocks: ['dayblock'], acats: ['acat'], tcats: ['tcat'], appt: ['appt'], hgroups: ['hgroup'], tracker: ['tracker'] };
+const ACCEPT = { hobbies: ['hobby'], task: ['task', 'routine', 'slot'], slot: ['slot'], rooms: ['room'], subjects: ['subject'], sgroups: ['sgroup'], blocks: ['dayblock'], acats: ['acat'], tcats: ['tcat'], appt: ['appt'], hgroups: ['hgroup'], tracker: ['tracker'] };
 function listOf(key) { if (key === 'ins:tiles') return M.settings.insOrder; if (key.startsWith('s:')) return I(key.slice(2)).steps; return G(key).kids; }
-function accepts(key, ref) { if (key === 'ins:tiles') return String(ref).startsWith('T:'); if (key.startsWith('s:')) return kindOf(ref) === 'step' && key.slice(2) !== ref; const g = G(key); return !!g && (ACCEPT[g.holds] || []).includes(kindOf(ref)); }
+function accepts(key, ref) { if (key === 'ins:tiles') return String(ref).startsWith('T:'); if (key.startsWith('s:')) return kindOf(ref) === 'step' && key.slice(2) !== ref; const g = G(key); if (key === 'g-hobbies') return kindOf(ref) === 'hobby'; return !!g && (ACCEPT[g.holds] || []).includes(kindOf(ref)); }
 let drag = null;
 document.addEventListener('pointerdown', (e) => {
   const gp = e.target.closest('.grip'); if (!gp || !S.edit) return;
@@ -2043,7 +2051,6 @@ function trackerSheet(s) {
   h += tagField(D, 'ttag');
   { const pg = Object.keys(M.groups).find((k) => M.groups[k].kids.includes(s.ref)); const lead = pg ? G(pg).kids.filter((k) => I(k))[0] : null;
     if (lead && lead !== s.ref) h += sw('after', 'Only after ' + esc(I(lead).name), D.after, 'Shows once ' + esc(I(lead).name.toLowerCase()) + ' has an answer'); }
-  h += sw('insight', 'Show in Insight', D.insight !== false, 'Its own statistics in Insight');
   if (!s.isNew) h += `<div class="btns"><button class="btn danger" data-a="ddelete">Delete</button></div>`;
   return h;
 }
@@ -2100,6 +2107,7 @@ function healthAction(act, a, ref, v) {
     case 'hopen': S.open['h:' + ref] = ref === 't-conds' ? S.open['h:' + ref] !== true : S.open['h:' + ref] === false; // Training's Conditions start closed try { localStorage.setItem('daybook3-shut', JSON.stringify(Object.keys(S.open).filter((k) => k.startsWith('h:') && S.open[k] === false))); } catch (e) {} render(); return true;
     case 'hmore': S.open['more:' + ref] = !S.open['more:' + ref]; render(); return true;
     case 'htab': S.htab[ref] = +v; render(); return true;
+    case 'projact': { const gn = document.getElementById('gname'); const nmv = gn && gn.value.trim(); change(() => { if (nmv) G(ref).name = nmv; if (v) G(ref).act = v; else delete G(ref).act; }); renderLayer(); return true; }
     case 'gci': { change(() => { if (v) G(ref).ci = v; else delete G(ref).ci; }); renderLayer(); return true; }
     case 'cistep': if (S.sheet && S.sheet.kind === 'checkin') { S.sheet.step = +v; S._lastSheet = null; renderLayer(); } return true;
     case 'hset': { const cur = hval(T0, ref); const nv = /^\d+$/.test(v) ? +v : v; change(() => { if (cur === nv) delete L(T0)[ref]; else L(T0)[ref] = nv; }); return true; }
@@ -2246,6 +2254,22 @@ document.addEventListener('input', (e) => {
   if (id === 'chex' && /^#[0-9a-f]{6}$/i.test(e.target.value.trim())) { const [h, sat, l] = hexToHsl(e.target.value.trim()); Object.assign(s, { h, s: sat, l }); $('#cprev').style.background = e.target.value.trim(); ['h', 's', 'l'].forEach((k) => { const el = $('#c' + k); if (el) el.value = s[k]; }); }
 });
 
+// Generic items (2026-11-11): Daily chore, Movement and Study session. They sit on Today when nothing specific from their
+// section is planned that day, and open that section to pick the real thing.
+function slotAdd(k) { const DEF = { study: ['sl-study', 'Study session', 'graduation-cap', '#3FAFA6', 60], chores: ['sl-chore', 'Daily chore', 'spray-can', '#EDBB3A', 20], training: ['sl-move', 'Movement', 'footprints', '#6FA24A', 30] }[k]; if (!DEF) return;
+  const [id, name, ic, color, dur] = DEF; const blk = k === 'study' ? studyBlock() : k === 'chores' ? eveBlock() : blockIds()[0];
+  const placed = I(id) && placements(id).some((p) => G(p) && G(p).style === 'dayblock');
+  if (placed) { S.sheet = null; S.area = 'plan'; S.page = 'today'; S.day = T0; render(); flash(name + ' is already on Today'); return; }
+  S.sheet = null; S.area = 'plan'; S.page = 'today'; S.day = T0;
+  change(() => { if (!M.items[id]) M.items[id] = { name, type: 'slot', opens: k, when: { mode: 'every', n: 1 }, icon: ic, color, dur, made: T0 };
+    const gs = M.groups['g-slots'] = M.groups['g-slots'] || { name: 'Slots', holds: 'slot', kids: [] }; if (!gs.kids.includes(id)) gs.kids.push(id);
+    if (blk && G(blk) && !G(blk).kids.includes(id)) G(blk).kids.push(id); }, 'Added ' + name); }
+// The phone keyboard (2026-11-11): pop-ups slide up so the field I'm writing in stays above it.
+(function () { const vv = window.visualViewport; if (!vv) return; let last = -1;
+  const fit = () => { const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)); if (kb === last) return; last = kb; document.documentElement.style.setProperty('--kb', kb + 'px'); document.documentElement.classList.toggle('kbon', kb > 80);
+    const a = document.activeElement; if (kb > 80 && a && a.closest && a.closest('#layer')) setTimeout(() => { try { a.scrollIntoView({ block: 'center' }); } catch (e) {} }, 60); };
+  vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); })();
+document.addEventListener('focusin', (e) => { const t = e.target; if (!t || !t.closest || !t.closest('#layer') || !/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) && !t.isContentEditable) return; setTimeout(() => { try { t.scrollIntoView({ block: 'center' }); } catch (_) {} }, 350); });
 // ---------- boot ----------
 try { JSON.parse(localStorage.getItem('daybook3-shut') || '[]').forEach((k) => { S.open[k] = false; }); } catch (e) {}
 try { Object.assign(S.open, JSON.parse(localStorage.getItem('daybook3-open') || '{}')); } catch (e) {}
