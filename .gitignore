@@ -1,5 +1,6 @@
 # Backup files hold personal data. Never commit them.
+almanac-*.txt
+daybook-*.txt
 keystone-*.txt
-
-# Local test files made by Cloudflare's wrangler tool.
+node_modules/
 .wrangler/

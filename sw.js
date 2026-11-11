@@ -1,72 +1,21 @@
-// sw.js: the service worker. It keeps a copy of the app's files on the phone,
-// so Keystone opens without a connection.
+// sw.js: the service worker. It keeps a copy of the app on the phone, so Almanac opens
+// without a connection, and it shows my reminders when the sender pings the phone.
 //
-// How updates work: when there's a connection, the app opens with the newest
-// files (asking the server past any short-term caching) and saves a copy.
-// With no connection, or one too slow to answer within a few seconds, it
-// opens from the saved copy instead. So a published change shows up on the
-// next open.
-//
-// If you add a new file to the app, add it to APP_FILES below.
+// How updates work: with a connection, the app opens with the newest files and saves a copy.
+// With no connection, or one too slow to answer within a few seconds, it opens from the saved
+// copy instead. So a published change shows up on the next open.
 
-// db.js lets the service worker read reminders from the app's data.
-importScripts('js/db.js');
+// store.js reads what the app keeps on the phone (the reminder list among it).
+importScripts('store.js');
 
-const CACHE_NAME = 'keystone-app';
+const CACHE_NAME = 'daybook-app';
+const FONT_CACHE = 'daybook-fonts';
 
 // A ping shows reminders whose time was up to this many minutes ago,
 // in case it arrives late (for example when the phone was offline).
 const REMINDER_LATE_MINUTES = 60;
 
-// How reminder notifications look. Swap these files to change the look.
-//   badge: the small symbol in the bar at the top of the screen. Android
-//          only uses its shape: a white shape on a see-through background,
-//          96 x 96 pixels. Colors in it are ignored.
-//   icon:  the larger picture shown next to the reminder text.
-const NOTIFICATION_LOOK = {
-  badge: 'icons/badge.png',
-  icon: 'icons/icon-192.png',
-};
-
-const APP_FILES = [
-  './',
-  'index.html',
-  'style.css',
-  'manifest.webmanifest',
-  'js/look.js',
-  'js/db.js',
-  'js/sample.js',
-  'js/sync.js',
-  'js/reminders.js',
-  'js/plan.js',
-  'js/app.js',
-  'js/health.js',
-  'js/colours.js',
-  'js/charts.js',
-  'js/insight.js',
-  'js/room-art.js',
-  'js/room.js',
-  'js/room-add.js',
-  'js/room-duck.js',
-  'js/map.js',
-  'js/farm.js',
-  'js/playtest.js',
-  'js/room-pieces.js',
-  'js/farm-page.js',
-  'js/map-page.js',
-  'js/room-gacha.js',
-  'js/room-hud.js',
-  'room-art/starter.png',
-  'room-art/cat.png',
-  'fonts/lora-latin-400-normal.woff2',
-  'fonts/lora-latin-500-normal.woff2',
-  'fonts/lora-latin-600-normal.woff2',
-  'fonts/roboto-latin-400-normal.woff2',
-  'fonts/roboto-latin-500-normal.woff2',
-  'icons/icon-192.png',
-  'icons/icon-512.png',
-  'icons/badge.png',
-];
+const APP_FILES = ['./', 'index.html', 'store.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/badge.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_FILES)));
@@ -74,7 +23,8 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  // the old Keystone app's saved copy is no longer needed
+  event.waitUntil(caches.delete('keystone-app').then(() => self.clients.claim()));
 });
 
 // How long to wait for the server before opening from the saved copy.
@@ -82,7 +32,21 @@ const NETWORK_WAIT_MS = 4000;
 
 self.addEventListener('fetch', (event) => {
   const request = event.request;
-  if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
+  if (request.method !== 'GET') return;
+  const host = new URL(request.url).hostname;
+
+  // The fonts come from Google Fonts. Once fetched they are kept, so they work offline too.
+  if (host === 'fonts.googleapis.com' || host === 'fonts.gstatic.com') {
+    event.respondWith(caches.open(FONT_CACHE).then(async (cache) => {
+      const cached = await cache.match(request);
+      if (cached) return cached;
+      const response = await fetch(request);
+      if (response.ok || response.type === 'opaque') cache.put(request, response.clone());
+      return response;
+    }));
+    return;
+  }
+  if (new URL(request.url).origin !== self.location.origin) return;
 
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {
@@ -103,36 +67,26 @@ self.addEventListener('fetch', (event) => {
 
 // --- Reminders ---
 
-// The reminder sender (worker/ in this repo) pings the phone at each reminder
-// time. The ping is empty: the texts come from the app's own data here.
+// The reminder sender (worker/ in this repo) pings the phone at each reminder time.
+// The ping is empty: the words come from the list the app keeps on the phone.
 self.addEventListener('push', (event) => {
   event.waitUntil(showDueReminders());
 });
 
 async function showDueReminders() {
   const now = new Date();
-  const today = todayKey(now);
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  const shown = (await getMeta('remindersShown')) || {}; // reminder id -> day it was last shown
-
-  const reminders = (await getAllItems()).filter((item) => item.kind === 'reminder' && !item.deleted);
-  for (const reminder of reminders) {
-    const [hours, minutes] = reminder.time.split(':').map(Number);
-    const minutesLate = nowMinutes - (hours * 60 + minutes);
-    // -1 allows for the phone's clock being a little behind the sender's.
-    if (minutesLate < -1 || minutesLate > REMINDER_LATE_MINUTES || shown[reminder.id] === today) continue;
-
-    await self.registration.showNotification(reminder.text, {
-      tag: reminder.id,
-      badge: NOTIFICATION_LOOK.badge,
-      icon: NOTIFICATION_LOOK.icon,
-    });
+  const p2 = (n) => String(n).padStart(2, '0');
+  const today = now.getFullYear() + '-' + p2(now.getMonth() + 1) + '-' + p2(now.getDate());
+  const shown = (await DBK.get('remshown')) || {}; // reminder id -> day it was last shown
+  const due = remDue(await DBK.get('rem'), now, shown, REMINDER_LATE_MINUTES);
+  for (const reminder of due) {
+    await self.registration.showNotification(reminder.text, { tag: reminder.id, badge: 'icons/badge.png', icon: 'icons/icon-192.png' });
     shown[reminder.id] = today;
   }
-  await setMeta('remindersShown', shown);
+  if (due.length) await DBK.set('remshown', shown);
 }
 
-// Tapping a reminder opens Keystone.
+// Tapping a reminder opens Almanac.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil((async () => {
