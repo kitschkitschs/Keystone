@@ -1000,7 +1000,7 @@ function itemSheet(s) {
   if (D.type !== 'checkin') {
     h += `<div class="fld"><span class="mono">Colour and icon</span>${colorField('draft', D.color, { inherit: true })}<div><button class="btn" data-a="iconfor" data-v="draft" style="display:inline-flex;gap:8px;align-items:center">${icon(D.icon || (D.type === 'appt' && G(s.cat) ? G(s.cat).icon : 'circle'), 18)} Change icon</button></div></div>`;
     if (D.type !== 'appt') {
-    h += `<div class="fld"><span class="mono">Kind</span><div class="chips">${[['', 'None'], ['behaviour', 'Behaviour'], ['experience', 'Experience'], ['circumstance', 'Circumstance']].map(([k, l]) => `<button class="chip" data-a="dset" data-k="kind" data-v="${k}" aria-pressed="${(D.kind || '') === k}">${l}</button>`).join('')}</div>${D.kind === 'behaviour' ? sw('unwanted', 'Unwanted', D.unwanted, 'Behaviour I want less of') : ''}${D.kind === 'behaviour' && D.type === 'task' ? sw('overdo', 'Can overdo', D.overdo, 'Tap twice for Too much') : ''}</div>`;
+    h += `<div class="fld"><span class="mono">Kind</span><div class="chips">${[['', 'None'], ['behaviour', 'Behaviour'], ['experience', 'Experience'], ['circumstance', 'Circumstance']].map(([k, l]) => `<button class="chip" data-a="dset" data-k="kind" data-v="${k}" aria-pressed="${(D.kind || '') === k}">${l}</button>`).join('')}</div>${D.kind === 'behaviour' ? sw('unwanted', 'Unwanted', D.unwanted, 'Behaviour I want less of') : ''}${D.kind === 'behaviour' && D.type === 'task' ? sw('overdo', 'Can overdo', D.overdo, (S.sheet && (S.sheet.hobact || (S.sheet.ref && typeof hobArea === 'function' && hobArea(S.sheet.ref)) || (S.sheet.home && G(S.sheet.home) && (G(S.sheet.home).style === 'project' || (G('g-hobbies') && G('g-hobbies').kids.includes(S.sheet.home)))))) ? 'Swipe left in Hobbies for Too much' : 'Tap twice for Too much') : ''}</div>`;
     h += tagField(D, 'dtag'); h += linkField2(D);
     }
   }
@@ -1297,7 +1297,8 @@ function tick(id) {
   if (it.type === 'slot') { slotGo(id); return; }
   if (it.type === 'routine') { const all = isDone(id, T0); change(() => { (it.steps || []).forEach((s) => { if (all) delete L(T0)[s]; else L(T0)[s] = 'done'; }); if (!(it.steps || []).length) { if (all) delete L(T0)[id]; else L(T0)[id] = 'done'; } }, (all ? 'Unticked ' : 'Ticked ') + it.name); return; }
   if (it.type === 'checkin') { openSheet({ kind: 'checkin', ref: id, title: it.name }); return; }
-  if (!it.overdo) { change(() => { if (cur) delete L(T0)[id]; else L(T0)[id] = 'done'; }, (cur ? 'Unticked ' : 'Ticked ') + it.name); return; }
+  // a hobby item ticks like any other; Too much is a swipe to the left in Hobbies (2026-11-11)
+  if (!it.overdo || (typeof hobArea === 'function' && hobArea(id))) { change(() => { if (cur) delete L(T0)[id]; else L(T0)[id] = 'done'; }, (cur ? 'Unticked ' : 'Ticked ') + it.name); return; }
   if (!cur) change(() => { L(T0)[id] = 'done'; }, 'Done: ' + it.name);
   else if (cur === 'done') { change(() => { L(T0)[id] = 'much'; }); openSheet({ kind: 'much', ref: id, title: 'Too much' }); }
   else change(() => { delete L(T0)[id]; }, 'Cleared ' + it.name);
