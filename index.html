@@ -6157,7 +6157,7 @@ const chk = (on) => `<span class="bchk">${on ? icon('check', 16) : ''}</span>`;
 function bMenuHtml(b) {
   const mi = (a, v, label, on) => `<button role="menuitem" data-a="${a}" ${v ? `data-v="${v}"` : ''}>${label}${on === undefined ? '' : chk(on)}</button>`;
   const rows = `<span class="mono bmlab">Board</span><span class="bmdots">${colorField('bd:bg', bBg(b))}</span><span class="bmdots">${[['none', 'Plain'], ['dots', 'Dots'], ['grid', 'Grid'], ['lines', 'Lines']].map(([k, l]) => pB('bpat', k, l, (b.pat || 'none') === k)).join('')}</span><span class="bmsep"></span>${mi('bsnap', '', 'Snap to guides', b.snap !== false)}${mi('btidy', '', 'Tidy into a grid')}`;
-  return `<span class="vsortx" data-a="bmenu"></span><span class="vdrop vsortm jdrop bmenum" role="menu">${rows}<span class="bmsep"></span>${mi('bdupboard', '', 'Duplicate board')}<button role="menuitem" class="ndel" data-a="bdel">Delete board</button></span>`; }
+  return `<span class="vsortx" data-a="bmenu"></span><span class="vdrop vsortm jdrop bmenum" role="menu">${rows}<span class="bmsep"></span>${mi('bpng', '', 'Save as PNG')}${mi('bdupboard', '', 'Duplicate board')}<button role="menuitem" class="ndel" data-a="bdel">Delete board</button></span>`; }
 function renderBoard() { const b = curBoard(); if (!b) { S.nbView = S.bBack || 'home'; return renderNotebook(); }
   const h = hOf(b);
   const head = `<div class="bhd"><button class="fbtn" data-a="bback" aria-label="Back">${icon('chevron-left', 20)}</button><input class="btitle" id="btitle" value="${esc(b.title || '')}" aria-label="Board name" placeholder="Board"><span class="btools"><button class="fbtn ${S.bVw ? 'on' : ''}" data-a="bvw" aria-label="${S.bVw ? 'Viewing' : 'Working'}" title="${S.bVw ? 'Viewing' : 'Working'}">${icon(S.bVw ? 'eye' : 'pencil', 19)}</button><button class="fbtn" data-a="bundo" aria-label="Undo" title="Undo" ${h.u.length ? '' : 'disabled'}>${icon('undo-2', 19)}</button><button class="fbtn" data-a="bredo" aria-label="Redo" title="Redo" ${h.r.length ? '' : 'disabled'}>${icon('redo-2', 19)}</button><span class="vsortw"><button class="fbtn" data-a="bmenu" aria-label="More" aria-haspopup="menu" aria-expanded="${!!S.bMenu}">${icon('ellipsis', 19)}</button>${S.bMenu ? bMenuHtml(b) : ''}</span></span></div>`;
@@ -6288,10 +6288,13 @@ function bMaps() { bRowsMore(); const bw = $('#mbwrap'); const cv = bw && bw.que
   document.querySelectorAll('.mbmap').forEach((m) => { const bd = m.closest('.mboard'); if (!bd) return; const W = bd.clientWidth; const d = m.dataset; const s = W * d.k / 360;
   m.style.left = (d.x * W - d.rx * s) + 'px'; m.style.top = (d.y * W - d.ry * s) + 'px'; m.style.width = d.w * s + 'px'; m.style.height = d.h * s + 'px'; m.dataset.s = s;
   const mp = m.querySelector('.mmap'); if (mp) mp.style.transform = `scale(${s})`; });
-  // small text: phones won't draw letters below a minimum size, so tiny text is drawn at a readable size and shrunk to fit, the way the maps are
-  document.querySelectorAll('.mboard .mbi[data-fs]').forEach((n) => { const bd = n.closest('.mboard'); const tx = n.querySelector('.mbtx'); if (!bd || !tx) return; const px = bd.clientWidth * n.dataset.fs, MIN = 14;
-    if (px >= MIN || tx.isContentEditable) { if (n.dataset.sm) { n.style.fontSize = `calc(100cqw * ${n.dataset.fs})`; tx.style.width = tx.style.transform = tx.style.marginBottom = tx.style.right = ''; delete n.dataset.sm; } return; }
-    const r = px / MIN; n.dataset.sm = 1; n.style.fontSize = MIN + 'px'; Object.assign(tx.style, { width: 100 / r + '%', transform: `scale(${r})`, transformOrigin: '0 0', right: 'auto', marginBottom: '0px' }); if (!n.classList.contains('mbs')) tx.style.marginBottom = -tx.offsetHeight * (1 - r) + 'px'; });
+  // text is laid out as it is at 100% and then scaled with the zoom, so it grows and shrinks with the board instead of wrapping differently (the owner, 2026-11-12);
+  // tiny text is drawn at a readable size and shrunk to fit, the way the maps are, since phones won't draw letters below a minimum size
+  const zz = S.bZoom || 1;
+  document.querySelectorAll('.mboard .mbi[data-fs]').forEach((n) => { const bd = n.closest('.mboard'); const tx = n.querySelector('.mbtx'); if (!bd || !tx) return; const W = bd.clientWidth, z = bd.closest('.mbwrap') ? zz : 1, px = W * n.dataset.fs, MIN = 14;
+    const draw = Math.max(px / z, MIN), r = px / draw;
+    if (Math.abs(r - 1) < 0.002) { if (n.dataset.sm) { n.style.fontSize = `calc(100cqw * ${n.dataset.fs})`; tx.style.width = tx.style.transform = tx.style.marginBottom = tx.style.right = ''; delete n.dataset.sm; } return; }
+    n.dataset.sm = 1; n.style.fontSize = draw + 'px'; Object.assign(tx.style, { width: 100 / r + '%', transform: `scale(${r})`, transformOrigin: '0 0', right: 'auto', marginBottom: '0px' }); if (!n.classList.contains('mbs')) tx.style.marginBottom = -tx.offsetHeight * (1 - r) + 'px'; });
   // my own connections, drawn across maps on the board
   document.querySelectorAll('.mboard .mblinks').forEach((sv) => { const bd = sv.closest('.mboard'); const b = boardOf(bd.dataset.bid); if (!b) return; const B = bd.getBoundingClientRect();
     const box = (id) => { const n = bd.querySelector(`.mmn[data-id="${id}"]`); if (!n) return null; const r = n.getBoundingClientRect(); return { cx: r.left - B.left + r.width / 2, cy: r.top - B.top + r.height / 2, w: r.width, h: r.height, c: n.style.getPropertyValue('--bc'), shp: n.dataset.shp }; };
@@ -6434,6 +6437,10 @@ let bDrag = null, bTap = null, bPan = null; const bPts = new Map();
 // dragging something to the edge of what I can see: the board grows that way and scrolls along with me (the owner, 2026-11-12)
 let bEdge = null;
 document.addEventListener('pointermove', (e) => { if (!e.isTrusted) return; const on = (bDrag && bDrag.moved && !['turn', 'size', 'wide'].includes(bDrag.mode)) || (mDrag && mDrag.moved && !mDrag.pan); if (!on) { bEdge = null; return; } const st = !bEdge; bEdge = { x: e.clientX, y: e.clientY }; if (st) requestAnimationFrame(bEdgeTick); });
+// the board takes its new size while I drag, so nothing jumps when I let go
+function bGrowLive(b) { const bw = $('#mbwrap'), cv = bw && bw.querySelector('.mbcanvas'), bd = cv && cv.querySelector('.mboard'); if (!cv || !bd || !b) return; const H = moodHeight(b), o = bReach(b), Wu = bRight(b) + o.l;
+  cv.style.setProperty('--ol', o.l); cv.style.setProperty('--ot', o.t); cv.style.width = `calc(100cqw * ${Wu} * var(--z,1))`; cv.style.height = `calc(100cqw * ${H + o.t} * var(--z,1))`; bd.style.height = `calc(100cqw * ${H} * var(--z,1))`;
+  const mn = $('#main'), k = bw.clientWidth * (S.bZoom || 1); if (S.bOff && S.bOff.b === S.board) { if (o.l !== S.bOff.l) { bw.scrollLeft += (o.l - S.bOff.l) * k; S.bSL = bw.scrollLeft; } if (o.t !== S.bOff.t && mn) mn.scrollTop += (o.t - S.bOff.t) * k; } S.bOff = { b: S.board, l: o.l, t: o.t }; }
 function bEdgeTick() { const on = (bDrag && bDrag.moved) || (mDrag && mDrag.moved && !mDrag.pan); if (!bEdge || !on) { bEdge = null; return; }
   const m = $('#main'), w = document.querySelector('.mbwrap'), cv = w && w.querySelector('.mbcanvas'); if (!m || !w || !cv) { bEdge = null; return; }
   const vv = window.visualViewport, mr = m.getBoundingClientRect(), wr = w.getBoundingClientRect(), dk = $('#bdock'), dr = dk && dk.getBoundingClientRect();
@@ -6443,7 +6450,8 @@ function bEdgeTick() { const on = (bDrag && bDrag.moved) || (mDrag && mDrag.move
   if (vy > 0 && m.scrollTop + vy > m.scrollHeight - m.clientHeight - 1) cv.style.minHeight = (cv.offsetHeight + vy + 2) + 'px';
   if (vx > 0 && w.scrollLeft + vx > w.scrollWidth - w.clientWidth - 1) cv.style.minWidth = (cv.offsetWidth + vx + 2) + 'px';
   const t0 = m.scrollTop, l0 = w.scrollLeft; if (vy) m.scrollTop += vy; if (vx) w.scrollLeft += vx; const dy = m.scrollTop - t0, dx = w.scrollLeft - l0;
-  if ((dx || dy) && bDrag) { bDrag.sx -= dx; bDrag.sy -= dy; document.dispatchEvent(new PointerEvent('pointermove', { clientX: bEdge.x, clientY: bEdge.y })); }
+  let ex = 0, ey = 0; if (bDrag) { if (vx < 0 && !dx) ex = vx; if (vy < 0 && !dy) ey = vy; } // at the left or top end the board grows that way under my finger
+  if ((dx || dy || ex || ey) && bDrag) { bDrag.sx -= dx + ex; bDrag.sy -= dy + ey; document.dispatchEvent(new PointerEvent('pointermove', { clientX: bEdge.x, clientY: bEdge.y })); }
   requestAnimationFrame(bEdgeTick); }
 function bPanStart(e) { bPts.set(e.pointerId, { x: e.clientX, y: e.clientY }); const w = $('#mbwrap'), m = $('#main');
   if (bPts.size === 2) { const [a, c] = [...bPts.values()]; bPan = { pinch: true, d0: Math.hypot(a.x - c.x, a.y - c.y) || 1, z0: S.bZoom || 1 }; return; }
@@ -6498,7 +6506,7 @@ document.addEventListener('pointermove', (e) => { const d = bDrag; if (!d) retur
     if (best) { nx += best.df; gx.push(best.t); }
     best = null; [0, d.hu / 2, d.hu].forEach((off) => ty.forEach((t) => { const df = t - (ny + off); if (Math.abs(df) < th && (!best || Math.abs(df) < Math.abs(best.df))) best = { df, t }; }));
     if (best) { ny += best.df; gy.push(best.t); } }
-  x.x = Math.max(-4, Math.min(12, nx)); x.y = ny; s.left = x.x * 100 + '%'; s.top = `calc(100cqw * ${x.y})`; bGuides(d.board, gx, gy, d.W); });
+  x.x = Math.max(-4, Math.min(12, nx)); x.y = ny; s.left = x.x * 100 + '%'; s.top = `calc(100cqw * ${x.y})`; bGuides(d.board, gx, gy, d.W); bGrowLive(d.b); });
 document.addEventListener('pointerup', () => { const d = bDrag; if (!d) return; bDrag = null; d.board.querySelectorAll('.mbg').forEach((n) => n.remove());
   if (d.moved) { if (d.x.t === 'text' || d.x.t === 'note') d.x.h = d.box.offsetHeight / d.W; bPush(d.b, d.before); bTouch(d.b); save(); render(); return; }
   if (d.wasSel && d.x.t !== 'photo') bEditText(d.x.id); });
@@ -6918,7 +6926,8 @@ document.addEventListener('pointermove', (e) => { const d = mDrag; if (!d) retur
   d.g.style.translate = `${d.nl + e.clientX - d.sx}px ${d.nt + e.clientY - d.sy}px`;
   document.querySelectorAll('.mmn.drop').forEach((q) => q.classList.remove('drop'));
   const t = [...document.querySelectorAll('.mbwrap .mmn')].find((q) => { if (d.bad.has(q.dataset.id)) return false; const r = q.getBoundingClientRect(); return e.clientX > r.left + 4 && e.clientX < r.right - 4 && e.clientY > r.top + 2 && e.clientY < r.bottom - 2; });
-  d.t = t || null; if (t) t.classList.add('drop'); d.ex = e.clientX; d.ey = e.clientY; });
+  d.t = t || null; if (t) t.classList.add('drop'); d.ex = e.clientX; d.ey = e.clientY;
+  if (!t && !d.x.parent) { const bd = document.querySelector('.mbwrap .mboard'); if (bd) { const R = bd.getBoundingClientRect(), W = bd.clientWidth, ox = d.x.x, oy = d.x.y; d.x.x = (d.ex - d.gx - R.left) / W; d.x.y = Math.max(0.02, (d.ey - d.gy - R.top) / W); try { bGrowLive(d.b); } finally { d.x.x = ox; d.x.y = oy; } } } });
 document.addEventListener('pointerup', () => { const d = mDrag; if (!d) return; mDrag = null; if (!d.moved) return; mSkip = true; setTimeout(() => { mSkip = false; }, 50);
   if (d.pan) return; d.g.remove(); d.n.classList.remove('mmdrag'); document.querySelectorAll('.mmn.drop').forEach((q) => q.classList.remove('drop'));
   if (!d.t) { // dropped on empty space: a centre moves its whole map there; a branch becomes a map of its own
@@ -6970,6 +6979,7 @@ function boardAction(act, a, ref, v) {
       if (b && !b.items.length && !b.title) { M.boards = boards().filter((x) => x !== b); save(); }
       if (!bBackTo()) { S.nbView = S.bBack || 'home'; S.board = null; } S.bSel = null; S.bMenu = false; S.bPanel = null; render(); return true; }
     case 'bmenu': S.bMenu = !S.bMenu; render(); return true;
+    case 'bpng': S.bMenu = false; bPng(); return true;
     case 'bzoom': bSetZoom(v === 'in' ? (S.bZoom || 1) * 1.25 : v === 'out' ? (S.bZoom || 1) / 1.25 : 1); return true;
     case 'bdel': { S.bMenu = false; if (!bBackTo()) { S.nbView = S.bBack || 'home'; S.board = null; } change(() => { M.boards = boards().filter((x) => x !== b); }, 'Board deleted'); return true; }
     case 'bdupboard': { if (!b) return true; const c = JSON.parse(JSON.stringify(b)); c.id = uid('bd'); c.upd = Date.now(); c.title = boardTitle(b) + ' (copy)';
@@ -7252,6 +7262,24 @@ document.addEventListener('click', (e) => { if (!S.bMap || !S.bTool || S.bMulti 
   if (T === 'bub' && n && (S.bStSec || 'bub') === 'bub') { const id = n.dataset.id; bMut((bb) => { const x = bb.items.find((i) => i.id === id); if (x) bPaintBub(x); }); } }, true);
 // a new loose bubble at a spot (board-width fractions); in map mode a double tap on the empty board puts one there (2026-11-10)
 function bBubbleAt(b, sp) { const before = bState(b); const id = uid('mn'); b.items.push({ id, text: '', parent: null, pill: true, x: sp.x, y: sp.y, k: 1, z: bTopZ(b) + 1 }); bTouch(b); S.bSel = id; S.bPanel = null; render(); mmEdit(id, before); }
+// save the board as a picture: drawn at 100% without my selection, cropped to what's on it (the owner, 2026-11-12)
+let H2C = null;
+function h2cLoad() { if (window.html2canvas) return Promise.resolve(window.html2canvas); if (H2C) return H2C;
+  H2C = new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'; sc.onload = () => ok(window.html2canvas); sc.onerror = () => { H2C = null; no(new Error('load')); }; document.head.appendChild(sc); }); return H2C; }
+async function bPng() { const b = curBoard(); if (!b) return;
+  const keep = { z: S.bZoom, sel: S.bSel, multi: S.bMulti, lines: S.bLines, lk: S.bLk, panel: S.bPanel, map: S.bMap, tool: S.bTool, top: ($('#main') || {}).scrollTop, left: ($('#mbwrap') || {}).scrollLeft };
+  try { const h2c = await h2cLoad(); S.bZoom = 1; S.bSel = null; S.bMulti = null; S.bLines = null; S.bLk = null; S.bPanel = null; S.bMap = false; S.bTool = null; render(); await new Promise((r) => setTimeout(r, 120)); if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    const cv = document.querySelector('.mbwrap .mbcanvas'); if (!cv) throw new Error('no board'); const C = cv.getBoundingClientRect(); let l = Infinity, t = Infinity, r = -Infinity, bt = -Infinity;
+    cv.querySelectorAll('.mbi, .mbmap .mmn').forEach((n) => { const q = n.getBoundingClientRect(); if (!q.width) return; l = Math.min(l, q.left); t = Math.min(t, q.top); r = Math.max(r, q.right); bt = Math.max(bt, q.bottom); });
+    const pad = 24; const box = l === Infinity ? { x: 0, y: 0, width: C.width, height: Math.min(C.height, 600) } : { x: Math.max(0, l - C.left - pad), y: Math.max(0, t - C.top - pad), width: Math.min(C.width, r - C.left + pad) - Math.max(0, l - C.left - pad), height: Math.min(C.height, bt - C.top + pad) - Math.max(0, t - C.top - pad) };
+    const pic = await h2c(cv, Object.assign({ scale: 2, backgroundColor: bBg(b), useCORS: true, logging: false, scrollX: 0, scrollY: 0, ignoreElements: (e) => e.classList && (e.classList.contains('bzm') || e.id === 'bdock') }, box));
+    const blob = await new Promise((ok) => pic.toBlob(ok, 'image/png')); const name = ((b.title || 'Board').replace(/[\\/:*?"<>|]+/g, '').trim() || 'Board') + '.png'; const file = new File([blob], name, { type: 'image/png' });
+    const phone = navigator.userAgentData ? navigator.userAgentData.mobile : /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+    if (phone && navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: name }); } catch (e) { if (e.name !== 'AbortError') throw e; } }
+    else { const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000); }
+  } catch (e) { flash(e && e.message === 'load' ? 'I need to be online to make the picture' : 'Could not make the picture'); }
+  finally { Object.assign(S, { bZoom: keep.z, bSel: keep.sel, bMulti: keep.multi, bLines: keep.lines, bLk: keep.lk, bPanel: keep.panel, bMap: keep.map, bTool: keep.tool }); render(); const m = $('#main'), w = $('#mbwrap'); if (m) m.scrollTop = keep.top || 0; if (w) w.scrollLeft = keep.left || 0; } }
+
 
 // ===================== Shopping list (2026-11-09) =====================
 // Part of Home with its own button on the landing. Items are plain lines (M.shop), not tasks, so they never show on Today.
