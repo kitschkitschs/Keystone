@@ -1130,7 +1130,7 @@ function blank() { const m = seed(); m.example = false; m.items = {}; m.log = {}
   m.tags = {};
   return m; }
 
-const LAYOUT_V = 4; // bump when placeDay's rules change, so past snapshots are retaken
+const LAYOUT_V = 5; // bump when placeDay's rules change, so past snapshots are retaken
 let M = seed();
 const S = { area: 'plan', page: 'today', day: T0, month: false, monthOf: T0.slice(0, 7), edit: false, sheet: null, menu: false, toast: null, showDone: false, open: {}, cat: 'all', sday: T0, sview: 'week', smonth: false, smonthOf: T0.slice(0, 7), htab: {}, fd: { day: T0, month: false, monthOf: T0.slice(0, 7), sel: 'day' } };
 
@@ -1189,7 +1189,8 @@ const sameDom = (a, b) => { const last = new Date(b.getFullYear(), b.getMonth() 
 function whenOn(it, d) {
   const w = it.when || { mode: 'once', date: null };
   const h = (it.past || []).slice().sort((a, b) => a.until.localeCompare(b.until)).find((p) => d <= p.until); if (h) return h.when;
-  if (w.mode !== 'once' && w.date && it.made && it.made < w.date && !(it.past || []).length) return Object.assign({}, w, { date: null });
+  // a day I moved it to keeps it off the days before (2026-11-12: a rescheduled shower came back on Yesterday); only items from before rules were kept lose the date
+  if (w.mode !== 'once' && w.date && it.made && it.made < '2026-11-04' && it.made < w.date && !(it.past || []).length) return Object.assign({}, w, { date: null });
   return w;
 }
 // Always after (2026-11-11): a workout item names the tasks that always follow it (a shower after a hike). A task named
@@ -1201,10 +1202,10 @@ function workoutOn(d, id) { const key = d + '|' + id; if (WKC.has(key)) return W
   try { r = (afterSrc()[id] || []).some((k) => onDay0(k, d)); } catch (e) { r = false; }
   WKC.set(key, r); return r; }
 // a repeat from Home or Studies that I've never done stays off my days: I get through everything once first, from its own page
-const firstRound = (id) => { const it = I(id); if (!it || !it.when || it.when.mode === 'once' || it.type !== 'task') return false; if (it.when.set && it.when.date) return false; // a day I picked myself always counts (2026-11-11)
-  if (!placements(id).some((p) => p === 'g-tend' || (G(p) && (G(p).style === 'room' || G(p).style === 'sgroup')))) return false; return !Object.keys(M.log).some((k) => val(k, id)); };
+const firstRound = (id, upto) => { const it = I(id); if (!it || !it.when || it.when.mode === 'once' || it.type !== 'task') return false; if (it.when.set && it.when.date) return false; // a day I picked myself always counts (2026-11-11)
+  if (!placements(id).some((p) => p === 'g-tend' || (G(p) && (G(p).style === 'room' || G(p).style === 'sgroup')))) return false; return !Object.keys(M.log).some((k) => (!upto || k <= upto) && val(k, id)); };
 function onDay(id, d) { const it = I(id); if (!it) return false;
-  if (d >= T0 && firstRound(id)) return false;
+  if (d >= T0 ? firstRound(id) : firstRound(id, d) && !isDone(id, d)) return false; // a past day never shows a repeat I hadn't done once yet by then (2026-11-12)
   if (!afterSrc()[id] || d < T0 || it.type === 'checkin') return onDay0(id, d);
   if (it.made && d < it.made) return false; if (it.end && d > it.end) return false;
   const w = it.when || {};
@@ -1374,7 +1375,7 @@ function linkPass(d) { const L0 = M.log[d] = M.log[d] || {};
   Object.keys(L0).filter((k) => k.startsWith('ln:')).forEach((k) => { const t = k.slice(3), src = L0[k]; if (!I(src) || !(I(src).links || []).includes(t) || !linkDone(src, d)) { delete L0[k]; delete L0[t]; } });
   Object.keys(M.items).forEach((id) => { const ls = I(id).links; if (!ls || !ls.length || !linkDone(id, d)) return; ls.forEach((t) => { if (!I(t) || t === id || L0[t] != null) return; L0[t] = linkVal(t); L0['ln:' + t] = id; }); });
   if (!Object.keys(L0).length) delete M.log[d]; }
-function change(fn, msg, canUndo = true) { freezePast(); const before = JSON.stringify(M); if (HIST.last == null) HIST.last = before; HIST.t = 0; fn(); try { linkPass(T0); if (S.day && S.day < T0) linkPass(S.day); } catch (_) {} try { snapDay(T0); if (S.day && S.day < T0 && S.area === 'plan') snapDay(S.day); } catch (_) {} save(); HIST.t = 0; render(); } // no pop-up when I tick or save (2026-11-10); undo history is kept by save()
+function change(fn, msg, canUndo = true) { freezePast(); const before = JSON.stringify(M); if (HIST.last == null) HIST.last = before; HIST.t = 0; fn(); keepToday(); try { linkPass(T0); if (S.day && S.day < T0) linkPass(S.day); } catch (_) {} try { snapDay(T0); if (S.day && S.day < T0 && S.area === 'plan') snapDay(S.day); } catch (_) {} save(); HIST.t = 0; render(); } // no pop-up when I tick or save (2026-11-10); undo history is kept by save()
 function dayTick() { const t = appDay(); if (t === T0) return; const old = T0; T0 = t; if (S.day === old) S.day = t; if (S.sday === old) S.sday = t; if (S.monthOf === old.slice(0, 7)) S.monthOf = t.slice(0, 7); S.dayComp = null; render(); }
 setInterval(dayTick, 30000); document.addEventListener('visibilitychange', () => { if (!document.hidden) dayTick(); }); window.addEventListener('focus', dayTick);
 // every change is a step (2026-11-12: undo several steps, then redo): save() compares with the last state it saw; changes
@@ -1482,6 +1483,9 @@ function routineOpen(id, d) {
 // without a length of its own an item counts as 30 min (2026-11-04)
 // Today shows no item lengths (2026-11-04): only the block totals and the Study session; kept as a hook in case they come back
 const tdur = (it) => '';
+// appointments run from one time to another, 12:00–15:00 (2026-11-12); the length is kept as dur
+const apEnd = (it) => it.time && it.dur ? fmtHM((hm(it.time) + it.dur) % 1440) : '';
+const apTime = (it) => it.time ? it.time + (apEnd(it) ? '–' + apEnd(it) : '') : '';
 function whereOf(id) { const it = I(id); const src = it && it.part && I(it.part) ? it.part : id; const r = placements(src).find((p) => G(p) && G(p).style === 'room'); if (r) return G(r).name;
   if (typeof subjIds === 'function') { const sj = subjIds().find((s) => sIds(s).includes(src)); if (sj) return G(sj).name; } return ''; }
 function itemRow(id, list, d) {
@@ -1596,7 +1600,7 @@ function renderToday() {
     if (!S.edit && !shown.length && !apShown.length) return '';
     const open = S.edit || S.open['b:' + b] !== false;
     const ap = appts || []; const total = items.length + ap.length, left = items.concat(ap).filter((id) => !isDone(id, d)).length;
-    const apRow = (id) => `<div class="appt" data-appt="${id}" style="--c:${G(catOf(id)).color}">${tickCircle(id, d, live)}<button data-a="peek" data-ref="${id}" data-d="${d}" style="display:flex;align-items:center;gap:10px;flex:1;min-height:44px;text-align:left"><b>${esc(I(id).time || '')}</b><span style="flex:1">${esc(I(id).name)}${tdur(I(id))}</span><span class="cnt">${live && I(id).time ? inTime(I(id).time) : ''}</span></button></div>`;
+    const apRow = (id) => `<div class="appt" data-appt="${id}" style="--c:${G(catOf(id)).color}">${tickCircle(id, d, live)}<button data-a="peek" data-ref="${id}" data-d="${d}" style="display:flex;align-items:center;gap:10px;flex:1;min-height:44px;text-align:left"><b>${esc(apTime(I(id)))}</b><span style="flex:1">${esc(I(id).name)}${tdur(I(id))}</span><span class="cnt">${live && I(id).time ? inTime(I(id).time) : ''}</span></button></div>`;
     const seq = apShown.map((id) => ({ id, ap: true })).concat(shown.map((id) => ({ id }))).map((x, k) => Object.assign(x, { k })).sort((p, q) => ((at[p.id] ?? 9999) - (at[q.id] ?? 9999)) || p.k - q.k);
     return `<section class="card" data-ref="${b}">
       <div class="bhead">${grip()}${S.edit ? `<span class="circ" style="--c:${g.color};width:14px;height:14px;background:${g.color}" data-col="${b}" role="button" aria-label="Change colour"></span><button class="bico" data-a="iconfor" data-v="${b}" aria-label="Change icon">${icon(g.icon || 'clock', 16)}</button><span class="nm mono" style="font-size:11px">${nm(b, g.name)}</span><span class="cnt">${g.start}–${g.end}</span>${tail(b, 'g-blocks')}`
@@ -1626,6 +1630,8 @@ function inTime(t) { const now = new Date(); const m = hm(t) - (now.getHours() *
 // Schedule: the week as a timeline; untimed items fill their block in list order.
 const PX = 48; // per hour
 // Past days are recorded as they were: once a day is over its layout is frozen, so later moves never change it.
+// today's list is kept as it stands after every change, so once the day is over it shows what was really on it (2026-11-12)
+function keepToday() { try { WKC.clear(); M.frozen = M.frozen || {}; M.frozen[T0] = placeDay(T0).map((o) => ({ id: o.id, a: o.a, b: o.b, blk: o.blk, appt: !!o.appt })); } catch (e) {} }
 function freezePast() { M.frozen = M.frozen || {}; Object.keys(M.log).forEach((k) => { if (k < T0 && !M.frozen[k]) M.frozen[k] = placeDay(k).map((o) => ({ id: o.id, a: o.a, b: o.b, blk: o.blk, appt: !!o.appt })); }); }
 const frozenOf = (d) => d < T0 && M.frozen && M.frozen[d] ? M.frozen[d].filter((o) => I(o.id)) : null;
 // a day with real study tasks (or sessions) drops the generic Study session slot; real chores drop the Daily chore slot.
@@ -1775,7 +1781,7 @@ function renderAppts() {
   const today = all.filter((x) => x.on === T0).sort(by), coming = all.filter((x) => x.on && x.on > T0).sort(by), past = all.filter((x) => x.on && x.on < T0).sort(by).reverse().slice(0, 12);
   // the same rows as Plan; a filled dot with the category icon takes the place of the tick circle
   const row = (x, isPast) => { const it = I(x.id); const c = G(x.cat).color; const done = x.on === T0 && isDone(x.id, T0);
-    return `<div class="row ${isPast || done ? 'past' : ''}" data-ref="${x.id}"><span class="adot" style="--c:${c}">${icon(it.icon || G(x.cat).icon || 'calendar', 13, 2.2)}</span><button class="lbl" data-a="${S.edit ? 'open' : 'peek'}" data-ref="${x.id}" data-d="${x.on}" style="text-align:left">${S.edit ? nm(x.id, it.name) : esc(it.name)}<span class="sub">${esc(relDay(x.on))}${it.time ? ' · ' + esc(it.time) : ''}${done ? ' · done' : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></button>${apRepText(it) ? `<span class="rep" title="${esc(apRepText(it))}" aria-label="${esc(apRepText(it))}">${icon('repeat', 12, 2)}</span>` : ''}${tail(x.id, x.cat)}</div>`; };
+    return `<div class="row ${isPast || done ? 'past' : ''}" data-ref="${x.id}"><span class="adot" style="--c:${c}">${icon(it.icon || G(x.cat).icon || 'calendar', 13, 2.2)}</span><button class="lbl" data-a="${S.edit ? 'open' : 'peek'}" data-ref="${x.id}" data-d="${x.on}" style="text-align:left">${S.edit ? nm(x.id, it.name) : esc(it.name)}<span class="sub">${esc(relDay(x.on))}${it.time ? ' · ' + esc(apTime(it)) : ''}${done ? ' · done' : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></button>${apRepText(it) ? `<span class="rep" title="${esc(apRepText(it))}" aria-label="${esc(apRepText(it))}">${icon('repeat', 12, 2)}</span>` : ''}${tail(x.id, x.cat)}</div>`; };
   const sec = (t, xs, p) => xs.length ? lcard('a:' + t, t, xs.length, xs.map((x) => row(x, p)).join('')) : '';
   // outside edit mode: the same row as Plan, Add (a dropdown of categories) on the left and the filter on the right (2026-11-04)
   const one = (c) => esc(G(c).name.replace(/s$/, ''));
@@ -1921,7 +1927,7 @@ function sheetBody() {
   if (s.kind === 'peek') { const it = I(s.ref); if (!it) return ''; const isA = it.type === 'appt'; const c = isA ? G(catOf(s.ref)).color : colorOf(s.ref); const d = s.d || T0; const done = isDone(s.ref, d);
     const lines = [];
     lines.push(['Day', relDay(d) === fmtDate(d) ? fmtDate(d) : relDay(d) + ', ' + fmtDate(d)]);
-    if (isA) { lines.push(['Time', it.time || 'No time set']); lines.push(['Category', G(catOf(s.ref)).name]); if (it.when && it.when.mode !== 'once') lines.push(['Frequency', whenText(Object.assign({}, it, { when: Object.assign({}, it.when, { date: it.date }) }))]); else if (it.rep) lines.push(['Frequency', repText(it.rep)]); }
+    if (isA) { lines.push(['Time', apTime(it) || 'No time set']); lines.push(['Category', G(catOf(s.ref)).name]); if (it.when && it.when.mode !== 'once') lines.push(['Frequency', whenText(Object.assign({}, it, { when: Object.assign({}, it.when, { date: it.date }) }))]); else if (it.rep) lines.push(['Frequency', repText(it.rep)]); }
     else { if (s.from) lines.push(['Time', fmtHM(+s.from) + '–' + fmtHM(+s.to) + (it.time ? '' : ' · fills its block')]); if (it.type !== 'checkin') lines.push(['Day block', G(blockOfItem(s.ref)).name]); const wt = whenText(it); if (wt) lines.push(['Repeats', wt]);
       if (it.type === 'routine') lines.push(['Steps', rSteps(s.ref, d).map((x) => (val(d, x) ? '✓ ' : stepMissed(x, d) ? '✕ ' : '') + I(x).name + (I(x).optional ? ' (optional)' : '')).join(', ')]); }
     if (it.note) lines.push(['Note', it.note]);
@@ -2031,8 +2037,7 @@ function itemSheet(s) {
   if (s.quick) return `<div class="qhead"><p class="note">${esc(D.name)}</p>${isStudyItem(s, D) ? estIn(D) : ''}</div>` + schedUI(s, D) + (isPrep(s) ? subField(s) : '') + (s.ref && I(s.ref) && !s.isNew ? whenDidI() : '') + `<div class="btns"><button class="btn" data-a="dmore">More settings</button></div>`;
   let h = `<div class="fld"><span class="mono">Name</span>${D.type !== 'appt' && D.type !== 'checkin' && D.type !== 'step' && (D.est != null || isStudyItem(s, D)) ? `<div class="inrow"><input class="inp" id="dname" value="${esc(D.name)}" ${s.isNew ? 'data-autofocus' : ''}>${estIn(D)}</div>` : `<input class="inp" id="dname" value="${esc(D.name)}" ${s.isNew ? 'data-autofocus' : ''}>`}</div>`;
   if (D.type === 'appt') {
-    h += `<div class="fld"><span class="mono">When</span><div class="inrow"><input class="inp" type="date" id="ddate" value="${D.date || T0}"><input class="inp" type="time" id="dtime" value="${D.time || ''}"></div></div>
-      <div class="fld"><span class="mono">Length</span>${durIn(D)}</div>
+    h += `<div class="fld"><span class="mono">When</span><input class="inp" type="date" id="ddate" value="${D.date || T0}"><div class="inrow" style="margin-top:8px;align-items:center"><input class="inp" type="time" id="dtime" value="${D.time || ''}" aria-label="From" style="flex:1;min-width:0"><span class="mono" aria-hidden="true">–</span><input class="inp" type="time" id="dend" value="${apEnd(D)}" aria-label="Until" style="flex:1;min-width:0"></div></div>
       ${freqUI(s, D)}
       <div class="fld"><span class="mono">Note</span><input class="inp" id="dnote" value="${esc(D.note || '')}" placeholder="Bring the letter, reminder…"></div>
       <div class="fld"><span class="mono">Category</span><div class="chips">${G('g-appts').kids.filter(G).map((c) => `<button class="chip" style="--c:${G(c).color}" data-a="dset" data-k="cat" data-v="${c}" aria-pressed="${s.cat === c}"><span class="d"></span>${esc(G(c).name)}</button>`).join('')}</div></div>`;
@@ -2111,6 +2116,7 @@ function capture() { const s = S.sheet; if (!s || s.kind !== 'item') return; con
   if (g('dtime')) { if (g('dtime').value) D.time = g('dtime').value; else delete D.time; }
   if (g('dnote')) D.note = g('dnote').value.trim();
   if (g('drepn') && D.rep) D.rep.n = Math.max(1, parseInt(g('drepn').value) || 1);
+  if (g('dend')) { const e = g('dend').value; if (D.time && e) { let m = hm(e) - hm(D.time); if (m <= 0) m += 1440; D.dur = m; } else delete D.dur; }
   if (g('ddur')) { const v = g('ddur').value.trim(); const m = /^\d+$/.test(v) ? +v : Math.round(parseHM(v) * 60); D.dur = m > 0 ? m : (D.dur || 30); }
 
   if (g('dest')) D.est = Math.max(0, Math.round(parseHM(g('dest').value) * 60) / 60);
