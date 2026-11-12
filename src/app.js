@@ -824,7 +824,7 @@ function askDelete(act, a, ref, v) {
 }
 function sheetLayer() { let h = '';
   if (S.sheet.kind === 'checkin') { const b = sheetBody(); const [main, foot] = b.split('\u0001'); h += `<div class="cifull" role="dialog" aria-label="${esc(S.sheet.title)}">${ciHeader(S.sheet)}<div class="sb">${main}</div>${foot || ''}</div>`; }
-  else h += `<div class="scrim" data-a="closesheet"><div class="sheet ${S.sheet.kind === 'feel' && !S.sheet.cfg ? 'feelsh' : S.sheet.kind === 'note' ? 'notesh' : ''}" role="dialog" aria-label="${esc(S.sheet.title)}"><header><h2>${esc(S.sheet.title)}</h2>${(() => { const k = { item: 'dsave', group: 'savegroup', area: 'savearea', tracker: 'tsave', trip: 'tripsave', cond: 'condsave', insc: 'inscsave', word: 'wsave', rem: 'remsave' }[S.sheet.kind]; return k ? `<button class="hsave" data-a="${k}">${S.sheet.isNew ? 'Add' : 'Save'}</button>` : ''; })()}<button class="hb" data-a="closesheet" aria-label="Close">${icon('x', 22)}</button></header><div class="sb">${sheetBody()}</div></div></div>`;
+  else h += `<div class="scrim" data-a="closesheet"><div class="sheet ${S.sheet.kind === 'feel' && !S.sheet.cfg ? 'feelsh' : S.sheet.kind === 'note' ? 'notesh' : ''}" role="dialog" aria-label="${esc(S.sheet.title)}"><header><h2>${esc(S.sheet.title)}</h2>${S.sheet.kind === 'hyper' ? hyperDetHead(S.sheet.ref, T0, hcolor(S.sheet.ref)) || (() => { const DT = (I(S.sheet.ref).parts || []).map((w) => [w, w]); const pk = hval(T0, 'pt:' + S.sheet.ref) || []; return DT.length ? `<div class="chips hdet">${DT.map((x) => pchip(S.sheet.ref, pk, hcolor(S.sheet.ref), x)).join('')}</div>` : ''; })() : ''}${(() => { const k = { item: 'dsave', group: 'savegroup', area: 'savearea', tracker: 'tsave', trip: 'tripsave', cond: 'condsave', insc: 'inscsave', word: 'wsave', rem: 'remsave' }[S.sheet.kind]; return k ? `<button class="hsave" data-a="${k}">${S.sheet.isNew ? 'Add' : 'Save'}</button>` : ''; })()}<button class="hb" data-a="closesheet" aria-label="Close">${icon('x', 22)}</button></header><div class="sb">${sheetBody()}</div></div></div>`;
   return h; }
 function renderLayer() { setTimeout(navTrack, 0);
   let h = vLayer() + insLayer();
@@ -899,7 +899,7 @@ function sheetBody() {
   if (s.kind === 'remove') { const pl = placements(s.ref);
     return `<p class="note" style="font-size:14px">“${esc(I(s.ref).name)}” is in ${pl.length} places: ${pl.map((p) => esc(placeName(p))).join(', ')}. It is one item, so its history is shared.</p><div class="btns"><button class="btn" data-a="rmhere">Remove from here</button><button class="btn danger" data-a="rmall">Delete everywhere</button></div>`; }
   if (s.kind === 'hyper') { const pk = hval(T0, 'pt:' + s.ref) || []; const c = hcolor(s.ref); const chip = ([h, l]) => `<button class="hchip" data-a="hpart" data-ref="${s.ref}" data-v="${esc(h)}" aria-pressed="${pk.includes(h)}" style="${pk.includes(h) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(l)}</button>`; const HB = hyperHobs(s.ref), DT = (I(s.ref).parts || []).map((w) => [w, w]); const hobOn = HB.some(([h]) => pk.includes(h));
-      return `<p class="note" style="font-size:14px">Which hobbies?</p><div class="chips">${HB.concat(DT).map(chip).join('')}</div><div class="btns" style="margin-top:16px"><button class="btn dark" data-a="hyperdone" ${hobOn || !HB.length ? '' : 'disabled'}>Done</button></div>`; }
+      return `<p class="note" style="font-size:14px">Which hobbies?</p><div class="chips">${HB.map(chip).join('')}</div><div class="btns" style="margin-top:16px"><button class="btn dark" data-a="hyperdone" ${hobOn || !HB.length ? '' : 'disabled'}>Done</button></div>`; }
   if (false) { return `<div class="chips">${partOpts(s.ref).map(([h, l]) => `<button class="hchip" data-a="hpart" data-ref="${s.ref}" data-v="${esc(h)}" aria-pressed="${pk.includes(h)}" style="${pk.includes(h) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(l)}</button>`).join('')}</div><div class="btns" style="margin-top:16px"><button class="btn dark" data-a="hyperdone" ${pk.length ? '' : 'disabled'}>Done</button></div>`; }
   if (s.kind === 'much') return `<p class="note" style="font-size:14px">Too much “${esc((I(s.ref) || G(s.ref) || {}).name || '')}”. What kind?</p><div class="btns"><button class="btn dark" data-a="much" data-v="hyper">Hyperfixation</button><button class="btn dark" data-a="much" data-v="inert">Inertia</button><button class="btn" data-a="much" data-v="">Skip</button></div>`;
   if (s.kind === 'checkin') return checkinSheet(s);
@@ -1810,14 +1810,18 @@ function trackRows(ids, d, c, row, plus) {
 // Hyperfocus offers my hobbies and then any details I added to it myself (2026-11-12); the sheet shows hobbies and my details in one chip row, and so does the symptom row
 const hyperHobs = (id) => isHyper(id) && typeof hobIds === 'function' ? hobIds().map((h) => [h, G(h).name]) : [];
 function partOpts(id) { return hyperHobs(id).concat((I(id).parts || []).map((w) => [w, w])); }
-function partDet(id, d, c) { const P = partOpts(id); const hv = hval(d, id); const pk = hval(d, 'pt:' + id) || [];
+// Hyperfocus: my own details (stuck, numb) sit on the same line as its name; the hobbies stay below (2026-11-12)
+function pchip(id, pk, c, [w, l]) { return `<button class="hchip" data-a="hpart" data-ref="${id}" data-v="${esc(w)}" aria-pressed="${pk.includes(w)}" style="${pk.includes(w) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(l)}</button>`; }
+function hyperDetHead(id, d, c) { if (!isHyper(id) || S.edit) return ''; const DT = (I(id).parts || []).map((w) => [w, w]); const hv = hval(d, id); const pk = hval(d, 'pt:' + id) || [];
+  return DT.length && typeof hv === 'number' && hv > 0 ? `<div class="chips hdet">${DT.map((x) => pchip(id, pk, c, x)).join('')}</div>` : ''; }
+function partDet(id, d, c) { const P = isHyper(id) ? hyperHobs(id) : partOpts(id); const hv = hval(d, id); const pk = hval(d, 'pt:' + id) || [];
   return P.length && !S.edit && typeof hv === 'number' && hv > 0 ? `<div class="chips tparts">${P.map(([w, l]) => `<button class="hchip" data-a="hpart" data-ref="${id}" data-v="${esc(w)}" aria-pressed="${pk.includes(w)}" style="${pk.includes(w) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(l)}</button>`).join('')}</div>` : ''; }
 function trackerRow(id, list, d, c) {
   if (!S.edit && isTags(id)) return `<div class="trow" data-ref="${id}">${answerUI(id, d, c)}</div>`;
   const P = I(id).parts || []; const hv = hval(d, id); const pk = hval(d, 'pt:' + id) || [];
   // details (2026-11-11): once a symptom has an answer, I can say where or what, like jaw for muscle tension
   const det = partDet(id, d, c);
-  return `<div class="trow" data-ref="${id}"><div class="thead">${grip()}<span class="tname">${nm(id, I(id).name)}</span>${tail(id, list)}</div>${answerUI(id, d, c)}${det}</div>`;
+  return `<div class="trow" data-ref="${id}"><div class="thead">${grip()}<span class="tname">${nm(id, I(id).name)}</span>${hyperDetHead(id, d, c)}${tail(id, list)}</div>${answerUI(id, d, c)}${det}</div>`;
 }
 function trackerList(gid, d, c, ids) {
   const g = G(gid); const all = g.kids.filter((k) => I(k)); const lead = all[0]; const open = S.edit || (lead && hval(d, lead) != null);
@@ -2211,7 +2215,7 @@ function ciPart(p, d) {
   let h = p.title ? `<span class="mono cisub">${esc(p.title)}</span>` : '';
   if (p.note) h += `<p class="note">${esc(p.note)}</p>`;
   if (p.feel) h += feelCard(d);
-  if (p.ids) h += trackRows(p.ids, d, c || hcolor(p.ids[0]), (k) => `<div class="trow">${isTags(k) ? '' : `<div class="thead"><span class="tname">${esc(I(k).name)}</span></div>`}${answerUI(k, d, c || hcolor(k))}${partDet(k, d, c || hcolor(k))}</div>`);
+  if (p.ids) h += trackRows(p.ids, d, c || hcolor(p.ids[0]), (k) => `<div class="trow">${isTags(k) ? '' : `<div class="thead"><span class="tname">${esc(I(k).name)}</span>${hyperDetHead(k, d, c || hcolor(k))}</div>`}${answerUI(k, d, c || hcolor(k))}${partDet(k, d, c || hcolor(k))}</div>`);
   if (p.list) h += trackerList(p.list, d, G(p.list).color || '#9A9387');
   if (p.tab) h += tabBody(p.tab, d, c);
   if (p.training) h += trainCats().map((c) => `<span class="mono cisub">${esc(G(c).name)}</span><div class="list">${kidsOf(c).map((k) => itemRow(k, c, d)).join('') || '<p class="empty">No sessions yet.</p>'}</div>`).join('') || '<p class="note">No training set up yet.</p>'; // every training option (2026-11-09)
