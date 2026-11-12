@@ -158,7 +158,7 @@ const subjRank = (s) => { const v = subjVerdict(s); return v.lvl * 1000 + Math.m
 
 // slots: done when their area was used that day
 function slotDone(it, d) {
-  if (it.opens === 'study') return minOn(null, d) >= sessLen() || supMin(d) >= sessLen();
+  if (it.opens === 'study') return minOn(null, d) + supMin(d) >= sessLen(); // Study support minutes count toward the day's study minutes (the owner, 2026-11-12)
   if (it.opens === 'chores') return choreIds().some((k) => val(d, k));
   if (it.opens === 'training') return typeof trainedOn === 'function' && trainedOn(d).length > 0;
   if (it.opens === 'hobbies') return typeof hobIds === 'function' && hobIds().some((h) => hobActs(h).some((k) => val(d, k)) || hobProjs(h).some((p) => (G(p).worked || []).includes(d) || projTasks(p).some((k) => val(d, k))));
@@ -350,9 +350,9 @@ function subjPage(s) {
 // ---------- timer and Study support ----------
 function tElapsed() { const t = M.timer; if (!t) return 0; return (t.acc || 0) + (t.start ? Date.now() - t.start : 0); }
 const fmtClock = (ms) => { const s = Math.floor(ms / 1000); return pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60); };
-const tPct = () => Math.min(100, Math.round((minOn(null, T0) + tElapsed() / 60000) / sessLen() * 100));
+const tPct = () => Math.min(100, Math.round((minOn(null, T0) + supMin(T0) + tElapsed() / 60000) / sessLen() * 100));
 const T_C = 2 * Math.PI * 104;
-const tRule = () => { const m = Math.floor(minOn(null, T0) + tElapsed() / 60000); return m >= sessLen() ? dur(m) + ' today · session done' : m + ' of ' + sessLen() + ' min today'; };
+const tRule = () => { const m = Math.floor(minOn(null, T0) + supMin(T0) + tElapsed() / 60000); return m >= sessLen() ? dur(m) + ' today · session done' : m + ' of ' + sessLen() + ' min today'; };
 // the timer (polished, 2026-11-10): what I'm working on, the clock inside a ring that fills up to one study session, one line of progress, the buttons
 function timerPage() {
   const t = M.timer || {}; const id = t.id && I(t.id) ? t.id : null; const run = !!t.start, any = tElapsed() > 0; const col = M.areas.study.color;
@@ -371,7 +371,7 @@ function supOpen() { const cur = S.nbView === 'jpage' && S.area === 'notebook'; 
   const e = (M.journal || []).filter((x) => x.d === T0 && supEntry(x)).pop(); S.sheet = null; S.menu = false; S.stv = null; S.jFrom = 'study'; S.area = 'notebook'; S.insOn = false; S.jBack = 'home';
   S.jMenu = false; S.jTagOpen = false; S.jRe = null; S.jSel = null; S.jCaret = null; S.nbView = 'jpage'; S.jEntry = e ? e.id : 'new'; S.jNewTags = e ? null : [SUP_TAG, 'Studies'];
   render(); if (typeof jGrow === 'function') jGrow(); $('#main').scrollTop = 0; }
-function saveTimer(msg) { const t = M.timer; if (!t) return; const min = Math.round(tElapsed() / 60000); const id = t.id && I(t.id) ? t.id : null; const before = minOn(null, T0);
+function saveTimer(msg) { const t = M.timer; if (!t) return; const min = Math.round(tElapsed() / 60000); const id = t.id && I(t.id) ? t.id : null; const before = minOn(null, T0) + supMin(T0);
   M.timer = null; if (min < 1) { save(); render(); flash('Under a minute, not saved'); return; }
   change(() => { M.study = M.study || {}; (M.study[T0] = M.study[T0] || []).push({ id, min }); L(T0); }, msg || ('Saved ' + dur(min) + (before < sessLen() && before + min >= sessLen() ? ' · study session done' : '')), false); }
 let supT = 0;
@@ -379,11 +379,16 @@ setInterval(() => {
   const c = document.getElementById('tclock'); if (c && M.timer && M.timer.start) { c.textContent = fmtClock(tElapsed()); const b = document.getElementById('tring'); if (b) b.setAttribute('stroke-dashoffset', T_C * (1 - tPct() / 100)); const r = document.getElementById('trule'); if (r) r.textContent = tRule(); }
   // Study support time runs only while writing (typed in the last 20 seconds), and pauses when you stop
   if (supOn() && S.supLast && Date.now() - S.supLast < 20000) {
-    M.support = M.support || {}; const sp = M.support[T0] = M.support[T0] || { text: '', ms: 0, min: 0 }; const was = sp.min >= sessLen();
+    M.support = M.support || {}; const sp = M.support[T0] = M.support[T0] || { text: '', ms: 0, min: 0 }; const was = sp.min + minOn(null, T0) >= sessLen();
     sp.ms = (sp.ms || 0) + 1000; sp.min = Math.floor(sp.ms / 60000); L(T0);
-    if (!was && sp.min >= sessLen()) save();
+    if (!was && sp.min + minOn(null, T0) >= sessLen()) { save(); render(); }
     if (++supT % 10 === 0) save(); }
 }, 1000);
+// the Study support time, in the journal's ⋯ menu while I write (the owner, 2026-11-12): time written today and how far the day's study minutes are
+const supMs = () => (((M.support || {})[T0] || {}).ms || 0); const supFmt = (ms) => { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + pad(s % 60); };
+const supRule = () => { const m = minOn(null, T0) + supMin(T0); return m >= sessLen() ? 'Study minutes done today' : m + ' of ' + sessLen() + ' min today'; };
+const supClock = () => `<span class="mono jmtag">Study support</span><span class="jmsup"><b id="supclk">${supFmt(supMs())}</b><small id="suprule">${esc(supRule())}</small></span>`;
+setInterval(() => { const c = document.getElementById('supclk'); if (c) { c.textContent = supFmt(supMs()); const r = document.getElementById('suprule'); if (r) r.textContent = supRule(); } }, 1000);
 ['input', 'beforeinput'].forEach((ev) => document.addEventListener(ev, (e) => { const fl = e.target.closest && e.target.closest('.jflow'); if (fl && supOn()) S.supLast = Date.now(); }, true));
 
 // ---------- title, dropdown, study mode bar, menu ----------
