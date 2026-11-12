@@ -1661,6 +1661,7 @@ function migrate(m) {
     FS.forEach((w, k) => { const d = addDays(T0, -(k + 1)); if (!(m.feel[d] || []).length) m.feel[d] = w; }); }
   // Past days keep a frozen layout. When the way days are laid out changes, the old snapshots are drawn
   // with the old rules and look broken, so they're taken again with the current rules (2026-11-03).
+  (m.journal || []).forEach((e) => { if ((e.tags || []).includes('Study support') && !e.tags.includes('Studies')) e.tags.push('Studies'); }); // Study support pages are tagged Studies too
   if (m.settings.layoutV !== LAYOUT_V) { m.settings.layoutV = LAYOUT_V; m.frozen = {}; }
   delete m.feelSym;
   // DYSREGULATED feelings family (2026-11-03): feelings that are out of proportion, aimed inward or outward; all symptomatic
@@ -1959,7 +1960,7 @@ const mealSrc = (p) => p.asset ? blobUrl(p.asset) : p.src;
 function mealTile(p, d) {
   const kw = KINDS3.find((k) => k[0] === mealKind(p))[1]; const sub = [kw].concat(p.tags || []).join(', ');
   const lab = [sub, p.text].filter(Boolean).join(' · ');
-  return `<button class="photo${mealSrc(p) ? '' : ' txt'}" data-a="${mealSrc(p) ? 'mealview' : 'meal'}" data-ref="${p.id}" data-v="${d}" aria-label="Meal${lab ? ': ' + esc(lab) : ''}">${mealSrc(p) ? `<img src="${esc(mealSrc(p))}" alt=""><span>${esc(sub)}</span>` : `<em>${esc(p.text || kw)}</em><span>${esc(sub)}</span>`}</button>`;
+  return `<button class="photo${mealSrc(p) ? '' : ' txt'}" data-a="${mealSrc(p) ? 'mealview' : 'meal'}" data-ref="${p.id}" data-v="${d}" aria-label="Meal${lab ? ': ' + esc(lab) : ''}">${mealSrc(p) ? `<img src="${esc(mealSrc(p))}" alt="">${p.text ? `<span>${esc(p.text)}</span>` : ''}` : `<em>${esc(p.text || kw)}</em><span>${esc(sub)}</span>`}</button>`;
 }
 function photosUI(d) {
   const ph = mealsOn(d);
@@ -1976,7 +1977,8 @@ function foodAnswers(d) {
 // (a weekend snack day). Extras like a low blood sugar episode or a proper hike are switched on for a day and allow more.
 // A day earns a star when it reaches its meals and stays within what it allows.
 // the owner's words (2026-11-02): fruit and veg between meals = a BITE (Norwegian mellommåltid); a pastry or cake = a snack, on snack day.
-const KINDS3 = [['meal', 'Meal', 'Meals'], ['snack', 'Bite', 'Bites'], ['treat', 'Snack', 'Snacks']];
+const KINDS3 = [['meal', 'Meal', 'Meals'], ['snack', 'Bite', 'Bites'], ['treat', 'Snack', 'Snacks'], ['latte', 'Latte', 'Lattes']]; // latte counted too (the owner, 2026-11-12)
+const LATTE0 = 1; // lattes a day until I set my own in the meal plan
 const mealKind = (p) => p.kind || ((p.tags || []).includes('Snacks') ? 'snack' : (p.tags || []).includes('Treat') ? 'treat' : 'meal');
 function PLAN0() { return { week: [0, 1, 2, 3, 4, 5, 6].map(() => ({ meal: 2, snack: 2, treat: 0 })), extras: [{ id: 'x-snackday', name: 'Snack day', meal: 0, snack: 0, any: 0, treat: 1, weekly: true }, { id: 'x-sugar', name: 'Low blood sugar', meal: 0, snack: 0, any: 1 }, { id: 'x-light', name: 'Light hike', meal: 0, snack: 1, any: 0 }, { id: 'x-hike', name: 'Proper hike', meal: 1, snack: 1, any: 0 }], days: {} }; }
 // "After every workout" on a task became "Always after" on the workout items (2026-11-11): each workout (not general
@@ -2021,15 +2023,16 @@ function whenLabel(w) {
   if (!w) return ''; if (w.src === 'sym') return ((I(w.id) || {}).name || 'a') + ' symptom';
   if (w.src === 'tag') return (w.opt || (I(w.id) || {}).name || 'a') + ' tag'; if (w.src === 'treat') return 'the first snack of the week'; if (w.src === 'train' && w.id) return ((I(w.id) || {}).name || 'a training session') + ' done'; if (w.src === 'train') return (w.kind || 'Training') + ' of ' + (w.km || 0) + ' km or more'; return '';
 }
-function dayCounts(d) { const c = { meal: 0, snack: 0, treat: 0 }; mealsOn(d).forEach((p) => { c[mealKind(p)]++; }); return c; }
+function dayCounts(d) { const c = { meal: 0, snack: 0, treat: 0, latte: 0 }; mealsOn(d).forEach((p) => { const k = mealKind(p); c[k] = (c[k] || 0) + 1; }); return c; }
 function dayCheck(d) {
   const base = mealPlan().week[wdOf(d)]; const ex = dayExtras(d).reduce((a, x) => ({ meal: a.meal + (x.meal || 0), snack: a.snack + (x.snack || 0), any: a.any + (x.any || 0), treat: a.treat + (x.treat || 0) }), { meal: 0, snack: 0, any: 0, treat: 0 });
   const c = dayCounts(d); const overMeal = Math.max(0, c.meal - base.meal - ex.meal); const anyLeft = ex.any - overMeal;
   const snackMax = base.snack + ex.snack + Math.max(0, anyLeft);
   const r = { c, base, ex, mealOk: anyLeft >= 0, mealMax: base.meal + ex.meal + ex.any, snackOk: c.snack <= snackMax, snackMax, treatOk: c.treat <= base.treat + ex.treat, treatMax: base.treat + ex.treat };
-  r.broken = breakHits(d); r.followed = d < T0 && mealsOn(d).length > 0 && r.mealOk && r.snackOk && r.treatOk && !r.broken.length; return r;
+  r.latteMax = base.latte == null ? LATTE0 : base.latte; r.latteOk = c.latte <= r.latteMax;
+  r.broken = breakHits(d); r.followed = d < T0 && mealsOn(d).length > 0 && r.mealOk && r.snackOk && r.treatOk && r.latteOk && !r.broken.length; return r;
 }
-const dayBroke = (d) => { if (d > T0 || overOn(d)) return false; const r = dayCheck(d); return r.broken.length > 0 || !r.mealOk || !r.snackOk || !r.treatOk; };
+const dayBroke = (d) => { if (d > T0 || overOn(d)) return false; const r = dayCheck(d); return r.broken.length > 0 || !r.mealOk || !r.snackOk || !r.treatOk || !r.latteOk; };
 const followed = (d) => !overOn(d) && dayCheck(d).followed; // an overeating day gets only its red mark (2026-11-10)
 // Items that break a food diary day (2026-11-03): if any is logged, the day gets no star. A tag counts when ticked,
 // a scale when it's at or above the level picked, an avoidance item when avoided. mealPlan().breaks = [{id, min}]
@@ -2075,7 +2078,7 @@ function linkField(x) {
 }
 function mealWeekSheet() {
   const mp = mealPlan();
-  let h = `<div class="pgrid"><span></span>${KINDS3.map((k) => `<span class="mono">${k[2]}</span>`).join('')}${WD.map((w, i) => `<span class="pd">${w}</span>${KINDS3.map(([k]) => stepper('mwstep', i, k, mp.week[i][k])).join('')}`).join('')}</div>`;
+  let h = `<div class="pgrid"><span></span>${KINDS3.map((k) => `<span class="mono">${k[2]}</span>`).join('')}${WD.map((w, i) => `<span class="pd">${w}</span>${KINDS3.map(([k]) => stepper('mwstep', i, k, mp.week[i][k] == null ? (k === 'latte' ? LATTE0 : 0) : mp.week[i][k])).join('')}`).join('')}</div>`;
   h += `<div class="fld" style="margin-top:16px"><span class="mono">Extras</span>${mp.extras.map((x) => `<div class="xrow"><div class="inrow"><span class="xdot" style="background:${xcol(x)}" aria-hidden="true"></span><input class="inp" data-xname="${x.id}" value="${esc(x.name)}" aria-label="Extra name"><button class="rm" data-a="xrm" data-v="${x.id}" aria-label="Remove ${esc(x.name)}">✕</button></div><div style="margin-top:8px">${colorField('x:' + x.id, xcol(x))}</div>${linkField(x)}
     <div class="pgrid x"><span class="mono">Meals</span><span class="mono">Bites</span><span class="mono">Either</span><span class="mono">Snacks</span>${['meal', 'snack', 'any', 'treat'].map((f) => stepper('xstep', x.id, f, x[f] || 0)).join('')}</div>
     <button class="addbtn" data-a="xweekly" data-v="${x.id}" aria-pressed="${!!x.weekly}" style="min-height:36px;font-size:13px"><span class="circ ${x.weekly ? 'done' : ''}" style="--c:var(--quiet);width:18px;height:18px">${x.weekly ? '✓' : ''}</span>Once a week at most</button></div>`).join('')}
@@ -2085,12 +2088,16 @@ function mealWeekSheet() {
 }
 // Food diary page, tidied (2026-11-02): calendar, then the picked day as one section (counts, extras, meals, tags),
 // then earlier days as quiet sections. Section style matches the Health page.
+// counters only for what I've had that day; what's still allowed sits in one quiet line, and kinds with nothing allowed and nothing had stay hidden (the owner, 2026-11-12)
 function planPanel(d) {
-  const r = dayCheck(d); const past = d < T0;
+  const r = dayCheck(d);
   const cell = (n, max, label, ok, extra) => `<div class="cnt3 ${ok ? '' : 'over'}"><b>${n}<small>/${max}</small></b><span>${label}</span>${extra ? `<i>${extra}</i>` : ''}</div>`;
   const ex = r.mealMax > r.base.meal ? '+' + (r.mealMax - r.base.meal) + ' extra' : '';
-  let h = `<div class="counts${overOn(d) ? ' fgrey' : ''}">${cell(r.c.meal, r.base.meal, 'Meals', r.mealOk, ex)}${cell(r.c.snack, r.snackMax, 'Bites', r.snackOk)}${cell(r.c.treat, r.treatMax, r.treatMax ? 'Snacks · snack day' : 'Snacks', r.treatOk)}</div>`;
-  return h;
+  const K = [['meal', r.base.meal, 'Meals', r.mealOk, ex, r.mealMax], ['snack', r.snackMax, 'Bites', r.snackOk, '', r.snackMax], ['treat', r.treatMax, r.treatMax ? 'Snacks · snack day' : 'Snacks', r.treatOk, '', r.treatMax], ['latte', r.latteMax, 'Lattes', r.latteOk, '', r.latteMax]];
+  const had = K.filter(([k]) => r.c[k] > 0), open = K.filter(([k, , , , , mx]) => !r.c[k] && mx > 0);
+  const word = (k, n) => { const w = KINDS3.find((q) => q[0] === k); return n + ' ' + (n === 1 ? w[1] : w[2]).toLowerCase(); };
+  return (had.length ? `<div class="counts${overOn(d) ? ' fgrey' : ''}">${had.map(([k, mx, l, ok, x]) => cell(r.c[k], mx, l, ok, x)).join('')}</div>` : '')
+    + (open.length ? `<p class="cleft"><span class="mono">${had.length ? 'Still open' : 'Open today'}</span><span>${open.map(([k, , , , , mx]) => word(k, mx)).join(' · ')}</span></p>` : '');
 }
 const dayLabel = (d) => relDay(d) === fmtDate(d) ? fmtDate(d) : relDay(d) + ', ' + fmtDate(d);
 function dayMeals(d) {
@@ -2409,7 +2416,7 @@ function healthAction(act, a, ref, v) {
     case 'xadd': { xcapture(); change(() => { mealPlan().extras.push({ id: uid('x'), name: 'New extra', meal: 0, snack: 1, any: 0 }); }); render(); return true; }
     case 'xrm': { xcapture(); change(() => { const mp = mealPlan(); mp.extras = mp.extras.filter((e) => e.id !== v); }); render(); return true; }
     case 'mealweek': openSheet({ kind: 'mealweek', title: 'Meal plan', back: S.sheet }); return true;
-    case 'mwstep': { xcapture(); change(() => { const w = mealPlan().week[+a.dataset.k]; w[a.dataset.f] = Math.max(0, Math.min(9, w[a.dataset.f] + +v)); }); renderLayer(); return true; }
+    case 'mwstep': { xcapture(); change(() => { const w = mealPlan().week[+a.dataset.k]; const f0 = a.dataset.f; const cur = w[f0] == null ? (f0 === 'latte' ? LATTE0 : 0) : w[f0]; w[f0] = Math.max(0, Math.min(9, cur + +v)); }); renderLayer(); return true; }
     case 'meal': openSheet({ kind: 'photo', ref, d: v || T0, title: 'Meal', back: S.sheet && S.sheet.kind === 'diary' ? S.sheet : null }); return true;
     case 'mealnew': { const p = { id: uid('p'), tags: [], at: nowHM(), text: '', kind: 'meal' }; change(() => { (M.photos[T0] = M.photos[T0] || []).push(p); }); openSheet({ kind: 'photo', ref: p.id, d: T0, title: 'Meal', isNew: true }); return true; }
     case 'mealdone': { mcapture(); const s = S.sheet; const p = curMeal(); if (p && s.isNew && !p.text && !mealSrc(p)) { M.photos[T0] = mealsOn(T0).filter((x) => x.id !== p.id); } save(); closeSheet(); render(); return true; }

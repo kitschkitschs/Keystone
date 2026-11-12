@@ -232,11 +232,16 @@ function jEdit(s, t, str) { const e = jMake(); const T = e.text || ''; s = Math.
 function jFixPs(e) { const n = (e.text || '').split('\n').length; const ps = e.ps = e.ps || []; while (ps.length < n) ps.push({}); ps.length = n; }
 function jSaveSoon(e) { clearTimeout(jT); jT = setTimeout(() => { if (jEmpty(e)) M.journal = M.journal.filter((x) => x !== e); save(); }, 400); }
 // read the words back from the page after the keyboard changed it directly (phone keyboards while composing a word)
+// a line break the phone's keyboard put in the page itself (a <br> or a new block) still counts as a line break
+function jWalk(root, an, acc) { const at = (c) => { if (an && an.startContainer === root && acc.caret == null && root.childNodes[an.startOffset] === c) acc.caret = acc.s.length; };
+  root.childNodes.forEach((c) => { at(c); if (c.nodeType === 3) { if (an && an.startContainer === c) acc.caret = acc.s.length + c.data.slice(0, an.startOffset).replace(/​/g, '').length; acc.s += c.data.replace(/​/g, ''); }
+    else if (c.nodeName === 'BR') { if (c.nextSibling) acc.s += '\n'; } /* a last <br> only holds an empty line open */ else if (c.nodeType === 1) { if (/^(DIV|P)$/.test(c.nodeName) && acc.s && !acc.s.endsWith('\n')) acc.s += '\n'; jWalk(c, an, acc); } });
+  if (an && an.startContainer === root && acc.caret == null) acc.caret = acc.s.length; }
 function jFromDom() { const fl = document.querySelector('.jpaper .jflow'); const e = jCurrent(); if (!fl) return null; const old = (e && e.text) || ''; const sel = getSelection(); const an = sel && sel.rangeCount ? sel.getRangeAt(0) : null;
   let out = '', prev = null, caret = null;
   [...fl.childNodes].forEach((n) => { if (n.nodeType === 1 && n.classList.contains('jprobe')) return;
-    if (n.nodeType === 1 && n.classList.contains('jl')) { const a = +n.dataset.a, i = +n.dataset.i; if (prev) out += i === prev.i + 1 ? old.slice(prev.b, a) : ''; const raw = n.textContent; const c = raw.replace(/​/g, '');
-      if (an && n.contains(an.startContainer)) { caret = out.length + jKOf(n, an.startContainer, an.startOffset); }
+    if (n.nodeType === 1 && n.classList.contains('jl')) { const a = +n.dataset.a, i = +n.dataset.i; if (prev) out += i === prev.i + 1 ? old.slice(prev.b, a) : ''; const acc = { s: '', caret: null }; jWalk(n, an && n.contains(an.startContainer) ? an : null, acc); const c = acc.s;
+      if (acc.caret != null) caret = out.length + acc.caret;
       out += c; prev = { i, b: +n.dataset.b }; }
     else if (n.nodeType === 3) { if (an && an.startContainer === n) caret = out.length + an.startOffset; out += n.data.replace(/​/g, ''); } });
   return { text: out, caret }; }
@@ -263,6 +268,10 @@ document.addEventListener('compositionupdate', (ev) => { const fl = ev.target.cl
 let jComp = false;
 document.addEventListener('compositionstart', (ev) => { if (ev.target.closest && ev.target.closest('.jflow')) jComp = true; });
 document.addEventListener('compositionend', (ev) => { if (!(ev.target.closest && ev.target.closest('.jflow'))) return; jComp = false; setTimeout(jSyncDom, 0); });
+// Enter makes the new line here, before the keyboard can put its own break in the page (the owner, 2026-11-12: the text jumped a line up)
+document.addEventListener('keydown', (ev) => { if (ev.key !== 'Enter' || ev.ctrlKey || ev.metaKey || ev.altKey) return; const fl = ev.target.closest && ev.target.closest('.jflow'); if (!fl || !fl.isContentEditable) return;
+  ev.preventDefault(); if (jComp) { jComp = false; jSyncDom(); } { const r = jFromDom(); const e0 = jCurrent(); if (r && r.text !== ((e0 && e0.text) || '')) jSyncDom(); }
+  const so = jSelOffs(); if (!so) return; const c = jEdit(so[0], so[1], '\n'); jLayoutText(); jSetCaret(c); S.jCaret = c; S.jCaretEnd = c; jFollowSoon(); });
 document.addEventListener('beforeinput', (ev) => { const fl = ev.target.closest && ev.target.closest('.jflow'); if (!fl || !fl.isContentEditable) return; const brk = ev.inputType === 'insertParagraph' || ev.inputType === 'insertLineBreak';
   // Enter while the keyboard is still composing a word: the word goes in first, then the new paragraph (2026-11-11: Enter jumped a line up)
   if (brk && (ev.isComposing || jComp)) { jComp = false; jSyncDom(); }

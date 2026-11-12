@@ -994,6 +994,7 @@ html.dark .feelcard.empty{background:#33302C}html.dark .jcard .jct,html.dark .jc
 
 .stepopts{margin:2px 0 12px;padding:10px 12px 4px;border-radius:12px;background:var(--page);display:flex;flex-direction:column;gap:6px}.stepopts .chips{margin-bottom:4px}.optic{display:inline-flex;vertical-align:-2px;margin-left:6px;color:var(--ink2);opacity:.8}.steplink{display:flex;align-items:center;gap:8px;color:var(--ink)}.stepnote{margin:-2px 0 8px 4px;font-size:10.5px;color:var(--ink2)}
 .hxt{margin-left:8px;white-space:nowrap;vertical-align:1px}
+.cleft{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:10px 2px 0;font-size:13.5px;color:var(--ink2)}.cleft .mono{flex:none}.counts{grid-template-columns:repeat(4,minmax(0,1fr))!important}.pgrid:not(.x){grid-template-columns:44px repeat(4,minmax(0,1fr))!important}
 </style>
 <div class="phone" id="phone">
   <header class="top"><div class="ttl" id="ttl"></div><button class="hb" id="plusbtn" aria-label="Add something">+</button><button class="hb donebtn2" id="donebtn" aria-label="Done editing" hidden>Done</button><button class="hb" id="menubtn" aria-label="Menu">⋯</button></header>
@@ -2674,6 +2675,7 @@ function migrate(m) {
     FS.forEach((w, k) => { const d = addDays(T0, -(k + 1)); if (!(m.feel[d] || []).length) m.feel[d] = w; }); }
   // Past days keep a frozen layout. When the way days are laid out changes, the old snapshots are drawn
   // with the old rules and look broken, so they're taken again with the current rules (2026-11-03).
+  (m.journal || []).forEach((e) => { if ((e.tags || []).includes('Study support') && !e.tags.includes('Studies')) e.tags.push('Studies'); }); // Study support pages are tagged Studies too
   if (m.settings.layoutV !== LAYOUT_V) { m.settings.layoutV = LAYOUT_V; m.frozen = {}; }
   delete m.feelSym;
   // DYSREGULATED feelings family (2026-11-03): feelings that are out of proportion, aimed inward or outward; all symptomatic
@@ -2972,7 +2974,7 @@ const mealSrc = (p) => p.asset ? blobUrl(p.asset) : p.src;
 function mealTile(p, d) {
   const kw = KINDS3.find((k) => k[0] === mealKind(p))[1]; const sub = [kw].concat(p.tags || []).join(', ');
   const lab = [sub, p.text].filter(Boolean).join(' · ');
-  return `<button class="photo${mealSrc(p) ? '' : ' txt'}" data-a="${mealSrc(p) ? 'mealview' : 'meal'}" data-ref="${p.id}" data-v="${d}" aria-label="Meal${lab ? ': ' + esc(lab) : ''}">${mealSrc(p) ? `<img src="${esc(mealSrc(p))}" alt=""><span>${esc(sub)}</span>` : `<em>${esc(p.text || kw)}</em><span>${esc(sub)}</span>`}</button>`;
+  return `<button class="photo${mealSrc(p) ? '' : ' txt'}" data-a="${mealSrc(p) ? 'mealview' : 'meal'}" data-ref="${p.id}" data-v="${d}" aria-label="Meal${lab ? ': ' + esc(lab) : ''}">${mealSrc(p) ? `<img src="${esc(mealSrc(p))}" alt="">${p.text ? `<span>${esc(p.text)}</span>` : ''}` : `<em>${esc(p.text || kw)}</em><span>${esc(sub)}</span>`}</button>`;
 }
 function photosUI(d) {
   const ph = mealsOn(d);
@@ -2989,7 +2991,8 @@ function foodAnswers(d) {
 // (a weekend snack day). Extras like a low blood sugar episode or a proper hike are switched on for a day and allow more.
 // A day earns a star when it reaches its meals and stays within what it allows.
 // the owner's words (2026-11-02): fruit and veg between meals = a BITE (Norwegian mellommåltid); a pastry or cake = a snack, on snack day.
-const KINDS3 = [['meal', 'Meal', 'Meals'], ['snack', 'Bite', 'Bites'], ['treat', 'Snack', 'Snacks']];
+const KINDS3 = [['meal', 'Meal', 'Meals'], ['snack', 'Bite', 'Bites'], ['treat', 'Snack', 'Snacks'], ['latte', 'Latte', 'Lattes']]; // latte counted too (the owner, 2026-11-12)
+const LATTE0 = 1; // lattes a day until I set my own in the meal plan
 const mealKind = (p) => p.kind || ((p.tags || []).includes('Snacks') ? 'snack' : (p.tags || []).includes('Treat') ? 'treat' : 'meal');
 function PLAN0() { return { week: [0, 1, 2, 3, 4, 5, 6].map(() => ({ meal: 2, snack: 2, treat: 0 })), extras: [{ id: 'x-snackday', name: 'Snack day', meal: 0, snack: 0, any: 0, treat: 1, weekly: true }, { id: 'x-sugar', name: 'Low blood sugar', meal: 0, snack: 0, any: 1 }, { id: 'x-light', name: 'Light hike', meal: 0, snack: 1, any: 0 }, { id: 'x-hike', name: 'Proper hike', meal: 1, snack: 1, any: 0 }], days: {} }; }
 // "After every workout" on a task became "Always after" on the workout items (2026-11-11): each workout (not general
@@ -3034,15 +3037,16 @@ function whenLabel(w) {
   if (!w) return ''; if (w.src === 'sym') return ((I(w.id) || {}).name || 'a') + ' symptom';
   if (w.src === 'tag') return (w.opt || (I(w.id) || {}).name || 'a') + ' tag'; if (w.src === 'treat') return 'the first snack of the week'; if (w.src === 'train' && w.id) return ((I(w.id) || {}).name || 'a training session') + ' done'; if (w.src === 'train') return (w.kind || 'Training') + ' of ' + (w.km || 0) + ' km or more'; return '';
 }
-function dayCounts(d) { const c = { meal: 0, snack: 0, treat: 0 }; mealsOn(d).forEach((p) => { c[mealKind(p)]++; }); return c; }
+function dayCounts(d) { const c = { meal: 0, snack: 0, treat: 0, latte: 0 }; mealsOn(d).forEach((p) => { const k = mealKind(p); c[k] = (c[k] || 0) + 1; }); return c; }
 function dayCheck(d) {
   const base = mealPlan().week[wdOf(d)]; const ex = dayExtras(d).reduce((a, x) => ({ meal: a.meal + (x.meal || 0), snack: a.snack + (x.snack || 0), any: a.any + (x.any || 0), treat: a.treat + (x.treat || 0) }), { meal: 0, snack: 0, any: 0, treat: 0 });
   const c = dayCounts(d); const overMeal = Math.max(0, c.meal - base.meal - ex.meal); const anyLeft = ex.any - overMeal;
   const snackMax = base.snack + ex.snack + Math.max(0, anyLeft);
   const r = { c, base, ex, mealOk: anyLeft >= 0, mealMax: base.meal + ex.meal + ex.any, snackOk: c.snack <= snackMax, snackMax, treatOk: c.treat <= base.treat + ex.treat, treatMax: base.treat + ex.treat };
-  r.broken = breakHits(d); r.followed = d < T0 && mealsOn(d).length > 0 && r.mealOk && r.snackOk && r.treatOk && !r.broken.length; return r;
+  r.latteMax = base.latte == null ? LATTE0 : base.latte; r.latteOk = c.latte <= r.latteMax;
+  r.broken = breakHits(d); r.followed = d < T0 && mealsOn(d).length > 0 && r.mealOk && r.snackOk && r.treatOk && r.latteOk && !r.broken.length; return r;
 }
-const dayBroke = (d) => { if (d > T0 || overOn(d)) return false; const r = dayCheck(d); return r.broken.length > 0 || !r.mealOk || !r.snackOk || !r.treatOk; };
+const dayBroke = (d) => { if (d > T0 || overOn(d)) return false; const r = dayCheck(d); return r.broken.length > 0 || !r.mealOk || !r.snackOk || !r.treatOk || !r.latteOk; };
 const followed = (d) => !overOn(d) && dayCheck(d).followed; // an overeating day gets only its red mark (2026-11-10)
 // Items that break a food diary day (2026-11-03): if any is logged, the day gets no star. A tag counts when ticked,
 // a scale when it's at or above the level picked, an avoidance item when avoided. mealPlan().breaks = [{id, min}]
@@ -3088,7 +3092,7 @@ function linkField(x) {
 }
 function mealWeekSheet() {
   const mp = mealPlan();
-  let h = `<div class="pgrid"><span></span>${KINDS3.map((k) => `<span class="mono">${k[2]}</span>`).join('')}${WD.map((w, i) => `<span class="pd">${w}</span>${KINDS3.map(([k]) => stepper('mwstep', i, k, mp.week[i][k])).join('')}`).join('')}</div>`;
+  let h = `<div class="pgrid"><span></span>${KINDS3.map((k) => `<span class="mono">${k[2]}</span>`).join('')}${WD.map((w, i) => `<span class="pd">${w}</span>${KINDS3.map(([k]) => stepper('mwstep', i, k, mp.week[i][k] == null ? (k === 'latte' ? LATTE0 : 0) : mp.week[i][k])).join('')}`).join('')}</div>`;
   h += `<div class="fld" style="margin-top:16px"><span class="mono">Extras</span>${mp.extras.map((x) => `<div class="xrow"><div class="inrow"><span class="xdot" style="background:${xcol(x)}" aria-hidden="true"></span><input class="inp" data-xname="${x.id}" value="${esc(x.name)}" aria-label="Extra name"><button class="rm" data-a="xrm" data-v="${x.id}" aria-label="Remove ${esc(x.name)}">✕</button></div><div style="margin-top:8px">${colorField('x:' + x.id, xcol(x))}</div>${linkField(x)}
     <div class="pgrid x"><span class="mono">Meals</span><span class="mono">Bites</span><span class="mono">Either</span><span class="mono">Snacks</span>${['meal', 'snack', 'any', 'treat'].map((f) => stepper('xstep', x.id, f, x[f] || 0)).join('')}</div>
     <button class="addbtn" data-a="xweekly" data-v="${x.id}" aria-pressed="${!!x.weekly}" style="min-height:36px;font-size:13px"><span class="circ ${x.weekly ? 'done' : ''}" style="--c:var(--quiet);width:18px;height:18px">${x.weekly ? '✓' : ''}</span>Once a week at most</button></div>`).join('')}
@@ -3098,12 +3102,16 @@ function mealWeekSheet() {
 }
 // Food diary page, tidied (2026-11-02): calendar, then the picked day as one section (counts, extras, meals, tags),
 // then earlier days as quiet sections. Section style matches the Health page.
+// counters only for what I've had that day; what's still allowed sits in one quiet line, and kinds with nothing allowed and nothing had stay hidden (the owner, 2026-11-12)
 function planPanel(d) {
-  const r = dayCheck(d); const past = d < T0;
+  const r = dayCheck(d);
   const cell = (n, max, label, ok, extra) => `<div class="cnt3 ${ok ? '' : 'over'}"><b>${n}<small>/${max}</small></b><span>${label}</span>${extra ? `<i>${extra}</i>` : ''}</div>`;
   const ex = r.mealMax > r.base.meal ? '+' + (r.mealMax - r.base.meal) + ' extra' : '';
-  let h = `<div class="counts${overOn(d) ? ' fgrey' : ''}">${cell(r.c.meal, r.base.meal, 'Meals', r.mealOk, ex)}${cell(r.c.snack, r.snackMax, 'Bites', r.snackOk)}${cell(r.c.treat, r.treatMax, r.treatMax ? 'Snacks · snack day' : 'Snacks', r.treatOk)}</div>`;
-  return h;
+  const K = [['meal', r.base.meal, 'Meals', r.mealOk, ex, r.mealMax], ['snack', r.snackMax, 'Bites', r.snackOk, '', r.snackMax], ['treat', r.treatMax, r.treatMax ? 'Snacks · snack day' : 'Snacks', r.treatOk, '', r.treatMax], ['latte', r.latteMax, 'Lattes', r.latteOk, '', r.latteMax]];
+  const had = K.filter(([k]) => r.c[k] > 0), open = K.filter(([k, , , , , mx]) => !r.c[k] && mx > 0);
+  const word = (k, n) => { const w = KINDS3.find((q) => q[0] === k); return n + ' ' + (n === 1 ? w[1] : w[2]).toLowerCase(); };
+  return (had.length ? `<div class="counts${overOn(d) ? ' fgrey' : ''}">${had.map(([k, mx, l, ok, x]) => cell(r.c[k], mx, l, ok, x)).join('')}</div>` : '')
+    + (open.length ? `<p class="cleft"><span class="mono">${had.length ? 'Still open' : 'Open today'}</span><span>${open.map(([k, , , , , mx]) => word(k, mx)).join(' · ')}</span></p>` : '');
 }
 const dayLabel = (d) => relDay(d) === fmtDate(d) ? fmtDate(d) : relDay(d) + ', ' + fmtDate(d);
 function dayMeals(d) {
@@ -3422,7 +3430,7 @@ function healthAction(act, a, ref, v) {
     case 'xadd': { xcapture(); change(() => { mealPlan().extras.push({ id: uid('x'), name: 'New extra', meal: 0, snack: 1, any: 0 }); }); render(); return true; }
     case 'xrm': { xcapture(); change(() => { const mp = mealPlan(); mp.extras = mp.extras.filter((e) => e.id !== v); }); render(); return true; }
     case 'mealweek': openSheet({ kind: 'mealweek', title: 'Meal plan', back: S.sheet }); return true;
-    case 'mwstep': { xcapture(); change(() => { const w = mealPlan().week[+a.dataset.k]; w[a.dataset.f] = Math.max(0, Math.min(9, w[a.dataset.f] + +v)); }); renderLayer(); return true; }
+    case 'mwstep': { xcapture(); change(() => { const w = mealPlan().week[+a.dataset.k]; const f0 = a.dataset.f; const cur = w[f0] == null ? (f0 === 'latte' ? LATTE0 : 0) : w[f0]; w[f0] = Math.max(0, Math.min(9, cur + +v)); }); renderLayer(); return true; }
     case 'meal': openSheet({ kind: 'photo', ref, d: v || T0, title: 'Meal', back: S.sheet && S.sheet.kind === 'diary' ? S.sheet : null }); return true;
     case 'mealnew': { const p = { id: uid('p'), tags: [], at: nowHM(), text: '', kind: 'meal' }; change(() => { (M.photos[T0] = M.photos[T0] || []).push(p); }); openSheet({ kind: 'photo', ref: p.id, d: T0, title: 'Meal', isNew: true }); return true; }
     case 'mealdone': { mcapture(); const s = S.sheet; const p = curMeal(); if (p && s.isNew && !p.text && !mealSrc(p)) { M.photos[T0] = mealsOn(T0).filter((x) => x.id !== p.id); } save(); closeSheet(); render(); return true; }
@@ -3922,12 +3930,12 @@ function timerPage() {
     <div class="btns" style="justify-content:center"><button class="btn dark vtgo" data-a="${run ? 'tpause' : 'tstart'}">${run ? 'Pause' : any ? 'Carry on' : 'Start'}</button>${run || any ? '<button class="btn" data-a="tstop">Stop and save</button>' : ''}</div></div>`;
 }
 // Study support is a normal journal page with the tag 'Study support' (2026-11-10): today's one opens, or a new one starts
-const SUP_TAG = 'Study support';
+const SUP_TAG = 'Study support'; // its pages also carry 'Studies' (the owner, 2026-11-12)
 const supEntry = (e) => !!e && (e.tags || []).includes(SUP_TAG);
 const supOn = () => S.area === 'notebook' && S.nbView === 'jpage' && (supEntry(jCurrent()) || (S.jEntry === 'new' && (S.jNewTags || []).includes(SUP_TAG)));
 function supOpen() { const cur = S.nbView === 'jpage' && S.area === 'notebook'; if (cur) { jSync(); jDropEmpty(); save(); }
   const e = (M.journal || []).filter((x) => x.d === T0 && supEntry(x)).pop(); S.sheet = null; S.menu = false; S.stv = null; S.jFrom = 'study'; S.area = 'notebook'; S.insOn = false; S.jBack = 'home';
-  S.jMenu = false; S.jTagOpen = false; S.jRe = null; S.jSel = null; S.jCaret = null; S.nbView = 'jpage'; S.jEntry = e ? e.id : 'new'; S.jNewTags = e ? null : [SUP_TAG];
+  S.jMenu = false; S.jTagOpen = false; S.jRe = null; S.jSel = null; S.jCaret = null; S.nbView = 'jpage'; S.jEntry = e ? e.id : 'new'; S.jNewTags = e ? null : [SUP_TAG, 'Studies'];
   render(); if (typeof jGrow === 'function') jGrow(); $('#main').scrollTop = 0; }
 function saveTimer(msg) { const t = M.timer; if (!t) return; const min = Math.round(tElapsed() / 60000); const id = t.id && I(t.id) ? t.id : null; const before = minOn(null, T0);
   M.timer = null; if (min < 1) { save(); render(); flash('Under a minute, not saved'); return; }
@@ -5902,11 +5910,16 @@ function jEdit(s, t, str) { const e = jMake(); const T = e.text || ''; s = Math.
 function jFixPs(e) { const n = (e.text || '').split('\n').length; const ps = e.ps = e.ps || []; while (ps.length < n) ps.push({}); ps.length = n; }
 function jSaveSoon(e) { clearTimeout(jT); jT = setTimeout(() => { if (jEmpty(e)) M.journal = M.journal.filter((x) => x !== e); save(); }, 400); }
 // read the words back from the page after the keyboard changed it directly (phone keyboards while composing a word)
+// a line break the phone's keyboard put in the page itself (a <br> or a new block) still counts as a line break
+function jWalk(root, an, acc) { const at = (c) => { if (an && an.startContainer === root && acc.caret == null && root.childNodes[an.startOffset] === c) acc.caret = acc.s.length; };
+  root.childNodes.forEach((c) => { at(c); if (c.nodeType === 3) { if (an && an.startContainer === c) acc.caret = acc.s.length + c.data.slice(0, an.startOffset).replace(/​/g, '').length; acc.s += c.data.replace(/​/g, ''); }
+    else if (c.nodeName === 'BR') { if (c.nextSibling) acc.s += '\n'; } /* a last <br> only holds an empty line open */ else if (c.nodeType === 1) { if (/^(DIV|P)$/.test(c.nodeName) && acc.s && !acc.s.endsWith('\n')) acc.s += '\n'; jWalk(c, an, acc); } });
+  if (an && an.startContainer === root && acc.caret == null) acc.caret = acc.s.length; }
 function jFromDom() { const fl = document.querySelector('.jpaper .jflow'); const e = jCurrent(); if (!fl) return null; const old = (e && e.text) || ''; const sel = getSelection(); const an = sel && sel.rangeCount ? sel.getRangeAt(0) : null;
   let out = '', prev = null, caret = null;
   [...fl.childNodes].forEach((n) => { if (n.nodeType === 1 && n.classList.contains('jprobe')) return;
-    if (n.nodeType === 1 && n.classList.contains('jl')) { const a = +n.dataset.a, i = +n.dataset.i; if (prev) out += i === prev.i + 1 ? old.slice(prev.b, a) : ''; const raw = n.textContent; const c = raw.replace(/​/g, '');
-      if (an && n.contains(an.startContainer)) { caret = out.length + jKOf(n, an.startContainer, an.startOffset); }
+    if (n.nodeType === 1 && n.classList.contains('jl')) { const a = +n.dataset.a, i = +n.dataset.i; if (prev) out += i === prev.i + 1 ? old.slice(prev.b, a) : ''; const acc = { s: '', caret: null }; jWalk(n, an && n.contains(an.startContainer) ? an : null, acc); const c = acc.s;
+      if (acc.caret != null) caret = out.length + acc.caret;
       out += c; prev = { i, b: +n.dataset.b }; }
     else if (n.nodeType === 3) { if (an && an.startContainer === n) caret = out.length + an.startOffset; out += n.data.replace(/​/g, ''); } });
   return { text: out, caret }; }
@@ -5933,6 +5946,10 @@ document.addEventListener('compositionupdate', (ev) => { const fl = ev.target.cl
 let jComp = false;
 document.addEventListener('compositionstart', (ev) => { if (ev.target.closest && ev.target.closest('.jflow')) jComp = true; });
 document.addEventListener('compositionend', (ev) => { if (!(ev.target.closest && ev.target.closest('.jflow'))) return; jComp = false; setTimeout(jSyncDom, 0); });
+// Enter makes the new line here, before the keyboard can put its own break in the page (the owner, 2026-11-12: the text jumped a line up)
+document.addEventListener('keydown', (ev) => { if (ev.key !== 'Enter' || ev.ctrlKey || ev.metaKey || ev.altKey) return; const fl = ev.target.closest && ev.target.closest('.jflow'); if (!fl || !fl.isContentEditable) return;
+  ev.preventDefault(); if (jComp) { jComp = false; jSyncDom(); } { const r = jFromDom(); const e0 = jCurrent(); if (r && r.text !== ((e0 && e0.text) || '')) jSyncDom(); }
+  const so = jSelOffs(); if (!so) return; const c = jEdit(so[0], so[1], '\n'); jLayoutText(); jSetCaret(c); S.jCaret = c; S.jCaretEnd = c; jFollowSoon(); });
 document.addEventListener('beforeinput', (ev) => { const fl = ev.target.closest && ev.target.closest('.jflow'); if (!fl || !fl.isContentEditable) return; const brk = ev.inputType === 'insertParagraph' || ev.inputType === 'insertLineBreak';
   // Enter while the keyboard is still composing a word: the word goes in first, then the new paragraph (2026-11-11: Enter jumped a line up)
   if (brk && (ev.isComposing || jComp)) { jComp = false; jSyncDom(); }
