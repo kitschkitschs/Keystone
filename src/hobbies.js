@@ -62,7 +62,7 @@ function renderHobbies() {
   if (S.proj && G(S.proj) && !G(S.proj).done) return projPage(S.proj);
   S.proj = null; const h = S.hob; const g = G(h);
   const actRow = (id) => { const it = I(id); const done = isDone(id, T0); const ld = lastEver(id);
-    return `<div class="row" data-ref="${id}">${tickCircle(id, T0, true)}<button class="lbl" data-a="${S.edit ? 'open' : 'hobact'}" data-ref="${id}" style="text-align:left">${nm(id, it.name)}<span class="sub">${done ? 'Logged today' : ld ? 'Last done ' + agoText(ld) : 'Not done yet'}</span></button>${tail(id, h)}</div>`; };
+    return `<div class="row" data-ref="${id}">${tickCircle(id, T0, true)}<button class="lbl" data-a="${S.edit ? 'open' : 'hobact'}" data-ref="${id}" style="text-align:left"><span>${nm(id, it.name)}${it.extra ? `<span class="mono hxt">${esc(it.extra)}</span>` : ''}</span><span class="sub">${done ? 'Logged today' : ld ? 'Last done ' + agoText(ld) : 'Not done yet'}</span></button>${tail(id, h)}</div>`; };
   const projRow = (p) => { const x = G(p); const ph = (x.photos || []).slice(-1)[0]; const ld = projLast(p); const T = projTasks(p); const left = T.filter((t) => !keeps(t) && !lastEver(t)).length;
     return `<div class="row prow" data-ref="${p}"><span class="pthumb" style="--c:${g.color}">${ph ? `<img src="${esc(projSrc(ph))}" alt="">` : icon(g.icon || 'folder', 18)}</span><button class="lbl" data-a="${S.edit ? 'gear' : 'hobproj'}" data-ref="${p}" style="text-align:left">${nm(p, x.name)}<span class="sub">${(x.worked || []).includes(T0) ? 'Worked on today' : ld ? 'Last worked on ' + agoText(ld) : 'Not started'}${T.length ? ' · ' + left + ' left' : ''}</span></button>${S.edit ? tail(p, h) : `<span class="chev" aria-hidden="true">›</span>`}</div>`; };
   const A = hobActs(h), P = hobProjs(h).filter((p) => !G(p).done), live = P.filter((p) => !G(p).hold), held = P.filter((p) => G(p).hold);
@@ -81,7 +81,7 @@ function renderHobbies() {
 function projPage(p) { const x = G(p); const h = hobOf(p); const c = G(h).color;
   const T = projTasks(p); const open = T.filter((t) => { const d = lastEver(t); return keeps(t) || !d || d === T0; }); const nDone = T.length - T.filter((t) => !lastEver(t)).length;
   const row = (id, i) => { const it = I(id); const w = whenText(it); const done = isDone(id, T0);
-    return `<div class="row" data-ref="${id}">${tickCircle(id, T0, true)}<button class="lbl" data-a="${S.edit ? 'open' : 'sched'}" data-ref="${id}" style="text-align:left">${nm(id, it.name)}<span class="sub">${done ? 'Done today' : w || (i === 0 ? 'Next up' : '')}</span></button>${tail(id, p)}</div>`; };
+    return `<div class="row" data-ref="${id}">${tickCircle(id, T0, true)}<button class="lbl" data-a="${S.edit ? 'open' : 'sched'}" data-ref="${id}" style="text-align:left"><span>${nm(id, it.name)}${it.extra ? `<span class="mono hxt">${esc(it.extra)}</span>` : ''}</span><span class="sub">${done ? 'Done today' : w || (i === 0 ? 'Next up' : '')}</span></button>${tail(id, p)}</div>`; };
   const ph = x.photos || [];
   let out = lcardPlus('pjt:' + p, 'Tasks', open.length || '', // only counts the tasks that show (2026-11-08)
      open.map(row).join('') || (T.length ? '<p class="empty">All done.</p>' : ''), '');
