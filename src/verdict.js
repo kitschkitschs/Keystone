@@ -222,7 +222,7 @@ function eRow(id, list, sub) { const x = I(id) || G(id); const c = colorOf(id);
   return `<div class="row" data-ref="${id}">${grip()}<span class="circ" style="--c:${c}" data-col="${id}" role="button" aria-label="Change colour"></span><span class="lbl">${nm(id, x.name)}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>${tail(id, list)}</div>`; }
 const eList = (gid, ids, label, act, subOf) => `<div class="card vecard"><div class="list" data-list="${gid}">${ids.map((k) => eRow(k, gid, subOf ? subOf(k) : '')).join('')}</div>${addRow(act, gid, label)}</div>`;
 function tickRow(k, sub) { const it = I(k); const on = !!val(T0, k);
-  return `<div class="row" data-ref="${k}"><button class="tickbtn" data-a="vtick" data-ref="${k}" aria-label="Tick ${esc(it.name)}"><span class="circ ${on ? 'done' : ''}" style="--c:${colorOf(k)}">${on ? '✓' : ''}</span></button><button class="lbl" data-a="sched" data-ref="${k}" style="text-align:left">${esc(it.name)}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</button></div>`; }
+  return `<div class="row" data-ref="${k}"><button class="tickbtn" data-a="vtick" data-ref="${k}" aria-label="Tick ${esc(it.name)}"><span class="circ ${on ? 'done' : halfOf(k) ? 'half' : ''}" style="--c:${colorOf(k)}">${on ? '✓' : ''}</span></button><button class="lbl" data-a="sched" data-ref="${k}" style="text-align:left">${esc(it.name)}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</button></div>`; }
 function onceSub(k) { const it = I(k); const d = (it.when || {}).date; const t = d ? (d < T0 ? 'Overdue · ' + relDay(d) : relDay(d)) : ''; return [t + (it.time ? ' ' + it.time : ''), it.note || ''].filter((x) => x.trim()).join(' · '); }
 // The default simple list: a white card with its mono heading inside, like Today's blocks (2026-11-05).
 // key = collapse key (null = always open); inner = the rows (and an add row, if any).
@@ -444,7 +444,7 @@ function vNew(gid) { const g = G(gid); if (!g) return; const st = g.style;
 function vNewGroup(parent, o, msg) { const id = uid('g'); change(() => { M.groups[id] = Object.assign({ kids: [] }, o); G(parent).kids.push(id); }, msg, false);
   openSheet({ kind: 'group', ref: id, title: o.style === 'room' ? 'Room' : o.style === 'subject' ? 'Subject' : 'Task group', isNew: true }); }
 function logDone(id, d) { const it = I(id); const back = S.fromSlot && I(S.fromSlot) && I(S.fromSlot).opens === 'chores' && d === T0 && choreIds().includes(id);
-  S.sheet = null; change(() => { L(d)[id] = 'done'; }, it.name + ' done ' + (d === T0 ? 'today' : lowDay(d)));
+  S.sheet = null; if (d === T0 && twoTick(id)) return; change(() => { L(d)[id] = 'done'; }, it.name + ' done ' + (d === T0 ? 'today' : lowDay(d)));
   if (back) { S.fromSlot = null; S.area = 'plan'; S.page = 'today'; S.day = T0; render(); } }
 function verdictAction(act, a, ref, v) {
   switch (act) {
