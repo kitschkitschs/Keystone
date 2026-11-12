@@ -105,16 +105,17 @@ function bDock(b) { const x = b.items.find((i) => i.id === S.bSel); const P = S.
     return `<div class="bdock" id="bdock">${bPanW(pan)}<div class="bdrow">${row}</div></div>`; }
   if (S.bLines && S.bLines.length) { const L = S.bLines; const o0 = bLnObj(JSON.parse(JSON.stringify(b)), L[0]) || {}; const LP = P || (L.length === 1 && L[0].startsWith('g:') ? 'lnlist' : 'lnline'); const lon = (k) => LP === k ? 'on' : '';
     const LGg = L.length === 1 && L[0].startsWith('g:') && (b.groups || []).find((q) => 'g:' + q.id === L[0]);
-    row = (LGg ? dB('bpanel', 'lnlist', LGg.ls === 'row' ? 'git-fork' : 'list-tree', LGg.ls === 'row' ? 'Row' : 'List', lon('lnlist')) : '') + dB('bpanel', 'lnline', 'spline', 'Line', lon('lnline')) + dB('bpanel', 'lncol', 'palette', 'Colour', lon('lncol')) + dB('lnall', '', 'list-checks', 'All lines') + dB('lndone', '', 'check', 'Done');
+    row = (LGg ? dB('bpanel', 'lnlist', LGg.ls === 'row' ? 'git-fork' : 'list-tree', LGg.ls === 'row' ? 'Row' : 'List', lon('lnlist')) : '') + dB('bpanel', 'lnline', 'spline', 'Line', lon('lnline')) + dB('bpanel', 'lncol', 'palette', 'Colour', lon('lncol')) + (L.length === 1 && !L[0].startsWith('g:') ? dB('lnmove', '', 'move', 'Move', S.bLnMove ? 'on' : '') + dB('lndel', '', 'trash', 'Delete', 'dang') : '') + dB('lnall', '', 'list-checks', 'All lines') + dB('lndone', '', 'check', 'Done');
+    if (S.bLnMove) pan = `<div class="prow"><span class="mono plab">Move</span><span class="note" style="margin:0">Tap the bubble it should come from</span></div>`;
     if (LP === 'lnlist' && LGg) { const cur = LGg.lst || ''; const opts = LGg.ls === 'row' ? [['', 'Line'], ['curve', 'Curved'], ['dots', 'Timeline']] : [['', 'Line'], ['curve', 'Curved'], ['dots', 'Timeline'], ['bullet', 'Bullets'], ['num', 'Numbers']];
       const Lo = mindLayout(b, rootOf(b, LGg.parent)); const jp = Lo && Lo.P['g:' + LGg.id]; const io = !jp ? null : LGg.ls === 'list' && !jp.fan ? [['l', 'Left'], ['r', 'Right']] : LGg.ls === 'row' && jp.fan ? [['u', 'Above'], ['d', 'Below']] : null; const isd = LGg.iside || (io && io[1][0]);
       pan = (io ? `<div class="prow"><span class="mono plab">Items</span>${io.map(([k, l]) => pB('lstset', 'iside:' + k, l, isd === k)).join('')}</div>` : '') + `<div class="prow"><span class="mono plab">Kind</span>${pB('lstset', 'ls:list', 'List', LGg.ls === 'list')}${pB('lstset', 'ls:row', 'Row', LGg.ls === 'row')}</div><div class="prow"><span class="mono plab">Look</span>${opts.map(([k, l]) => pB('lstset', 'lst:' + k, l, cur === k)).join('')}</div>`; }
-    if (LP === 'lnline') pan = `<div class="prow">${L.length > 1 ? `<span class="mono plab">${L.length}</span>` : ''}<span class="mono plab">Line</span>${[['', 'Solid'], ['dash', 'Dashed'], ['dot', 'Dotted']].map(([k, l]) => pB('lnset', 'dash:' + k, l, (o0.dash || '') === k)).join('')}</div>`
+    if (LP === 'lnline' && !S.bLnMove) pan = `<div class="prow">${L.length > 1 ? `<span class="mono plab">${L.length}</span>` : ''}<span class="mono plab">Line</span>${[['', 'Solid'], ['dash', 'Dashed'], ['dot', 'Dotted']].map(([k, l]) => pB('lnset', 'dash:' + k, l, (o0.dash || '') === k)).join('')}</div>`
       + `<div class="prow"><span class="mono plab">Width</span>${[['', 'Thin'], ['2.4', 'Medium'], ['3.6', 'Thick']].map(([k, l]) => pB('lnset', 'w:' + k, l, String(o0.w || '') === k)).join('')}</div>`
       + `<div class="prow"><span class="mono plab">Arrows</span>${[['', 'None'], ['end', icon('move-right', 17)], ['start', icon('move-left', 17)], ['both', icon('move-horizontal', 17)]].map(([k, l]) => pB('lnset', 'arrow:' + k, l, (o0.arrow || '') === k, k ? 'ico' : '')).join('')}</div>`
       + (L.length === 1 && !L[0].startsWith('lk:') && bSnapTarget(b) ? `<div class="prow"><span class="mono plab">Meets</span>${pB('lnat', '', 'Auto')}</div>` : '')
       + `<div class="prow"><span class="mono plab">Logic</span>${pB('lnset', 'brk:' + (o0.brk ? '' : '1'), 'Break', !!o0.brk)}</div>`;
-    if (LP === 'lncol') pan = bCF('Colour', 'ln', o0.col, 'Auto');
+    if (LP === 'lncol' && !S.bLnMove) pan = bCF('Colour', 'ln', o0.col, 'Auto');
     return `<div class="bdock" id="bdock">${bPanW(pan)}<div class="bdrow">${row}</div></div>`; }
   if (lk) { const LP = P || 'lkline'; const lon = (k) => LP === k ? 'on' : '';
     row = dB('bpanel', 'lkline', 'spline', 'Line', lon('lkline')) + dB('bpanel', 'lkcol', 'palette', 'Colour', lon('lkcol')) + dB('bpanel', 'lktext', 'type', 'Text', lon('lktext')) + dB('lkflip', '', 'arrow-left-right', 'Turn') + dB('lkdel', lk.id, 'trash', 'Delete', 'dang');
@@ -130,7 +131,7 @@ function bDock(b) { const x = b.items.find((i) => i.id === S.bSel); const P = S.
     // Bubble right of Colour; Map only once there's a bubble; Select works on everything (2026-11-08)
     if (!x) { row = dB('badd', 'text', 'type', 'Text') + `<label class="bdb" aria-label="Add photos" title="Add photos">${icon('image-plus', 19)}<span>Photo</span><input type="file" accept="image/*" multiple id="boardphoto" data-ref="${b.id}" hidden></label>` + dB('badd', 'swatch', 'swatch-book', 'Colour') + dB('mbubble', '', 'circle-dot', 'Bubble') + dB('mmulti', 'go', 'square-dashed-mouse-pointer', 'Select') + (b.items.some(isNode) ? dB('mmapgo', '', 'network', 'Map') : ''); // Map right of Select (2026-11-10)
       if (S.bMap) { const tb = (k, ic, l) => dB('mtool', k, ic, l, S.bTool === k ? 'on' : ''); // the map's tools: pick one, then tap what it should work on
-        row = dB('mbubble', '', 'circle-dot', 'Bubble') + tb('link', 'spline', 'Link') + tb('brk', 'unlink', 'Break') + tb('bub', 'paintbrush', 'Styles') + dB('mmulti', 'go', 'square-dashed-mouse-pointer', 'Select') + dB('mmapx', '', 'check', 'Done');
+        row = dB('mbubble', '', 'circle-dot', 'Bubble') + tb('link', 'spline', 'Link') + tb('line', 'route', 'Lines') + tb('brk', 'unlink', 'Break') + tb('bub', 'paintbrush', 'Styles') + dB('mmulti', 'go', 'square-dashed-mouse-pointer', 'Select') + dB('mmapx', '', 'check', 'Done');
         const lp = S.bLnPaint || {};
         const lnRows = `<div class="prow"><span class="mono plab">Line</span>${[['', 'Solid'], ['dash', 'Dashed'], ['dot', 'Dotted']].map(([k, l]) => pB('lpset', 'dash:' + k, l, (lp.dash || '') === k)).join('')}</div>`
           + `<div class="prow"><span class="mono plab">Width</span>${[['', 'Thin'], ['2.4', 'Medium'], ['3.6', 'Thick']].map(([k, l]) => pB('lpset', 'w:' + k, l, String(lp.w || '') === k)).join('')}</div>`
@@ -172,7 +173,7 @@ function bDock(b) { const x = b.items.find((i) => i.id === S.bSel); const P = S.
         pan = `<div class="prow"><span class="mono plab">Spread</span>${[['both', 'Sides'], ['all', 'Four ways'], ['circle', 'Circle'], ['fan', 'Fan'], ['spiral', 'Spiral'], ['bloom', 'Bloom'], ['right', 'Right']].map(([k, l]) => pB('mlayout', k, l, lay === k)).join('')}${pB('mspread', '', 'Even')}</div>`
           + `<div class="prow"><span class="mono plab">Theme</span>${Object.keys(MM_THEMES).map((k) => pB('mtheme', k, `<span class="mthd">${(k === 'ink' ? [...MM_THEMES.ink.g, '#6E685F'] : MM_THEMES[k].c.slice(0, 5)).map((c) => `<i style="background:${c}"></i>`).join('')}</span>${MM_THEMES[k].n}`, th === k)).join('')}</div>`
           + `<div class="prow"><span class="mono plab">Size</span>${pB('mzoom', 'out', icon('zoom-out', 17), false, 'ico')}${pB('mzoom', 'in', icon('zoom-in', 17), false, 'ico')}${pB('mzoom', 'fit', 'Fit the board')}${pB('mfoldall', 'open', 'Open all')}${pB('mfoldall', 'shut', 'Fold all')}</div>`; }
-  if (x && !x.t && P === 'mdir') pan = `<div class="prow"><span class="mono plab">Grow</span>${pB('mgrow', 'branch', 'Branch', S.bGrow !== 'list')}${pB('mgrow', 'list', 'List', S.bGrow === 'list')}${pB(x.parent ? 'mchild' : 'mroot', '', 'Auto')}</div>`;  }
+  if (x && !x.t && P === 'mdir') pan = `<div class="prow"><span class="mono plab">Grow</span>${pB('mgrow', 'branch', 'Branch', S.bGrow !== 'list')}${pB('mgrow', 'list', 'List', S.bGrow === 'list')}${pB(x.parent ? 'mchild' : 'mroot', '', 'Auto')}</div>` + (S.bGrow === 'list' ? '' : `<div class="prow"><span class="mono plab">New</span>${['l', 'u', 'd', 'r'].map((k) => pB(x.parent ? 'mchild' : 'mroot', k, icon({ l: 'arrow-left', u: 'arrow-up', d: 'arrow-down', r: 'arrow-right' }[k], 18), false, 'ico')).join('')}</div>`);  }
   return `<div class="bdock" id="bdock">${pan ? '' : `<div class="bzm"><button data-a="bzoom" data-v="in" aria-label="Zoom in">${icon('plus', 16)}</button><button class="bzp" data-a="bzoom" data-v="1" aria-label="Back to 100%">${Math.round((S.bZoom || 1) * 100)}%</button><button data-a="bzoom" data-v="out" aria-label="Zoom out">${icon('minus', 16)}</button></div>`}${pan ? `${bPanW(pan)}` : ''}${S.bVw ? '' : `<div class="bdrow">${row}</div>`}</div>`; }
 
 // the style panel for one or several bubbles: Shape, Colours, Text, Saved
@@ -782,6 +783,7 @@ function mmGrow(el) { const n = el.closest('.mmn'); const b = curBoard(); if (!n
   const left = p.side > 0 || p.list ? p.cx - p.w / 2 : p.side < 0 ? p.cx + p.w / 2 - w : p.cx - w / 2;
   n.style.width = w + 'px'; n.style.left = (left - Lo.x0) + 'px'; n.style.minHeight = m.h + 'px'; n.style.top = (p.cy - Lo.y0 - m.h / 2) + 'px'; n.style.zIndex = 5; mmCentre(n.dataset.id); }
 document.addEventListener('input', (e) => { const el = e.target; if (el.classList && el.classList.contains('mmt') && el.isContentEditable) mmGrow(el); });
+['compositionupdate', 'keyup'].forEach((ev) => document.addEventListener(ev, (e) => { const el = e.target; if (el && el.classList && el.classList.contains('mmt') && el.isContentEditable) requestAnimationFrame(() => mmGrow(el)); }));
 document.addEventListener('focusout', (e) => { if (e.target.classList && e.target.classList.contains('mmt') && e.target.isContentEditable) { const nx = e.target.dataset.next; delete e.target.dataset.next; mmEnd(e.target, nx); } });
 function mmZoom(how) { const b = curBoard(); const r = b && rootOf(b, S.bSel); if (!r) return; const Lo = mindLayout(b, r);
   bMut(() => { r.k = how === 'fit' ? Math.max(0.2, Math.min(1.5, 0.94 * 360 / Lo.W)) : Math.max(0.2, Math.min(2.5, (r.k || 1) * (how === 'in' ? 1.15 : 1 / 1.15)));
@@ -887,7 +889,7 @@ function boardAction(act, a, ref, v) {
     case 'medit': if (S.bSel) mmEdit(S.bSel); return true;
     case 'mgrow': S.bGrow = v; bToolsOnly(); return true;
     // Auto adds a branch without moving the ones already there (2026-11-12: the map kept swapping sides on my phone)
-    case 'mchild': if (S.bSel) { if (b && S.bGrow !== 'list') { bPinSibs(b, { on: S.bSel }); bPinKids(b, b.items.find((i) => i.id === S.bSel)); } if (S.bGrow === 'list') mmNew(S.bSel, null, null, bListFor(b, S.bSel)); else mmNew(S.bSel); } return true;
+    case 'mchild': if (S.bSel) { if (b && S.bGrow !== 'list') { bPinSibs(b, { on: S.bSel }); bPinKids(b, b.items.find((i) => i.id === S.bSel)); } if (S.bGrow === 'list') mmNew(S.bSel, null, null, bListFor(b, S.bSel)); else mmNew(S.bSel, null, v || null); } return true;
     case 'mroot': { const r = b && rootOf(b, S.bSel); S.bPanel = null; if (r) { if (S.bGrow === 'list') mmNew(r.id, null, null, bListFor(b, r.id)); else { if (!v) bPinSibs(b, { on: r.id }); mmNew(r.id, null, v || null); } } return true; }
     case 'mgrow': bMut((bb, x) => { if (!x) return; delete x.side; if (v) x.dir = v; else delete x.dir; }); requestAnimationFrame(() => S.bSel && mmCentre(S.bSel)); return true;
     case 'mtheme': bMut((bb, x) => { const r = x && rootOf(bb, x.id); if (r) r.theme = v === 'ink' ? undefined : v; }); return true;
@@ -935,7 +937,12 @@ function boardAction(act, a, ref, v) {
     case 'mlayout': bMut((bb, x) => { const r = x && rootOf(bb, x.id); if (r) r.layout = v === 'both' ? undefined : v; }); return true;
     case 'mselmode': if (v === 'all') { S.bMulti = b ? b.items.filter((i) => !i.t).map((i) => i.id) : []; S.bGpar = null; render(); return true; } S.bSelMode = v; bToolsOnly(); return true;
     case 'lnall': S.bLines = b ? bAllLines(b) : []; S.bLnMulti = true; S.bMulti = null; S.bSel = null; S.bLk = null; S.bPanel = null; render(); return true;
-    case 'lndone': S.bLines = null; S.bLnMulti = false; S.bPanel = null; render(); return true;
+    case 'lnmove': S.bLnMove = !S.bLnMove; render(); return true;
+    case 'lndel': { const key = (S.bLines || [])[0]; S.bLines = null; S.bLnMove = false; if (!key || !b) { render(); return true; }
+      if (key.startsWith('lk:')) { bMut((bb) => { bb.links = (bb.links || []).filter((l) => l.id !== key.slice(3)); }); return true; }
+      // a branch line taken away: the word and what grows from it become a map of their own
+      S.bSel = key; boardAction('mplace', null, null, 'own'); S.bSel = null; render(); return true; }
+    case 'lndone': S.bLnMove = false; S.bLines = null; S.bLnMulti = false; S.bPanel = null; render(); return true;
     case 'lstset': { const k = v.slice(0, v.indexOf(':')), val = v.slice(v.indexOf(':') + 1); const key = (S.bLines || [])[0] || ''; bMut((bb) => { const g = (bb.groups || []).find((q) => 'g:' + q.id === key); if (!g) return; if (k === 'ls') { g.ls = val; delete g.iside; if (val === 'row' && ['bullet', 'num'].includes(g.lst)) delete g.lst; } else if (k === 'iside') { if (val === 'r' || val === 'd') delete g.iside; else g.iside = val; } else if (val) g.lst = val; else delete g.lst; }); return true; }
     case 'lnset': { const k = v.slice(0, v.indexOf(':')), val = v.slice(v.indexOf(':') + 1); bMut((bb) => { (S.bLines || []).forEach((key) => { const o = bLnObj(bb, key); if (o) o[k] = val || undefined; }); bLnClean(bb); }); return true; }
     case 'lnat': bMut((bb) => { const k = (S.bLines || [])[0]; const g = (bb.groups || []).find((q) => 'g:' + q.id === k); if (g) { delete g.at; delete g.dir; delete g.pin; delete g.jat; } const x = bb.items.find((i) => i.id === k); if (x) { delete x.at; delete x.mat; delete x.pin; } }); return true;
@@ -1015,7 +1022,7 @@ document.addEventListener('pointerdown', (e) => { const btn = e.target.closest &
   const inDock = !!btn.closest('#bdock'); a.blur(); const nb = document.querySelector((inDock ? '#bdock ' : '.bhd ') + q); if (nb) nb.click(); }, true);
 
 // tapping a connection picks it
-document.addEventListener('click', (e) => { const h = e.target.closest && e.target.closest('.mblk'); if (!h) return; if (S.bMulti) return; { const b0 = curBoard(); const T = b0 && bSnapTarget(b0); if (T && (T.mode === 'new' || T.mode === 'grp')) return; } if (S.bLnMulti) { bLnToggle('lk:' + h.dataset.lk); return; } S.bLines = null; S.bLk = h.dataset.lk; S.bSel = null; S.bPanel = null; S.bLink = null; S.bMulti = null; render(); });
+document.addEventListener('click', (e) => { const h = e.target.closest && e.target.closest('.mblk'); if (!h) return; if (S.bMulti) return; if (S.bLnMulti) { bLnToggle('lk:' + h.dataset.lk); return; } return; /* lines are only edited with the Lines tool (2026-11-12) */ S.bLines = null; S.bLk = h.dataset.lk; S.bSel = null; S.bPanel = null; S.bLink = null; S.bMulti = null; render(); });
 document.addEventListener('input', (e) => { if (!(e.target && e.target.classList && e.target.classList.contains('lkin'))) return; const b = curBoard(); const l = b && (b.links || []).find((q) => q.id === e.target.dataset.lk); if (!l) return;
   if (!S.bLkBefore) S.bLkBefore = bState(b); l.label = e.target.value.trim() || undefined; bMaps(); });
 document.addEventListener('change', (e) => { if (!(e.target && e.target.classList && e.target.classList.contains('lkin'))) return; const b = curBoard(); if (b && S.bLkBefore) { bPush(b, S.bLkBefore); bTouch(b); save(); } S.bLkBefore = null; });
@@ -1033,7 +1040,7 @@ document.addEventListener('click', (e) => { const h = e.target.closest && e.targ
   if (S.bMulti) { const MI = mmItems(b); const out = []; const walk = (id) => { if (!String(id).startsWith('g:')) out.push(id); MI.filter((i) => i.parent === id).forEach((k) => walk(k.id)); }; walk(key);
     const L = S.bMulti; S.bMulti = out.every((q) => L.includes(q)) ? L.filter((q) => !out.includes(q)) : L.concat(out.filter((q) => !L.includes(q))); S.bSel = null; render(); return; }
   const T = bSnapTarget(b); if (T && (T.mode === 'new' || T.mode === 'grp')) return; // picking a snap point: lines stay out of the way
-  if (S.bLnMulti) { bLnToggle(key); return; } S.bLines = [key]; S.bLnMulti = false; S.bSel = null; S.bLk = null; S.bMulti = null; S.bPanel = null; render(); });
+  if (S.bLnMulti) { bLnToggle(key); return; } /* a plain tap on a line does nothing: lines are edited with the Lines tool in Map (2026-11-12) */ });
 // where a list leaves its word: drag (or tap) along the dots, it snaps to them
 let bSnapDrag = null;
 document.addEventListener('pointerdown', (e) => { const d = e.target.closest && e.target.closest('.mmsnap'); if (!d) return; e.preventDefault(); e.stopPropagation(); const b = curBoard(); if (!b) return; const T = bSnapTarget(b); if (!T) return;
@@ -1110,6 +1117,13 @@ document.addEventListener('click', (e) => { if (!S.bMap || !S.bTool || S.bMulti 
   if (!n && !key) return; e.stopPropagation(); e.preventDefault(); if (mSkip) { mSkip = false; return; }
   if (T === 'link') { if (!n) return; const id = n.dataset.id; if (!S.bLink) { S.bLink = id; render(); return; } const from = S.bLink; S.bLink = null; if (from === id) { render(); return; }
     bMut((bb) => { bb.links = bb.links || []; if (!bb.links.some((l) => (l.a === from && l.b === id) || (l.a === id && l.b === from))) bb.links.push(Object.assign({ id: uid('lk'), a: from, b: id }, S.bLkSty || {})); }); return; }
+  if (T === 'line') { const b0 = curBoard(); if (!b0) return;
+    if (S.bLnMove && n && (S.bLines || []).length === 1) { const key0 = S.bLines[0], to = n.dataset.id; S.bLnMove = false;
+      if (key0.startsWith('lk:')) { bMut((bb) => { const l = (bb.links || []).find((q) => q.id === key0.slice(3)); if (l && l.a !== to) l.b = to; }); return; }
+      const bad = new Set([key0]); let grow = true; while (grow) { grow = false; b0.items.forEach((i) => { if (i.parent && bad.has(i.parent) && !bad.has(i.id)) { bad.add(i.id); grow = true; } }); }
+      if (bad.has(to)) { render(); return; }
+      bMut((bb) => { const it = bb.items.find((i) => i.id === key0); if (!it) return; it.parent = to; ['g', 'dir', 'side', 'free', 'dx', 'dy', 'fside', 'pin', 'x', 'y', 'k', 'z'].forEach((k) => delete it[k]); }); return; }
+    if (key) { S.bLines = [key]; S.bLnMulti = false; S.bLnMove = false; S.bSel = null; S.bLk = null; S.bPanel = null; render(); } return; }
   if (T === 'brk' && key) { bMut((bb) => { if (key.startsWith('lk:')) { const l = (bb.links || []).find((q) => q.id === key.slice(3)); if (l) { if (l.brk) delete l.brk; else l.brk = 1; } return; } const o = bLnObj(bb, key); if (o) { if (o.brk) delete o.brk; else o.brk = '1'; } bLnClean(bb); }); return; }
   if (T === 'bub' && key && (S.bStSec || 'bub') === 'line') { bMut((bb) => { if (key.startsWith('lk:')) { const l = (bb.links || []).find((q) => q.id === key.slice(3)); const lp = S.bLnPaint || {}; if (l) ['dash', 'w', 'arrow', 'col'].forEach((k) => { if (lp[k]) l[k] = lp[k]; else delete l[k]; }); return; } bPaintLine(bb, key); bLnClean(bb); }); return; }
   if (T === 'bub' && n && (S.bStSec || 'bub') === 'bub') { const id = n.dataset.id; bMut((bb) => { const x = bb.items.find((i) => i.id === id); if (x) bPaintBub(x); }); } }, true);
