@@ -1111,6 +1111,7 @@ function blank() { const m = seed(); m.example = false; m.items = {}; m.log = {}
   Object.values(m.groups).forEach((g) => { g.kids = g.kids.filter((k) => m.groups[k]); });
   m.items['ci-m'] = seed().items['ci-m']; m.items['ci-e'] = seed().items['ci-e']; m.groups['b-morning'].kids = ['ci-m']; m.groups['b-evening'].kids = ['ci-e'];
   // the check-ins live in a Morning and an Evening routine, so those two stay (empty apart from the check-in)
+  if (m.groups['ht-beh']) { m.settings = m.settings || {}; m.settings.hyper1 = false; hyperMigrate(m); } // Hyperfocus is part of the app, not an example
   const sd = seed().items; m.items['r-morning'] = Object.assign(sd['r-morning'], { steps: [] }); m.items['r-evening'] = Object.assign(sd['r-evening'], { steps: [] });
   m.groups['b-morning'].kids = ['ci-m', 'r-morning']; m.groups['b-evening'].kids = ['r-evening', 'ci-e'];
   const hs = healthSeed(); Object.assign(m.groups, hs.groups); Object.assign(m.items, hs.items); m.events = []; m.conds = []; m.photos = {}; m.feel = {};
@@ -1589,7 +1590,7 @@ function renderToday() {
   if (d < T0 && !S.edit) return h + pastDay(d);
   const PD = placeDay(d); const at = {}; PD.forEach((o) => { at[o.id] = o.a; });
   const blocksH = DL.map(({ b, items, appts }) => {
-    const g = G(b); const shown = live ? items.filter((id) => S.edit || !isDone(id, d) || (I(id).overdo && val(d, id) === 'done')) : items;
+    const g = G(b); const shown = live ? items.filter((id) => S.edit || !isDone(id, d)) : items;
     const apShown = live && !S.edit ? (appts || []).filter((id) => !isDone(id, d)) : (appts || []);
     if (!S.edit && !shown.length && !apShown.length) return '';
     const open = S.edit || S.open['b:' + b] !== false;
@@ -1655,7 +1656,7 @@ function placeDay(d) {
     items.forEach((id) => { const bh = I(id).behind; if (!bh || o.includes(id)) return; const f = fixed.find((q) => q.id === bh); if (f) after[id] = Math.max(after[id] || 0, f.b); });
     // tacked in front of a set-time item (2026-11-11): it ends right where that item starts, several in a row stack up
     // backwards; a day's own choice wins over the every-day one (it.before)
-    const dt = (M.dayTack || {})[d] || {}; const tackOf = (id) => { const t = (id in dt ? dt[id] : I(id).before) || null; return t && I(t) && !I(t).brk ? t : null; }; // never onto a break
+    const dt = (M.dayTack || {})[d] || {}; const tackOf = (id) => { const t = (id in dt ? dt[id] : I(id).before) || null; return t && I(t) ? t : null; }; // breaks too (2026-11-12), but only when dropped right at them (see the drop)
     const tacked = new Set(); const busy = fixed.slice();
     fixed.forEach((f) => { let end = f.a; items.filter((id) => !I(id).time && tackOf(id) === f.id).reverse().forEach((id) => { const len = I(id).dur || 30; if (end - len < hm(g.start)) return; /* no room before the block starts: it flows as usual */ const q = { id, a: end - len, b: end, blk: b }; out.push(q); busy.push(q); tacked.add(id); end -= len; }); });
     items.filter((id) => !I(id).time && !tacked.has(id)).forEach((id) => { const len = I(id).dur || 30; let moved = true; if (after[id]) cur = Math.max(cur, after[id]);
@@ -1706,7 +1707,7 @@ function renderSchedule() {
   const same = (k, o) => k >= 0 && k < days.length && PD[k].some((p) => p.id === o.id && p.blk === o.blk && p.a === o.a && p.b === o.b) && !clash(k, o);
   // past days no longer fade; today gets a long card behind its column instead, like the selected day in the calendar (2026-11-04)
   // past days don't fade (2026-11-04); only done items do
-  const faded = (k, o) => days[k] >= T0 && isDone(o.id, days[k]); // past days keep full colour (2026-11-06)
+  const faded = () => false; // nothing on the Schedule fades, not past days and not done items (2026-11-12)
   days.forEach((d, di) => {
     h += `<div class="col" data-day="${d}" style="height:${H}px">` + PD[di].map((o) => { const it = I(o.id); const c = o.appt ? G(catOf(o.id)).color : colorOf(o.id); const top0 = yIn(o.a, o.blk), flush = !o.appt && (OV[o.blk] ? o.b >= ends[o.blk] + OV[o.blk] : o.b >= ends[o.blk]); const top = it.brk ? top0 : top0 + 1, ht = Math.max(14, yIn(o.b - 0.01, o.blk) - top0 - (flush ? 1 : 2)); // 1px in from the lines above and below, so boxes sit evenly on the hour lines (2026-11-11) // the last box of a block (or of its red stretch) sits flush on the next block's border (2026-11-03/04)
       // a break fills its time exactly so its lines sit on the hour lines; a line that would double a block title's line is left out
@@ -1728,7 +1729,7 @@ function renderSchedule() {
       const mv = !o.appt && !it.time && it.type !== 'checkin' && d >= T0;
       return `<button class="box ${dayV ? 'wide' : ''} ${mv ? 'mv' : ''} ${jl ? 'jl' : ''} ${jr ? 'jr' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && I(o.id) && I(o.id).brk ? ' brk ' + bkE : ''}" style="top:${top}px;height:${!o.appt && it.brk ? Math.max(14, yIn(o.b, o.blk) - top) : ht}px;--c:${c};--bg:${fd ? mix(pale(c), TH.page, 0.5) : pale(c)};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" ${rk ? `data-run="${rk}"` : ''} data-from="${o.a}" data-to="${o.b}" aria-label="${esc(it.name)}, ${fmtHM(o.a)}">${inner}</button>${lab}`; }).join('') + '</div>';
   });
-  S.ymap = { y, h0, h1, zones: blockIds().filter((b) => OV[b]).map((b) => ({ b, top: yIn(ends[b], b), h: OV[b] / 60 * PX })) };
+  S.ymap = { y, h0, h1, zones: blockIds().filter((b) => OV[b]).map((b) => ({ b, top: yIn(ends[b], b), h: OV[b] / 60 * PX, e: ends[b], ov: OV[b] })) };
   h += '</div>';
   return h;
 }
@@ -1904,6 +1905,7 @@ function sheetBody() {
       <div class="fld"><span class="mono">Icon</span><div><button class="btn" data-a="iconfor" data-v="a:${s.ref}" style="display:inline-flex;gap:8px;align-items:center">${icon(a.icon, 18)} Change icon</button></div></div>`; }
   if (s.kind === 'remove') { const pl = placements(s.ref);
     return `<p class="note" style="font-size:14px">“${esc(I(s.ref).name)}” is in ${pl.length} places: ${pl.map((p) => esc(placeName(p))).join(', ')}. It is one item, so its history is shared.</p><div class="btns"><button class="btn" data-a="rmhere">Remove from here</button><button class="btn danger" data-a="rmall">Delete everywhere</button></div>`; }
+  if (s.kind === 'hyper') { const pk = hval(T0, 'pt:' + s.ref) || []; const c = hcolor(s.ref); return `<p class="note" style="font-size:14px">Which hobbies?</p><div class="chips">${partOpts(s.ref).map(([h, l]) => `<button class="hchip" data-a="hpart" data-ref="${s.ref}" data-v="${esc(h)}" aria-pressed="${pk.includes(h)}" style="${pk.includes(h) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(l)}</button>`).join('')}</div><div class="btns" style="margin-top:16px"><button class="btn dark" data-a="hyperdone" ${pk.length ? '' : 'disabled'}>Done</button></div>`; }
   if (s.kind === 'much') return `<p class="note" style="font-size:14px">Too much “${esc((I(s.ref) || G(s.ref) || {}).name || '')}”. What kind?</p><div class="btns"><button class="btn dark" data-a="much" data-v="hyper">Hyperfixation</button><button class="btn dark" data-a="much" data-v="inert">Inertia</button><button class="btn" data-a="much" data-v="">Skip</button></div>`;
   if (s.kind === 'checkin') return checkinSheet(s);
   if (s.kind === 'feel') return feelSheet();
@@ -2046,7 +2048,7 @@ function itemSheet(s) {
   if (D.type !== 'checkin') {
     h += `<div class="fld"><span class="mono">Colour and icon</span>${colorField('draft', D.color, { inherit: true })}<div><button class="btn" data-a="iconfor" data-v="draft" style="display:inline-flex;gap:8px;align-items:center">${icon(D.icon || (D.type === 'appt' && G(s.cat) ? G(s.cat).icon : 'circle'), 18)} Change icon</button></div></div>`;
     if (D.type !== 'appt') {
-    h += `<div class="fld"><span class="mono">Kind</span><div class="chips">${[['', 'None'], ['behaviour', 'Behaviour'], ['experience', 'Experience'], ['circumstance', 'Circumstance']].map(([k, l]) => `<button class="chip" data-a="dset" data-k="kind" data-v="${k}" aria-pressed="${(D.kind || '') === k}">${l}</button>`).join('')}</div>${D.kind === 'behaviour' ? sw('unwanted', 'Unwanted', D.unwanted, 'Behaviour I want less of') : ''}${D.kind === 'behaviour' && D.type === 'task' ? sw('overdo', 'Can overdo', D.overdo, (S.sheet && (S.sheet.hobact || (S.sheet.ref && typeof hobArea === 'function' && hobArea(S.sheet.ref)) || (S.sheet.home && G(S.sheet.home) && (G(S.sheet.home).style === 'project' || (G('g-hobbies') && G('g-hobbies').kids.includes(S.sheet.home)))))) ? 'Swipe left in Hobbies for Too much' : 'Tap twice for Too much') : ''}</div>`;
+    h += `<div class="fld"><span class="mono">Kind</span><div class="chips">${[['', 'None'], ['behaviour', 'Behaviour'], ['experience', 'Experience'], ['circumstance', 'Circumstance']].map(([k, l]) => `<button class="chip" data-a="dset" data-k="kind" data-v="${k}" aria-pressed="${(D.kind || '') === k}">${l}</button>`).join('')}</div>${D.kind === 'behaviour' ? sw('unwanted', 'Unwanted', D.unwanted, 'Behaviour I want less of') : ''}</div>`;
     h += tagField(D, 'dtag'); h += linkField2(D);
     }
   }
@@ -2353,7 +2355,8 @@ function tick(id) {
       else { L(T0)[id] = 'done'; st.forEach((s) => { if (!val(T0, s)) md[s] = 'r'; }); } }, (all ? 'Unticked ' : 'Ticked ') + it.name); return; }
   if (it.type === 'checkin') { openSheet({ kind: 'checkin', ref: id, title: it.name }); return; }
   // a hobby item ticks like any other; Too much is a swipe to the left in Hobbies (2026-11-11)
-  if (!it.overdo || (typeof hobArea === 'function' && hobArea(id))) { change(() => { if (cur) delete L(T0)[id]; else L(T0)[id] = 'done'; }, (cur ? 'Unticked ' : 'Ticked ') + it.name); return; }
+  // Too much is gone (2026-11-12): it became the Hyperfocus symptom, so every tick is a plain tick
+  if (true) { change(() => { if (cur) delete L(T0)[id]; else L(T0)[id] = 'done'; }, (cur ? 'Unticked ' : 'Ticked ') + it.name); return; }
   if (!cur) change(() => { L(T0)[id] = 'done'; }, 'Done: ' + it.name);
   else if (cur === 'done') { change(() => { L(T0)[id] = 'much'; }); openSheet({ kind: 'much', ref: id, title: 'Too much' }); }
   else change(() => { delete L(T0)[id]; }, 'Cleared ' + it.name);
@@ -2480,7 +2483,7 @@ function liftOut(bx) {
   document.querySelectorAll(`.blab[data-run="${CSS.escape(rk)}"]`).forEach((l) => { l.style.display = 'none'; });
   document.querySelectorAll(`.box[data-run="${CSS.escape(rk)}"]`).forEach((b) => { if (b !== bx) { b.classList.add('loose'); if (!b.innerHTML.trim()) b.innerHTML = icon(boxIcon({ id: b.dataset.ref }), 12, 2); } });
 }
-function minuteAt(px) { const { h0, h1, y, zones } = S.ymap; const z = (zones || []).find((q) => px >= q.top && px <= q.top + q.h); if (z) return hm(G(z.b).end) - 5; let best = h0 * 60, bd = 1e9; for (let m = h0 * 60; m <= h1 * 60; m += 5) { const dd = Math.abs(y(m) - px); if (dd < bd) { bd = dd; best = m; } } return best; }
+function minuteAt(px) { const { h0, h1, y, zones } = S.ymap; const z = (zones || []).find((q) => px >= q.top && px <= q.top + q.h); S.ymap.zb = z ? z.b : null; /* inside a block's overflow: the minute in the overflow, so drops there land where they're aimed (2026-11-12: items jumped when a day ran over its block) */ if (z) return z.e + Math.round((px - z.top) / Math.max(1, z.h) * z.ov); let best = h0 * 60, bd = 1e9; for (let m = h0 * 60; m <= h1 * 60; m += 5) { const dd = Math.abs(y(m) - px); if (dd < bd) { bd = dd; best = m; } } return best; }
 document.addEventListener('pointerdown', (e) => {
   const bx = e.target.closest('.box.mv'); if (!bx || S.sheet) return;
   sd = { id: bx.dataset.ref, from: bx.dataset.d, el: bx, x: e.clientX, y: e.clientY, sc: bx.getBoundingClientRect().height / bx.offsetHeight || 1, off: (e.clientY - bx.getBoundingClientRect().top) / (bx.getBoundingClientRect().height / bx.offsetHeight || 1), st: $('#main').scrollTop, on: false, t: setTimeout(() => { if (!sd) return; sd.on = true; liftOut(bx); bx.classList.add('lift'); if (navigator.vibrate) navigator.vibrate(10); }, 300) };
@@ -2498,7 +2501,7 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
   if (!col) return; const day = col.dataset.day; const cr = col.getBoundingClientRect();
   // the middle of the box decides (2026-11-11): above another item's middle = in front of it, below = behind it
   const m = minuteAt((top - cr.top) / x.sc + (x.el.offsetHeight || 0) / 2); const mid = (o) => (o.a + o.b) / 2;
-  const it = I(x.id); const b = blockAtTime(fmtHM(m)); const g = G(b);
+  const it = I(x.id); const b = S.ymap.zb || blockAtTime(fmtHM(m)); const g = G(b);
   if (day !== x.from && !(it.when && it.when.mode === 'once')) { flash('Repeats keep their days. Change the rule in its settings.'); render(); return; }
   if (day < T0) { flash('Past days stay as they were'); render(); return; }
   // the untimed items already in that block on that day, in time order; drop after the last one that starts before m
@@ -2507,8 +2510,10 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
   const idx = inB.filter((o) => mid(o) < m).length;
   // dropped in front of an item with a set time (a routine at 22:00): it's tacked on, ending right where that item starts
   const nxt = inB.filter((o) => mid(o) >= m).sort((p, q) => p.a - q.a)[0]; const tk0 = (id) => { const T = (M.dayTack || {})[day] || {}; return (id in T ? T[id] : I(id).before) || null; }; /* in front of something already tacked on: it joins that row */ /* a break is never something to tack onto, and the drop has to be nearer the set-time item than the item before it (2026-11-11) */ const pv0 = inB.filter((o) => mid(o) < m).sort((p, q) => p.b - q.b).pop(); const near = (q) => !pv0 || (q.a - m) < (m - pv0.b);
-  const tack = !nxt || I(nxt.id).brk ? null : nxt.appt || I(nxt.id).time ? (near(nxt) ? nxt.id : null) : tk0(nxt.id);
+  // a break takes it only when the drop is right at it, within 20 minutes of its start (2026-11-12: in front of or behind everything, breaks included)
+  const tack = !nxt ? null : nxt.appt || I(nxt.id).time ? (near(nxt) && (!I(nxt.id).brk || nxt.a - m <= 20) ? nxt.id : null) : tk0(nxt.id);
   const setTack = () => { const T = (M.dayTack = M.dayTack || {})[day] = (M.dayTack[day] || {}); T[x.id] = tack; };
+  if (Array.isArray(window.__dbg)) window.__dbg.push({ top, crt: cr.top, oh: x.el.offsetHeight, sc: x.sc, off: x.off, ey: e.clientY, m, idx, b, day, tack, prev: prev && prev.id, nxt: nxt && nxt.id, inB: inB.map((o) => o.id + '@' + o.a + '-' + o.b) });
   if (!S.edit && day === x.from) { change(() => { moveOnDay(x.id, day, b, idx); setTack(); }, 'Moved ' + it.name + ' on ' + fmtDate(day)); return; }
   change(() => {
     blockIds().forEach((k) => { const ks = G(k).kids; const i = ks.indexOf(x.id); if (i >= 0) ks.splice(i, 1); });
@@ -2586,6 +2591,10 @@ const INTAKE = () => ['Alcohol', 'Caffeine', 'Sugar', 'Takeaway', 'Skipped a mea
 function NUTRITION() { return { name: 'Nutrition', style: 'hgroup', holds: 'tracker', special: 'food', color: '#6FA24A', kids: ['tr-intake'] }; }
 // Older saved data gets the Health area added; Fitness becomes part of it.
 // an Overeating symptom (Behavioural) whose level rings the day on the food diary calendar (2026-11-10)
+// Hyperfocus (2026-11-12): a symptom like the others; when I log it I pick which of my hobbies it was. It replaces Too much.
+function hyperMigrate(m) { m.settings = m.settings || {}; if (m.settings.hyper1 || !m.groups || !m.groups['ht-beh']) return; m.settings.hyper1 = true;
+  if (!m.items['tr-hyper']) { m.items['tr-hyper'] = { name: 'Hyperfocus', type: 'tracker', scale: 'symptom3', special: 'hyperfocus', kind: 'behaviour', tags: [], insight: true }; m.groups['ht-beh'].kids.push('tr-hyper'); } }
+const isHyper = (id) => !!I(id) && I(id).special === 'hyperfocus';
 function oeMigrate(m) { m.settings = m.settings || {}; if (m.settings.overeat1 || !m.groups || !m.groups['ht-beh']) return; m.settings.overeat1 = true;
   if (!m.items['tr-over']) { m.items['tr-over'] = { name: 'Overeating', type: 'tracker', scale: 'symptom3', kind: 'behaviour', unwanted: true, tags: [], insight: true }; m.groups['ht-beh'].kids.push('tr-over'); } }
 // sample: overeating yesterday, with a meal on it (only with the examples on)
@@ -2681,7 +2690,7 @@ function migrate(m) {
     linkExtras(m); }
   splitTags(m);
   vMigrate(m); // Study and Home on the verdict blocks (2026-11-03)
-  tMigrate(m); cMigrate(m); sSessMigrate(m); hMigrate(m); nMigrate(m); shMigrate(m); wMigrate(m); wMigrate2(m); wMigrate3(m); oeMigrate(m); oeMigrate2(m); remMigrate(m); // Training and Expeditions folders (2026-11-04)
+  tMigrate(m); cMigrate(m); sSessMigrate(m); hMigrate(m); nMigrate(m); shMigrate(m); wMigrate(m); wMigrate2(m); wMigrate3(m); oeMigrate(m); hyperMigrate(m); oeMigrate2(m); remMigrate(m); // Training and Expeditions folders (2026-11-04)
   ciRepair(m);
   // 2026-11-11: snack day = the first snack logged in a week; training extras link to a training item, not a kind and distance
   snackFix(m); afterFix(m);
@@ -2803,8 +2812,9 @@ function trackRows(ids, d, c, row, plus) {
   ids.forEach((k) => { if (!S.edit && I(k).scale === 'yesno') run.push(k); else { flush(false); out.push(row(k)); } }); flush(true); return out.join('');
 }
 // a symptom's details as chips, shown once it has an answer: on Health and in the check-in (2026-11-12)
-function partDet(id, d, c) { const P = I(id).parts || []; const hv = hval(d, id); const pk = hval(d, 'pt:' + id) || [];
-  return P.length && !S.edit && typeof hv === 'number' && hv > 0 ? `<div class="chips tparts">${P.map((w) => `<button class="hchip" data-a="hpart" data-ref="${id}" data-v="${esc(w)}" aria-pressed="${pk.includes(w)}" style="${pk.includes(w) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(w)}</button>`).join('')}</div>` : ''; }
+function partOpts(id) { return isHyper(id) ? (typeof hobIds === 'function' ? hobIds() : []).map((h) => [h, G(h).name]) : (I(id).parts || []).map((w) => [w, w]); }
+function partDet(id, d, c) { const P = partOpts(id); const hv = hval(d, id); const pk = hval(d, 'pt:' + id) || [];
+  return P.length && !S.edit && typeof hv === 'number' && hv > 0 ? `<div class="chips tparts">${P.map(([w, l]) => `<button class="hchip" data-a="hpart" data-ref="${id}" data-v="${esc(w)}" aria-pressed="${pk.includes(w)}" style="${pk.includes(w) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(l)}</button>`).join('')}</div>` : ''; }
 function trackerRow(id, list, d, c) {
   if (!S.edit && isTags(id)) return `<div class="trow" data-ref="${id}">${answerUI(id, d, c)}</div>`;
   const P = I(id).parts || []; const hv = hval(d, id); const pk = hval(d, 'pt:' + id) || [];
@@ -3315,7 +3325,9 @@ function healthAction(act, a, ref, v) {
     case 'projact': { const gn = document.getElementById('gname'); const nmv = gn && gn.value.trim(); change(() => { if (nmv) G(ref).name = nmv; if (v) G(ref).act = v; else delete G(ref).act; }); renderLayer(); return true; }
     case 'gci': { change(() => { if (v) G(ref).ci = v; else delete G(ref).ci; }); renderLayer(); return true; }
     case 'cistep': if (S.sheet && S.sheet.kind === 'checkin') { S.sheet.step = +v; S._lastSheet = null; renderLayer(); } return true;
-    case 'hset': { const cur = hval(T0, ref); const nv = /^\d+$/.test(v) ? +v : v; change(() => { if (cur === nv) { delete L(T0)[ref]; delete L(T0)['pt:' + ref]; } else L(T0)[ref] = nv; }); return true; }
+    case 'hyperdone': { S.sheet = (S.sheet && S.sheet.back) || null; render(); return true; }
+    case 'hset': { const cur = hval(T0, ref); const nv = /^\d+$/.test(v) ? +v : v; change(() => { if (cur === nv) { delete L(T0)[ref]; delete L(T0)['pt:' + ref]; } else L(T0)[ref] = nv; });
+      if (isHyper(ref) && cur !== nv && !(hval(T0, 'pt:' + ref) || []).length && partOpts(ref).length) openSheet({ kind: 'hyper', ref, title: 'Hyperfocus' }); return true; }
     case 'hpick': { change(() => { const arr = Array.isArray(hval(T0, ref)) ? hval(T0, ref).slice() : []; const i = arr.indexOf(v); if (i >= 0) arr.splice(i, 1); else arr.push(v); if (arr.length) L(T0)[ref] = arr; else delete L(T0)[ref]; }); return true; }
     case 'feel': openSheet({ kind: 'feel', title: 'How do I feel?', back: S.sheet && S.sheet.kind === 'checkin' ? S.sheet : null }); return true;
     case 'feelw': { change(() => { const ws = (M.feel[T0] || []).slice(); const i = ws.indexOf(v); if (i >= 0) ws.splice(i, 1); else ws.push(v); M.feel[T0] = ws; }); renderLayer(); return true; }
@@ -4213,7 +4225,7 @@ function insightData() {
       return typeof v === 'number' ? v : null; })); });
   D.fams.forEach(({ f, ws }) => addVar('f:' + f, 'Feeling ' + f.toLowerCase(), 'Feelings', D.feel.map((w) => w.length ? (w.some((x) => ws.includes(x)) ? 1 : 0) : null)));
   // TOO MUCH (2026-11-08): items that can be overdone; per day '' (not too much), 'hyper', 'inert' or 'much' (no kind picked)
-  D.over = Object.keys(M.items).filter((k) => I(k).overdo && ITICK.includes(I(k).type));
+  D.over = []; // Too much became the Hyperfocus symptom (2026-11-12); it shows with the other symptoms
   D.much = {}; D.over.forEach((id) => { D.much[id] = days.map((d, k) => { if (d > T0 || k < Math.max(0, first)) return null; const v = insVal(D, d, id);
     return typeof v === 'string' && v.startsWith('much') ? (v.slice(5) || 'much') : insDone(D, id, d) ? '' : null; }); });
   D.muchDay = days.map((d, k) => { if (!anyData[k] || d > T0) return null; const ks = D.over.map((id) => D.much[id][k]).filter((x) => x); return { hyper: ks.includes('hyper'), inert: ks.includes('inert'), any: ks.length > 0 }; });
@@ -5222,7 +5234,7 @@ function renderHobbies() {
   const actRow = (id) => { const it = I(id); const done = isDone(id, T0); const ld = lastEver(id);
     return `<div class="row" data-ref="${id}">${tickCircle(id, T0, true)}<button class="lbl" data-a="${S.edit ? 'open' : 'hobact'}" data-ref="${id}" style="text-align:left">${nm(id, it.name)}<span class="sub">${done ? 'Logged today' : ld ? 'Last done ' + agoText(ld) : 'Not done yet'}</span></button>${tail(id, h)}</div>`; };
   const projRow = (p) => { const x = G(p); const ph = (x.photos || []).slice(-1)[0]; const ld = projLast(p); const T = projTasks(p); const left = T.filter((t) => !keeps(t) && !lastEver(t)).length;
-    return `<div class="row prow" data-ref="${p}"><span class="pthumb" style="--c:${g.color}">${ph ? `<img src="${esc(projSrc(ph))}" alt="">` : icon(g.icon || 'folder', 18)}</span><button class="lbl" data-a="${S.edit ? 'gear' : 'hobproj'}" data-ref="${p}" style="text-align:left">${nm(p, x.name)}<span class="sub">${(x.much || []).includes(T0) ? 'Too much today' : (x.worked || []).includes(T0) ? 'Worked on today' : ld ? 'Last worked on ' + agoText(ld) : 'Not started'}${T.length ? ' · ' + left + ' left' : ''}</span></button>${S.edit ? tail(p, h) : `<span class="chev" aria-hidden="true">›</span>`}</div>`; };
+    return `<div class="row prow" data-ref="${p}"><span class="pthumb" style="--c:${g.color}">${ph ? `<img src="${esc(projSrc(ph))}" alt="">` : icon(g.icon || 'folder', 18)}</span><button class="lbl" data-a="${S.edit ? 'gear' : 'hobproj'}" data-ref="${p}" style="text-align:left">${nm(p, x.name)}<span class="sub">${(x.worked || []).includes(T0) ? 'Worked on today' : ld ? 'Last worked on ' + agoText(ld) : 'Not started'}${T.length ? ' · ' + left + ' left' : ''}</span></button>${S.edit ? tail(p, h) : `<span class="chev" aria-hidden="true">›</span>`}</div>`; };
   const A = hobActs(h), P = hobProjs(h).filter((p) => !G(p).done), live = P.filter((p) => !G(p).hold), held = P.filter((p) => G(p).hold);
   const hk = 'hbhold:' + h; if (S.open[hk] === undefined) S.open[hk] = false;
   let out = '';
@@ -5376,13 +5388,13 @@ function wheelBurst(h) { const ph = document.getElementById('phone'), sv = docum
 let pws = null;
 // swipe right to left on a project or a hobby item: Too much today, again to take it back (2026-11-11)
 document.addEventListener('pointerdown', (e) => { if (S.edit || S.sheet || S.area !== 'hobbies' || e.button > 0) return; const row = e.target.closest && e.target.closest('#view .row[data-ref]'); if (!row) return;
-  const ref = row.dataset.ref; const proj = row.classList.contains('prow'); if (!proj && !(I(ref) && I(ref).type === 'task')) return; pws = { row, proj, x: e.clientX, y: e.clientY, on: false, dx: 0 }; });
+  const ref = row.dataset.ref; const proj = row.classList.contains('prow'); if (!proj) return; pws = { row, proj, x: e.clientX, y: e.clientY, on: false, dx: 0 }; });
 document.addEventListener('pointermove', (e) => { const w = pws; if (!w) return; const dx = e.clientX - w.x, dy = e.clientY - w.y;
-  if (!w.on) { if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { pws = null; return; } if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.4 && (w.proj || dx < 0)) { w.on = true; w.row.style.transition = 'none'; } else return; }
-  w.dx = Math.max(-110, Math.min(w.proj ? 110 : 0, dx)); w.row.style.transform = `translateX(${w.dx}px)`; });
+  if (!w.on) { if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { pws = null; return; } if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.4 && dx > 0) { w.on = true; w.row.style.transition = 'none'; } else return; }
+  w.dx = Math.max(0, Math.min(110, dx)); w.row.style.transform = `translateX(${w.dx}px)`; });
 const pwsEnd = (e) => { const w = pws; pws = null; if (!w || !w.on) return; w.row.style.transition = 'transform .2s'; w.row.style.transform = '';
   if (e.type !== 'pointerup' || Math.abs(w.dx) <= 60) return; suppress = true; setTimeout(() => { suppress = false; }, 300); try { if (navigator.vibrate) navigator.vibrate(8); } catch (_) {}
-  if (w.dx > 0) projWork(w.row.dataset.ref); else if (w.proj) projMuch(w.row.dataset.ref); else hobMuch(w.row.dataset.ref); };
+  if (w.dx > 0) projWork(w.row.dataset.ref); }; // Too much is gone (2026-11-12): only the right swipe on a project, Worked on
 function projMuch(p) { const x = G(p); if (!x) return; const on = (x.much || []).includes(T0); const act = x.act && I(x.act) ? x.act : null;
   if (on) { change(() => { x.much = x.much.filter((d) => d !== T0); if (x.muchK) delete x.muchK[T0]; if (x.muchWork === T0) { x.worked = (x.worked || []).filter((d) => d !== T0); if (x.workAuto === T0 && x.act && M.log[T0] && x.muchAuto !== T0) delete M.log[T0][x.act]; delete x.workAuto; } delete x.muchWork;
     if (act && x.muchAuto === T0) { if (x.prevAct === undefined) delete L(T0)[act]; else L(T0)[act] = x.prevAct; } delete x.muchAuto; delete x.prevAct; }, 'Not too much'); return; }
@@ -5851,12 +5863,14 @@ function jFromDom() { const fl = document.querySelector('.jpaper .jflow'); const
 function jSyncDom() { const r = jFromDom(); if (!r) return; let e = jCurrent(); if (!e && !r.text.trim()) return; e = jMake(); if (r.text === e.text) return r; { const o = e.text || '', nw = r.text; let pf = 0; while (pf < o.length && pf < nw.length && o[pf] === nw[pf]) pf++; let sf = 0; while (sf < o.length - pf && sf < nw.length - pf && o[o.length - 1 - sf] === nw[nw.length - 1 - sf]) sf++; jShiftRuns(e, pf, o.length - sf, nw.length - pf - sf); } e.text = r.text; jFixPs(e); jSaveSoon(e); jLayoutText(); if (r.caret != null) jSetCaret(r.caret); return r; }
 // a long press on a journal tag asks to delete it
 let jtLp = null;
-document.addEventListener('pointerdown', (ev) => { const c = ev.target.closest && ev.target.closest('[data-a="jtagtog"], [data-a="jtagf"][data-v]:not([data-v=""])'); if (!c) return; const t = c.dataset.v; if (!t) return;
+// notes and words keep their tags the same way (2026-11-12)
+const TAGLP = [['[data-a="jtagtog"], [data-a="jtagf"]', 'jtagdel', 'every journal page'], ['[data-a="ntagtog"], [data-a="ntag"]', 'ntagdel', 'every note'], ['[data-a="wtag"], [data-a="wftag"]', 'wtagdel', 'every word']];
+document.addEventListener('pointerdown', (ev) => { if (!ev.target.closest) return; const hit = TAGLP.find(([sel]) => ev.target.closest(sel)); if (!hit) return; const c = ev.target.closest(hit[0]); const t = c.dataset.v; if (!t || t === 'all') return;
   clearTimeout(jtLp && jtLp.t); jtLp = { x: ev.clientX, y: ev.clientY, t: setTimeout(() => { jtLp = null; suppress = true; setTimeout(() => { suppress = false; }, 400); try { if (navigator.vibrate) navigator.vibrate(8); } catch (_) {}
-    S.ask = { q: 'Delete the tag “' + t + '”? It comes off every journal page.', yes: 'Delete', data: { a: 'jtagdel', v: t } }; S.jMenu = false; S.jFOpen = false; renderLayer(); }, 550) }; });
+    S.ask = { q: 'Delete the tag “' + t + '”? It comes off ' + hit[2] + '.', yes: 'Delete', data: { a: hit[1], v: t } }; S.jMenu = false; S.jFOpen = false; S.nTagOpen = false; renderLayer(); }, 550) }; });
 document.addEventListener('pointermove', (ev) => { if (jtLp && Math.hypot(ev.clientX - jtLp.x, ev.clientY - jtLp.y) > 10) { clearTimeout(jtLp.t); jtLp = null; } });
 ['pointerup', 'pointercancel'].forEach((k) => document.addEventListener(k, () => { if (jtLp) { clearTimeout(jtLp.t); jtLp = null; } }));
-document.addEventListener('contextmenu', (ev) => { if (ev.target.closest && ev.target.closest('[data-a="jtagtog"], [data-a="jtagf"]')) ev.preventDefault(); });
+document.addEventListener('contextmenu', (ev) => { if (ev.target.closest && TAGLP.some(([sel]) => ev.target.closest(sel))) ev.preventDefault(); });
 // keep the line I'm writing on in sight, above the keyboard (2026-11-11)
 function jFollow() { const fl = document.querySelector('.jpaper .jflow'); const mn = $('#main'); if (!fl || !mn || document.activeElement !== fl) return; const s = getSelection(); if (!s || !s.rangeCount) return;
   const r0 = s.getRangeAt(0); let r = r0.getBoundingClientRect(); if (!r.height) { const n = r0.startContainer; const el = n.nodeType === 3 ? n.parentNode : n; const sp = el.closest ? el.closest('.jl') : null; if (sp) r = sp.getBoundingClientRect(); else return; }
@@ -5963,7 +5977,7 @@ function notebookAction(act, a, ref, v) {
     case 'nopen': { S.nTagOpen = false; const pj = v && G(v) ? v : null; const n = noteList({ proj: pj }).find((x) => x.id === ref); if (n) openSheet({ kind: 'note', ref, proj: pj, title: 'Note', draft: JSON.parse(JSON.stringify(n)) }); return true; }
     case 'pnnew': S.nTagOpen = false; openSheet({ kind: 'note', title: 'New note', isNew: true, proj: v, draft: { title: '', text: '' } }); return true;
     case 'ntagtog': { ncapture(); const T = S.sheet.draft.tags = S.sheet.draft.tags || []; const i = T.indexOf(v); if (i >= 0) T.splice(i, 1); else T.push(v); nAuto(); renderLayer(); return true; }
-    case 'nnewtag': { ncapture(); const el = document.getElementById('nnewtag'); const t = el && el.value.trim(); if (!t) return true; const T = S.sheet.draft.tags = S.sheet.draft.tags || []; if (!T.includes(t)) T.push(t); nAuto(); renderLayer(); return true; }
+    case 'nnewtag': { ncapture(); const el = document.getElementById('nnewtag'); const t = el && el.value.trim(); if (!t) return true; const NT = M.settings.noteTags = M.settings.noteTags || []; if (!NT.includes(t)) { NT.push(t); save(); } const T = S.sheet.draft.tags = S.sheet.draft.tags || []; if (!T.includes(t)) T.push(t); nAuto(); renderLayer(); return true; }
     case 'ntagmenu': ncapture(); S.nTagOpen = !S.nTagOpen; renderLayer(); return true;
     case 'notesave': { if (a && !a.dataset.ok && a.classList.contains('npad')) { nAuto(); a.dataset.ok = '1'; a.classList.add('peeled'); setTimeout(() => { a.dispatchEvent(new MouseEvent('click', { bubbles: true })); }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 700); return true; }
       S.nTagOpen = false; nAuto(); S.sheet = null; render(); return true; }
@@ -5976,6 +5990,8 @@ function notebookAction(act, a, ref, v) {
     case 'jfopen': S.jFOpen = !S.jFOpen; render(); return true;
     case 'jtagf': S.jTag = v; S.jFOpen = false; render(); return true;
     case 'jtags': { S.jMenu = false; if (S.jTagOpen) { S.jTagOpen = false; render(); return true; } jMake(); jSync(); save(); S.jTagOpen = true; render(); return true; }
+    case 'ntagdel': { M.settings.noteTags = (M.settings.noteTags || []).filter((t) => t !== v); (M.notes || []).forEach((x) => { if (x.tags) x.tags = x.tags.filter((t) => t !== v); }); if (S.sheet && S.sheet.draft && S.sheet.draft.tags) S.sheet.draft.tags = S.sheet.draft.tags.filter((t) => t !== v); if (S.nTag === v) S.nTag = 'all'; save(); render(); return true; }
+    case 'wtagdel': { M.settings.wordTags = (M.settings.wordTags || []).filter((t) => t !== v); wList().forEach((x) => { if (x.tags) x.tags = x.tags.filter((t) => t !== v); }); if (S.sheet && S.sheet.draft && S.sheet.draft.tags) S.sheet.draft.tags = S.sheet.draft.tags.filter((t) => t !== v); if (S.wTag === v) S.wTag = 'all'; save(); render(); return true; }
     case 'jtagdel': { M.jTagList = (M.jTagList || []).filter((t) => t !== v); (M.journal || []).forEach((e) => { if (e.tags) e.tags = e.tags.filter((t) => t !== v); }); if (S.jTag === v) S.jTag = null; save(); render(); return true; }
     case 'jtagtog': { jMake(); const e = jSync(); if (!e) return true; const T = e.tags = e.tags || []; const i = T.indexOf(v); if (i >= 0) T.splice(i, 1); else T.push(v); save(); render(); return true; }
     case 'jnewtag': { if (document.getElementById('jnewtagin') && document.getElementById('jnewtagin').value.trim()) jMake(); const e = jSync(); const el = document.getElementById('jnewtagin'); const t = el && el.value.trim(); if (!e || !t) return true; M.jTagList = M.jTagList || []; if (!M.jTagList.includes(t)) M.jTagList.push(t); e.tags = e.tags || []; if (!e.tags.includes(t)) e.tags.push(t); save(); render(); return true; }
@@ -7204,7 +7220,7 @@ const wSorted = () => wList().slice().sort((a, b) => (b.upd || 0) - (a.upd || 0)
 // the deck's order: newest first, or shuffled until I leave the page
 // tags on word cards (2026-11-09); tags I leave out drop out of the shuffled deck (settings.wOut)
 const wF = () => (S.wTag && wTags().includes(S.wTag) ? S.wTag : 'all');
-const wTags = () => [...new Set(wList().flatMap((w) => w.tags || []))].sort((a, b) => a.localeCompare(b));
+const wTags = () => [...new Set(wList().flatMap((w) => w.tags || []).concat((M.settings || {}).wordTags || []))].sort((a, b) => a.localeCompare(b)); // tags stay when no word has them (2026-11-12)
 const wOut = () => ((M.settings || {}).wOut || []).filter((t) => wTags().includes(t));
 // the filter decides which words are in the deck; the shuffle no longer leaves tags out (2026-11-10)
 const wLeftOut = () => false;
@@ -7317,7 +7333,7 @@ function wordAction(act, a, ref, v) {
     case 'wunshuf': S.wOrder = null; S.wI = 0; S.wFlip = false; S.wShufOpen = false; render(); return true;
     case 'wout': { const O = wOut().slice(); const i = O.indexOf(v); if (i >= 0) O.splice(i, 1); else O.push(v); S.wI = 0; change(() => { M.settings.wOut = O; }); return true; }
     case 'wtag': { wCapture(); const T = S.sheet.draft.tags = (S.sheet.draft.tags || []).slice(); const i = T.indexOf(v); if (i >= 0) T.splice(i, 1); else T.push(v); renderLayer(); return true; }
-    case 'wtagadd': { wCapture(); const el = document.getElementById('wnewtag'); const t = el && el.value.replace(/\s+/g, ' ').trim(); if (!t) return true; const T = S.sheet.draft.tags = (S.sheet.draft.tags || []).slice(); if (!T.includes(t)) T.push(t); S.openAdd = null; renderLayer(); return true; }
+    case 'wtagadd': { wCapture(); const el = document.getElementById('wnewtag'); const t = el && el.value.replace(/\s+/g, ' ').trim(); if (!t) return true; const WT = M.settings.wordTags = M.settings.wordTags || []; if (!WT.includes(t)) { WT.push(t); save(); } const T = S.sheet.draft.tags = (S.sheet.draft.tags || []).slice(); if (!T.includes(t)) T.push(t); S.openAdd = null; renderLayer(); return true; }
     case 'wview': S.wView = S.wView === 'list' ? 'deck' : 'list'; S.wFlip = false; render(); return true;
     case 'wshuf': { S.wShufOpen = false; const ids = wList().map((w) => w.id); for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; } S.wOrder = ids; S.wI = 0; S.wFlip = false; render(); return true; }
   }

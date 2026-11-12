@@ -243,12 +243,14 @@ function jFromDom() { const fl = document.querySelector('.jpaper .jflow'); const
 function jSyncDom() { const r = jFromDom(); if (!r) return; let e = jCurrent(); if (!e && !r.text.trim()) return; e = jMake(); if (r.text === e.text) return r; { const o = e.text || '', nw = r.text; let pf = 0; while (pf < o.length && pf < nw.length && o[pf] === nw[pf]) pf++; let sf = 0; while (sf < o.length - pf && sf < nw.length - pf && o[o.length - 1 - sf] === nw[nw.length - 1 - sf]) sf++; jShiftRuns(e, pf, o.length - sf, nw.length - pf - sf); } e.text = r.text; jFixPs(e); jSaveSoon(e); jLayoutText(); if (r.caret != null) jSetCaret(r.caret); return r; }
 // a long press on a journal tag asks to delete it
 let jtLp = null;
-document.addEventListener('pointerdown', (ev) => { const c = ev.target.closest && ev.target.closest('[data-a="jtagtog"], [data-a="jtagf"][data-v]:not([data-v=""])'); if (!c) return; const t = c.dataset.v; if (!t) return;
+// notes and words keep their tags the same way (2026-11-12)
+const TAGLP = [['[data-a="jtagtog"], [data-a="jtagf"]', 'jtagdel', 'every journal page'], ['[data-a="ntagtog"], [data-a="ntag"]', 'ntagdel', 'every note'], ['[data-a="wtag"], [data-a="wftag"]', 'wtagdel', 'every word']];
+document.addEventListener('pointerdown', (ev) => { if (!ev.target.closest) return; const hit = TAGLP.find(([sel]) => ev.target.closest(sel)); if (!hit) return; const c = ev.target.closest(hit[0]); const t = c.dataset.v; if (!t || t === 'all') return;
   clearTimeout(jtLp && jtLp.t); jtLp = { x: ev.clientX, y: ev.clientY, t: setTimeout(() => { jtLp = null; suppress = true; setTimeout(() => { suppress = false; }, 400); try { if (navigator.vibrate) navigator.vibrate(8); } catch (_) {}
-    S.ask = { q: 'Delete the tag “' + t + '”? It comes off every journal page.', yes: 'Delete', data: { a: 'jtagdel', v: t } }; S.jMenu = false; S.jFOpen = false; renderLayer(); }, 550) }; });
+    S.ask = { q: 'Delete the tag “' + t + '”? It comes off ' + hit[2] + '.', yes: 'Delete', data: { a: hit[1], v: t } }; S.jMenu = false; S.jFOpen = false; S.nTagOpen = false; renderLayer(); }, 550) }; });
 document.addEventListener('pointermove', (ev) => { if (jtLp && Math.hypot(ev.clientX - jtLp.x, ev.clientY - jtLp.y) > 10) { clearTimeout(jtLp.t); jtLp = null; } });
 ['pointerup', 'pointercancel'].forEach((k) => document.addEventListener(k, () => { if (jtLp) { clearTimeout(jtLp.t); jtLp = null; } }));
-document.addEventListener('contextmenu', (ev) => { if (ev.target.closest && ev.target.closest('[data-a="jtagtog"], [data-a="jtagf"]')) ev.preventDefault(); });
+document.addEventListener('contextmenu', (ev) => { if (ev.target.closest && TAGLP.some(([sel]) => ev.target.closest(sel))) ev.preventDefault(); });
 // keep the line I'm writing on in sight, above the keyboard (2026-11-11)
 function jFollow() { const fl = document.querySelector('.jpaper .jflow'); const mn = $('#main'); if (!fl || !mn || document.activeElement !== fl) return; const s = getSelection(); if (!s || !s.rangeCount) return;
   const r0 = s.getRangeAt(0); let r = r0.getBoundingClientRect(); if (!r.height) { const n = r0.startContainer; const el = n.nodeType === 3 ? n.parentNode : n; const sp = el.closest ? el.closest('.jl') : null; if (sp) r = sp.getBoundingClientRect(); else return; }
@@ -355,7 +357,7 @@ function notebookAction(act, a, ref, v) {
     case 'nopen': { S.nTagOpen = false; const pj = v && G(v) ? v : null; const n = noteList({ proj: pj }).find((x) => x.id === ref); if (n) openSheet({ kind: 'note', ref, proj: pj, title: 'Note', draft: JSON.parse(JSON.stringify(n)) }); return true; }
     case 'pnnew': S.nTagOpen = false; openSheet({ kind: 'note', title: 'New note', isNew: true, proj: v, draft: { title: '', text: '' } }); return true;
     case 'ntagtog': { ncapture(); const T = S.sheet.draft.tags = S.sheet.draft.tags || []; const i = T.indexOf(v); if (i >= 0) T.splice(i, 1); else T.push(v); nAuto(); renderLayer(); return true; }
-    case 'nnewtag': { ncapture(); const el = document.getElementById('nnewtag'); const t = el && el.value.trim(); if (!t) return true; const T = S.sheet.draft.tags = S.sheet.draft.tags || []; if (!T.includes(t)) T.push(t); nAuto(); renderLayer(); return true; }
+    case 'nnewtag': { ncapture(); const el = document.getElementById('nnewtag'); const t = el && el.value.trim(); if (!t) return true; const NT = M.settings.noteTags = M.settings.noteTags || []; if (!NT.includes(t)) { NT.push(t); save(); } const T = S.sheet.draft.tags = S.sheet.draft.tags || []; if (!T.includes(t)) T.push(t); nAuto(); renderLayer(); return true; }
     case 'ntagmenu': ncapture(); S.nTagOpen = !S.nTagOpen; renderLayer(); return true;
     case 'notesave': { if (a && !a.dataset.ok && a.classList.contains('npad')) { nAuto(); a.dataset.ok = '1'; a.classList.add('peeled'); setTimeout(() => { a.dispatchEvent(new MouseEvent('click', { bubbles: true })); }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 700); return true; }
       S.nTagOpen = false; nAuto(); S.sheet = null; render(); return true; }
@@ -368,6 +370,8 @@ function notebookAction(act, a, ref, v) {
     case 'jfopen': S.jFOpen = !S.jFOpen; render(); return true;
     case 'jtagf': S.jTag = v; S.jFOpen = false; render(); return true;
     case 'jtags': { S.jMenu = false; if (S.jTagOpen) { S.jTagOpen = false; render(); return true; } jMake(); jSync(); save(); S.jTagOpen = true; render(); return true; }
+    case 'ntagdel': { M.settings.noteTags = (M.settings.noteTags || []).filter((t) => t !== v); (M.notes || []).forEach((x) => { if (x.tags) x.tags = x.tags.filter((t) => t !== v); }); if (S.sheet && S.sheet.draft && S.sheet.draft.tags) S.sheet.draft.tags = S.sheet.draft.tags.filter((t) => t !== v); if (S.nTag === v) S.nTag = 'all'; save(); render(); return true; }
+    case 'wtagdel': { M.settings.wordTags = (M.settings.wordTags || []).filter((t) => t !== v); wList().forEach((x) => { if (x.tags) x.tags = x.tags.filter((t) => t !== v); }); if (S.sheet && S.sheet.draft && S.sheet.draft.tags) S.sheet.draft.tags = S.sheet.draft.tags.filter((t) => t !== v); if (S.wTag === v) S.wTag = 'all'; save(); render(); return true; }
     case 'jtagdel': { M.jTagList = (M.jTagList || []).filter((t) => t !== v); (M.journal || []).forEach((e) => { if (e.tags) e.tags = e.tags.filter((t) => t !== v); }); if (S.jTag === v) S.jTag = null; save(); render(); return true; }
     case 'jtagtog': { jMake(); const e = jSync(); if (!e) return true; const T = e.tags = e.tags || []; const i = T.indexOf(v); if (i >= 0) T.splice(i, 1); else T.push(v); save(); render(); return true; }
     case 'jnewtag': { if (document.getElementById('jnewtagin') && document.getElementById('jnewtagin').value.trim()) jMake(); const e = jSync(); const el = document.getElementById('jnewtagin'); const t = el && el.value.trim(); if (!e || !t) return true; M.jTagList = M.jTagList || []; if (!M.jTagList.includes(t)) M.jTagList.push(t); e.tags = e.tags || []; if (!e.tags.includes(t)) e.tags.push(t); save(); render(); return true; }
