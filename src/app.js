@@ -164,7 +164,7 @@ function workDay(d) { const k = 'wd|' + d; if (WKC.has(k)) return WKC.get(k); le
 // an existing item can be a part too (2026-11-11: Shower on days it doesn't follow a workout, no duplicates); its options for this routine live in the routine (partOpt)
 const isLinkPart = (s) => !!I(s) && !['step', 'checkin'].includes(I(s).type);
 const pOpt = (rid, s) => isLinkPart(s) ? (((I(rid) || {}).partOpt || {})[s] || {}) : (I(s) || {});
-function stepOn(s, d, rid) { const x = pOpt(rid, s); const o = x.only || ''; if (isLinkPart(s) && placements(s).some((p) => G(p) && G(p).style === 'dayblock') && !onDay0(s, d)) return false; if (!o) return true; if (o === 'rest') return !workDay(d); if (o === 'train') return workDay(d); if (o === 'days') return (x.days || []).includes(wd(d)); return true; }
+function stepOn(s, d, rid) { const x = pOpt(rid, s); const o = x.only || ''; if (!o) return true; if (o === 'rest') return !workDay(d); if (o === 'train') return workDay(d); if (o === 'days') return (x.days || []).includes(wd(d)); return true; }
 const rSteps = (id, d) => rStepsAll(id).filter((s) => stepOn(s, d, id));
 const stepMissed = (s, d) => !!(((M.missed || {})[d] || {})[s]);
 function rComplete(id, d) { const st = rSteps(id, d); if (!st.length) return !!val(d, id); return st.every((s) => (pOpt(id, s).optional) || (val(d, s) && !stepMissed(s, d))); }
@@ -347,7 +347,7 @@ function gc() {
   for (const id of Object.keys(M.items)) if (!used.has(id)) delete M.items[id];
   for (const id of Object.keys(M.groups)) if (!used.has(id) && !['g-blocks', 'g-appts', 'g-health', 'g-train', 'hg-aches', 'g-hobbies', 'g-bad'].concat(VGROUPS).includes(id)) delete M.groups[id];
 }
-function save() { gc(); clearTimeout(saveT); saveT = setTimeout(async () => {
+function save() { gc(); histNote(); clearTimeout(saveT); saveT = setTimeout(async () => {
   try { localStorage.setItem('daybook3', JSON.stringify(M)); localStorage.setItem('daybook3-at', '1'); } catch (e) { try { localStorage.removeItem('daybook3'); } catch (_) {} }
   hostSave();
   if (docRef) { try { await docRef.set({ model: JSON.stringify(M), saved: Date.now() }); } catch (e) { flash('Could not save just now. It will try again.'); } }
@@ -365,10 +365,16 @@ function linkPass(d) { const L0 = M.log[d] = M.log[d] || {};
   Object.keys(L0).filter((k) => k.startsWith('ln:')).forEach((k) => { const t = k.slice(3), src = L0[k]; if (!I(src) || !(I(src).links || []).includes(t) || !linkDone(src, d)) { delete L0[k]; delete L0[t]; } });
   Object.keys(M.items).forEach((id) => { const ls = I(id).links; if (!ls || !ls.length || !linkDone(id, d)) return; ls.forEach((t) => { if (!I(t) || t === id || L0[t] != null) return; L0[t] = linkVal(t); L0['ln:' + t] = id; }); });
   if (!Object.keys(L0).length) delete M.log[d]; }
-function change(fn, msg, canUndo = true) { freezePast(); const before = JSON.stringify(M); fn(); try { linkPass(T0); if (S.day && S.day < T0) linkPass(S.day); } catch (_) {} try { snapDay(T0); if (S.day && S.day < T0 && S.area === 'plan') snapDay(S.day); } catch (_) {} save(); render(); if (msg) { if (canUndo) { HIST.past.push({ s: before, msg }); if (HIST.past.length > 40) HIST.past.shift(); HIST.fut = []; } } } // no pop-up when I tick or save (2026-11-10)
+function change(fn, msg, canUndo = true) { freezePast(); const before = JSON.stringify(M); if (HIST.last == null) HIST.last = before; HIST.t = 0; fn(); try { linkPass(T0); if (S.day && S.day < T0) linkPass(S.day); } catch (_) {} try { snapDay(T0); if (S.day && S.day < T0 && S.area === 'plan') snapDay(S.day); } catch (_) {} save(); HIST.t = 0; render(); } // no pop-up when I tick or save (2026-11-10); undo history is kept by save()
 function dayTick() { const t = appDay(); if (t === T0) return; const old = T0; T0 = t; if (S.day === old) S.day = t; if (S.sday === old) S.sday = t; if (S.monthOf === old.slice(0, 7)) S.monthOf = t.slice(0, 7); S.dayComp = null; render(); }
 setInterval(dayTick, 30000); document.addEventListener('visibilitychange', () => { if (!document.hidden) dayTick(); }); window.addEventListener('focus', dayTick);
-function histStep(back) { const A = back ? HIST.past : HIST.fut, B = back ? HIST.fut : HIST.past; const e = A.pop(); if (!e) return; B.push({ s: JSON.stringify(M), msg: e.msg }); M = JSON.parse(e.s); save(); render(); }
+// every change is a step (2026-11-12: undo several steps, then redo): save() compares with the last state it saw; changes
+// close together (typing) make one step. Loading data starts the history afresh (HIST.last = null).
+const histKey = (s) => { try { const o = JSON.parse(s); delete o.snap; delete o.rOpen; return JSON.stringify(o); } catch (e) { return s; } }; // what's only open or counted isn't a step
+function histNote() { if (HIST.busy) return; const cur = JSON.stringify(M); if (HIST.last == null) { HIST.last = cur; HIST.lk = histKey(cur); return; } if (cur === HIST.last) return; const ck = histKey(cur); if (ck === HIST.lk) { HIST.last = cur; return; } HIST.lk = ck;
+  const now = Date.now(); if (!(HIST.t && now - HIST.t < 1200 && HIST.past.length)) { HIST.past.push({ s: HIST.last }); if (HIST.past.length > 60) HIST.past.shift(); }
+  HIST.t = now; HIST.fut = []; HIST.last = cur; }
+function histStep(back) { histNote(); HIST.t = 0; const A = back ? HIST.past : HIST.fut, B = back ? HIST.fut : HIST.past; const e = A.pop(); if (!e) return; B.push({ s: JSON.stringify(M), msg: e.msg }); HIST.busy = true; M = JSON.parse(e.s); HIST.last = JSON.stringify(M); HIST.lk = histKey(HIST.last); save(); HIST.busy = false; render(); }
 function flash(msg, undo) { clearTimeout(S.tt); S.toast = { msg, undo }; renderLayer(); S.tt = setTimeout(() => { S.toast = null; renderLayer(); }, undo ? 5000 : 2200); }
 
 // ---------- render ----------
@@ -1789,11 +1795,14 @@ function trackRows(ids, d, c, row, plus) {
   const flush = (last) => { if (run.length || (last && plus)) out.push(`<div class="trow"><div class="chips">${run.map((k) => tagChip(k, d, c)).join('')}${last && plus ? plus : ''}</div></div>`); run = []; };
   ids.forEach((k) => { if (!S.edit && I(k).scale === 'yesno') run.push(k); else { flush(false); out.push(row(k)); } }); flush(true); return out.join('');
 }
+// a symptom's details as chips, shown once it has an answer: on Health and in the check-in (2026-11-12)
+function partDet(id, d, c) { const P = I(id).parts || []; const hv = hval(d, id); const pk = hval(d, 'pt:' + id) || [];
+  return P.length && !S.edit && typeof hv === 'number' && hv > 0 ? `<div class="chips tparts">${P.map((w) => `<button class="hchip" data-a="hpart" data-ref="${id}" data-v="${esc(w)}" aria-pressed="${pk.includes(w)}" style="${pk.includes(w) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(w)}</button>`).join('')}</div>` : ''; }
 function trackerRow(id, list, d, c) {
   if (!S.edit && isTags(id)) return `<div class="trow" data-ref="${id}">${answerUI(id, d, c)}</div>`;
   const P = I(id).parts || []; const hv = hval(d, id); const pk = hval(d, 'pt:' + id) || [];
   // details (2026-11-11): once a symptom has an answer, I can say where or what, like jaw for muscle tension
-  const det = P.length && !S.edit && typeof hv === 'number' && hv > 0 ? `<div class="chips tparts">${P.map((w) => `<button class="hchip" data-a="hpart" data-ref="${id}" data-v="${esc(w)}" aria-pressed="${pk.includes(w)}" style="${pk.includes(w) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(w)}</button>`).join('')}</div>` : '';
+  const det = partDet(id, d, c);
   return `<div class="trow" data-ref="${id}"><div class="thead">${grip()}<span class="tname">${nm(id, I(id).name)}</span>${tail(id, list)}</div>${answerUI(id, d, c)}${det}</div>`;
 }
 function trackerList(gid, d, c, ids) {
@@ -2188,7 +2197,7 @@ function ciPart(p, d) {
   let h = p.title ? `<span class="mono cisub">${esc(p.title)}</span>` : '';
   if (p.note) h += `<p class="note">${esc(p.note)}</p>`;
   if (p.feel) h += feelCard(d);
-  if (p.ids) h += trackRows(p.ids, d, c || hcolor(p.ids[0]), (k) => `<div class="trow">${isTags(k) ? '' : `<div class="thead"><span class="tname">${esc(I(k).name)}</span></div>`}${answerUI(k, d, c || hcolor(k))}</div>`);
+  if (p.ids) h += trackRows(p.ids, d, c || hcolor(p.ids[0]), (k) => `<div class="trow">${isTags(k) ? '' : `<div class="thead"><span class="tname">${esc(I(k).name)}</span></div>`}${answerUI(k, d, c || hcolor(k))}${partDet(k, d, c || hcolor(k))}</div>`);
   if (p.list) h += trackerList(p.list, d, G(p.list).color || '#9A9387');
   if (p.tab) h += tabBody(p.tab, d, c);
   if (p.training) h += trainCats().map((c) => `<span class="mono cisub">${esc(G(c).name)}</span><div class="list">${kidsOf(c).map((k) => itemRow(k, c, d)).join('') || '<p class="empty">No sessions yet.</p>'}</div>`).join('') || '<p class="note">No training set up yet.</p>'; // every training option (2026-11-09)
@@ -2482,7 +2491,7 @@ window.addEventListener('popstate', (e) => { if (!HOSTED) return; if (navBusy) {
 try { JSON.parse(localStorage.getItem('daybook3-shut') || '[]').forEach((k) => { S.open[k] = false; }); } catch (e) {}
 try { Object.assign(S.open, JSON.parse(localStorage.getItem('daybook3-open') || '{}')); } catch (e) {}
 try { Object.assign(S, JSON.parse(localStorage.getItem('daybook3-fold') || '{}')); } catch (e) {} // closed Health categories stay closed on this device
-try { const s = localStorage.getItem('daybook3'); if (s) M = migrate(JSON.parse(s)); } catch (e) {}
+try { const s = localStorage.getItem('daybook3'); if (s) M = migrate(JSON.parse(s)); } catch (e) {} HIST.last = null;
 if (!M.settings.plutchik1 || !M.settings.dyads1 || !M.settings.vb1) M = migrate(M); // steps that need data defined later in this file (feelings families)
 freezePast();
 render();
@@ -2490,5 +2499,5 @@ render();
   try { db = await (window.claude && window.claude.use ? window.claude.use('db') : null); } catch (e) { db = null; }
   if (!db) { hostBoot(); return; }
   docRef = db.doc('state/main');
-  try { const snap = await docRef.get(); const m = snap.exists && snap.data() && snap.data().model; if (m) { M = migrate(JSON.parse(m)); freezePast(); render(); } else save(); } catch (e) {}
+  try { const snap = await docRef.get(); const m = snap.exists && snap.data() && snap.data().model; if (m) { M = migrate(JSON.parse(m)); HIST.last = null; HIST.past = []; HIST.fut = []; freezePast(); render(); } else save(); } catch (e) {}
 })();

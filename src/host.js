@@ -13,7 +13,7 @@ function hostSave() { if (!HOSTED) return; const s = JSON.stringify(M); DBK.set(
 async function hostBoot() {
   if (!HOSTED) return;
   try { for (const [k, b] of await DBK.fileAll()) FILES[k] = URL.createObjectURL(b); } catch (e) {}
-  try { const s = LS_ONLY ? null : await DBK.get('model'); if (s) M = migrate(JSON.parse(s)); else if (!HAD_LS) M = blank(); } catch (e) {} // a new phone starts empty, never with examples
+  try { const s = LS_ONLY ? null : await DBK.get('model'); if (s) M = migrate(JSON.parse(s)); else if (!HAD_LS) M = blank(); } catch (e) {} HIST.last = null; HIST.past = []; HIST.fut = []; // a new phone starts empty, never with examples
   try { BK.at = (await DBK.get('backupAt')) || 0; BK.first = (await DBK.get('firstAt')) || 0; if (!BK.first) { BK.first = Date.now(); DBK.set('firstAt', BK.first); } } catch (e) {}
   // The first day's hosted build started with leftover example categories. A phone that still has them and nothing logged starts clean instead.
   try { if (!M.settings.clean1) { const used = Object.values(M.log || {}).some((d) => Object.keys(d).length) || [M.journal, M.notes, M.shop, M.words, M.reminders, M.trips, M.conds, M.events].some((a) => (a || []).length) || Object.keys(M.photos || {}).length || Object.keys(M.feel || {}).length;
@@ -51,7 +51,7 @@ function bkPick() { const f = document.createElement('input'); f.type = 'file'; 
 async function bkApply() { const b = BK.pending; BK.pending = null; if (!b) return;
   try { if (HOSTED) { await DBK.fileClear(); Object.keys(FILES).forEach((k) => { URL.revokeObjectURL(FILES[k]); delete FILES[k]; });
       for (const [k, f] of Object.entries(b.files || {})) { const bytes = Uint8Array.from(atob(f.data), (c) => c.charCodeAt(0)); const blob = new Blob([bytes], { type: f.type }); await DBK.filePut(k, blob); FILES[k] = URL.createObjectURL(blob); } }
-    M = migrate(b.model); HIST.past = []; HIST.fut = []; freezePast(); save(); render(); flash('Backup loaded');
+    M = migrate(b.model); HIST.past = []; HIST.fut = []; HIST.last = null; freezePast(); save(); render(); flash('Backup loaded');
   } catch (e) { flash('Could not load that backup'); }
 }
 function hostAction(act) {
