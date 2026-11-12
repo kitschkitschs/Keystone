@@ -116,7 +116,7 @@ function bDock(b) { const x = b.items.find((i) => i.id === S.bSel); const P = S.
       + bCF('Colour', 'ln', o0.col, 'Auto');
     else { const T = one && bSnapTarget(b);
       pan = (T ? `<div class="prow"><span class="mono plab">Point</span>${bPtArrows('lnpt')}${pB('lnat', '', 'Auto')}</div>` : '')
-        + (one && !isG ? `<div class="prow"><span class="mono plab">Move</span>${pB('lnmove', '', 'To another bubble')}</div>` : '')
+        + (one && !isG ? `<div class="prow"><span class="mono plab">Move</span>${pB('lnmove', '', icon('move', 18), false, 'ico')}</div>` : '')
         + `<div class="prow">${L.length > 1 ? `<span class="mono plab">${L.length}</span>` : ''}<span class="mono plab">Arrows</span>${[['', 'None'], ['end', icon('move-right', 17)], ['start', icon('move-left', 17)], ['both', icon('move-horizontal', 17)]].map(([k, l]) => pB('lnset', 'arrow:' + k, l, (o0.arrow || '') === k, k ? 'ico' : '')).join('')}</div>`
         + `<div class="prow"><span class="mono plab">Logic</span>${pB('lnset', 'brk:' + (o0.brk ? '' : '1'), 'Break', !!o0.brk)}${pB('lnset', 'q:' + (o0.q ? '' : '1'), 'Question', !!o0.q)}</div>`; }
     return `<div class="bdock" id="bdock">${bPanW(pan)}<div class="bdrow">${row}</div></div>`; }
@@ -290,7 +290,7 @@ document.addEventListener('pointerup', () => { const d = bLkDrag; if (!d) return
 addEventListener('resize', () => bMaps());
 function bRight(b) { return Math.max(1, ...b.items.filter((x) => x.t).map((x) => x.x + (x.w || 0.3) + 0.04), ...mapRoots(b).map((r) => { const Lo = mindLayout(b, r); return (r.x == null ? 0.5 : r.x) + (Lo.W - (Lo.P[r.id].cx - Lo.x0)) * (r.k || 1) / 360 + 0.02; })); }
 // how far maps reach past the left and top of the board, so the board can make room there
-function bReach(b) { let l = 0, t = 0; mapRoots(b).forEach((r) => { const Lo = mindLayout(b, r); const k = (r.k || 1) / 360, p = Lo.P[r.id];
+function bReach(b) { let l = 0, t = 0; b.items.forEach((x) => { if (x.t) { l = Math.min(l, x.x); t = Math.min(t, x.y); } }); mapRoots(b).forEach((r) => { const Lo = mindLayout(b, r); const k = (r.k || 1) / 360, p = Lo.P[r.id];
   l = Math.min(l, (r.x == null ? 0.5 : r.x) - (p.cx - Lo.x0) * k); t = Math.min(t, (r.y == null ? 0.2 : r.y) - (p.cy - Lo.y0) * k); }); return { l: l < 0 ? 0.02 - l : 0, t: t < 0 ? 0.02 - t : 0 }; }
 function bPat(b) { const c = bDark(b) ? 'rgba(255,255,255,.13)' : 'rgba(60,50,30,.13)';
   return b.pat === 'dots' ? `background-image:radial-gradient(circle,${c} 1px,transparent 1.4px);background-size:5cqw 5cqw` : b.pat === 'grid' ? `background-image:linear-gradient(${c} 1px,transparent 1px),linear-gradient(90deg,${c} 1px,transparent 1px);background-size:5cqw 5cqw` : b.pat === 'lines' ? `background-image:linear-gradient(transparent calc(6cqw - 1px),${c} calc(6cqw - 1px));background-size:100% 6cqw` : ''; }
@@ -347,7 +347,8 @@ function bPhoto(bid, pic, ar) { const b = boardOf(bid); if (!b) return; const id
   bPush(b, before); bTouch(b); save(); S.bSel = id; S.bPanel = null; render(); }
 function bEditText(id, before) { const el = document.querySelector(`.mbi[data-id="${id}"] .mbtx`); if (!el) return; const b = curBoard();
   S.bEditBefore = before || (b && bState(b)); el.contentEditable = 'plaintext-only'; el.focus();
-  const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+  const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); const s = getSelection(); s.removeAllRanges(); s.addRange(r); requestAnimationFrame(() => bFollow(el.closest('.mbi') || el)); }
+['input', 'keyup'].forEach((ev) => document.addEventListener(ev, (e) => { const el = e.target; if (el && el.classList && el.classList.contains('mbtx') && el.isContentEditable) requestAnimationFrame(() => bFollow(el.closest('.mbi') || el)); }));
 function bEndText(el) { const b = curBoard(); const box = el.closest('.mbi'); if (!b || !box) return; const x = b.items.find((i) => i.id === box.dataset.id); if (!x) return;
   el.contentEditable = 'false'; const t = el.innerText.replace(/\n$/, '').trim();
   if (!t && x.t !== 'swatch') { b.items = b.items.filter((i) => i !== x); if (S.bSel === x.id) S.bSel = null; } else { x.text = t; if (x.t !== 'swatch') x.h = box.offsetHeight / moodWidth(); }
@@ -355,6 +356,20 @@ function bEndText(el) { const b = curBoard(); const box = el.closest('.mbi'); if
 
 // dragging, resizing, turning (pointer events, so it works with a finger and a mouse), with snapping guides
 let bDrag = null, bTap = null, bPan = null; const bPts = new Map();
+// dragging something to the edge of what I can see: the board grows that way and scrolls along with me (the owner, 2026-11-12)
+let bEdge = null;
+document.addEventListener('pointermove', (e) => { if (!e.isTrusted) return; const on = (bDrag && bDrag.moved && !['turn', 'size', 'wide'].includes(bDrag.mode)) || (mDrag && mDrag.moved && !mDrag.pan); if (!on) { bEdge = null; return; } const st = !bEdge; bEdge = { x: e.clientX, y: e.clientY }; if (st) requestAnimationFrame(bEdgeTick); });
+function bEdgeTick() { const on = (bDrag && bDrag.moved) || (mDrag && mDrag.moved && !mDrag.pan); if (!bEdge || !on) { bEdge = null; return; }
+  const m = $('#main'), w = document.querySelector('.mbwrap'), cv = w && w.querySelector('.mbcanvas'); if (!m || !w || !cv) { bEdge = null; return; }
+  const vv = window.visualViewport, mr = m.getBoundingClientRect(), wr = w.getBoundingClientRect(), dk = $('#bdock'), dr = dk && dk.getBoundingClientRect();
+  const top = Math.max(mr.top, vv ? vv.offsetTop : 0); let bot = vv ? vv.offsetTop + vv.height : innerHeight; if (dr && dr.height && dr.top < bot && bEdge.y < dr.top) bot = dr.top;
+  const E = 56, sp = 16, f = (v, lo, hi) => v > hi - E ? Math.min(1, (v - (hi - E)) / E) * sp : v < lo + E ? -Math.min(1, (lo + E - v) / E) * sp : 0;
+  const vy = f(bEdge.y, top, bot), vx = f(bEdge.x, wr.left, wr.right);
+  if (vy > 0 && m.scrollTop + vy > m.scrollHeight - m.clientHeight - 1) cv.style.minHeight = (cv.offsetHeight + vy + 2) + 'px';
+  if (vx > 0 && w.scrollLeft + vx > w.scrollWidth - w.clientWidth - 1) cv.style.minWidth = (cv.offsetWidth + vx + 2) + 'px';
+  const t0 = m.scrollTop, l0 = w.scrollLeft; if (vy) m.scrollTop += vy; if (vx) w.scrollLeft += vx; const dy = m.scrollTop - t0, dx = w.scrollLeft - l0;
+  if ((dx || dy) && bDrag) { bDrag.sx -= dx; bDrag.sy -= dy; document.dispatchEvent(new PointerEvent('pointermove', { clientX: bEdge.x, clientY: bEdge.y })); }
+  requestAnimationFrame(bEdgeTick); }
 function bPanStart(e) { bPts.set(e.pointerId, { x: e.clientX, y: e.clientY }); const w = $('#mbwrap'), m = $('#main');
   if (bPts.size === 2) { const [a, c] = [...bPts.values()]; bPan = { pinch: true, d0: Math.hypot(a.x - c.x, a.y - c.y) || 1, z0: S.bZoom || 1 }; return; }
   bPan = { sx: e.clientX, sy: e.clientY, l0: w ? w.scrollLeft : 0, t0: m ? m.scrollTop : 0, moved: false }; }
@@ -401,14 +416,14 @@ document.addEventListener('pointermove', (e) => { const d = bDrag; if (!d) retur
     if (x.t === 'photo' || x.t === 'swatch') { x.h = d.h0 * kk; s.height = `calc(100cqw * ${x.h})`; if (x.t === 'swatch') s.fontSize = `calc(100cqw * ${x.w * 0.085})`; }
     else { x.fs = Math.max(0.02, d.fs0 * kk); s.fontSize = `calc(100cqw * ${x.fs})`; } return; }
   if (d.mode === 'wide') { x.w = Math.max(0.1, Math.min(1.2, d.w0 + (e.clientX - d.sx) / d.W)); s.width = x.w * 100 + '%'; return; }
-  let nx = d.x0 + (e.clientX - d.sx) / d.W, ny = Math.max(0, d.y0 + (e.clientY - d.sy) / d.W); const gx = [], gy = [];
+  let nx = d.x0 + (e.clientX - d.sx) / d.W, ny = Math.max(-4, d.y0 + (e.clientY - d.sy) / d.W); const gx = [], gy = [];
   if (d.b.snap !== false && !x.r) { const th = 7 / d.W;
     const tx = [0.04, 0.5, 0.96], ty = []; d.others.forEach((o) => { tx.push(o.l, o.l + o.w / 2, o.l + o.w); ty.push(o.t, o.t + o.h / 2, o.t + o.h); });
     let best = null; [0, d.wu / 2, d.wu].forEach((off) => tx.forEach((t) => { const df = t - (nx + off); if (Math.abs(df) < th && (!best || Math.abs(df) < Math.abs(best.df))) best = { df, t }; }));
     if (best) { nx += best.df; gx.push(best.t); }
     best = null; [0, d.hu / 2, d.hu].forEach((off) => ty.forEach((t) => { const df = t - (ny + off); if (Math.abs(df) < th && (!best || Math.abs(df) < Math.abs(best.df))) best = { df, t }; }));
     if (best) { ny += best.df; gy.push(best.t); } }
-  x.x = Math.max(0, Math.min(4, nx)); x.y = ny; s.left = x.x * 100 + '%'; s.top = `calc(100cqw * ${x.y})`; bGuides(d.board, gx, gy, d.W); });
+  x.x = Math.max(-4, Math.min(12, nx)); x.y = ny; s.left = x.x * 100 + '%'; s.top = `calc(100cqw * ${x.y})`; bGuides(d.board, gx, gy, d.W); });
 document.addEventListener('pointerup', () => { const d = bDrag; if (!d) return; bDrag = null; d.board.querySelectorAll('.mbg').forEach((n) => n.remove());
   if (d.moved) { if (d.x.t === 'text' || d.x.t === 'note') d.x.h = d.box.offsetHeight / d.W; bPush(d.b, d.before); bTouch(d.b); save(); render(); return; }
   if (d.wasSel && d.x.t !== 'photo') bEditText(d.x.id); });
@@ -771,11 +786,15 @@ function mmNew(parent, after, dir, gid) { const b = curBoard(); if (!b) return; 
 function mmEdit(id, before) { const el = document.querySelector(`.mmn[data-id="${id}"] .mmt`); if (!el) return; const b = curBoard();
   S.bEditBefore = before || (b && bState(b)); el.contentEditable = 'plaintext-only'; el.focus({ preventScroll: true });
   const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); const s = getSelection(); s.removeAllRanges(); s.addRange(r); mmGrow(el); }
-function mmCentre(id) { const n = document.querySelector(`.mbwrap .mmn[data-id="${id}"]`); if (!n) return; const r = n.getBoundingClientRect();
-  // only as far as needed, above the keyboard when it is up (2026-11-12: the board jumped about on my phone)
-  const vv = window.visualViewport; const vb = (vv ? vv.offsetTop + vv.height : innerHeight) - 110, vt = (vv ? vv.offsetTop : 0) + 70;
-  const m = $('#main'); if (m) { if (r.bottom > vb) m.scrollTop += Math.min(r.bottom - vb, r.top - vt); else if (r.top < vt) m.scrollTop -= vt - r.top; }
-  const w = $('#mbwrap'); if (w) { const R = w.getBoundingClientRect(); if (r.right > R.right - 8) w.scrollLeft += r.right - R.right + 24; else if (r.left < R.left + 8) w.scrollLeft -= R.left - r.left + 24; } }
+function mmCentre(id) { const n = document.querySelector(`.mbwrap .mmn[data-id="${id}"]`); if (n) bFollow(n); }
+// whatever I'm writing in stays in the middle of what I can see, above the tools and the keyboard; a long text follows the line I'm on (the owner, 2026-11-12)
+function bFollow(n) { const m = $('#main'), w = n.closest('.mbwrap'); if (!m || !w) return; const r = n.getBoundingClientRect(); const vv = window.visualViewport;
+  const dk = $('#bdock'), dr = dk && dk.getBoundingClientRect(); const mr = m.getBoundingClientRect(); const top = Math.max(mr.top, vv ? vv.offsetTop : 0) + 8; let bot = (vv ? vv.offsetTop + vv.height : innerHeight) - 8; if (dr && dr.height && dr.top < bot) bot = dr.top - 8;
+  let cy = r.top + r.height / 2, cx = r.left + r.width / 2; const wr = w.getBoundingClientRect();
+  const a = document.activeElement; let cr = null; if (a && a.isContentEditable && n.contains(a)) { const sel = getSelection(); if (sel.rangeCount) { const rg = sel.getRangeAt(0).cloneRange(); rg.collapse(false); const rs = rg.getClientRects(); cr = rs.length ? rs[rs.length - 1] : null; } if (!cr || !cr.height) cr = null; }
+  if (r.height > bot - top - 16 && cr) cy = cr.top + cr.height / 2; if (r.width > wr.width - 16 && cr) cx = cr.left;
+  let dy = cy - (top + bot) / 2; if (cr) { const c = cr.top + cr.height / 2 - dy, pad = Math.min(70, (bot - top) / 4); if (c > bot - pad) dy += c - (bot - pad); else if (c < top + pad) dy -= top + pad - c; } const cv = w.querySelector('.mbcanvas'); const room = m.scrollTop + dy - (m.scrollHeight - m.clientHeight); if (room > 0 && cv) cv.style.minHeight = (cv.offsetHeight + room + 4) + 'px'; // room below while I write
+  m.scrollTop += dy; w.scrollLeft += cx - (wr.left + wr.right) / 2; }
 function mmEnd(el, next) { const b = curBoard(); const n = el.closest('.mmn'); if (!b || !n) return; const x = b.items.find((i) => i.id === n.dataset.id); if (!x) return;
   el.contentEditable = 'false'; const t = el.innerText.replace(/\n$/, '').trim();
   if (!t && (x.parent || !mmKids(b, x.id).length)) { const drop = (id) => { mmKids(b, id).forEach((k) => drop(k.id)); b.items = b.items.filter((i) => i.id !== id); }; drop(x.id); S.bSel = x.parent || null; }
@@ -809,7 +828,7 @@ function mmZoom(how) { const b = curBoard(); const r = b && rootOf(b, S.bSel); i
 // moving a node: drag it onto another node to hang it there; drop a main branch beside the centre to switch sides
 let mDrag = null, mSkip = false, mPendPick = null;
 // the keyboard coming up keeps the word I'm writing in view
-if (window.visualViewport) { let mvT = 0; visualViewport.addEventListener('resize', () => { clearTimeout(mvT); mvT = setTimeout(() => { const a = document.activeElement; const n = a && a.isContentEditable && a.closest && a.closest('.mbwrap .mmn'); if (n) mmCentre(n.dataset.id); }, 120); }); }
+if (window.visualViewport) { let mvT = 0; visualViewport.addEventListener('resize', () => { clearTimeout(mvT); mvT = setTimeout(() => { const a = document.activeElement; const n = a && a.isContentEditable && a.closest && a.closest('.mbwrap .mmn, .mbwrap .mbi'); if (n) bFollow(n); }, 120); }); }
 document.addEventListener('pointerdown', (e) => { const a = document.activeElement; if (!a || !a.classList || !a.classList.contains('mmt') || !a.isContentEditable) return;
   const n = e.target.closest && e.target.closest('.mbmap .mmn'); if (!n || n.contains(a)) return; mPendPick = n.dataset.id; mSkip = true; setTimeout(() => { mSkip = false; }, 450); }, true);
 document.addEventListener('pointerdown', (e) => { const w = e.target.closest && e.target.closest('.mbmap'); if (!w || e.target.closest('.mmc')) return;
