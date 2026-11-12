@@ -149,6 +149,21 @@ function grpCol(k, n) { const g = G(k); if (!g || (n || 0) > 8) return '#9A9387'
   if (g.style === 'sgroup' || g.style === 'subject') { const p = parentGrp(k); return p && p !== 'g-subjects' && G(p).color ? G(p).color : ((M.areas || {}).study || {}).color || '#9A9387'; }
   if (g.style === 'project' && typeof hobOf === 'function' && G(hobOf(k))) return grpCol(hobOf(k), (n || 0) + 1);
   const p = parentGrp(k); return p ? grpCol(p, (n || 0) + 1) : '#9A9387'; }
+// TWO-PART CHORES (2026-11-12), like laundry: the first tick starts it (M.half[id] = { at }), it waits on Today for
+// the second tick, a reminder goes off after it.two hours, and once those hours are up the app asks if I finished it.
+const halfOf = (id) => (M.half || {})[id];
+function twoTick(id) { const it = I(id); if (!it || !it.two || isDone(id, T0)) return false;
+  if (halfOf(id)) { twoFinish(id); return true; }
+  const at = Date.now(); const due = new Date(at + (+it.two || 2) * 3600000);
+  change(() => { (M.half = M.half || {})[id] = { at }; if (typeof remList === 'function') remList().push({ id: uid('rm'), text: it.name + ': part two', time: pad(due.getHours()) + ':' + pad(due.getMinutes()), rep: 'once', date: iso(due), item: id, on: true, two: id }); }, 'Started ' + it.name);
+  if (typeof remSync === 'function') remSync(); return true; }
+function twoFinish(id) { change(() => { if (M.half) delete M.half[id]; M.reminders = (M.reminders || []).filter((r) => r.two !== id); L(T0)[id] = 'done'; }, I(id).name + ' done'); if (typeof remSync === 'function') remSync(); }
+const TWO_ASKED = new Set();
+function twoCheck() { if (S.sheet || S.edit || document.hidden) return; const now = Date.now();
+  const id = Object.keys(M.half || {}).find((k) => I(k) && I(k).two && !TWO_ASKED.has(k) && now - M.half[k].at >= (+I(k).two || 2) * 3600000);
+  if (id) { TWO_ASKED.add(id); openSheet({ kind: 'two', ref: id, title: I(id).name }); } }
+document.addEventListener('visibilitychange', () => { if (document.hidden) TWO_ASKED.clear(); else setTimeout(twoCheck, 400); });
+setInterval(twoCheck, 60000); setTimeout(twoCheck, 1500);
 function blockOfItem(id) { const pl = placements(id).find((p) => G(p) && G(p).style === 'dayblock'); return pl || blockIds()[blockIds().length - 1]; }
 function blockAtTime(t) { const m = hm(t); return blockIds().find((b) => hm(G(b).start) <= m && m < hm(G(b).end)) || blockIds()[blockIds().length - 1]; }
 function placeName(p) { if (p.startsWith('s:')) return (I(p.slice(2)) || {}).name + ' (steps)'; const g = G(p); return g.style === 'dayblock' ? 'Day block · ' + g.name : g.style === 'acat' ? 'Appointments · ' + g.name : g.name; }
@@ -285,6 +300,7 @@ function dayListRaw(d, raw) {
   if (out.length) { const mi = Object.keys(M.items).find((k) => I(k).which === 'morning'); const ei = Object.keys(M.items).find((k) => I(k).which === 'evening');
     const inBlock = (k) => placements(k).some((p) => G(p)); // a check-in inside a routine shows there instead (2026-11-02)
     if (mi && inBlock(mi)) out[0].items.unshift(mi); if (ei && inBlock(ei)) out[out.length - 1].items.push(ei); }
+  if (d === T0) { const has = new Set(out.flatMap((x) => x.items)); Object.keys(M.half || {}).forEach((id) => { if (!I(id) || has.has(id)) return; const x = at(blockOfItem(id)) || out[out.length - 1]; if (x) x.items.push(id); }); }
   const appts = apptsOn(d);
   appts.forEach((id) => { const x = at(blockAtTime(I(id).time || '23:59')); if (x) x.appts = (x.appts || []).concat([id]); });
   return dropMissed(out, d);
@@ -451,7 +467,7 @@ function tickCircle(id, d, live) {
   const st = val(d, id); const done = isDone(id, d); const much = typeof st === 'string' && st.startsWith('much');
   const c = colorOf(id);
   const inner = much ? '' : done ? '✓' : '';
-  const circ = `<span class="circ ${much ? 'much' : done ? 'done' : ''}" style="--c:${c}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : 'aria-hidden="true"'}>${inner}</span>`;
+  const circ = `<span class="circ ${much ? 'much' : done ? 'done' : d === T0 && halfOf(id) ? 'half' : ''}" style="--c:${c}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : 'aria-hidden="true"'}>${inner}</span>`;
   if (!live || S.edit) return S.edit ? circ : `<span class="tickbtn">${circ}</span>`;
   return `<button class="tickbtn" data-a="tick" data-ref="${id}" aria-label="Tick ${esc(I(id).name)}">${circ}</button>`;
 }
@@ -907,6 +923,7 @@ function sheetBody() {
   if (s.kind === 'hyper') { const pk = hval(T0, 'pt:' + s.ref) || []; const c = hcolor(s.ref); const chip = ([h, l]) => `<button class="hchip" data-a="hpart" data-ref="${s.ref}" data-v="${esc(h)}" aria-pressed="${pk.includes(h)}" style="${pk.includes(h) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(l)}</button>`; const HB = hyperHobs(s.ref), DT = (I(s.ref).parts || []).map((w) => [w, w]); const hobOn = HB.some(([h]) => pk.includes(h));
       return `<p class="note" style="font-size:14px">Which hobbies?</p><div class="chips">${HB.map(chip).join('')}</div><div class="btns" style="margin-top:16px"><button class="btn dark" data-a="hyperdone" ${hobOn || !HB.length ? '' : 'disabled'}>Done</button></div>`; }
   if (false) { return `<div class="chips">${partOpts(s.ref).map(([h, l]) => `<button class="hchip" data-a="hpart" data-ref="${s.ref}" data-v="${esc(h)}" aria-pressed="${pk.includes(h)}" style="${pk.includes(h) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(l)}</button>`).join('')}</div><div class="btns" style="margin-top:16px"><button class="btn dark" data-a="hyperdone" ${pk.length ? '' : 'disabled'}>Done</button></div>`; }
+  if (s.kind === 'two') return `<p class="note" style="font-size:14px">Did I finish it?</p><div class="btns"><button class="btn dark" data-a="twoyes" data-ref="${s.ref}">Yes, done</button><button class="btn" data-a="closesheet">Not yet</button></div>`;
   if (s.kind === 'much') return `<p class="note" style="font-size:14px">Too much “${esc((I(s.ref) || G(s.ref) || {}).name || '')}”. What kind?</p><div class="btns"><button class="btn dark" data-a="much" data-v="hyper">Hyperfixation</button><button class="btn dark" data-a="much" data-v="inert">Inertia</button><button class="btn" data-a="much" data-v="">Skip</button></div>`;
   if (s.kind === 'checkin') return checkinSheet(s);
   if (s.kind === 'feel') return feelSheet();
@@ -1021,6 +1038,7 @@ function sessList(s, D) { const P = s.parts || (s.parts = []); if (!P.length) re
   const note = !est ? `${estHM(planned / 60)} planned` : left > 0 ? `${estHM(left / 60)} left to plan` : left < 0 ? `${estHM(-left / 60)} more than the estimate` : `All ${estHM(est / 60)} planned`;
   return `<div class="sesslist">${P.slice().map((x, i) => [x, i]).sort((a, b) => (a[0].date || '').localeCompare(b[0].date || '') || (a[0].time || '').localeCompare(b[0].time || '')).map(([x, i]) => `<div class="sessrow"><span class="l">${esc(fmtDate(x.date))}${x.time ? ' · ' + esc(x.time) : ''}</span><span class="m">${estHM((+x.min || 0) / 60)}</span><button class="rm" data-a="dpart-rm" data-v="${i}" aria-label="Remove the session on ${esc(fmtDate(x.date))}">✕</button></div>`).join('')}<small class="note">${note}</small></div>`; }
 // planned prep can have sub-tasks, like Pizza › Dough (2026-11-06); they're stored like a routine's steps
+const isChoreSheet = (s) => !!((s.home && (s.home === 'g-oneoff' || (G(s.home) && G(s.home).style === 'room'))) || (s.ref && typeof choreIds === 'function' && choreIds().includes(s.ref)));
 const isPrep = (s) => s.home === 'g-prep' || !!(s.ref && G('g-prep') && G('g-prep').kids.includes(s.ref));
 const subField = (s) => `<div class="fld"><span class="mono">Sub-tasks</span>${(s.steps || []).map((x, i) => `<div class="inrow"><input class="inp" data-step="${i}" value="${esc(x.name)}" placeholder="Like making the dough"><button class="rm" data-a="dstep-rm" data-v="${i}" aria-label="Remove sub-task">✕</button></div>`).join('')}<button class="addbtn" data-a="dstep-add">+ Add sub-task</button></div>`;
 function itemSheet(s) {
@@ -1036,7 +1054,8 @@ function itemSheet(s) {
   } else if (D.type !== 'checkin' && D.type !== 'step') {
     h += schedUI(s, D);
     if (D.brk) { h += `<div class="fld"><span class="mono">Icon</span><div><button class="btn" data-a="iconfor" data-v="draft" style="display:inline-flex;gap:8px;align-items:center">${icon(D.icon || 'coffee', 18)}Change</button></div></div>`; if (s.ref && !s.isNew) h += `<div class="btns"><button class="btn danger" data-a="ddelete">Delete</button></div>`; return h; } // a break: a name, its time and length, its days
-    if (D.type === 'task' || D.type === 'routine') h += (isTrainSheet(s) ? afterField(D) : '') + sw('optional', 'Optional', D.optional) + ((D.when || {}).mode === 'once' ? sw('persist', 'Persistent', D.persist) : '');
+    if (D.type === 'task' || D.type === 'routine') h += (isTrainSheet(s) ? afterField(D) : '') + sw('optional', 'Optional', D.optional) + ((D.when || {}).mode === 'once' ? sw('persist', 'Persistent', D.persist) : '')
+      + (D.type === 'task' && isChoreSheet(s) ? sw('two', 'Two parts', D.two) + (D.two ? `<div class="fld"><span class="mono">Second part after</span><div class="inrow"><input class="inp" id="dtwo" inputmode="decimal" value="${typeof D.two === 'number' ? D.two : 2}" style="width:80px"><span class="note" style="margin:0">hours</span></div></div>` : '') : '');
     // study items: everything under Estimate waits behind More settings too (2026-11-06)
     if (isStudyItem(s, D)) s._more = h.length;
     if (isPrep(s)) { h += subField(s); s._more = h.length; }
@@ -1108,6 +1127,7 @@ function capture() { const s = S.sheet; if (!s || s.kind !== 'item') return; con
   if (g('dtime')) { if (g('dtime').value) D.time = g('dtime').value; else delete D.time; }
   if (g('dnote')) D.note = g('dnote').value.trim();
   if (g('drepn') && D.rep) D.rep.n = Math.max(1, parseInt(g('drepn').value) || 1);
+  if (g('dtwo') && D.two) { const n = parseFloat(g('dtwo').value.replace(',', '.')); D.two = n > 0 ? n : 2; }
   if (g('dend')) { const e = g('dend').value; if (D.time && e) { let m = hm(e) - hm(D.time); if (m <= 0) m += 1440; D.dur = m; } else delete D.dur; }
   if (g('ddur')) { const v = g('ddur').value.trim(); const m = /^\d+$/.test(v) ? +v : Math.round(parseHM(v) * 60); D.dur = m > 0 ? m : (D.dur || 30); }
 
@@ -1249,6 +1269,7 @@ document.addEventListener('click', (e) => {
     case 'miss': { const d = a.dataset.d || T0; S.sheet = null; change(() => { M.missed = M.missed || {}; (M.missed[d] = M.missed[d] || {})[ref] = true; }, 'Missed: ' + I(ref).name); break; }
     case 'unmiss': { const d = a.dataset.d || T0; change(() => { delete M.missed[d][ref]; }, 'Put back ' + I(ref).name); break; }
     case 'tick': tick(ref); break;
+    case 'twoyes': S.sheet = null; twoFinish(ref); break;
     case 'step': { const it = I(ref); const was = val(T0, ref); change(() => { if (was) delete L(T0)[ref]; else { L(T0)[ref] = 'done'; if (M.missed && M.missed[T0]) delete M.missed[T0][ref]; } }, was ? 'Unticked ' + it.name : null); break; }
     case 'checkin': openSheet({ kind: 'checkin', ref, title: I(ref).name }); break;
     case 'cidone': { const was = val(T0, v); change(() => { if (was) { delete L(T0)[v]; if (I(v).which === 'morning') delete L(T0)['ci-mfeel']; } else L(T0)[v] = 'done'; }, was ? 'Check-in not done' : 'Check-in done'); S.sheet = null; render(); break; }
@@ -1355,6 +1376,7 @@ function tick(id) {
       if (all) { if (val(T0, id)) { delete L(T0)[id]; st.forEach((s) => { if (md[s] === 'r') delete md[s]; }); } else st.forEach((s) => { delete L(T0)[s]; }); }
       else { L(T0)[id] = 'done'; st.forEach((s) => { if (!val(T0, s)) md[s] = 'r'; }); } }, (all ? 'Unticked ' : 'Ticked ') + it.name); return; }
   if (it.type === 'checkin') { openSheet({ kind: 'checkin', ref: id, title: it.name }); return; }
+  if (!cur && twoTick(id)) return;
   // a hobby item ticks like any other; Too much is a swipe to the left in Hobbies (2026-11-11)
   // Too much is gone (2026-11-12): it became the Hyperfocus symptom, so every tick is a plain tick
   if (true) { change(() => { if (cur) delete L(T0)[id]; else L(T0)[id] = 'done'; }, (cur ? 'Unticked ' : 'Ticked ') + it.name); return; }
