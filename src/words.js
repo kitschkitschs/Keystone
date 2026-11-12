@@ -17,7 +17,7 @@ const wSorted = () => wList().slice().sort((a, b) => (b.upd || 0) - (a.upd || 0)
 // the deck's order: newest first, or shuffled until I leave the page
 // tags on word cards (2026-11-09); tags I leave out drop out of the shuffled deck (settings.wOut)
 const wF = () => (S.wTag && wTags().includes(S.wTag) ? S.wTag : 'all');
-const wTags = () => [...new Set(wList().flatMap((w) => w.tags || []))].sort((a, b) => a.localeCompare(b));
+const wTags = () => [...new Set(wList().flatMap((w) => w.tags || []).concat((M.settings || {}).wordTags || []))].sort((a, b) => a.localeCompare(b)); // tags stay when no word has them (2026-11-12)
 const wOut = () => ((M.settings || {}).wOut || []).filter((t) => wTags().includes(t));
 // the filter decides which words are in the deck; the shuffle no longer leaves tags out (2026-11-10)
 const wLeftOut = () => false;
@@ -130,7 +130,7 @@ function wordAction(act, a, ref, v) {
     case 'wunshuf': S.wOrder = null; S.wI = 0; S.wFlip = false; S.wShufOpen = false; render(); return true;
     case 'wout': { const O = wOut().slice(); const i = O.indexOf(v); if (i >= 0) O.splice(i, 1); else O.push(v); S.wI = 0; change(() => { M.settings.wOut = O; }); return true; }
     case 'wtag': { wCapture(); const T = S.sheet.draft.tags = (S.sheet.draft.tags || []).slice(); const i = T.indexOf(v); if (i >= 0) T.splice(i, 1); else T.push(v); renderLayer(); return true; }
-    case 'wtagadd': { wCapture(); const el = document.getElementById('wnewtag'); const t = el && el.value.replace(/\s+/g, ' ').trim(); if (!t) return true; const T = S.sheet.draft.tags = (S.sheet.draft.tags || []).slice(); if (!T.includes(t)) T.push(t); S.openAdd = null; renderLayer(); return true; }
+    case 'wtagadd': { wCapture(); const el = document.getElementById('wnewtag'); const t = el && el.value.replace(/\s+/g, ' ').trim(); if (!t) return true; const WT = M.settings.wordTags = M.settings.wordTags || []; if (!WT.includes(t)) { WT.push(t); save(); } const T = S.sheet.draft.tags = (S.sheet.draft.tags || []).slice(); if (!T.includes(t)) T.push(t); S.openAdd = null; renderLayer(); return true; }
     case 'wview': S.wView = S.wView === 'list' ? 'deck' : 'list'; S.wFlip = false; render(); return true;
     case 'wshuf': { S.wShufOpen = false; const ids = wList().map((w) => w.id); for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; } S.wOrder = ids; S.wI = 0; S.wFlip = false; render(); return true; }
   }

@@ -170,7 +170,7 @@ function insightData() {
       return typeof v === 'number' ? v : null; })); });
   D.fams.forEach(({ f, ws }) => addVar('f:' + f, 'Feeling ' + f.toLowerCase(), 'Feelings', D.feel.map((w) => w.length ? (w.some((x) => ws.includes(x)) ? 1 : 0) : null)));
   // TOO MUCH (2026-11-08): items that can be overdone; per day '' (not too much), 'hyper', 'inert' or 'much' (no kind picked)
-  D.over = Object.keys(M.items).filter((k) => I(k).overdo && ITICK.includes(I(k).type));
+  D.over = []; // Too much became the Hyperfocus symptom (2026-11-12); it shows with the other symptoms
   D.much = {}; D.over.forEach((id) => { D.much[id] = days.map((d, k) => { if (d > T0 || k < Math.max(0, first)) return null; const v = insVal(D, d, id);
     return typeof v === 'string' && v.startsWith('much') ? (v.slice(5) || 'much') : insDone(D, id, d) ? '' : null; }); });
   D.muchDay = days.map((d, k) => { if (!anyData[k] || d > T0) return null; const ks = D.over.map((id) => D.much[id][k]).filter((x) => x); return { hyper: ks.includes('hyper'), inert: ks.includes('inert'), any: ks.length > 0 }; });

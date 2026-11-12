@@ -104,6 +104,7 @@ function blank() { const m = seed(); m.example = false; m.items = {}; m.log = {}
   Object.values(m.groups).forEach((g) => { g.kids = g.kids.filter((k) => m.groups[k]); });
   m.items['ci-m'] = seed().items['ci-m']; m.items['ci-e'] = seed().items['ci-e']; m.groups['b-morning'].kids = ['ci-m']; m.groups['b-evening'].kids = ['ci-e'];
   // the check-ins live in a Morning and an Evening routine, so those two stay (empty apart from the check-in)
+  if (m.groups['ht-beh']) { m.settings = m.settings || {}; m.settings.hyper1 = false; hyperMigrate(m); } // Hyperfocus is part of the app, not an example
   const sd = seed().items; m.items['r-morning'] = Object.assign(sd['r-morning'], { steps: [] }); m.items['r-evening'] = Object.assign(sd['r-evening'], { steps: [] });
   m.groups['b-morning'].kids = ['ci-m', 'r-morning']; m.groups['b-evening'].kids = ['r-evening', 'ci-e'];
   const hs = healthSeed(); Object.assign(m.groups, hs.groups); Object.assign(m.items, hs.items); m.events = []; m.conds = []; m.photos = {}; m.feel = {};
@@ -582,7 +583,7 @@ function renderToday() {
   if (d < T0 && !S.edit) return h + pastDay(d);
   const PD = placeDay(d); const at = {}; PD.forEach((o) => { at[o.id] = o.a; });
   const blocksH = DL.map(({ b, items, appts }) => {
-    const g = G(b); const shown = live ? items.filter((id) => S.edit || !isDone(id, d) || (I(id).overdo && val(d, id) === 'done')) : items;
+    const g = G(b); const shown = live ? items.filter((id) => S.edit || !isDone(id, d)) : items;
     const apShown = live && !S.edit ? (appts || []).filter((id) => !isDone(id, d)) : (appts || []);
     if (!S.edit && !shown.length && !apShown.length) return '';
     const open = S.edit || S.open['b:' + b] !== false;
@@ -648,7 +649,7 @@ function placeDay(d) {
     items.forEach((id) => { const bh = I(id).behind; if (!bh || o.includes(id)) return; const f = fixed.find((q) => q.id === bh); if (f) after[id] = Math.max(after[id] || 0, f.b); });
     // tacked in front of a set-time item (2026-11-11): it ends right where that item starts, several in a row stack up
     // backwards; a day's own choice wins over the every-day one (it.before)
-    const dt = (M.dayTack || {})[d] || {}; const tackOf = (id) => { const t = (id in dt ? dt[id] : I(id).before) || null; return t && I(t) && !I(t).brk ? t : null; }; // never onto a break
+    const dt = (M.dayTack || {})[d] || {}; const tackOf = (id) => { const t = (id in dt ? dt[id] : I(id).before) || null; return t && I(t) ? t : null; }; // breaks too (2026-11-12), but only when dropped right at them (see the drop)
     const tacked = new Set(); const busy = fixed.slice();
     fixed.forEach((f) => { let end = f.a; items.filter((id) => !I(id).time && tackOf(id) === f.id).reverse().forEach((id) => { const len = I(id).dur || 30; if (end - len < hm(g.start)) return; /* no room before the block starts: it flows as usual */ const q = { id, a: end - len, b: end, blk: b }; out.push(q); busy.push(q); tacked.add(id); end -= len; }); });
     items.filter((id) => !I(id).time && !tacked.has(id)).forEach((id) => { const len = I(id).dur || 30; let moved = true; if (after[id]) cur = Math.max(cur, after[id]);
@@ -699,7 +700,7 @@ function renderSchedule() {
   const same = (k, o) => k >= 0 && k < days.length && PD[k].some((p) => p.id === o.id && p.blk === o.blk && p.a === o.a && p.b === o.b) && !clash(k, o);
   // past days no longer fade; today gets a long card behind its column instead, like the selected day in the calendar (2026-11-04)
   // past days don't fade (2026-11-04); only done items do
-  const faded = (k, o) => days[k] >= T0 && isDone(o.id, days[k]); // past days keep full colour (2026-11-06)
+  const faded = () => false; // nothing on the Schedule fades, not past days and not done items (2026-11-12)
   days.forEach((d, di) => {
     h += `<div class="col" data-day="${d}" style="height:${H}px">` + PD[di].map((o) => { const it = I(o.id); const c = o.appt ? G(catOf(o.id)).color : colorOf(o.id); const top0 = yIn(o.a, o.blk), flush = !o.appt && (OV[o.blk] ? o.b >= ends[o.blk] + OV[o.blk] : o.b >= ends[o.blk]); const top = it.brk ? top0 : top0 + 1, ht = Math.max(14, yIn(o.b - 0.01, o.blk) - top0 - (flush ? 1 : 2)); // 1px in from the lines above and below, so boxes sit evenly on the hour lines (2026-11-11) // the last box of a block (or of its red stretch) sits flush on the next block's border (2026-11-03/04)
       // a break fills its time exactly so its lines sit on the hour lines; a line that would double a block title's line is left out
@@ -721,7 +722,7 @@ function renderSchedule() {
       const mv = !o.appt && !it.time && it.type !== 'checkin' && d >= T0;
       return `<button class="box ${dayV ? 'wide' : ''} ${mv ? 'mv' : ''} ${jl ? 'jl' : ''} ${jr ? 'jr' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && I(o.id) && I(o.id).brk ? ' brk ' + bkE : ''}" style="top:${top}px;height:${!o.appt && it.brk ? Math.max(14, yIn(o.b, o.blk) - top) : ht}px;--c:${c};--bg:${fd ? mix(pale(c), TH.page, 0.5) : pale(c)};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" ${rk ? `data-run="${rk}"` : ''} data-from="${o.a}" data-to="${o.b}" aria-label="${esc(it.name)}, ${fmtHM(o.a)}">${inner}</button>${lab}`; }).join('') + '</div>';
   });
-  S.ymap = { y, h0, h1, zones: blockIds().filter((b) => OV[b]).map((b) => ({ b, top: yIn(ends[b], b), h: OV[b] / 60 * PX })) };
+  S.ymap = { y, h0, h1, zones: blockIds().filter((b) => OV[b]).map((b) => ({ b, top: yIn(ends[b], b), h: OV[b] / 60 * PX, e: ends[b], ov: OV[b] })) };
   h += '</div>';
   return h;
 }
@@ -897,6 +898,7 @@ function sheetBody() {
       <div class="fld"><span class="mono">Icon</span><div><button class="btn" data-a="iconfor" data-v="a:${s.ref}" style="display:inline-flex;gap:8px;align-items:center">${icon(a.icon, 18)} Change icon</button></div></div>`; }
   if (s.kind === 'remove') { const pl = placements(s.ref);
     return `<p class="note" style="font-size:14px">“${esc(I(s.ref).name)}” is in ${pl.length} places: ${pl.map((p) => esc(placeName(p))).join(', ')}. It is one item, so its history is shared.</p><div class="btns"><button class="btn" data-a="rmhere">Remove from here</button><button class="btn danger" data-a="rmall">Delete everywhere</button></div>`; }
+  if (s.kind === 'hyper') { const pk = hval(T0, 'pt:' + s.ref) || []; const c = hcolor(s.ref); return `<p class="note" style="font-size:14px">Which hobbies?</p><div class="chips">${partOpts(s.ref).map(([h, l]) => `<button class="hchip" data-a="hpart" data-ref="${s.ref}" data-v="${esc(h)}" aria-pressed="${pk.includes(h)}" style="${pk.includes(h) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(l)}</button>`).join('')}</div><div class="btns" style="margin-top:16px"><button class="btn dark" data-a="hyperdone" ${pk.length ? '' : 'disabled'}>Done</button></div>`; }
   if (s.kind === 'much') return `<p class="note" style="font-size:14px">Too much “${esc((I(s.ref) || G(s.ref) || {}).name || '')}”. What kind?</p><div class="btns"><button class="btn dark" data-a="much" data-v="hyper">Hyperfixation</button><button class="btn dark" data-a="much" data-v="inert">Inertia</button><button class="btn" data-a="much" data-v="">Skip</button></div>`;
   if (s.kind === 'checkin') return checkinSheet(s);
   if (s.kind === 'feel') return feelSheet();
@@ -1039,7 +1041,7 @@ function itemSheet(s) {
   if (D.type !== 'checkin') {
     h += `<div class="fld"><span class="mono">Colour and icon</span>${colorField('draft', D.color, { inherit: true })}<div><button class="btn" data-a="iconfor" data-v="draft" style="display:inline-flex;gap:8px;align-items:center">${icon(D.icon || (D.type === 'appt' && G(s.cat) ? G(s.cat).icon : 'circle'), 18)} Change icon</button></div></div>`;
     if (D.type !== 'appt') {
-    h += `<div class="fld"><span class="mono">Kind</span><div class="chips">${[['', 'None'], ['behaviour', 'Behaviour'], ['experience', 'Experience'], ['circumstance', 'Circumstance']].map(([k, l]) => `<button class="chip" data-a="dset" data-k="kind" data-v="${k}" aria-pressed="${(D.kind || '') === k}">${l}</button>`).join('')}</div>${D.kind === 'behaviour' ? sw('unwanted', 'Unwanted', D.unwanted, 'Behaviour I want less of') : ''}${D.kind === 'behaviour' && D.type === 'task' ? sw('overdo', 'Can overdo', D.overdo, (S.sheet && (S.sheet.hobact || (S.sheet.ref && typeof hobArea === 'function' && hobArea(S.sheet.ref)) || (S.sheet.home && G(S.sheet.home) && (G(S.sheet.home).style === 'project' || (G('g-hobbies') && G('g-hobbies').kids.includes(S.sheet.home)))))) ? 'Swipe left in Hobbies for Too much' : 'Tap twice for Too much') : ''}</div>`;
+    h += `<div class="fld"><span class="mono">Kind</span><div class="chips">${[['', 'None'], ['behaviour', 'Behaviour'], ['experience', 'Experience'], ['circumstance', 'Circumstance']].map(([k, l]) => `<button class="chip" data-a="dset" data-k="kind" data-v="${k}" aria-pressed="${(D.kind || '') === k}">${l}</button>`).join('')}</div>${D.kind === 'behaviour' ? sw('unwanted', 'Unwanted', D.unwanted, 'Behaviour I want less of') : ''}</div>`;
     h += tagField(D, 'dtag'); h += linkField2(D);
     }
   }
@@ -1346,7 +1348,8 @@ function tick(id) {
       else { L(T0)[id] = 'done'; st.forEach((s) => { if (!val(T0, s)) md[s] = 'r'; }); } }, (all ? 'Unticked ' : 'Ticked ') + it.name); return; }
   if (it.type === 'checkin') { openSheet({ kind: 'checkin', ref: id, title: it.name }); return; }
   // a hobby item ticks like any other; Too much is a swipe to the left in Hobbies (2026-11-11)
-  if (!it.overdo || (typeof hobArea === 'function' && hobArea(id))) { change(() => { if (cur) delete L(T0)[id]; else L(T0)[id] = 'done'; }, (cur ? 'Unticked ' : 'Ticked ') + it.name); return; }
+  // Too much is gone (2026-11-12): it became the Hyperfocus symptom, so every tick is a plain tick
+  if (true) { change(() => { if (cur) delete L(T0)[id]; else L(T0)[id] = 'done'; }, (cur ? 'Unticked ' : 'Ticked ') + it.name); return; }
   if (!cur) change(() => { L(T0)[id] = 'done'; }, 'Done: ' + it.name);
   else if (cur === 'done') { change(() => { L(T0)[id] = 'much'; }); openSheet({ kind: 'much', ref: id, title: 'Too much' }); }
   else change(() => { delete L(T0)[id]; }, 'Cleared ' + it.name);
@@ -1473,7 +1476,7 @@ function liftOut(bx) {
   document.querySelectorAll(`.blab[data-run="${CSS.escape(rk)}"]`).forEach((l) => { l.style.display = 'none'; });
   document.querySelectorAll(`.box[data-run="${CSS.escape(rk)}"]`).forEach((b) => { if (b !== bx) { b.classList.add('loose'); if (!b.innerHTML.trim()) b.innerHTML = icon(boxIcon({ id: b.dataset.ref }), 12, 2); } });
 }
-function minuteAt(px) { const { h0, h1, y, zones } = S.ymap; const z = (zones || []).find((q) => px >= q.top && px <= q.top + q.h); if (z) return hm(G(z.b).end) - 5; let best = h0 * 60, bd = 1e9; for (let m = h0 * 60; m <= h1 * 60; m += 5) { const dd = Math.abs(y(m) - px); if (dd < bd) { bd = dd; best = m; } } return best; }
+function minuteAt(px) { const { h0, h1, y, zones } = S.ymap; const z = (zones || []).find((q) => px >= q.top && px <= q.top + q.h); S.ymap.zb = z ? z.b : null; /* inside a block's overflow: the minute in the overflow, so drops there land where they're aimed (2026-11-12: items jumped when a day ran over its block) */ if (z) return z.e + Math.round((px - z.top) / Math.max(1, z.h) * z.ov); let best = h0 * 60, bd = 1e9; for (let m = h0 * 60; m <= h1 * 60; m += 5) { const dd = Math.abs(y(m) - px); if (dd < bd) { bd = dd; best = m; } } return best; }
 document.addEventListener('pointerdown', (e) => {
   const bx = e.target.closest('.box.mv'); if (!bx || S.sheet) return;
   sd = { id: bx.dataset.ref, from: bx.dataset.d, el: bx, x: e.clientX, y: e.clientY, sc: bx.getBoundingClientRect().height / bx.offsetHeight || 1, off: (e.clientY - bx.getBoundingClientRect().top) / (bx.getBoundingClientRect().height / bx.offsetHeight || 1), st: $('#main').scrollTop, on: false, t: setTimeout(() => { if (!sd) return; sd.on = true; liftOut(bx); bx.classList.add('lift'); if (navigator.vibrate) navigator.vibrate(10); }, 300) };
@@ -1491,7 +1494,7 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
   if (!col) return; const day = col.dataset.day; const cr = col.getBoundingClientRect();
   // the middle of the box decides (2026-11-11): above another item's middle = in front of it, below = behind it
   const m = minuteAt((top - cr.top) / x.sc + (x.el.offsetHeight || 0) / 2); const mid = (o) => (o.a + o.b) / 2;
-  const it = I(x.id); const b = blockAtTime(fmtHM(m)); const g = G(b);
+  const it = I(x.id); const b = S.ymap.zb || blockAtTime(fmtHM(m)); const g = G(b);
   if (day !== x.from && !(it.when && it.when.mode === 'once')) { flash('Repeats keep their days. Change the rule in its settings.'); render(); return; }
   if (day < T0) { flash('Past days stay as they were'); render(); return; }
   // the untimed items already in that block on that day, in time order; drop after the last one that starts before m
@@ -1500,8 +1503,10 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
   const idx = inB.filter((o) => mid(o) < m).length;
   // dropped in front of an item with a set time (a routine at 22:00): it's tacked on, ending right where that item starts
   const nxt = inB.filter((o) => mid(o) >= m).sort((p, q) => p.a - q.a)[0]; const tk0 = (id) => { const T = (M.dayTack || {})[day] || {}; return (id in T ? T[id] : I(id).before) || null; }; /* in front of something already tacked on: it joins that row */ /* a break is never something to tack onto, and the drop has to be nearer the set-time item than the item before it (2026-11-11) */ const pv0 = inB.filter((o) => mid(o) < m).sort((p, q) => p.b - q.b).pop(); const near = (q) => !pv0 || (q.a - m) < (m - pv0.b);
-  const tack = !nxt || I(nxt.id).brk ? null : nxt.appt || I(nxt.id).time ? (near(nxt) ? nxt.id : null) : tk0(nxt.id);
+  // a break takes it only when the drop is right at it, within 20 minutes of its start (2026-11-12: in front of or behind everything, breaks included)
+  const tack = !nxt ? null : nxt.appt || I(nxt.id).time ? (near(nxt) && (!I(nxt.id).brk || nxt.a - m <= 20) ? nxt.id : null) : tk0(nxt.id);
   const setTack = () => { const T = (M.dayTack = M.dayTack || {})[day] = (M.dayTack[day] || {}); T[x.id] = tack; };
+  if (Array.isArray(window.__dbg)) window.__dbg.push({ top, crt: cr.top, oh: x.el.offsetHeight, sc: x.sc, off: x.off, ey: e.clientY, m, idx, b, day, tack, prev: prev && prev.id, nxt: nxt && nxt.id, inB: inB.map((o) => o.id + '@' + o.a + '-' + o.b) });
   if (!S.edit && day === x.from) { change(() => { moveOnDay(x.id, day, b, idx); setTack(); }, 'Moved ' + it.name + ' on ' + fmtDate(day)); return; }
   change(() => {
     blockIds().forEach((k) => { const ks = G(k).kids; const i = ks.indexOf(x.id); if (i >= 0) ks.splice(i, 1); });
@@ -1579,6 +1584,10 @@ const INTAKE = () => ['Alcohol', 'Caffeine', 'Sugar', 'Takeaway', 'Skipped a mea
 function NUTRITION() { return { name: 'Nutrition', style: 'hgroup', holds: 'tracker', special: 'food', color: '#6FA24A', kids: ['tr-intake'] }; }
 // Older saved data gets the Health area added; Fitness becomes part of it.
 // an Overeating symptom (Behavioural) whose level rings the day on the food diary calendar (2026-11-10)
+// Hyperfocus (2026-11-12): a symptom like the others; when I log it I pick which of my hobbies it was. It replaces Too much.
+function hyperMigrate(m) { m.settings = m.settings || {}; if (m.settings.hyper1 || !m.groups || !m.groups['ht-beh']) return; m.settings.hyper1 = true;
+  if (!m.items['tr-hyper']) { m.items['tr-hyper'] = { name: 'Hyperfocus', type: 'tracker', scale: 'symptom3', special: 'hyperfocus', kind: 'behaviour', tags: [], insight: true }; m.groups['ht-beh'].kids.push('tr-hyper'); } }
+const isHyper = (id) => !!I(id) && I(id).special === 'hyperfocus';
 function oeMigrate(m) { m.settings = m.settings || {}; if (m.settings.overeat1 || !m.groups || !m.groups['ht-beh']) return; m.settings.overeat1 = true;
   if (!m.items['tr-over']) { m.items['tr-over'] = { name: 'Overeating', type: 'tracker', scale: 'symptom3', kind: 'behaviour', unwanted: true, tags: [], insight: true }; m.groups['ht-beh'].kids.push('tr-over'); } }
 // sample: overeating yesterday, with a meal on it (only with the examples on)
@@ -1674,7 +1683,7 @@ function migrate(m) {
     linkExtras(m); }
   splitTags(m);
   vMigrate(m); // Study and Home on the verdict blocks (2026-11-03)
-  tMigrate(m); cMigrate(m); sSessMigrate(m); hMigrate(m); nMigrate(m); shMigrate(m); wMigrate(m); wMigrate2(m); wMigrate3(m); oeMigrate(m); oeMigrate2(m); remMigrate(m); // Training and Expeditions folders (2026-11-04)
+  tMigrate(m); cMigrate(m); sSessMigrate(m); hMigrate(m); nMigrate(m); shMigrate(m); wMigrate(m); wMigrate2(m); wMigrate3(m); oeMigrate(m); hyperMigrate(m); oeMigrate2(m); remMigrate(m); // Training and Expeditions folders (2026-11-04)
   ciRepair(m);
   // 2026-11-11: snack day = the first snack logged in a week; training extras link to a training item, not a kind and distance
   snackFix(m); afterFix(m);
@@ -1796,8 +1805,9 @@ function trackRows(ids, d, c, row, plus) {
   ids.forEach((k) => { if (!S.edit && I(k).scale === 'yesno') run.push(k); else { flush(false); out.push(row(k)); } }); flush(true); return out.join('');
 }
 // a symptom's details as chips, shown once it has an answer: on Health and in the check-in (2026-11-12)
-function partDet(id, d, c) { const P = I(id).parts || []; const hv = hval(d, id); const pk = hval(d, 'pt:' + id) || [];
-  return P.length && !S.edit && typeof hv === 'number' && hv > 0 ? `<div class="chips tparts">${P.map((w) => `<button class="hchip" data-a="hpart" data-ref="${id}" data-v="${esc(w)}" aria-pressed="${pk.includes(w)}" style="${pk.includes(w) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(w)}</button>`).join('')}</div>` : ''; }
+function partOpts(id) { return isHyper(id) ? (typeof hobIds === 'function' ? hobIds() : []).map((h) => [h, G(h).name]) : (I(id).parts || []).map((w) => [w, w]); }
+function partDet(id, d, c) { const P = partOpts(id); const hv = hval(d, id); const pk = hval(d, 'pt:' + id) || [];
+  return P.length && !S.edit && typeof hv === 'number' && hv > 0 ? `<div class="chips tparts">${P.map(([w, l]) => `<button class="hchip" data-a="hpart" data-ref="${id}" data-v="${esc(w)}" aria-pressed="${pk.includes(w)}" style="${pk.includes(w) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(l)}</button>`).join('')}</div>` : ''; }
 function trackerRow(id, list, d, c) {
   if (!S.edit && isTags(id)) return `<div class="trow" data-ref="${id}">${answerUI(id, d, c)}</div>`;
   const P = I(id).parts || []; const hv = hval(d, id); const pk = hval(d, 'pt:' + id) || [];
@@ -2308,7 +2318,9 @@ function healthAction(act, a, ref, v) {
     case 'projact': { const gn = document.getElementById('gname'); const nmv = gn && gn.value.trim(); change(() => { if (nmv) G(ref).name = nmv; if (v) G(ref).act = v; else delete G(ref).act; }); renderLayer(); return true; }
     case 'gci': { change(() => { if (v) G(ref).ci = v; else delete G(ref).ci; }); renderLayer(); return true; }
     case 'cistep': if (S.sheet && S.sheet.kind === 'checkin') { S.sheet.step = +v; S._lastSheet = null; renderLayer(); } return true;
-    case 'hset': { const cur = hval(T0, ref); const nv = /^\d+$/.test(v) ? +v : v; change(() => { if (cur === nv) { delete L(T0)[ref]; delete L(T0)['pt:' + ref]; } else L(T0)[ref] = nv; }); return true; }
+    case 'hyperdone': { S.sheet = (S.sheet && S.sheet.back) || null; render(); return true; }
+    case 'hset': { const cur = hval(T0, ref); const nv = /^\d+$/.test(v) ? +v : v; change(() => { if (cur === nv) { delete L(T0)[ref]; delete L(T0)['pt:' + ref]; } else L(T0)[ref] = nv; });
+      if (isHyper(ref) && cur !== nv && !(hval(T0, 'pt:' + ref) || []).length && partOpts(ref).length) openSheet({ kind: 'hyper', ref, title: 'Hyperfocus' }); return true; }
     case 'hpick': { change(() => { const arr = Array.isArray(hval(T0, ref)) ? hval(T0, ref).slice() : []; const i = arr.indexOf(v); if (i >= 0) arr.splice(i, 1); else arr.push(v); if (arr.length) L(T0)[ref] = arr; else delete L(T0)[ref]; }); return true; }
     case 'feel': openSheet({ kind: 'feel', title: 'How do I feel?', back: S.sheet && S.sheet.kind === 'checkin' ? S.sheet : null }); return true;
     case 'feelw': { change(() => { const ws = (M.feel[T0] || []).slice(); const i = ws.indexOf(v); if (i >= 0) ws.splice(i, 1); else ws.push(v); M.feel[T0] = ws; }); renderLayer(); return true; }
