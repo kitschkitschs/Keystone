@@ -760,13 +760,17 @@ function mmEdit(id, before) { const el = document.querySelector(`.mmn[data-id="$
   S.bEditBefore = before || (b && bState(b)); el.contentEditable = 'plaintext-only'; el.focus({ preventScroll: true });
   const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); const s = getSelection(); s.removeAllRanges(); s.addRange(r); mmCentre(id); }
 function mmCentre(id) { const n = document.querySelector(`.mbwrap .mmn[data-id="${id}"]`); if (!n) return; const r = n.getBoundingClientRect();
-  const m = $('#main'); if (m && (r.top < 70 || r.bottom > innerHeight - 110)) m.scrollTop += r.top - innerHeight / 2;
+  // only as far as needed, above the keyboard when it is up (2026-11-12: the board jumped about on my phone)
+  const vv = window.visualViewport; const vb = (vv ? vv.offsetTop + vv.height : innerHeight) - 110, vt = (vv ? vv.offsetTop : 0) + 70;
+  const m = $('#main'); if (m) { if (r.bottom > vb) m.scrollTop += Math.min(r.bottom - vb, r.top - vt); else if (r.top < vt) m.scrollTop -= vt - r.top; }
   const w = $('#mbwrap'); if (w) { const R = w.getBoundingClientRect(); if (r.right > R.right - 8) w.scrollLeft += r.right - R.right + 24; else if (r.left < R.left + 8) w.scrollLeft -= R.left - r.left + 24; } }
 function mmEnd(el, next) { const b = curBoard(); const n = el.closest('.mmn'); if (!b || !n) return; const x = b.items.find((i) => i.id === n.dataset.id); if (!x) return;
   el.contentEditable = 'false'; const t = el.innerText.replace(/\n$/, '').trim();
   if (!t && (x.parent || !mmKids(b, x.id).length)) { const drop = (id) => { mmKids(b, id).forEach((k) => drop(k.id)); b.items = b.items.filter((i) => i.id !== id); }; drop(x.id); S.bSel = x.parent || null; }
   else x.text = t || x.text || 'Idea';
   if (S.bEditBefore) bPush(b, S.bEditBefore); S.bEditBefore = null; bTouch(b); save(); render();
+  // a tap on another bubble while I was writing picks that bubble (2026-11-12: the tap used to be lost, so the next branch grew from the wrong word)
+  const pk = mPendPick; mPendPick = null; if (pk && pk !== x.id && b.items.some((i) => i.id === pk)) { bPick(pk); return; }
   if (t && next === 'sib' && x.parent) mmNew(x.parent, x); else if (t && (next === 'child' || next === 'sib')) mmNew(x.id); /* Enter on the centre starts a branch */ else if (S.bSel) mmCentre(S.bSel); }
 document.addEventListener('keydown', (e) => { const el = e.target; if (!(el.classList && el.classList.contains('mmt') && el.isContentEditable)) return;
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); el.dataset.next = 'sib'; el.blur(); }
@@ -783,7 +787,11 @@ function mmZoom(how) { const b = curBoard(); const r = b && rootOf(b, S.bSel); i
   bMut(() => { r.k = how === 'fit' ? Math.max(0.2, Math.min(1.5, 0.94 * 360 / Lo.W)) : Math.max(0.2, Math.min(2.5, (r.k || 1) * (how === 'in' ? 1.15 : 1 / 1.15)));
     if (how === 'fit') r.x = 0.5 + ((Lo.P[r.id].cx - Lo.x0) - Lo.W / 2) * r.k / 360; }); }
 // moving a node: drag it onto another node to hang it there; drop a main branch beside the centre to switch sides
-let mDrag = null, mSkip = false;
+let mDrag = null, mSkip = false, mPendPick = null;
+// the keyboard coming up keeps the word I'm writing in view
+if (window.visualViewport) { let mvT = 0; visualViewport.addEventListener('resize', () => { clearTimeout(mvT); mvT = setTimeout(() => { const a = document.activeElement; const n = a && a.isContentEditable && a.closest && a.closest('.mbwrap .mmn'); if (n) mmCentre(n.dataset.id); }, 120); }); }
+document.addEventListener('pointerdown', (e) => { const a = document.activeElement; if (!a || !a.classList || !a.classList.contains('mmt') || !a.isContentEditable) return;
+  const n = e.target.closest && e.target.closest('.mbmap .mmn'); if (!n || n.contains(a)) return; mPendPick = n.dataset.id; mSkip = true; setTimeout(() => { mSkip = false; }, 450); }, true);
 document.addEventListener('pointerdown', (e) => { const w = e.target.closest && e.target.closest('.mbmap'); if (!w || e.target.closest('.mmc')) return;
   const n = e.target.closest('.mmn'); if (!n || S.bLink) return; const sc = +w.dataset.s || 1;
   if (n.querySelector('.mmt').isContentEditable) return; const b = curBoard(); const x = b && b.items.find((i) => i.id === n.dataset.id); if (!x) return; const nr = n.getBoundingClientRect();
@@ -878,8 +886,9 @@ function boardAction(act, a, ref, v) {
       S.bSel = x.t ? null : x.parent || null; S.bPanel = null; bMut((bb) => { if (!x.t) drop(x.id); else bb.items = bb.items.filter((i) => i !== x); if (bb.links) bb.links = bb.links.filter((l) => bb.items.some((i) => i.id === l.a) && bb.items.some((i) => i.id === l.b)); }); return true; }
     case 'medit': if (S.bSel) mmEdit(S.bSel); return true;
     case 'mgrow': S.bGrow = v; bToolsOnly(); return true;
-    case 'mchild': if (S.bSel) { if (S.bGrow === 'list') mmNew(S.bSel, null, null, bListFor(b, S.bSel)); else mmNew(S.bSel); } return true;
-    case 'mroot': { const r = b && rootOf(b, S.bSel); S.bPanel = null; if (r) { if (S.bGrow === 'list') mmNew(r.id, null, null, bListFor(b, r.id)); else mmNew(r.id, null, v || null); } return true; }
+    // Auto adds a branch without moving the ones already there (2026-11-12: the map kept swapping sides on my phone)
+    case 'mchild': if (S.bSel) { if (b && S.bGrow !== 'list') { bPinSibs(b, { on: S.bSel }); bPinKids(b, b.items.find((i) => i.id === S.bSel)); } if (S.bGrow === 'list') mmNew(S.bSel, null, null, bListFor(b, S.bSel)); else mmNew(S.bSel); } return true;
+    case 'mroot': { const r = b && rootOf(b, S.bSel); S.bPanel = null; if (r) { if (S.bGrow === 'list') mmNew(r.id, null, null, bListFor(b, r.id)); else { if (!v) bPinSibs(b, { on: r.id }); mmNew(r.id, null, v || null); } } return true; }
     case 'mgrow': bMut((bb, x) => { if (!x) return; delete x.side; if (v) x.dir = v; else delete x.dir; }); requestAnimationFrame(() => S.bSel && mmCentre(S.bSel)); return true;
     case 'mtheme': bMut((bb, x) => { const r = x && rootOf(bb, x.id); if (r) r.theme = v === 'ink' ? undefined : v; }); return true;
     case 'mnewmap': { if (!b) return true; const before = bState(b); const id = uid('mn'); const sp = bEmptySpot(170, 60) || { x: 0.5, y: viewTop() + 0.1 }; b.items.push({ id, text: '', parent: null, x: sp.x, y: sp.y, k: 1, z: bTopZ(b) + 1 }); bTouch(b); S.bSel = id; S.bPanel = null; render(); mmEdit(id, before); return true; }
