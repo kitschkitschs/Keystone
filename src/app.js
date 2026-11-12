@@ -898,7 +898,9 @@ function sheetBody() {
       <div class="fld"><span class="mono">Icon</span><div><button class="btn" data-a="iconfor" data-v="a:${s.ref}" style="display:inline-flex;gap:8px;align-items:center">${icon(a.icon, 18)} Change icon</button></div></div>`; }
   if (s.kind === 'remove') { const pl = placements(s.ref);
     return `<p class="note" style="font-size:14px">“${esc(I(s.ref).name)}” is in ${pl.length} places: ${pl.map((p) => esc(placeName(p))).join(', ')}. It is one item, so its history is shared.</p><div class="btns"><button class="btn" data-a="rmhere">Remove from here</button><button class="btn danger" data-a="rmall">Delete everywhere</button></div>`; }
-  if (s.kind === 'hyper') { const pk = hval(T0, 'pt:' + s.ref) || []; const c = hcolor(s.ref); return `<p class="note" style="font-size:14px">Which hobbies?</p><div class="chips">${partOpts(s.ref).map(([h, l]) => `<button class="hchip" data-a="hpart" data-ref="${s.ref}" data-v="${esc(h)}" aria-pressed="${pk.includes(h)}" style="${pk.includes(h) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(l)}</button>`).join('')}</div><div class="btns" style="margin-top:16px"><button class="btn dark" data-a="hyperdone" ${pk.length ? '' : 'disabled'}>Done</button></div>`; }
+  if (s.kind === 'hyper') { const pk = hval(T0, 'pt:' + s.ref) || []; const c = hcolor(s.ref); const chip = ([h, l]) => `<button class="hchip" data-a="hpart" data-ref="${s.ref}" data-v="${esc(h)}" aria-pressed="${pk.includes(h)}" style="${pk.includes(h) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(l)}</button>`; const HB = hyperHobs(s.ref), DT = (I(s.ref).parts || []).map((w) => [w, w]); const hobOn = HB.some(([h]) => pk.includes(h));
+      return `<p class="note" style="font-size:14px">Which hobbies?</p><div class="chips">${HB.map(chip).join('')}</div>${DT.length ? `<span class="mono" style="display:block;margin-top:14px">Details</span><div class="chips">${DT.map(chip).join('')}</div>` : ''}<div class="btns" style="margin-top:16px"><button class="btn dark" data-a="hyperdone" ${hobOn ? '' : 'disabled'}>Done</button></div>`; }
+  if (false) { return `<div class="chips">${partOpts(s.ref).map(([h, l]) => `<button class="hchip" data-a="hpart" data-ref="${s.ref}" data-v="${esc(h)}" aria-pressed="${pk.includes(h)}" style="${pk.includes(h) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(l)}</button>`).join('')}</div><div class="btns" style="margin-top:16px"><button class="btn dark" data-a="hyperdone" ${pk.length ? '' : 'disabled'}>Done</button></div>`; }
   if (s.kind === 'much') return `<p class="note" style="font-size:14px">Too much “${esc((I(s.ref) || G(s.ref) || {}).name || '')}”. What kind?</p><div class="btns"><button class="btn dark" data-a="much" data-v="hyper">Hyperfixation</button><button class="btn dark" data-a="much" data-v="inert">Inertia</button><button class="btn" data-a="much" data-v="">Skip</button></div>`;
   if (s.kind === 'checkin') return checkinSheet(s);
   if (s.kind === 'feel') return feelSheet();
@@ -1805,7 +1807,9 @@ function trackRows(ids, d, c, row, plus) {
   ids.forEach((k) => { if (!S.edit && I(k).scale === 'yesno') run.push(k); else { flush(false); out.push(row(k)); } }); flush(true); return out.join('');
 }
 // a symptom's details as chips, shown once it has an answer: on Health and in the check-in (2026-11-12)
-function partOpts(id) { return isHyper(id) ? (typeof hobIds === 'function' ? hobIds() : []).map((h) => [h, G(h).name]) : (I(id).parts || []).map((w) => [w, w]); }
+// Hyperfocus offers my hobbies and then any details I added to it myself (2026-11-12)
+const hyperHobs = (id) => isHyper(id) && typeof hobIds === 'function' ? hobIds().map((h) => [h, G(h).name]) : [];
+function partOpts(id) { return hyperHobs(id).concat((I(id).parts || []).map((w) => [w, w])); }
 function partDet(id, d, c) { const P = partOpts(id); const hv = hval(d, id); const pk = hval(d, 'pt:' + id) || [];
   return P.length && !S.edit && typeof hv === 'number' && hv > 0 ? `<div class="chips tparts">${P.map(([w, l]) => `<button class="hchip" data-a="hpart" data-ref="${id}" data-v="${esc(w)}" aria-pressed="${pk.includes(w)}" style="${pk.includes(w) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(l)}</button>`).join('')}</div>` : ''; }
 function trackerRow(id, list, d, c) {
@@ -2320,7 +2324,7 @@ function healthAction(act, a, ref, v) {
     case 'cistep': if (S.sheet && S.sheet.kind === 'checkin') { S.sheet.step = +v; S._lastSheet = null; renderLayer(); } return true;
     case 'hyperdone': { S.sheet = (S.sheet && S.sheet.back) || null; render(); return true; }
     case 'hset': { const cur = hval(T0, ref); const nv = /^\d+$/.test(v) ? +v : v; change(() => { if (cur === nv) { delete L(T0)[ref]; delete L(T0)['pt:' + ref]; } else L(T0)[ref] = nv; });
-      if (isHyper(ref) && cur !== nv && !(hval(T0, 'pt:' + ref) || []).length && partOpts(ref).length) openSheet({ kind: 'hyper', ref, title: 'Hyperfocus' }); return true; }
+      if (isHyper(ref) && cur !== nv && !hyperHobs(ref).some(([h]) => (hval(T0, 'pt:' + ref) || []).includes(h)) && hyperHobs(ref).length) openSheet({ kind: 'hyper', ref, title: 'Hyperfocus' }); return true; }
     case 'hpick': { change(() => { const arr = Array.isArray(hval(T0, ref)) ? hval(T0, ref).slice() : []; const i = arr.indexOf(v); if (i >= 0) arr.splice(i, 1); else arr.push(v); if (arr.length) L(T0)[ref] = arr; else delete L(T0)[ref]; }); return true; }
     case 'feel': openSheet({ kind: 'feel', title: 'How do I feel?', back: S.sheet && S.sheet.kind === 'checkin' ? S.sheet : null }); return true;
     case 'feelw': { change(() => { const ws = (M.feel[T0] || []).slice(); const i = ws.indexOf(v); if (i >= 0) ws.splice(i, 1); else ws.push(v); M.feel[T0] = ws; }); renderLayer(); return true; }
