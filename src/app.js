@@ -292,6 +292,8 @@ function dayListRaw(d, raw) {
   out.forEach((x) => { const o = ord[x.b]; if (!o) return; const base = x.items.slice(); const key = (id) => o.indexOf(id) >= 0 ? o.indexOf(id) : 1000 + base.indexOf(id); x.items.sort((p, q) => key(p) - key(q)); });
   // a day with real study tasks (or study sessions) drops the generic Study session slot; a day with real chores (rooms and
   // one-off chores, not Homemaking or Cooking) drops the Daily chore slot (2026-11-06)
+  // a started two-part chore waits on Today, and counts as a real chore there, so the generic chore slot drops (2026-11-12)
+  if (d === T0) { const has = new Set(out.flatMap((x) => x.items)); Object.keys(M.half || {}).forEach((id) => { if (!I(id) || has.has(id)) return; const x = at(blockOfItem(id)) || out[out.length - 1]; if (x) x.items.push(id); }); }
   slotDrop(out);
   afterWork(out, d);
   { const R = out.flatMap((x) => x.items).filter((id) => I(id) && I(id).type === 'routine'); const inR = new Set(R.flatMap((r) => rSteps(r, d).filter(isLinkPart))); if (inR.size) out.forEach((x) => { x.items = x.items.filter((id) => !inR.has(id)); }); }
@@ -300,7 +302,6 @@ function dayListRaw(d, raw) {
   if (out.length) { const mi = Object.keys(M.items).find((k) => I(k).which === 'morning'); const ei = Object.keys(M.items).find((k) => I(k).which === 'evening');
     const inBlock = (k) => placements(k).some((p) => G(p)); // a check-in inside a routine shows there instead (2026-11-02)
     if (mi && inBlock(mi)) out[0].items.unshift(mi); if (ei && inBlock(ei)) out[out.length - 1].items.push(ei); }
-  if (d === T0) { const has = new Set(out.flatMap((x) => x.items)); Object.keys(M.half || {}).forEach((id) => { if (!I(id) || has.has(id)) return; const x = at(blockOfItem(id)) || out[out.length - 1]; if (x) x.items.push(id); }); }
   const appts = apptsOn(d);
   appts.forEach((id) => { const x = at(blockAtTime(I(id).time || '23:59')); if (x) x.appts = (x.appts || []).concat([id]); });
   return dropMissed(out, d);
