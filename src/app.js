@@ -292,9 +292,9 @@ function dayListRaw(d, raw) {
   out.forEach((x) => { const o = ord[x.b]; if (!o) return; const base = x.items.slice(); const key = (id) => o.indexOf(id) >= 0 ? o.indexOf(id) : 1000 + base.indexOf(id); x.items.sort((p, q) => key(p) - key(q)); });
   // a day with real study tasks (or study sessions) drops the generic Study session slot; a day with real chores (rooms and
   // one-off chores, not Homemaking or Cooking) drops the Daily chore slot (2026-11-06)
-  // a started two-part chore waits on Today, and counts as a real chore there, so the generic chore slot drops (2026-11-12)
-  if (d === T0) { const has = new Set(out.flatMap((x) => x.items)); Object.keys(M.half || {}).forEach((id) => { if (!I(id) || has.has(id)) return; const x = at(blockOfItem(id)) || out[out.length - 1]; if (x) x.items.push(id); }); }
   slotDrop(out);
+  // a started two-part chore waits on Today, and counts as a real chore there, the generic chore slot drops on Today only, Schedule keeps it (2026-11-12)
+  if (d === T0) { const has = new Set(out.flatMap((x) => x.items)); Object.keys(M.half || {}).forEach((id) => { if (!I(id) || has.has(id)) return; const x = at(blockOfItem(id)) || out[out.length - 1]; if (x) x.items.push(id); }); }
   afterWork(out, d);
   { const R = out.flatMap((x) => x.items).filter((id) => I(id) && I(id).type === 'routine'); const inR = new Set(R.flatMap((r) => rSteps(r, d).filter(isLinkPart))); if (inR.size) out.forEach((x) => { x.items = x.items.filter((id) => !inR.has(id)); }); }
   // check-ins: morning opens the day, evening closes it
@@ -584,13 +584,16 @@ const uiIc = (key, def) => ((M.settings || {}).uiIcons || {})[key] || def;
 const mi = (key, def) => S.edit ? `<span class="miic" data-a="iconfor" data-v="ui:${key}" role="button" aria-label="Change this icon">${icon(uiIc(key, def), 18)}</span>` : icon(uiIc(key, def), 18);
 // what a day had on it and how much got done, kept for the calendar's marks. Counted after every change, wherever I tick
 // (a chore page, the + sheet, Studies), not only while Today is on screen, so yesterday's mark is always right (2026-11-10)
-function snapDay(d, DL) { DL = DL || dayList(d); const opt = (id) => !!(I(id) && I(id).optional); let due = missedOn(d).filter((id) => !opt(id)).length, done = 0; DL.forEach((x) => x.items.concat(x.appts || []).forEach((id) => { if (I(id) && I(id).brk) return; const dn = I(id) && I(id).type === 'routine' ? isDone(id, d) && rComplete(id, d) : isDone(id, d); if (opt(id) && !dn) return; due++; if (dn) done++; })); /* an optional item only counts once it's done */ M.snap[d] = { due, done };
+// a started two-part chore stands in for the generic chore on Today (not on Schedule, which is for planning)
+function halfDrop(DL) { if (Object.keys(M.half || {}).some((id) => I(id))) DL.forEach((x) => { x.items = x.items.filter((id) => !(I(id) && I(id).type === 'slot' && I(id).opens === 'chores')); }); return DL; }
+function snapDay(d, DL) { DL = DL || (d === T0 ? halfDrop(dayList(d)) : dayList(d)); const opt = (id) => !!(I(id) && I(id).optional); let due = missedOn(d).filter((id) => !opt(id)).length, done = 0; DL.forEach((x) => x.items.concat(x.appts || []).forEach((id) => { if (I(id) && I(id).brk) return; const dn = I(id) && I(id).type === 'routine' ? isDone(id, d) && rComplete(id, d) : isDone(id, d); if (opt(id) && !dn) return; due++; if (dn) done++; })); /* an optional item only counts once it's done */ M.snap[d] = { due, done };
   // a bad day is finished when its own list and the day's appointments are done (2026-11-10: an empty Bad day list never finished)
   if (isBad(d)) { const bl = badList().concat(DL.flatMap((x) => x.appts || [])).filter((id, i, A) => A.indexOf(id) === i); Object.assign(M.snap[d], { bad: 1, bdue: bl.length, bdone: bl.filter((id) => isDone(id, d)).length }); }
   return M.snap[d]; }
 function renderToday() {
   const d = S.edit ? T0 : S.day; const live = d === T0;
   const DL = dayList(d);
+  if (live) halfDrop(DL);
   if (live) { snapDay(T0, DL);
     // the day just got completed by a tick: confetti from that row, and the day's mark flies up to the calendar (2026-11-09)
     { const s0 = M.snap[T0]; const comp = s0.bad ? s0.bdue > 0 && s0.bdone >= s0.bdue : s0.due > 0 && s0.done >= s0.due; if (comp && S.dayComp === false && lastTick && Date.now() - lastTick.t < 2000) requestAnimationFrame(() => celebrate(s0.bad ? 'bad' : 'plan')); S.dayComp = comp; } }
