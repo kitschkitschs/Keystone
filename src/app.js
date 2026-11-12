@@ -1050,6 +1050,7 @@ function itemSheet(s) {
   if (s.quick && areaItem(s.ref)) return `<div class="qhead"><p class="note">${esc(D.name)}<span style="display:block;font-size:13px;color:var(--quiet)">${esc(areaItem(s.ref))}${whenText(D) ? ' · ' + esc(whenText(D)) : ''}</span></p>${isStudyItem(s, D) ? estIn(D) : ''}</div>` + schedUI(s, D) + (s.ref && I(s.ref) ? whenDidI() : '') + `<div class="btns"><button class="btn" data-a="dmore">More settings</button></div>`;
   if (s.quick) return `<div class="qhead"><p class="note">${esc(D.name)}</p>${isStudyItem(s, D) ? estIn(D) : ''}</div>` + schedUI(s, D) + (isPrep(s) ? subField(s) : '') + (s.ref && I(s.ref) && !s.isNew ? whenDidI() : '') + `<div class="btns"><button class="btn" data-a="dmore">More settings</button></div>`;
   let h = `<div class="fld"><span class="mono">Name</span>${D.type !== 'appt' && D.type !== 'checkin' && D.type !== 'step' && (D.est != null || isStudyItem(s, D)) ? `<div class="inrow"><input class="inp" id="dname" value="${esc(D.name)}" ${s.isNew ? 'data-autofocus' : ''}>${estIn(D)}</div>` : `<input class="inp" id="dname" value="${esc(D.name)}" ${s.isNew ? 'data-autofocus' : ''}>`}</div>`;
+  if (isHobAct(s)) h += `<div class="fld"><span class="mono">Details</span><input class="inp" id="dextra" value="${esc(D.extra || '')}" maxlength="40"></div>`; // small grey caps beside the name (the owner, 2026-11-12)
   if (D.type === 'appt') {
     h += `<div class="fld"><span class="mono">When</span><input class="inp" type="date" id="ddate" value="${D.date || T0}"><div class="inrow" style="margin-top:8px;align-items:center"><input class="inp" type="time" id="dtime" value="${D.time || ''}" aria-label="From" style="flex:1;min-width:0"><span class="mono" aria-hidden="true">–</span><input class="inp" type="time" id="dend" value="${apEnd(D)}" aria-label="Until" style="flex:1;min-width:0"></div></div>
       ${freqUI(s, D)}
@@ -1125,7 +1126,7 @@ function apptWhen(D) { const r = D.rep, d = D.date || T0; if (!r) return { mode:
 // whatever pop-up is open, keep what is typed in it before it is drawn again (a New tag box used to wipe a word's text)
 function capAll() { const s = S.sheet; if (!s) return; try { const k = s.kind; if (k === 'item') capture(); else if (k === 'word') wCapture(); else if (k === 'note') ncapture(); else if (k === 'rem') remCapture(); else if (k === 'trip') tripCapture(); else if (k === 'cond') condCapture(); else if (k === 'tracker') tcapture(); else if (k === 'photo') mcapture(); } catch (e) {} }
 function capture() { const s = S.sheet; if (!s || s.kind !== 'item') return; const D = s.draft;
-  const g = (id) => document.getElementById(id); if (g('dname')) D.name = g('dname').value.trim() || D.name;
+  const g = (id) => document.getElementById(id); if (g('dname')) D.name = g('dname').value.trim() || D.name; if (g('dextra')) { const xv = g('dextra').value.trim(); if (xv) D.extra = xv; else delete D.extra; }
   if (g('ddate') && D.type === 'appt') { D.date = g('ddate').value || T0; if (D.when) D.when.date = D.date; }
   if (g('dn') && D.when) D.when.n = Math.max(1, parseInt(g('dn').value) || 1);
   if (g('dtime')) { if (g('dtime').value) D.time = g('dtime').value; else delete D.time; }
