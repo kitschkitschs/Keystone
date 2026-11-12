@@ -132,6 +132,9 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&':
 const uid = (p) => p + Date.now().toString(36).slice(-5) + Math.random().toString(36).slice(2, 6);
 function icon(name, size = 20, sw = 1.8) { const L = window.LUCIDE || {}; const d = L[name] || L.circle || ''; return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`; }
 const G = (id) => M.groups[id]; const I = (id) => M.items[id];
+// an item's extra details go beside its name everywhere, so two activities with the same name can be told apart (the owner, 2026-11-12)
+const _xi = (r) => typeof r === 'string' ? M.items[r] : r; const tnm = (r) => { const it = _xi(r) || {}; return (it.name || '') + (it.extra ? ' · ' + it.extra : ''); };
+const inm = (r) => { const it = _xi(r) || {}; return esc(it.name || '') + (it.extra ? `<span class="mono hxt">${esc(it.extra)}</span>` : ''); };
 function blockIds() { return G('g-blocks').kids.filter((k) => G(k)); }
 function placements(ref) { const out = []; for (const [gid, g] of Object.entries(M.groups)) if (g.kids.includes(ref)) out.push(gid); for (const [rid, r] of Object.entries(M.items)) if ((r.steps || []).includes(ref)) out.push('s:' + rid); return out; }
 function homeOf(ref) { return placements(ref)[0]; }
@@ -398,7 +401,7 @@ function flash(msg, undo) { clearTimeout(S.tt); S.toast = { msg, undo }; renderL
 
 // ---------- render ----------
 const ce = () => S.edit ? 'contenteditable="plaintext-only" spellcheck="false"' : '';
-const nm = (ref, text) => S.edit ? `<span data-nm="${ref}" ${ce()}>${esc(text)}</span>` : esc(text);
+const nm = (ref, text) => { const it = M.items[ref]; const xt = it && it.extra && text === it.name ? `<span class="mono hxt">${esc(it.extra)}</span>` : ''; return (S.edit ? `<span data-nm="${ref}" ${ce()}>${esc(text)}</span>` : esc(text)) + xt; };
 const grip = (on = true) => S.edit && on ? `<span class="grip" aria-label="Drag to move">${icon('grip-vertical', 16)}</span>` : '';
 const tail = (ref, list, opts = {}) => S.edit ? `${opts.gear === false ? '' : `<button class="gear" data-a="gear" data-ref="${ref}" aria-label="Settings">${icon('settings', 18)}</button>`}${opts.rm === false ? '' : `<button class="rm" data-a="rm" data-ref="${ref}" data-in="${list}" aria-label="Remove">✕</button>`}` : '';
 
@@ -470,13 +473,13 @@ function tickCircle(id, d, live) {
   const inner = much ? '' : done ? '✓' : '';
   const circ = `<span class="circ ${much ? 'much' : done ? 'done' : d === T0 && halfOf(id) ? 'half' : ''}" style="--c:${c}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : 'aria-hidden="true"'}>${inner}</span>`;
   if (!live || S.edit) return S.edit ? circ : `<span class="tickbtn">${circ}</span>`;
-  return `<button class="tickbtn" data-a="tick" data-ref="${id}" aria-label="Tick ${esc(I(id).name)}">${circ}</button>`;
+  return `<button class="tickbtn" data-a="tick" data-ref="${id}" aria-label="Tick ${esc(tnm(id))}">${circ}</button>`;
 }
 // A check-in is a step of its routine (2026-11-02): morning check-in in Morning routine, evening in Evening routine.
 // Its circle shows if it's done; tapping the row opens the check-in.
 function ciStepRow(s, rid, d, live) {
   const on = !!val(d, s); const circ = `<span class="circ ${on ? 'done' : ''}" style="--c:${colorOf(rid)}">${on ? '✓' : ''}</span>`;
-  return `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" style="width:18px;height:40px" data-a="checkin" data-ref="${s}" aria-label="Open ${esc(I(s).name)}">${circ}</button><button class="lbl" data-a="checkin" data-ref="${s}" style="display:flex;align-items:center;text-align:left"><span style="flex:1">${esc(I(s).name)}</span><span class="chev" aria-hidden="true">›</span></button>` : `${circ}<span class="lbl">${nm(s, I(s).name)}</span>`}${tail(s, 's:' + rid, { gear: false })}</div>`;
+  return `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" style="width:18px;height:40px" data-a="checkin" data-ref="${s}" aria-label="Open ${esc(tnm(s))}">${circ}</button><button class="lbl" data-a="checkin" data-ref="${s}" style="display:flex;align-items:center;text-align:left"><span style="flex:1">${inm(s)}</span><span class="chev" aria-hidden="true">›</span></button>` : `${circ}<span class="lbl">${nm(s, I(s).name)}</span>`}${tail(s, 's:' + rid, { gear: false })}</div>`;
 }
 // A routine opens by itself once it's due today (its start time on Schedule has come) and stays open until closed.
 // Opening or closing by hand is kept for that day, also after a reload (2026-11-03).
@@ -499,11 +502,11 @@ function whereOf(id) { const it = I(id); const src = it && it.part && I(it.part)
   if (typeof subjIds === 'function') { const sj = subjIds().find((s) => sIds(s).includes(src)); if (sj) return G(sj).name; } return ''; }
 function itemRow(id, list, d) {
   const it = I(id); const live = d === T0;
-  if (it.type === 'slot') return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, false)}<span class="lbl">${S.edit ? nm(id, it.name) : `<button data-a="${live ? 'slot' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left;display:flex;align-items:center;gap:8px"><span style="flex:1">${esc(it.name)}${live && it.opens === 'study' && supMin(T0) < sessLen() ? `<span class="tdur">${estHM(minOn(null, T0) / 60)} of ${estHM(sessLen() / 60)}</span>` : ''}${live && slotSub(it) ? `<span class="sub">${esc(slotSub(it))}</span>` : ''}</span>${live ? '<span class="chev" aria-hidden="true">›</span>' : ''}</button>`}</span>${tail(id, list)}</div>`;
+  if (it.type === 'slot') return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, false)}<span class="lbl">${S.edit ? nm(id, it.name) : `<button data-a="${live ? 'slot' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left;display:flex;align-items:center;gap:8px"><span style="flex:1">${inm(it)}${live && it.opens === 'study' && supMin(T0) < sessLen() ? `<span class="tdur">${estHM(minOn(null, T0) / 60)} of ${estHM(sessLen() / 60)}</span>` : ''}${live && slotSub(it) ? `<span class="sub">${esc(slotSub(it))}</span>` : ''}</span>${live ? '<span class="chev" aria-hidden="true">›</span>' : ''}</button>`}</span>${tail(id, list)}</div>`;
   // a break looks like a day block's title (2026-11-11): its icon, its name in small capitals, its length on the right
   if (it.brk) { const bi = icon(it.icon || 'coffee', 16); const ln = `${it.time ? esc(it.time) + ' · ' : ''}${estHM((it.dur || 15) / 60)}`;
     // outside edit mode it's a minimal title like the block titles on Schedule (2026-11-11): dashed lines, small capitals
-    if (!S.edit) return `<div class="row brkrow brkmin" data-ref="${id}"><button class="brkt" data-a="${live ? 'open' : 'peek'}" data-ref="${id}" data-d="${d}" aria-label="${esc(it.name)}, a break, ${ln}"><span class="bkt"><span>${esc(it.name)} · ${ln}</span></span></button></div>`;
+    if (!S.edit) return `<div class="row brkrow brkmin" data-ref="${id}"><button class="brkt" data-a="${live ? 'open' : 'peek'}" data-ref="${id}" data-d="${d}" aria-label="${esc(tnm(it))}, a break, ${ln}"><span class="bkt"><span>${inm(it)} · ${ln}</span></span></button></div>`;
     return `<div class="row brkrow" data-ref="${id}">${grip()}<button class="bico" data-a="iconfor" data-v="${id}" aria-label="Change icon">${bi}</button><span class="nm mono" style="flex:1">${nm(id, it.name)}</span><span class="cnt">${ln}</span>${tail(id, list)}</div>`; }
   if (it.type === 'checkin') return `<div class="row" data-ref="${id}" data-fixed="1">${S.edit ? '<span class="grip"></span>' : ''}${tickCircle(id, d, live)}<button class="lbl" data-a="checkin" data-ref="${id}">${nm(id, it.name)}</button><span class="chev">›</span></div>`;
   const much = String(val(d, id) || '').startsWith('much');
@@ -514,11 +517,11 @@ function itemRow(id, list, d) {
   if (it.type === 'routine') {
     const open = S.edit || routineOpen(id, d); const steps = S.edit ? rStepsAll(id) : rSteps(id, d);
     return `<div data-ref="${id}"><div class="row">${grip()}${tickCircle(id, d, live)}
-      <button class="lbl" data-a="ropen" data-ref="${id}" aria-expanded="${!!open}" style="display:flex;align-items:center;gap:10px">${S.edit ? `<span style="flex:1">${nm(id, it.name)}${it.optional ? optMark() : ''}</span>` : `<span style="flex:1">${esc(it.name)}${it.optional ? optMark() : ''}${tdur(it)}</span>`}${S.edit ? '' : `${fold(open)}`}</button>${tail(id, list)}</div>
-      ${open ? `<div class="steps" data-list="s:${id}">${steps.map((s) => I(s).type === 'checkin' ? ciStepRow(s, id, d, live) : `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" style="width:18px;height:40px" data-a="step" data-ref="${s}" aria-label="Tick ${esc(I(s).name)}"><span class="circ ${val(d, s) ? 'done' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span></button>` : `<span class="circ ${val(d, s) ? 'done' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span>`}<span class="lbl">${nm(s, I(s).name)}${pOpt(id, s).optional ? optMark() : ''}${S.edit && stepNote(s, id) && !(S.area === 'plan' && S.page === 'today') ? `<span class="sub">${esc(stepNote(s, id))}</span>` : ''}</span>${tail(s, 's:' + id, { gear: false })}</div>`).join('')}
+      <button class="lbl" data-a="ropen" data-ref="${id}" aria-expanded="${!!open}" style="display:flex;align-items:center;gap:10px">${S.edit ? `<span style="flex:1">${nm(id, it.name)}${it.optional ? optMark() : ''}</span>` : `<span style="flex:1">${inm(it)}${it.optional ? optMark() : ''}${tdur(it)}</span>`}${S.edit ? '' : `${fold(open)}`}</button>${tail(id, list)}</div>
+      ${open ? `<div class="steps" data-list="s:${id}">${steps.map((s) => I(s).type === 'checkin' ? ciStepRow(s, id, d, live) : `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" style="width:18px;height:40px" data-a="step" data-ref="${s}" aria-label="Tick ${esc(tnm(s))}"><span class="circ ${val(d, s) ? 'done' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span></button>` : `<span class="circ ${val(d, s) ? 'done' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span>`}<span class="lbl">${nm(s, I(s).name)}${pOpt(id, s).optional ? optMark() : ''}${S.edit && stepNote(s, id) && !(S.area === 'plan' && S.page === 'today') ? `<span class="sub">${esc(stepNote(s, id))}</span>` : ''}</span>${tail(s, 's:' + id, { gear: false })}</div>`).join('')}
         ${S.edit ? `<button class="addrow" data-a="addstep" data-ref="${id}"><span class="plus">+</span>Add step</button>` : ''}</div>` : ''}</div>`;
   }
-  return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, live)}<span class="lbl">${S.edit ? nm(id, it.name) + (onToday && it.optional ? optMark() : '') : `<button data-a="${live ? 'sched' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left">${esc(it.name)}${onToday && it.optional ? optMark() : ''}${tdur(it)}</button>`}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>${tail(id, list)}</div>`; // estimate on the right (2026-11-04)
+  return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, live)}<span class="lbl">${S.edit ? nm(id, it.name) + (onToday && it.optional ? optMark() : '') : `<button data-a="${live ? 'sched' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left">${inm(it)}${onToday && it.optional ? optMark() : ''}${tdur(it)}</button>`}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>${tail(id, list)}</div>`; // estimate on the right (2026-11-04)
 }
 // A past day is an overview of everything ticked, logged and added that day (2026-11-08), not the old list.
 function pastDay(d) {
@@ -552,16 +555,16 @@ function pastDay(d) {
   const fk = (G(foodGroup()) || { kids: [] }).kids; // nutrition answers go with the food diary
   const tv = Object.keys(lg).filter((id) => I(id) && I(id).type === 'tracker' && lg[id] != null && lg[id] !== '' && !fk.includes(id));
   const lev = (id) => { const it = I(id), v = lg[id]; if (Array.isArray(v)) return v.join(', '); if (it.scale === 'yesno') return ''; if (it.scale === 'avoid') return cap(String(v)); const sc = SCALES[it.scale]; return sc && sc[+v - 1] ? cap(sc[+v - 1]) : String(v); };
-  const yes = tv.filter((id) => I(id).scale === 'yesno'); const hl = tv.filter((id) => I(id).scale !== 'yesno').map((id) => ln(I(id).name, lev(id), '', '', colorOf(id)));
+  const yes = tv.filter((id) => I(id).scale === 'yesno'); const hl = tv.filter((id) => I(id).scale !== 'yesno').map((id) => ln(tnm(id), lev(id), '', '', colorOf(id)));
   // tags in one sentence, split by dots (2026-11-08)
-  if (yes.length) hl.push(`<div class="pdl"><span class="pdot" style="background:${colorOf(yes[0])}"></span><span class="pdn pdwrap">${yes.map((id) => esc(I(id).name)).join(' · ')}</span></div>`);
+  if (yes.length) hl.push(`<div class="pdl"><span class="pdot" style="background:${colorOf(yes[0])}"></span><span class="pdn pdwrap">${yes.map((id) => inm(id)).join(' · ')}</span></div>`);
   sec('Health', hl);
   const fd = dayMeals(d); if (fd) sec('Food diary', [`<div class="pdfood">${fd}</div>`]);
   sec('Life', (M.events || []).filter((e) => e.day === d).map((e) => ln(e.text, '', '', '', '#9A9387')).concat((M.conds || []).filter((c) => c.start === d || c.end === d).map((c) => ln(c.name, c.start === d ? 'Condition started' : 'Condition ended', '', '', condCol()))));
   const KIND = { task: 'Task', routine: 'Routine', appt: 'Appointment', tracker: 'Tracker' };
   // added and written: real previews of notes, journal pages and boards (2026-11-08)
   const NT = (M.notes || []).filter((n) => n.upd && day(n.upd) === d), JJ = (M.journal || []).filter((j) => j.d === d && (j.text || (j.ims || []).length)), BB = (M.boards || []).filter((b) => b.upd && day(b.upd) === d);
-  const AL = Object.keys(M.items).filter((id) => I(id).made === d && KIND[I(id).type] && !I(id).part && !I(id).sample).map((id) => ln(I(id).name, '', '', `data-a="peek" data-ref="${id}" data-d="${d}"`, colorOf(id)));
+  const AL = Object.keys(M.items).filter((id) => I(id).made === d && KIND[I(id).type] && !I(id).part && !I(id).sample).map((id) => ln(tnm(id), '', '', `data-a="peek" data-ref="${id}" data-d="${d}"`, colorOf(id)));
   if (NT.length) AL.push(`<div class="hscroll postrow pdprev">${NT.map(postit).join('')}</div>`);
   if (JJ.length) AL.push(`<div class="hscroll jrow pdprev">${JJ.map(jcard).join('').replace(/data-a="jopen"/g, 'data-a="pdjopen"')}</div>`);
   if (BB.length) AL.push(`<div class="hscroll brow pdprev">${BB.map(bCard).join('').replace(/data-a="bdopen"/g, 'data-a="pdbopen"')}</div>`);
@@ -612,7 +615,7 @@ function renderToday() {
     if (!S.edit && !shown.length && !apShown.length) return '';
     const open = S.edit || S.open['b:' + b] !== false;
     const ap = appts || []; const total = items.length + ap.length, left = items.concat(ap).filter((id) => !isDone(id, d)).length;
-    const apRow = (id) => `<div class="appt" data-appt="${id}" style="--c:${G(catOf(id)).color}">${tickCircle(id, d, live)}<button data-a="peek" data-ref="${id}" data-d="${d}" style="display:flex;align-items:center;gap:10px;flex:1;min-height:44px;text-align:left"><b>${esc(apTime(I(id)))}</b><span style="flex:1">${esc(I(id).name)}${tdur(I(id))}</span><span class="cnt">${live && I(id).time ? inTime(I(id).time) : ''}</span></button></div>`;
+    const apRow = (id) => `<div class="appt" data-appt="${id}" style="--c:${G(catOf(id)).color}">${tickCircle(id, d, live)}<button data-a="peek" data-ref="${id}" data-d="${d}" style="display:flex;align-items:center;gap:10px;flex:1;min-height:44px;text-align:left"><b>${esc(apTime(I(id)))}</b><span style="flex:1">${inm(id)}${tdur(I(id))}</span><span class="cnt">${live && I(id).time ? inTime(I(id).time) : ''}</span></button></div>`;
     const seq = apShown.map((id) => ({ id, ap: true })).concat(shown.map((id) => ({ id }))).map((x, k) => Object.assign(x, { k })).sort((p, q) => ((at[p.id] ?? 9999) - (at[q.id] ?? 9999)) || p.k - q.k);
     return `<section class="card" data-ref="${b}">
       <div class="bhead">${grip()}${S.edit ? `<span class="circ" style="--c:${g.color};width:14px;height:14px;background:${g.color}" data-col="${b}" role="button" aria-label="Change colour"></span><button class="bico" data-a="iconfor" data-v="${b}" aria-label="Change icon">${icon(g.icon || 'clock', 16)}</button><span class="nm mono" style="font-size:11px">${nm(b, g.name)}</span><span class="cnt">${g.start}–${g.end}</span>${tail(b, 'g-blocks')}`
@@ -630,10 +633,10 @@ function renderToday() {
   if (live && !S.edit) {
     const doneIds = DL.flatMap((x) => x.items.concat(x.appts || []).filter((id) => isDone(id, d)).map((id) => ({ id, b: x.b }))).concat(bad ? badList().filter((id) => isDone(id, d)).map((id) => ({ id, b: 'g-bad' })) : []);
     if (doneIds.length) h += `<div class="donebox"><button class="donebtn" data-a="showdone">${fold(S.showDone)} Done today · ${doneIds.length}</button>
-      ${S.showDone ? doneIds.map(({ id }) => `<button class="drow" data-a="tick" data-ref="${id}" aria-label="${esc(I(id).name)}, done. Tap to change"><span class="circ ${String(val(d, id) || '').startsWith('much') ? 'much' : 'done'}">${String(val(d, id) || '').startsWith('much') ? '' : '✓'}</span><span>${esc(I(id).name)}${String(val(d, id) || '').startsWith('much') ? ' · too much' : ''}</span></button>`).join('') : ''}</div>`;
+      ${S.showDone ? doneIds.map(({ id }) => `<button class="drow" data-a="tick" data-ref="${id}" aria-label="${esc(tnm(id))}, done. Tap to change"><span class="circ ${String(val(d, id) || '').startsWith('much') ? 'much' : 'done'}">${String(val(d, id) || '').startsWith('much') ? '' : '✓'}</span><span>${inm(id)}${String(val(d, id) || '').startsWith('much') ? ' · too much' : ''}</span></button>`).join('') : ''}</div>`;
     const mis = missedOn(d);
     if (mis.length) h += `<div class="donebox"><button class="donebtn" data-a="showmissed">${fold(S.showMissed)} Missed · ${mis.length}</button>
-      ${S.showMissed ? mis.map((id) => `<button class="drow" data-a="unmiss" data-ref="${id}" data-d="${d}" aria-label="${esc(I(id).name)}, missed. Tap to put it back"><span class="circ missed" aria-hidden="true">–</span><span style="flex:1">${esc(I(id).name)}</span><span class="cnt">Put back</span></button>`).join('') : ''}</div>`;
+      ${S.showMissed ? mis.map((id) => `<button class="drow" data-a="unmiss" data-ref="${id}" data-d="${d}" aria-label="${esc(tnm(id))}, missed. Tap to put it back"><span class="circ missed" aria-hidden="true">–</span><span style="flex:1">${inm(id)}</span><span class="cnt">Put back</span></button>`).join('') : ''}</div>`;
   }
   return h;
 }
@@ -735,18 +738,18 @@ function renderSchedule() {
       let st = di; if (jl) while (same(st - 1, o)) st--; const rk = jl || jr ? o.id + '@' + days[st] : '';
       // a break is drawn like a block title (2026-11-11): dashed lines above and below, its name small in the middle
       const bk = !o.appt && it.brk; const fitsB = bk && (S.colW || 42) - 6 >= it.name.length * 6.2;
-      const inner = bk ? (jl || run > 1 ? '' : `<span class="bkt">${dayV || fitsB ? `<span>${esc(it.name)}</span>` : ''}</span>`)
-        : dayV ? `<span class="bi">${icon(boxIcon(o), 14, 2)}</span><span class="bn">${esc(it.name)}</span><span class="bt">${fmtHM(o.a)}</span>`
+      const inner = bk ? (jl || run > 1 ? '' : `<span class="bkt">${dayV || fitsB ? `<span>${inm(it)}</span>` : ''}</span>`)
+        : dayV ? `<span class="bi">${icon(boxIcon(o), 14, 2)}</span><span class="bn">${inm(it)}</span><span class="bt">${fmtHM(o.a)}</span>`
         : jl || run > 1 ? '' : (ht >= 14 ? icon(boxIcon(o), 12, 2) : '');
       // the joined block's label sits beside the boxes in the column (not inside a button), spanning the joined days
       // the name only shows when it fits the joined block; otherwise just the icon (2026-11-02)
       const fits = run * ((S.colW || 42) + 4) - 4 - 10 >= it.name.length * 6.3 + (ht >= 30 ? 0 : 18);
       // faded = past or done; drawn with paler solid colours, never see-through, so no lines show through (2026-11-03)
       const fd = faded(di, o); const allFaded = [...Array(run).keys()].every((r) => faded(di + r, o));
-      const lab = bk && !dayV && !jl && run > 1 ? `<span class="blab bkl" data-run="${rk}" style="top:${top}px;height:${ht}px;width:calc(${run} * (100% + 4px) - 4px)" aria-hidden="true"><span class="bkt"><span>${esc(it.name)}</span></span></span>`
-        : !dayV && !jl && run > 1 && ht >= 14 ? `<span class="blab ${ht >= 30 ? '' : 'brow'} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''}" data-run="${rk}" style="top:${top}px;height:${ht}px;width:calc(${run} * (100% + 4px) - 4px);color:${allFaded ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" aria-hidden="true">${icon(boxIcon(o), 12, 2)}${fits ? `<span class="bn">${esc(it.name)}</span>` : ''}</span>` : '';
+      const lab = bk && !dayV && !jl && run > 1 ? `<span class="blab bkl" data-run="${rk}" style="top:${top}px;height:${ht}px;width:calc(${run} * (100% + 4px) - 4px)" aria-hidden="true"><span class="bkt"><span>${inm(it)}</span></span></span>`
+        : !dayV && !jl && run > 1 && ht >= 14 ? `<span class="blab ${ht >= 30 ? '' : 'brow'} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''}" data-run="${rk}" style="top:${top}px;height:${ht}px;width:calc(${run} * (100% + 4px) - 4px);color:${allFaded ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" aria-hidden="true">${icon(boxIcon(o), 12, 2)}${fits ? `<span class="bn">${inm(it)}</span>` : ''}</span>` : '';
       const mv = !o.appt && !it.time && it.type !== 'checkin' && d >= T0;
-      return `<button class="box ${dayV ? 'wide' : ''} ${mv ? 'mv' : ''} ${jl ? 'jl' : ''} ${jr ? 'jr' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && I(o.id) && I(o.id).brk ? ' brk ' + bkE : ''}" style="top:${top}px;height:${!o.appt && it.brk ? Math.max(14, yIn(o.b, o.blk) - top) : ht}px;--c:${c};--bg:${fd ? mix(pale(c), TH.page, 0.5) : pale(c)};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" ${rk ? `data-run="${rk}"` : ''} data-from="${o.a}" data-to="${o.b}" aria-label="${esc(it.name)}, ${fmtHM(o.a)}">${inner}</button>${lab}`; }).join('') + '</div>';
+      return `<button class="box ${dayV ? 'wide' : ''} ${mv ? 'mv' : ''} ${jl ? 'jl' : ''} ${jr ? 'jr' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && I(o.id) && I(o.id).brk ? ' brk ' + bkE : ''}" style="top:${top}px;height:${!o.appt && it.brk ? Math.max(14, yIn(o.b, o.blk) - top) : ht}px;--c:${c};--bg:${fd ? mix(pale(c), TH.page, 0.5) : pale(c)};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" ${rk ? `data-run="${rk}"` : ''} data-from="${o.a}" data-to="${o.b}" aria-label="${esc(tnm(it))}, ${fmtHM(o.a)}">${inner}</button>${lab}`; }).join('') + '</div>';
   });
   S.ymap = { y, h0, h1, zones: blockIds().filter((b) => OV[b]).map((b) => ({ b, top: yIn(ends[b], b), h: OV[b] / 60 * PX, e: ends[b], ov: OV[b] })) };
   h += '</div>';
@@ -764,7 +767,7 @@ function renderPlan() {
   const sch = tasks.filter((id) => (I(id).when || {}).mode === 'once' && I(id).when.date && (I(id).when.date >= T0 || onDay(id, T0))).sort((a, b) => I(a).when.date.localeCompare(I(b).when.date));
   const rep = tasks.filter((id) => repeatable(I(id)));
   const row = (id) => { const hm0 = homeItem(id); const ed = S.edit && !hm0; const blk = placements(id).find((p) => G(p) && G(p).style === 'dayblock');
-    return `<div class="row" data-ref="${id}"><span class="circ" style="--c:${colorOf(id)}" ${ed ? `data-col="${id}" role="button" aria-label="Change colour"` : ''}></span><button class="lbl" data-a="${ed ? 'open' : 'sched'}" data-ref="${id}" style="text-align:left">${ed ? nm(id, I(id).name) : esc(I(id).name)}<span class="sub">${esc(whenText(I(id)))}</span></button>${ed ? tail(id, homeOf(id)) : ''}</div>`; };
+    return `<div class="row" data-ref="${id}"><span class="circ" style="--c:${colorOf(id)}" ${ed ? `data-col="${id}" role="button" aria-label="Change colour"` : ''}></span><button class="lbl" data-a="${ed ? 'open' : 'sched'}" data-ref="${id}" style="text-align:left">${ed ? nm(id, I(id).name) : inm(id)}<span class="sub">${esc(whenText(I(id)))}</span></button>${ed ? tail(id, homeOf(id)) : ''}</div>`; };
   const sec = (title, ids, empty) => lcard('p:' + title, title, ids.length, ids.length ? ids.map(row).join('') : `<p class="empty">${empty}</p>`);
   const fOn = F !== 'all';
   // filter as a dropdown beside the first heading (2026-11-04), the same menu as Study's order
@@ -776,7 +779,7 @@ function renderPlan() {
   const GO = [['study', 'Studies'], ['chores', 'Chores'], ['hobbies', 'Hobbies'], ['training', 'Training']];
   const slots = Object.keys(M.items).filter((id) => I(id).type === 'slot' && placements(id).some((p) => G(p) && G(p).style === 'dayblock'));
   const slotRow = (id) => { const blk = placements(id).find((p) => G(p) && G(p).style === 'dayblock');
-    return `<div class="row" data-ref="${id}"><span class="circ" style="--c:${colorOf(id)}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : ''}></span><span class="lbl">${nm(id, I(id).name)}<span class="sub">${esc(blk ? G(blk).name : '')}</span></span><span class="mono" style="font-size:10px;color:var(--quiet)">Optional</span><button class="swt" role="switch" aria-checked="${!!I(id).optional}" data-a="slotopt" data-ref="${id}" aria-label="${esc(I(id).name)} is optional"></button>${S.edit ? `<button class="rm" data-a="slotrm" data-ref="${id}" aria-label="Remove ${esc(I(id).name)}">✕</button>` : ''}</div>`; };
+    return `<div class="row" data-ref="${id}"><span class="circ" style="--c:${colorOf(id)}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : ''}></span><span class="lbl">${nm(id, I(id).name)}<span class="sub">${esc(blk ? G(blk).name : '')}</span></span><span class="mono" style="font-size:10px;color:var(--quiet)">Optional</span><button class="swt" role="switch" aria-checked="${!!I(id).optional}" data-a="slotopt" data-ref="${id}" aria-label="${esc(tnm(id))} is optional"></button>${S.edit ? `<button class="rm" data-a="slotrm" data-ref="${id}" aria-label="Remove ${esc(tnm(id))}">✕</button>` : ''}</div>`; };
   const abar = `<span class="vsortw"><button class="fbtn" data-a="planaddopen" aria-label="Add" aria-haspopup="menu" aria-expanded="${!!S.planAddOpen}" aria-pressed="${!!S.planAddOpen}">${icon('plus', 18)}</button>${S.planAddOpen ? `<span class="vsortx" data-a="planaddopen"></span><span class="vdrop vsortm vaddm" role="menu">${AO.map(([k, l]) => `<button role="menuitem" data-a="new" data-v="${k}">${l}</button>`).join('')}<span class="mono">Generic</span>${GO.map(([k, l]) => `<button role="menuitem" data-a="slotadd" data-v="${k}">${l}</button>`).join('')}</span>` : ''}</span>`;
   if (S.open['p:Repeat'] === undefined) S.open['p:Repeat'] = false; // Repeat starts folded
   // an add icon on the left balances the filter icon (2026-11-08)
@@ -793,7 +796,7 @@ function renderAppts() {
   const today = all.filter((x) => x.on === T0).sort(by), coming = all.filter((x) => x.on && x.on > T0).sort(by), past = all.filter((x) => x.on && x.on < T0).sort(by).reverse().slice(0, 12);
   // the same rows as Plan; a filled dot with the category icon takes the place of the tick circle
   const row = (x, isPast) => { const it = I(x.id); const c = G(x.cat).color; const done = x.on === T0 && isDone(x.id, T0);
-    return `<div class="row ${isPast || done ? 'past' : ''}" data-ref="${x.id}"><span class="adot" style="--c:${c}">${icon(it.icon || G(x.cat).icon || 'calendar', 13, 2.2)}</span><button class="lbl" data-a="${S.edit ? 'open' : 'peek'}" data-ref="${x.id}" data-d="${x.on}" style="text-align:left">${S.edit ? nm(x.id, it.name) : esc(it.name)}<span class="sub">${esc(relDay(x.on))}${it.time ? ' · ' + esc(apTime(it)) : ''}${done ? ' · done' : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></button>${apRepText(it) ? `<span class="rep" title="${esc(apRepText(it))}" aria-label="${esc(apRepText(it))}">${icon('repeat', 12, 2)}</span>` : ''}${tail(x.id, x.cat)}</div>`; };
+    return `<div class="row ${isPast || done ? 'past' : ''}" data-ref="${x.id}"><span class="adot" style="--c:${c}">${icon(it.icon || G(x.cat).icon || 'calendar', 13, 2.2)}</span><button class="lbl" data-a="${S.edit ? 'open' : 'peek'}" data-ref="${x.id}" data-d="${x.on}" style="text-align:left">${S.edit ? nm(x.id, it.name) : inm(it)}<span class="sub">${esc(relDay(x.on))}${it.time ? ' · ' + esc(apTime(it)) : ''}${done ? ' · done' : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></button>${apRepText(it) ? `<span class="rep" title="${esc(apRepText(it))}" aria-label="${esc(apRepText(it))}">${icon('repeat', 12, 2)}</span>` : ''}${tail(x.id, x.cat)}</div>`; };
   const sec = (t, xs, p) => xs.length ? lcard('a:' + t, t, xs.length, xs.map((x) => row(x, p)).join('')) : '';
   // outside edit mode: the same row as Plan, Add (a dropdown of categories) on the left and the filter on the right (2026-11-04)
   const one = (c) => esc(G(c).name.replace(/s$/, ''));
@@ -875,7 +878,7 @@ const swRow = (cur, act, extra = '') => `<div class="sw">${extra}${PAL.map(([n, 
 // a step's own options in the routine sheet: optional, which days it's part of the routine, its tags (2026-11-11)
 function partPick(s) { const have = (s.steps || []).map((x) => x.id).filter(Boolean); const self = s.ref;
   const all = Object.keys(M.items).filter((k) => k !== self && !have.includes(k) && I(k).type === 'task' && !I(k).part && !I(k).brk && !(!repeatable(I(k)) && everDone(k))).sort((a, b) => I(a).name.localeCompare(I(b).name));
-  return all.length ? `<select class="inp" data-partadd="1" aria-label="Add one of my items as a step" style="margin-top:8px"><option value="">+ Add one of my items</option>${all.map((k) => `<option value="${k}">${esc(I(k).name)}</option>`).join('')}</select>` : ''; }
+  return all.length ? `<select class="inp" data-partadd="1" aria-label="Add one of my items as a step" style="margin-top:8px"><option value="">+ Add one of my items</option>${all.map((k) => `<option value="${k}">${esc(tnm(k))}</option>`).join('')}</select>` : ''; }
 function stepOpts(x, i) { const ch = (a, v, on, l) => `<button class="chip" data-a="${a}" data-ref="${i}" data-v="${v}" aria-pressed="${!!on}">${esc(l)}</button>`;
   return `<div class="stepopts"><div class="tg"><span class="l">Optional</span><button class="swt" role="switch" aria-checked="${!!x.optional}" data-a="dstep-opt" data-ref="${i}" aria-label="Optional"></button></div>
     <span class="mono">Part of the routine</span><div class="chips">${[['', 'Every time'], ['rest', 'Days without a workout'], ['train', 'Days with a workout'], ['days', 'Certain days']].map(([v, l]) => ch('dstep-only', v, (x.only || '') === v, l)).join('')}</div>
@@ -914,7 +917,7 @@ function sheetBody() {
   if (s.kind === 'group') { const g = G(s.ref);
     return `<div class="fld"><span class="mono">Name</span><input class="inp" id="gname" value="${esc(g.name)}"></div>
       ${g.style === 'sgroup' ? `<div class="fld"><span class="mono">Deadline</span><div class="inrow"><input class="inp" type="date" id="gdl" value="${g.deadline || ''}"><span class="note">optional</span></div></div>` : ''}
-      ${g.style === 'project' && typeof hobOf === 'function' && hobOf(s.ref) && hobActs(hobOf(s.ref)).length ? `<div class="fld"><span class="mono">Activity it covers</span><div class="chips">${[['', 'None']].concat(hobActs(hobOf(s.ref)).map((k) => [k, I(k).name])).map(([k, l]) => `<button class="chip" data-a="projact" data-ref="${s.ref}" data-v="${k}" aria-pressed="${(g.act || '') === k}">${esc(l)}</button>`).join('')}</div></div>` : ''}
+      ${g.style === 'project' && typeof hobOf === 'function' && hobOf(s.ref) && hobActs(hobOf(s.ref)).length ? `<div class="fld"><span class="mono">Activity it covers</span><div class="chips">${[['', 'None']].concat(hobActs(hobOf(s.ref)).map((k) => [k, inm(k)])).map(([k, l]) => `<button class="chip" data-a="projact" data-ref="${s.ref}" data-v="${k}" aria-pressed="${(g.act || '') === k}">${l}</button>`).join('')}</div></div>` : ''}
       ${g.style === 'dayblock' ? `<div class="fld"><span class="mono">Time</span><div class="inrow"><input class="inp" type="time" id="gstart" value="${g.start}"><span>to</span><input class="inp" type="time" id="gend" value="${g.end}"></div></div>` : ''}
       <div class="fld"><span class="mono">Colour</span>${colorField(s.ref, g.color)}</div>
       ${g.style === 'hgroup' && g.special !== 'checkins' ? `<div class="fld"><span class="mono">Asked in a check-in</span><div class="chips">${[['', 'No'], ['morning', 'Morning'], ['evening', 'Evening']].map(([k, l]) => `<button class="chip" data-a="gci" data-ref="${s.ref}" data-v="${k}" aria-pressed="${(g.ci || '') === k}">${l}</button>`).join('')}</div></div>` : ''}
@@ -923,7 +926,7 @@ function sheetBody() {
     return `<div class="fld"><span class="mono">Name</span><input class="inp" id="aname" value="${esc(a.name)}"></div><div class="fld"><span class="mono">Colour</span>${colorField('a:' + s.ref, a.color)}</div>
       <div class="fld"><span class="mono">Icon</span><div><button class="btn" data-a="iconfor" data-v="a:${s.ref}" style="display:inline-flex;gap:8px;align-items:center">${icon(a.icon, 18)} Change icon</button></div></div>`; }
   if (s.kind === 'remove') { const pl = placements(s.ref);
-    return `<p class="note" style="font-size:14px">“${esc(I(s.ref).name)}” is in ${pl.length} places: ${pl.map((p) => esc(placeName(p))).join(', ')}. It is one item, so its history is shared.</p><div class="btns"><button class="btn" data-a="rmhere">Remove from here</button><button class="btn danger" data-a="rmall">Delete everywhere</button></div>`; }
+    return `<p class="note" style="font-size:14px">“${inm(s.ref)}” is in ${pl.length} places: ${pl.map((p) => esc(placeName(p))).join(', ')}. It is one item, so its history is shared.</p><div class="btns"><button class="btn" data-a="rmhere">Remove from here</button><button class="btn danger" data-a="rmall">Delete everywhere</button></div>`; }
   if (s.kind === 'hyper') { const pk = hval(T0, 'pt:' + s.ref) || []; const c = hcolor(s.ref); const chip = ([h, l]) => `<button class="hchip" data-a="hpart" data-ref="${s.ref}" data-v="${esc(h)}" aria-pressed="${pk.includes(h)}" style="${pk.includes(h) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(l)}</button>`; const HB = hyperHobs(s.ref), DT = (I(s.ref).parts || []).map((w) => [w, w]); const hobOn = HB.some(([h]) => pk.includes(h));
       return `<p class="note" style="font-size:14px">Which hobbies?</p><div class="chips">${HB.map(chip).join('')}</div><div class="btns" style="margin-top:16px"><button class="btn dark" data-a="hyperdone" ${hobOn || !HB.length ? '' : 'disabled'}>Done</button></div>`; }
   if (false) { return `<div class="chips">${partOpts(s.ref).map(([h, l]) => `<button class="hchip" data-a="hpart" data-ref="${s.ref}" data-v="${esc(h)}" aria-pressed="${pk.includes(h)}" style="${pk.includes(h) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(l)}</button>`).join('')}</div><div class="btns" style="margin-top:16px"><button class="btn dark" data-a="hyperdone" ${pk.length ? '' : 'disabled'}>Done</button></div>`; }
@@ -958,10 +961,10 @@ function sheetBody() {
     if (q) { const TT = ['task', 'routine', 'step', 'tracker']; const hits = Object.keys(M.items).filter((id) => TT.includes(I(id).type) && (I(id).name || '').toLowerCase().includes(q) && (I(id).type !== 'step' || placements(id).length) && !I(id).arch)
         .sort((a, b) => (I(a).name.toLowerCase().startsWith(q) ? 0 : 1) - (I(b).name.toLowerCase().startsWith(q) ? 0 : 1)).slice(0, 14);
       const where = (id) => { const g = placements(id).map((x) => G(x) || I(x)).find(Boolean); return g ? g.name : ''; };
-      const ctl = (id) => { const it = I(id); if (it.type !== 'tracker') { const on = isDone(id, T0); return `<button class="atick${on ? ' on' : ''}" data-a="addtick" data-ref="${id}" aria-pressed="${on}" aria-label="${on ? 'Untick' : 'Tick'} ${esc(it.name)}" style="--c:${colorOf(id)}">${on ? icon('check', 16, 2.4) : ''}</button>`; }
+      const ctl = (id) => { const it = I(id); if (it.type !== 'tracker') { const on = isDone(id, T0); return `<button class="atick${on ? ' on' : ''}" data-a="addtick" data-ref="${id}" aria-pressed="${on}" aria-label="${on ? 'Untick' : 'Tick'} ${esc(tnm(it))}" style="--c:${colorOf(id)}">${on ? icon('check', 16, 2.4) : ''}</button>`; }
         const cur = val(T0, id); const opts = it.scale === 'yesno' ? [['yes', 'Yes']] : it.scale === 'avoid' ? [['faced', 'Faced'], ['avoided', 'Avoided']] : (SCALES[it.scale] || []).map((w, k) => [String(k + 1), w]);
         return `<span class="alev">${opts.map(([v, l]) => `<button class="chip${String(cur) === v ? ' on' : ''}" data-a="addset" data-ref="${id}" data-v="${v}" aria-pressed="${String(cur) === v}">${esc(cap(l))}</button>`).join('')}</span>`; };
-      h += `<div class="afind">${hits.length ? hits.map((id) => `<div class="arow"><span class="an">${esc(I(id).name)}<span class="sub">${esc(where(id))}</span></span>${ctl(id)}</div>`).join('') : '<p class="empty">Nothing by that name.</p>'}</div>`;
+      h += `<div class="afind">${hits.length ? hits.map((id) => `<div class="arow"><span class="an">${inm(id)}<span class="sub">${esc(where(id))}</span></span>${ctl(id)}</div>`).join('') : '<p class="empty">Nothing by that name.</p>'}</div>`;
       return h; }
     // which study task group: picked right here when there's more than one (2026-11-08)
     // a task from Capture first asks what kind it is (2026-11-10): a plain task, a chore, a study task or a prep
@@ -975,7 +978,7 @@ function sheetBody() {
     h += `<div class="fld"><span class="mono">Anywhere</span><div class="addtop">${(() => { const ws = feelOf(T0); const b = ws.length ? fieldBg(ws) : null; return `<button class="feelcard addfeel" data-a="feel" style="${b ? `background:${b.old};background:${b.ok}` : ''}" aria-label="${ws.length ? 'Feelings: ' + esc(ws.join(', ')) + '. Tap to change' : 'How do I feel?'}"></button>`; })()}<div class="addtiles">${tile('newpick', 'check', 'Task')}${tile('newappt', 'calendar-clock', 'Appointment', 'data-v="appt"')}${tile('shopnew', 'shopping-basket', 'Shopping')}${tile('mealnew', 'utensils', 'Meal')}${tile('nnew', 'sticky-note', 'Note')}${tile('wnew', 'book-a', 'Lexicon')}${tile('jnew', 'notebook-pen', 'Journal page')}${tile('bnew', 'layout-dashboard', 'Board')}</div></div></div>`;
     // recently ticked: done in the last week, not on Today, newest first
     const recent = []; for (let k = 1; k <= 7 && recent.length < 10; k++) { const d = addDays(T0, -k); Object.entries(M.log[d] || {}).forEach(([id, v]) => { if (recent.length < 10 && v === 'done' && I(id) && ['task', 'routine', 'step'].includes(I(id).type) && !today.includes(id) && !recent.includes(id) && !(I(id).type === 'task' && I(id).when && I(id).when.mode === 'once')) recent.push(id); }); }
-    const chip = (id) => { const on = isDone(id, T0); return `<button class="chip${on ? ' done' : ''}" data-a="addtick" data-ref="${id}" aria-pressed="${on}" style="--c:${colorOf(id)}"><span class="d"></span>${esc(I(id).name)}</button>`; };
+    const chip = (id) => { const on = isDone(id, T0); return `<button class="chip${on ? ' done' : ''}" data-a="addtick" data-ref="${id}" aria-pressed="${on}" style="--c:${colorOf(id)}"><span class="d"></span>${inm(id)}</button>`; };
     if (today.length || recent.length) h += `<div class="fld"><span class="mono">Tick as done</span><div class="chips achips">${today.concat(recent).map(chip).join('')}</div></div>`;
     return h; }
   return '';
@@ -1024,14 +1027,14 @@ const blkBtn = (s) => { if ((!s.block || !G(s.block)) && !isHobAct(s)) s.block =
 function archSheet() {
   const ap = allAppts().filter((x) => { const it = I(x.id); return it.date && it.date < T0 && !it.rep && !(it.when && it.when.mode && it.when.mode !== 'once'); }).sort((a, b) => I(b.id).date.localeCompare(I(a.id).date));
   const cs = (M.conds || []).filter((x) => x.end && x.arch).sort((a, b) => b.end.localeCompare(a.end));
-  const apRow = (x) => { const it = I(x.id); const c = G(x.cat).color; return `<div class="row past"><span class="adot" style="--c:${c}">${icon(it.icon || G(x.cat).icon || 'calendar', 13, 2.2)}</span><button class="lbl" data-a="archgo" data-v="open" data-ref="${x.id}" style="text-align:left">${esc(it.name)}<span class="sub">${esc(fmtDate(it.date))}${it.time ? ' · ' + esc(it.time) : ''}</span></button></div>`; };
+  const apRow = (x) => { const it = I(x.id); const c = G(x.cat).color; return `<div class="row past"><span class="adot" style="--c:${c}">${icon(it.icon || G(x.cat).icon || 'calendar', 13, 2.2)}</span><button class="lbl" data-a="archgo" data-v="open" data-ref="${x.id}" style="text-align:left">${inm(it)}<span class="sub">${esc(fmtDate(it.date))}${it.time ? ' · ' + esc(it.time) : ''}</span></button></div>`; };
   const cRow = (x) => `<div class="tg cond arch"><button class="l" data-a="archgo" data-v="condopen" data-ref="${x.id}" style="text-align:left">${esc(x.name)}<small>${esc(fmtDate(x.start))} to ${esc(fmtDate(x.end))}</small></button><button class="soft condic" data-a="condarch" data-ref="${x.id}" aria-label="Bring back ${esc(x.name)}" title="Bring back">${icon('archive-arrow-up', 18)}</button></div>`;
   const dx = (M.trips || []).filter((t) => t.status === 'done').sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   const xRow = (t) => `<div class="row past"><span class="circ done" style="--c:${tripCol(t.kind === 'hike' ? 'hike' : 'expedition')}">✓</span><button class="lbl" data-a="archgo" data-v="trip" data-ref="${t.id}" style="text-align:left">${esc(t.name)}<span class="sub">${esc(tripWhen(t))}</span></button></div>`;
   const ah = allHobIds().filter((h) => G(h).arch);
   const hRow = (h) => `<div class="tg cond arch"><span class="l"><span class="hdot" style="background:${G(h).color};width:10px;height:10px;display:inline-block;border-radius:5px;margin-right:10px"></span>${esc(G(h).name)}</span><button class="soft condic" data-a="hobback" data-ref="${h}" aria-label="Bring back ${esc(G(h).name)}" title="Bring back">${icon('archive-arrow-up', 18)}</button></div>`;
   const st = subjIds().flatMap((sj) => sgroupsOf(sj).flatMap((g) => kidsOf(g).filter((k) => I(k) && sFinished(k) && !isDone(k, T0)).map((k) => ({ k, sj, d: Object.keys(M.log).filter((d) => val(d, k)).sort().pop() })))).sort((x, y) => y.d.localeCompare(x.d));
-  const sRow = (x) => `<div class="tg cond arch"><span class="l">${esc(I(x.k).name)}<small>${esc(G(x.sj).name)} · finished ${esc(fmtDate(x.d))}</small></span><button class="soft condic" data-a="staskback" data-ref="${x.k}" aria-label="Bring back ${esc(I(x.k).name)}" title="Bring back">${icon('archive-arrow-up', 18)}</button></div>`;
+  const sRow = (x) => `<div class="tg cond arch"><span class="l">${inm(x.k)}<small>${esc(G(x.sj).name)} · finished ${esc(fmtDate(x.d))}</small></span><button class="soft condic" data-a="staskback" data-ref="${x.k}" aria-label="Bring back ${esc(tnm(x.k))}" title="Bring back">${icon('archive-arrow-up', 18)}</button></div>`;
   const fp = finishedProjects();
   const pRow = ({ p, h }) => `<div class="tg cond arch"><button class="l" data-a="archgo" data-v="proj" data-ref="${p}" style="text-align:left">${esc(G(p).name)}<small>${esc(G(h).name)} · finished ${esc(fmtDate(G(p).done))}</small></button><button class="soft condic" data-a="projback" data-ref="${p}" aria-label="Bring back ${esc(G(p).name)}" title="Bring back">${icon('archive-arrow-up', 18)}</button></div>`;
   const h = (st.length ? lcard('ar:study', 'Finished study tasks', st.length, `<div class="hlist">${st.map(sRow).join('')}</div>`) : '') + (fp.length ? lcard('ar:proj', 'Finished projects', fp.length, `<div class="hlist">${fp.map(pRow).join('')}</div>`) : '') + (ap.length ? lcard('ar:ap', 'Past appointments', ap.length, ap.map(apRow).join('')) : '') + (cs.length ? lcard('ar:cond', 'Conditions', cs.length, `<div class="hlist">${cs.map(cRow).join('')}</div>`) : '') + (ah.length ? lcard('ar:hob', 'Hobbies', ah.length, `<div class="hlist">${ah.map(hRow).join('')}</div>`) : '') + (dx.length ? lcard('ar:trip', 'Done expeditions', dx.length, dx.map(xRow).join('')) : '');
@@ -1821,10 +1824,10 @@ function answerUI(id, d, c) {
   const it = I(id); const v = hval(d, id); const sc = it.scale;
   if (SCALES[sc]) { const n = SCALES[sc].length;
     return `<div class="scale" style="grid-template-columns:repeat(${n},minmax(0,1fr))">${SCALES[sc].map((w, i) => { const on = v === i + 1;
-      return `<button data-a="hset" data-ref="${id}" data-v="${i + 1}" aria-label="${esc(it.name)}: ${w}" aria-pressed="${on}" style="background:${on ? stepCol(c, i, n) : flatCol(c)};${on ? `box-shadow:0 0 0 2px var(--card),0 0 0 3.5px ${deep(c)}` : ''}">${sc === 'mood5' ? `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${on ? deep(c) : '#9A9387'}" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9 9.6h.01M15 9.6h.01"/><path d="${FACES[i]}"/></svg>` : ''}</button>`; }).join('')}</div>`; }
+      return `<button data-a="hset" data-ref="${id}" data-v="${i + 1}" aria-label="${esc(tnm(it))}: ${w}" aria-pressed="${on}" style="background:${on ? stepCol(c, i, n) : flatCol(c)};${on ? `box-shadow:0 0 0 2px var(--card),0 0 0 3.5px ${deep(c)}` : ''}">${sc === 'mood5' ? `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${on ? deep(c) : '#9A9387'}" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9 9.6h.01M15 9.6h.01"/><path d="${FACES[i]}"/></svg>` : ''}</button>`; }).join('')}</div>`; }
   // avoidance (2026-11-03): two wordless buttons like the scales, a SUN for showing up and a MOON for avoiding
   if (sc === 'avoid') return `<div class="scale" style="grid-template-columns:repeat(2,minmax(0,1fr))">${[['faced', 'Showed up', '#E6BC74', 'sun'], ['avoided', 'Avoided it', '#A9B4C4', 'moon']].map(([k, w, col, ic]) => { const on = v === k;
-    return `<button data-a="hset" data-ref="${id}" data-v="${k}" aria-label="${esc(it.name)}: ${w}" aria-pressed="${on}" style="background:${on ? col : flatCol(c)};color:${on ? mix(col, TH.ink, 0.55) : '#9A9387'};${on ? `box-shadow:0 0 0 2px var(--card),0 0 0 3.5px ${deep(col)}` : ''}">${ic === 'moon' ? FULLMOON : icon(ic, 20, 2)}</button>`; }).join('')}</div>`;
+    return `<button data-a="hset" data-ref="${id}" data-v="${k}" aria-label="${esc(tnm(it))}: ${w}" aria-pressed="${on}" style="background:${on ? col : flatCol(c)};color:${on ? mix(col, TH.ink, 0.55) : '#9A9387'};${on ? `box-shadow:0 0 0 2px var(--card),0 0 0 3.5px ${deep(col)}` : ''}">${ic === 'moon' ? FULLMOON : icon(ic, 20, 2)}</button>`; }).join('')}</div>`;
   if (sc === 'yesno') return S.edit ? '' : `<div class="chips">${tagChip(id, d, c)}</div>`;
   if (sc === 'choices') { const arr = Array.isArray(v) ? v : [];
     return `<div class="chips">${(it.options || []).map((w) => `<button class="hchip" data-a="hpick" data-ref="${id}" data-v="${esc(w)}" aria-pressed="${arr.includes(w)}" style="${arr.includes(w) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(w)}</button>`).join('')}${it.addable ? `<button class="hchip addtag" data-a="hnewopt" data-ref="${id}">+ Tag</button>` : ''}</div>`; }
@@ -1833,7 +1836,7 @@ function answerUI(id, d, c) {
 const isTags = (id) => I(id).scale === 'choices' || I(id).scale === 'yesno';
 // Tags (2026-11-02): each tag is its own yes/no item, ticked = yes, not ticked = no. Neighbouring tags share one chip row.
 function tagChip(k, d, c) { const on = hval(d, k) === 'yes'; const col = (I(k).color) || c;
-  return `<button class="hchip" data-a="htag" data-ref="${k}" aria-pressed="${on}" style="${on ? `background:${pale(col)};border-color:${col}` : ''}">${esc(I(k).name)}</button>`; }
+  return `<button class="hchip" data-a="htag" data-ref="${k}" aria-pressed="${on}" style="${on ? `background:${pale(col)};border-color:${col}` : ''}">${inm(k)}</button>`; }
 function trackRows(ids, d, c, row, plus) {
   const out = []; let run = [];
   const flush = (last) => { if (run.length || (last && plus)) out.push(`<div class="trow"><div class="chips">${run.map((k) => tagChip(k, d, c)).join('')}${last && plus ? plus : ''}</div></div>`); run = []; };
@@ -2037,8 +2040,8 @@ function breaksUI() {
   const bs = mealPlan().breaks || []; const all = Object.keys(M.items).filter((k) => BREAKABLE(k) && !bs.some((b) => b.id === k)).sort((a, b) => I(a).name.localeCompare(I(b).name));
   return `<div class="fld" style="margin-top:16px"><span class="mono">Breaks the day</span>
     ${bs.filter((b) => I(b.id)).map((b) => { const it = I(b.id); const sc = SCALES[it.scale];
-      return `<div class="inrow brk"><span style="flex:1">${esc(it.name)}</span>${sc ? `<select class="inp" data-bmin="${b.id}" aria-label="From which answer">${sc.map((w, i) => `<option value="${i + 1}" ${(b.min || 1) === i + 1 ? 'selected' : ''}>${i === 0 ? 'Any answer' : 'From ' + w}</option>`).join('')}</select>` : `<span class="note" style="margin:0">${it.scale === 'avoid' ? 'When avoided' : 'When ticked'}</span>`}<button class="rm" data-a="brkrm" data-v="${b.id}" aria-label="Remove ${esc(it.name)}">✕</button></div>`; }).join('')}
-    ${all.length ? `<select class="inp" data-badd="1" aria-label="Add an item that breaks the day"><option value="">+ Add an item</option>${all.map((k) => `<option value="${k}">${esc(I(k).name)}</option>`).join('')}</select>` : ''}</div>`;
+      return `<div class="inrow brk"><span style="flex:1">${inm(it)}</span>${sc ? `<select class="inp" data-bmin="${b.id}" aria-label="From which answer">${sc.map((w, i) => `<option value="${i + 1}" ${(b.min || 1) === i + 1 ? 'selected' : ''}>${i === 0 ? 'Any answer' : 'From ' + w}</option>`).join('')}</select>` : `<span class="note" style="margin:0">${it.scale === 'avoid' ? 'When avoided' : 'When ticked'}</span>`}<button class="rm" data-a="brkrm" data-v="${b.id}" aria-label="Remove ${esc(tnm(it))}">✕</button></div>`; }).join('')}
+    ${all.length ? `<select class="inp" data-badd="1" aria-label="Add an item that breaks the day"><option value="">+ Add an item</option>${all.map((k) => `<option value="${k}">${esc(tnm(k))}</option>`).join('')}</select>` : ''}</div>`;
 }
 function foodCal() { return foodCal0() + calEdit() + (S.edit ? `<div class="starcolw"><button class="starcol" data-a="mkopen" data-ref="broke" aria-label="Change how broken days look">${markSvg('broke', 20)}<span>Broken day mark</span></button></div>` : ''); }
 function foodCal0() {
@@ -2248,7 +2251,7 @@ function ciPart(p, d) {
   let h = p.title ? `<span class="mono cisub">${esc(p.title)}</span>` : '';
   if (p.note) h += `<p class="note">${esc(p.note)}</p>`;
   if (p.feel) h += feelCard(d);
-  if (p.ids) h += trackRows(p.ids, d, c || hcolor(p.ids[0]), (k) => `<div class="trow">${isTags(k) ? '' : `<div class="thead"><span class="tname">${esc(I(k).name)}</span>${hyperDetHead(k, d, c || hcolor(k))}</div>`}${answerUI(k, d, c || hcolor(k))}${partDet(k, d, c || hcolor(k))}</div>`);
+  if (p.ids) h += trackRows(p.ids, d, c || hcolor(p.ids[0]), (k) => `<div class="trow">${isTags(k) ? '' : `<div class="thead"><span class="tname">${inm(k)}</span>${hyperDetHead(k, d, c || hcolor(k))}</div>`}${answerUI(k, d, c || hcolor(k))}${partDet(k, d, c || hcolor(k))}</div>`);
   if (p.list) h += trackerList(p.list, d, G(p.list).color || '#9A9387');
   if (p.tab) h += tabBody(p.tab, d, c);
   if (p.training) h += trainCats().map((c) => `<span class="mono cisub">${esc(G(c).name)}</span><div class="list">${kidsOf(c).map((k) => itemRow(k, c, d)).join('') || '<p class="empty">No sessions yet.</p>'}</div>`).join('') || '<p class="note">No training set up yet.</p>'; // every training option (2026-11-09)
@@ -2268,7 +2271,7 @@ function checkinSheet(s) {
 function ciHeader(s) {
   const n = (s.steps || []).length; const k = Math.min(s.step || 0, n - 1);
   return `<div class="cibar" role="progressbar" aria-valuemin="1" aria-valuemax="${n}" aria-valuenow="${k + 1}" aria-label="Step ${k + 1} of ${n}">${(s.steps || []).map((st, i) => `<button class="${i <= k ? 'on' : ''}" data-a="cistep" data-v="${i}" aria-label="Go to ${esc(st.name)}"></button>`).join('')}</div>
-    <header><div class="cititle"><span class="mono">${esc(I(s.ref).name)} · ${k + 1} of ${n}</span><h2>${esc(n ? s.steps[k].name : I(s.ref).name)}</h2></div><button class="hb" data-a="closesheet" aria-label="Close">${icon('x', 22)}</button></header>`;
+    <header><div class="cititle"><span class="mono">${inm(s.ref)} · ${k + 1} of ${n}</span><h2>${esc(n ? s.steps[k].name : I(s.ref).name)}</h2></div><button class="hb" data-a="closesheet" aria-label="Close">${icon('x', 22)}</button></header>`;
 }
 const TTYPES = [['yesno', 'Tag', 'Ticked is yes, not ticked is no'], ['quality3', 'Quality', 'Poor · fine · good'], ['amount3', 'Amount', 'A little · some · a lot'], ['symptom3', 'Symptom', 'Present · distressing · debilitating'], ['mood5', 'Mood', 'Five faces'], ['avoid', 'Avoidance', 'Sun for showing up · moon for avoiding']];
 const TTNAME = Object.fromEntries(TTYPES.map(([k, l]) => [k, l]));
@@ -2282,7 +2285,7 @@ function trackerSheet(s) {
   h += tagField(D, 'ttag'); if (D.scale === 'yesno' || D.scale === 'avoid' || SCALES[D.scale] || D.scale === 'choices') h += linkField2(D);
   if (D.scale === 'symptom3' || SCALES[D.scale]) h += `<div class="fld"><span class="mono">Details to pick</span><div class="stack" style="gap:6px">${(D.parts || []).map((o, i) => `<div class="inrow"><input class="inp" data-part="${i}" value="${esc(o)}" placeholder="Like jaw"><button class="rm" data-a="tpartrm" data-v="${i}" aria-label="Remove detail">✕</button></div>`).join('')}<button class="addbtn" data-a="tpartadd"><span class="plus">+</span>Add a detail</button></div></div>`;
   { const pg = Object.keys(M.groups).find((k) => M.groups[k].kids.includes(s.ref)); const lead = pg ? G(pg).kids.filter((k) => I(k))[0] : null;
-    if (lead && lead !== s.ref) h += sw('after', 'Only after ' + esc(I(lead).name), D.after, 'Shows once ' + esc(I(lead).name.toLowerCase()) + ' has an answer'); }
+    if (lead && lead !== s.ref) h += sw('after', 'Only after ' + inm(lead), D.after, 'Shows once ' + esc(I(lead).name.toLowerCase()) + ' has an answer'); }
   if (!s.isNew) h += `<div class="btns"><button class="btn danger" data-a="ddelete">Delete</button></div>`;
   return h;
 }
@@ -2304,9 +2307,9 @@ function tcapture() { const s = S.sheet; if (!s || s.kind !== 'tracker') return;
 const isTrainSheet = (s) => typeof trainCats === 'function' && ((s.home && trainCats().includes(s.home)) || (s.ref && trainCats().some((c) => kidsOf(c).includes(s.ref))));
 function afterField(D) { const L = (D.then || []).filter(I); const self = S.sheet && S.sheet.ref; const tr = new Set(trainCats().flatMap(kidsOf));
   const all = Object.keys(M.items).filter((k) => k !== self && !L.includes(k) && !tr.has(k) && (I(k).type === 'task' || I(k).type === 'routine') && !I(k).part && !I(k).brk && !(!repeatable(I(k)) && everDone(k)) && placements(k).some((p) => G(p) && G(p).style === 'dayblock')).sort((a, b) => I(a).name.localeCompare(I(b).name));
-  return `<div class="fld"><span class="mono">Always after</span>${L.length ? `<div class="chips">${L.map((k) => `<button class="chip" data-a="afterrm" data-v="${k}" aria-label="Stop putting ${esc(I(k).name)} after it">${esc(I(k).name)} ✕</button>`).join('')}</div>` : ''}<select class="inp" data-afteradd="1" aria-label="Add a task that always comes after it" style="margin-top:6px"><option value="">+ Add a task</option>${all.map((k) => `<option value="${k}">${esc(I(k).name)}</option>`).join('')}</select></div>`; }
+  return `<div class="fld"><span class="mono">Always after</span>${L.length ? `<div class="chips">${L.map((k) => `<button class="chip" data-a="afterrm" data-v="${k}" aria-label="Stop putting ${esc(tnm(k))} after it">${inm(k)} ✕</button>`).join('')}</div>` : ''}<select class="inp" data-afteradd="1" aria-label="Add a task that always comes after it" style="margin-top:6px"><option value="">+ Add a task</option>${all.map((k) => `<option value="${k}">${esc(tnm(k))}</option>`).join('')}</select></div>`; }
 function linkField2(D) { const L = (D.links || []).filter(I); const self = S.sheet && S.sheet.ref; const all = Object.keys(M.items).filter((k) => LINKABLE(k) && k !== self && !L.includes(k) && !(I(k).type === 'task' && !repeatable(I(k)) && everDone(k))).sort((a, b) => I(a).name.localeCompare(I(b).name));
-  return `<div class="fld"><span class="mono">Also ticks</span>${L.length ? `<div class="chips">${L.map((k) => `<button class="chip" data-a="linkrm" data-v="${k}" aria-label="Stop ticking ${esc(I(k).name)}">${esc(I(k).name)} ✕</button>`).join('')}</div>` : ''}<select class="inp" data-linkadd="1" aria-label="Add an item it ticks" style="margin-top:6px"><option value="">+ Add an item</option>${all.map((k) => `<option value="${k}">${esc(I(k).name)}${I(k).type === 'tracker' ? ' · tag' : ''}</option>`).join('')}</select></div>`; }
+  return `<div class="fld"><span class="mono">Also ticks</span>${L.length ? `<div class="chips">${L.map((k) => `<button class="chip" data-a="linkrm" data-v="${k}" aria-label="Stop ticking ${esc(tnm(k))}">${inm(k)} ✕</button>`).join('')}</div>` : ''}<select class="inp" data-linkadd="1" aria-label="Add an item it ticks" style="margin-top:6px"><option value="">+ Add an item</option>${all.map((k) => `<option value="${k}">${esc(tnm(k))}${I(k).type === 'tracker' ? ' · tag' : ''}</option>`).join('')}</select></div>`; }
 
 // photos: kept as artifact assets when that is available, otherwise as a small picture inside the saved data
 let assetsNS;
