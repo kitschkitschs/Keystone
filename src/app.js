@@ -521,7 +521,7 @@ function itemRow(id, list, d) {
       ${open ? `<div class="steps" data-list="s:${id}">${steps.map((s) => I(s).type === 'checkin' ? ciStepRow(s, id, d, live) : `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" style="width:18px;height:40px" data-a="step" data-ref="${s}" aria-label="Tick ${esc(tnm(s))}"><span class="circ ${val(d, s) ? 'done' : ''}${pOpt(id, s).optional ? ' opt' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span></button>` : `<span class="circ ${val(d, s) ? 'done' : ''}${pOpt(id, s).optional ? ' opt' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span>`}<span class="lbl">${nm(s, I(s).name)}${S.edit && stepNote(s, id) && !(S.area === 'plan' && S.page === 'today') ? `<span class="sub">${esc(stepNote(s, id))}</span>` : ''}</span>${tail(s, 's:' + id, { gear: false })}</div>`).join('')}
         ${S.edit ? `<button class="addrow" data-a="addstep" data-ref="${id}"><span class="plus">+</span>Add step</button>` : ''}</div>` : ''}</div>`;
   }
-  return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, live)}<span class="lbl">${S.edit ? nm(id, it.name) + '' : `<button data-a="${live ? 'sched' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left">${inm(it)}${tdur(it)}</button>`}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>${tail(id, list)}</div>`; // estimate on the right (2026-11-04)
+  return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, live)}<span class="lbl">${S.edit ? nm(id, it.name) + '' : `<button data-a="${live ? 'sched' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left">${inm(it)}${tdur(it)}</button>`}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}${onToday && !S.edit && whereOf(id) ? `<span class="sub where">${esc(whereOf(id))}</span>` : ''}</span>${tail(id, list)}</div>`; // estimate on the right (2026-11-04)
 }
 // A past day is an overview of everything ticked, logged and added that day (2026-11-08), not the old list.
 function pastDay(d) {
@@ -665,14 +665,24 @@ function placeDay(d) {
   const out = []; const DL = dayList(d);
   // items with a set time (and appointments) are fixed for the whole day; untimed items flow around ALL of them, and a block
   // that spills over pushes the next block's untimed items later, so nothing hides behind anything (2026-11-02)
+  // a started two-part chore's second part sits on Schedule at the time its timer goes off (the owner, 2026-11-13);
+  // if something with a set time is there, it falls into the first free spot behind it
+  const twoAt = {}; Object.keys(M.half || {}).forEach((id) => { const it = I(id); if (!it || !it.two || isDone(id, d)) return; const due = new Date(M.half[id].at + (+it.two || 2) * 3600000);
+    const sh = new Date(due); sh.setHours(sh.getHours() - DAY_H); if (iso(sh) !== d) return; twoAt[id] = due.getHours() * 60 + due.getMinutes() + (iso(due) !== d ? 1440 : 0); });
+  DL.forEach((x) => { x.items = x.items.filter((id) => !(id in twoAt)); });
   const allFixed = []; DL.forEach(({ b, items, appts }) => { const g = G(b);
     items.filter((id) => I(id).time).forEach((id) => { const t = hm(tAt(id, d)); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), blk: b }); });
     (appts || []).forEach((id) => { const t = hm(tAt(id, d) || g.start); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), appt: true, blk: b }); }); });
+  const twos = Object.keys(twoAt).sort((p, q) => twoAt[p] - twoAt[q]).map((id) => { const len = I(id).dur || 30; let a0 = twoAt[id], moved = true;
+    while (moved) { moved = false; allFixed.forEach((f) => { if (a0 < f.b && a0 + len > f.a) { a0 = f.b; moved = true; } }); }
+    const B = blockIds(); const blk = B.find((b) => hm(G(b).start) <= a0 && a0 < hm(G(b).end)) || B.filter((b) => hm(G(b).start) <= a0).pop() || B[0];
+    const f = { id, a: a0, b: a0 + len, blk, two: true }; allFixed.push(f); return f; });
+  twos.forEach((f) => out.push(f));
   // a block that runs over keeps its extra items: they spill past its end into a red stretch on Schedule (2026-11-02)
   DL.forEach(({ b, items, appts }) => {
     const g = G(b); let cur = hm(g.start);
     const fixed = allFixed.filter((f) => f.blk === b);
-    allFixed.filter((f) => f.blk === b).forEach((f) => out.push(f));
+    allFixed.filter((f) => f.blk === b && !f.two).forEach((f) => out.push(f));
     // a day's own order may say an item comes after an appointment: then it starts after that appointment ends
     // ... and the same after an item with a set time (2026-11-11), even when that leaves room in front of it
     const o = ((M.dayOrder || {})[d] || {})[b] || []; const after = {};
