@@ -1517,7 +1517,7 @@ function whereOf(id) { const it = I(id); const src = it && it.part && I(it.part)
   if (typeof subjIds === 'function') { const sj = subjIds().find((s) => sIds(s).includes(src)); if (sj) return G(sj).name; } return ''; }
 function itemRow(id, list, d) {
   const it = I(id); const live = d === T0;
-  if (it.type === 'slot') return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, false)}<span class="lbl">${S.edit ? nm(id, it.name) : `<button data-a="${live ? 'slot' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left;display:flex;align-items:center;gap:8px"><span style="flex:1">${inm(it)}${live && it.opens === 'study' && supMin(T0) < sessLen() ? `<span class="tdur">${estHM(minOn(null, T0) / 60)} of ${estHM(sessLen() / 60)}</span>` : ''}${live && slotSub(it) ? `<span class="sub">${esc(slotSub(it))}</span>` : ''}</span>${live ? '<span class="chev" aria-hidden="true">›</span>' : ''}</button>`}</span>${tail(id, list)}</div>`;
+  if (it.type === 'slot') return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, false)}<span class="lbl">${S.edit ? nm(id, it.name) : `<button data-a="${live ? 'slot' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left;display:flex;align-items:center;gap:8px"><span style="flex:1">${inm(it)}${live && it.opens === 'study' && minOn(null, T0) + supMin(T0) < sessLen() ? `<span class="tdur">${estHM((minOn(null, T0) + supMin(T0)) / 60)} of ${estHM(sessLen() / 60)}</span>` : ''}${live && slotSub(it) ? `<span class="sub">${esc(slotSub(it))}</span>` : ''}</span>${live ? '<span class="chev" aria-hidden="true">›</span>' : ''}</button>`}</span>${tail(id, list)}</div>`;
   // a break looks like a day block's title (2026-11-11): its icon, its name in small capitals, its length on the right
   if (it.brk) { const bi = icon(it.icon || 'coffee', 16); const ln = `${it.time ? esc(it.time) + ' · ' : ''}${estHM((it.dur || 15) / 60)}`;
     // outside edit mode it's a minimal title like the block titles on Schedule (2026-11-11): dashed lines, small capitals
@@ -3706,7 +3706,7 @@ function subjVerdict(s) {
 function studyVerdict() {
   const V = subjIds().map(subjVerdict); const T = V.flatMap((v) => v.tasks); const b = dayBar(null);
   const sd = b.filter((c) => c === SEGOK).length, ud = b.filter((c) => c === SEGSOFT).length;
-  const wk = Array.from({ length: 7 }, (_, i) => minOn(null, addDays(T0, -i))).reduce((a, c) => a + c, 0);
+  const wk = Array.from({ length: 7 }, (_, i) => minOn(null, addDays(T0, -i)) + supMin(addDays(T0, -i))).reduce((a, c) => a + c, 0);
   const next = T.filter((t) => t.due !== undefined && t.due >= 0).sort((a, c) => a.due - c.due)[0];
   // Study support counts as showing up (2026-10-28): never framed as missed study
   // the main card tells deadlines and review apart (2026-11-10): deadlines decide the first part, review adds "but slipping" or "review due"
@@ -3933,9 +3933,11 @@ function timerPage() {
 // Study support is a normal journal page with the tag 'Study support' (2026-11-10): today's one opens, or a new one starts
 const SUP_TAG = 'Study support'; // its pages also carry 'Studies' (the owner, 2026-11-12)
 const supEntry = (e) => !!e && (e.tags || []).includes(SUP_TAG);
+// one Study support page a day: it always opens the same page (the owner, 2026-11-13)
+const supToday = () => (M.journal || []).find((x) => x.d === T0 && supEntry(x)) || null;
 const supOn = () => S.area === 'notebook' && S.nbView === 'jpage' && (supEntry(jCurrent()) || (S.jEntry === 'new' && (S.jNewTags || []).includes(SUP_TAG)));
 function supOpen() { const cur = S.nbView === 'jpage' && S.area === 'notebook'; if (cur) { jSync(); jDropEmpty(); save(); }
-  const e = (M.journal || []).filter((x) => x.d === T0 && supEntry(x)).pop(); S.sheet = null; S.menu = false; S.stv = null; S.jFrom = 'study'; S.area = 'notebook'; S.insOn = false; S.jBack = 'home';
+  const e = supToday(); S.sheet = null; S.menu = false; S.stv = null; S.jFrom = 'study'; S.area = 'notebook'; S.insOn = false; S.jBack = 'home';
   S.jMenu = false; S.jTagOpen = false; S.jRe = null; S.jSel = null; S.jCaret = null; S.nbView = 'jpage'; S.jEntry = e ? e.id : 'new'; S.jNewTags = e ? null : [SUP_TAG, 'Studies'];
   render(); if (typeof jGrow === 'function') jGrow(); $('#main').scrollTop = 0; }
 function saveTimer(msg) { const t = M.timer; if (!t) return; const min = Math.round(tElapsed() / 60000); const id = t.id && I(t.id) ? t.id : null; const before = minOn(null, T0) + supMin(T0);
@@ -5982,7 +5984,7 @@ document.addEventListener('input', (ev) => { const fl = ev.target.closest && ev.
 document.addEventListener('selectionchange', () => { const fl = document.querySelector('.jpaper .jflow'); if (!fl || document.activeElement !== fl) return; const so = jSelOffs(); if (so) { S.jCaret = so[0]; S.jCaretEnd = so[1]; } });
 document.addEventListener('selectionchange', () => requestAnimationFrame(jSelBar));
 // the entry being written; made on first use
-function jMake() { let e = jCurrent(); if (e) return e; e = { id: uid('j'), d: T0, at: nowHM(), text: '', tags: [], ps: [{}] }; if (M.jPaper === 'blank') e.paper = 'blank'; if (S.jRe) e.re = S.jRe; if (S.jNewTags) e.tags = S.jNewTags.slice(); (M.journal = M.journal || []).push(e); S.jEntry = e.id; const pa = document.querySelector('.jpaper'); if (pa && !pa.dataset.jref) { /* keeps following jCurrent */ } return e; }
+function jMake() { let e = jCurrent(); if (e) return e; if ((S.jNewTags || []).includes('Study support') && typeof supToday === 'function' && (e = supToday())) { S.jEntry = e.id; return e; } e = { id: uid('j'), d: T0, at: nowHM(), text: '', tags: [], ps: [{}] }; if (M.jPaper === 'blank') e.paper = 'blank'; if (S.jRe) e.re = S.jRe; if (S.jNewTags) e.tags = S.jNewTags.slice(); (M.journal = M.journal || []).push(e); S.jEntry = e.id; const pa = document.querySelector('.jpaper'); if (pa && !pa.dataset.jref) { /* keeps following jCurrent */ } return e; }
 function jSync() { if (jComp) { jComp = false; jSyncDom(); } return jCurrent(); }
 function jAddImg(pic, r, nth) { nth = nth || 0; const e = jMake(); const PW = S.jPW || 336; const sp = S.jCaret != null ? jSpanAt(S.jCaret) : null; const row = sp ? Math.round(parseFloat(sp.style.top) / JLH) : 0; const z = Math.max(1, ...(e.imgs || []).map((q) => q.z || 1)) + 1;
   const q = Object.assign({ id: uid('ji'), w: 0.45, x: Math.min(0.5, nth * 0.1), y: (row + nth) * JLH + 4, z, r: r || 1 }, pic); (e.imgs = e.imgs || []).push(q); save(); S.jSel = q.id; S.jMenu = false; const c = S.jCaret != null ? S.jCaret : (e.text || '').length; render(); jLayout(); const fl = document.querySelector('.jflow'); if (fl) { fl.focus({ preventScroll: true }); jSetCaret(c); } }
