@@ -367,13 +367,13 @@ function timerPage() {
 }
 // Study support is a normal journal page with the tag 'Study support' (2026-11-10): today's one opens, or a new one starts
 const SUP_TAG = 'Study support'; // its pages also carry 'Studies' (the owner, 2026-11-12)
-const supEntry = (e) => !!e && (e.tags || []).includes(SUP_TAG);
+const supEntry = (e) => !!e && !!e.sup; // a hidden mark, the page itself only carries 'Studies' (the owner, 2026-11-13)
 // one Study support page a day: it always opens the same page (the owner, 2026-11-13)
 const supToday = () => (M.journal || []).find((x) => x.d === T0 && supEntry(x)) || null;
-const supOn = () => S.area === 'notebook' && S.nbView === 'jpage' && (supEntry(jCurrent()) || (S.jEntry === 'new' && (S.jNewTags || []).includes(SUP_TAG)));
+const supOn = () => S.area === 'notebook' && S.nbView === 'jpage' && (supEntry(jCurrent()) || (S.jEntry === 'new' && !!S.jNewSup));
 function supOpen() { const cur = S.nbView === 'jpage' && S.area === 'notebook'; if (cur) { jSync(); jDropEmpty(); save(); }
   const e = supToday(); S.sheet = null; S.menu = false; S.stv = null; S.jFrom = 'study'; S.area = 'notebook'; S.insOn = false; S.jBack = 'home';
-  S.jMenu = false; S.jTagOpen = false; S.jRe = null; S.jSel = null; S.jCaret = null; S.nbView = 'jpage'; S.jEntry = e ? e.id : 'new'; S.jNewTags = e ? null : [SUP_TAG, 'Studies'];
+  S.jMenu = false; S.jTagOpen = false; S.jRe = null; S.jSel = null; S.jCaret = null; S.nbView = 'jpage'; S.jEntry = e ? e.id : 'new'; S.jNewTags = e ? null : ['Studies']; S.jNewSup = !e;
   render(); if (typeof jGrow === 'function') jGrow(); $('#main').scrollTop = 0; }
 function saveTimer(msg) { const t = M.timer; if (!t) return; const min = Math.round(tElapsed() / 60000); const id = t.id && I(t.id) ? t.id : null; const before = minOn(null, T0) + supMin(T0);
   M.timer = null; if (min < 1) { save(); render(); flash('Under a minute, not saved'); return; }
