@@ -492,8 +492,23 @@ function mindLayout(b, only) {
   roots.forEach((root) => { const t = treeLayout(b, root, P, col); trees.push(t);
     let dx = 0, dy = 0; if (only) {} else if (root.ox != null) { dx = root.ox; dy = root.oy; } else if (yb != null) dy = yb + 80 - t.y0;
     t.ids.forEach((id) => { P[id].cx += dx; P[id].cy += dy; }); if (root.ox == null) yb = Math.max(yb == null ? -Infinity : yb, t.y1 + dy); });
+  mmShared(b, P);
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; Object.values(P).forEach((p) => { const e = p.l ? 26 : 0; x0 = Math.min(x0, p.cx - p.w / 2 - e); x1 = Math.max(x1, p.cx + p.w / 2 + e); y0 = Math.min(y0, p.cy - p.h / 2 - e); y1 = Math.max(y1, p.cy + p.h / 2 + e); });
   return { P, col, root: roots[0], roots, x0: x0 - MM.pad, y0: y0 - MM.pad, W: x1 - x0 + MM.pad * 2, H: y1 - y0 + MM.pad * 2 }; }
+// a word with more than one parent (x.also, the owner 2026-11-13): it sits centred between all its parents, past the
+// furthest one, with its own branches moved along; every parent reaches it with the same kind of branch line
+const mmAlso = (b, x) => (x.also || []).filter((id) => id !== x.parent && b.items.some((i) => i.id === id));
+function mmShared(b, P) { const MI = mmItems(b); const kids = {}; MI.forEach((i) => { if (i.parent) (kids[i.parent] = kids[i.parent] || []).push(i.id); });
+  const shift = (id, dx, dy) => { const p = P[id]; if (!p) return; p.cx += dx; p.cy += dy; if (p.el) p.el = Object.assign({}, p.el, { x: p.el.x + dx, y0: p.el.y0 + dy }); if (p.bus) p.bus = Object.assign({}, p.bus, { x: p.bus.x + dx, y: p.bus.y + dy, y0: p.bus.y0 + dy }); (kids[id] || []).forEach((k) => shift(k, dx, dy)); };
+  b.items.forEach((x) => { const p = P[x.id]; if (!p || !x.parent || !P[x.parent]) return; const ps = mmAlso(b, x).filter((id) => P[id]); if (!ps.length) { delete p.shared; return; }
+    // clear of everything hanging off its parents (their other branches), not just the parents themselves
+    const mine = new Set(); const sub = (id) => { mine.add(id); (kids[id] || []).forEach(sub); }; sub(x.id); const reach = []; const walk = (id) => { if (mine.has(id) || !P[id]) return; reach.push(P[id]); (kids[id] || []).forEach(walk); }; [x.parent].concat(ps).forEach(walk);
+    const all = [x.parent].concat(ps).map((id) => P[id]); const ax = all.reduce((t, q) => t + q.cx, 0) / all.length, ay = all.reduce((t, q) => t + q.cy, 0) / all.length;
+    const vert = p.vs ? true : p.side ? false : Math.abs(p.cy - ay) >= Math.abs(p.cx - ax);
+    if (vert) { const v = p.vs || (p.cy >= ay ? 1 : -1); const edge = v > 0 ? Math.max(...reach.map((q) => q.cy + q.h / 2)) : Math.min(...reach.map((q) => q.cy - q.h / 2)); const want = edge + v * (MM.vv + 6) + v * p.h / 2;
+      shift(x.id, ax - p.cx, (v > 0 ? Math.max(p.cy, want) : Math.min(p.cy, want)) - p.cy); p.shared = { v }; }
+    else { const s = p.side || (p.cx >= ax ? 1 : -1); const edge = s > 0 ? Math.max(...reach.map((q) => q.cx + q.w / 2)) : Math.min(...reach.map((q) => q.cx - q.w / 2)); const want = edge + s * MM.hg + s * p.w / 2;
+      shift(x.id, (s > 0 ? Math.max(p.cx, want) : Math.min(p.cx, want)) - p.cx, ay - p.cy); p.shared = { s }; } }); }
 // free words (x.free) are left out of the tidy layout: they sit where I put them (dx, dy from their parent) and their own branches are laid out from them
 function mmItems(b) { const G = (b.groups || []); if (!G.length) return b.items; const gs = new Map(G.map((g) => [g.id, g])); const out = [], seen = new Set();
   const own = new Set(b.items.filter((x) => !x.t && x.ls && G.some((g) => g.parent === x.id && b.items.some((i) => i.g === g.id && i.parent === x.id))).map((x) => x.id));
@@ -740,7 +755,10 @@ function mindSvg(b, thumb, only, L0) { const Lo = L0 || mindLayout(b, only); if 
     const grp = x.virt && GS.get(String(x.id).slice(2)); const at = grp && grp.at != null ? +grp.at : null;
     // from a word to its lists: square lines that leave the word together and split at one point
     const LG = x.parent && P[x.parent] && p.virt && !p.el && !p.bus && !p.rad && !p.free && mmListGeo(P, x, MI.filter((i) => i.parent === x.id), P[x.parent], at, SH[x.parent], grp && grp.jat);
-    if (LG) { GEO[grp ? grp.id : x.id] = LG; const lst = grp && grp.lst; lines += `<path d="${mmElb(LG.trunk.map(([u, v]) => [X(u), Y(v)]))}" ${LS}/>` + (lst === 'bullet' || lst === 'num' ? '' : `<path d="M${X(LG.spine[0][0])} ${Y(LG.spine[0][1])}L${X(LG.spine[1][0])} ${Y(LG.spine[1][1])}" ${LS}/>`); }
+    if (x.parent && P[x.parent] && p.shared) { [x.parent].concat(mmAlso(b, x)).forEach((pid) => { const q = P[pid]; if (!q) return; const sh = p.shared;
+        if (sh.v) { const v = sh.v; const ax = X(q.cx), ay = Y(q.cy + v * q.h / 2), bx = X(p.cx), by = Y(p.cy - v * p.h / 2); const m = Math.max(14, Math.abs(by - ay) / 2); lines += `<path d="M${ax} ${ay}C${ax} ${ay + v * m} ${bx} ${by - v * m} ${bx} ${by}" ${LS}/>`; }
+        else { const s = sh.s; const ax = X(q.cx + s * q.w / 2), ay = Y(q.cy), bx = X(p.cx - s * p.w / 2), by = Y(p.cy); const m = Math.max(14, Math.abs(bx - ax) * 0.55); lines += `<path d="M${ax} ${ay}C${ax + s * m} ${ay} ${bx - s * m} ${by} ${bx} ${by}" ${LS}/>`; } }); }
+    else if (LG) { GEO[grp ? grp.id : x.id] = LG; const lst = grp && grp.lst; lines += `<path d="${mmElb(LG.trunk.map(([u, v]) => [X(u), Y(v)]))}" ${LS}/>` + (lst === 'bullet' || lst === 'num' ? '' : `<path d="M${X(LG.spine[0][0])} ${Y(LG.spine[0][1])}L${X(LG.spine[1][0])} ${Y(LG.spine[1][1])}" ${LS}/>`); }
     else if (x.parent && P[x.parent] && p.virt && !p.el && !p.bus && !p.rad && !p.free) { const q = P[x.parent];
       if (p.fan) { const s = p.side, [ax, ay] = mmAnchor(q, s > 0 ? 'r' : 'l', at || 0, SH[x.parent]), mx = ax + s * Math.min(16, Math.abs(p.cx - ax) / 2); const J = grp && JX[grp.id] || { x: p.cx, y: p.cy }; lines += `<path d="${mmElb([[X(ax), Y(ay)], [X(mx), Y(ay)], [X(mx), Y(J.y)], [X(J.x), Y(J.y)]])}" ${LS}/>`; }
       else if (p.vs) { const v = p.vs, ay = q.cy + v * q.h / 2; const many = Object.keys(P).filter((id) => P[id].virt && P[id].vs === v && !P[id].el && !P[id].bus && P[id].pid === x.parent).length > 1; const by = many ? p.cy - v * 14 : p.cy; let ax = Math.abs(p.cx - q.cx) < q.w / 2 && Math.abs(p.cy - ay) < 40 ? p.cx : q.cx, ay2 = ay; if (at != null) [ax, ay2] = mmAnchor(q, v > 0 ? 'd' : 'u', at, SH[x.parent]);
@@ -868,7 +886,10 @@ document.addEventListener('pointerup', () => { const d = mDrag; if (!d) return; 
   // already connected to something: a drop adds one more connection and keeps the ones it has, so one bubble can join
   // several (the owner, 2026-11-13); only a loose bubble becomes a branch of the one it's dropped on
   const conn = d.x.parent || mmKids(d.b, d.x.id).length || (d.b.links || []).some((l) => l.a === d.x.id || l.b === d.x.id);
-  if (conn) { S.bSel = d.x.id; if (d.x.parent === tid) { render(); return; } bMut((b) => { b.links = b.links || []; if (!b.links.some((l) => (l.a === d.x.id && l.b === tid) || (l.a === tid && l.b === d.x.id))) b.links.push(Object.assign({ id: uid('lk'), a: tid, b: d.x.id }, S.bLkSty || {})); }); return; }
+  if (conn) { S.bSel = d.x.id; if (d.x.parent === tid) { render(); return; } const anc = new Set(); for (let q = d.b.items.find((i) => i.id === d.x.parent); q; q = d.b.items.find((i) => i.id === q.parent)) anc.add(q.id);
+    bMut((b) => { const x = b.items.find((i) => i.id === d.x.id); if (!x) return; b.links = (b.links || []).filter((l) => !((l.a === x.id && l.b === tid) || (l.a === tid && l.b === x.id))); // a loose link between the two becomes a branch
+      if (x.parent && !anc.has(tid) && rootOf(b, tid) && rootOf(b, x.id) && rootOf(b, tid).id === rootOf(b, x.id).id) { /* same map: a shared branch; another map: a link */ x.also = (x.also || []).filter((id) => id !== tid).concat([tid]); delete x.free; delete x.dx; delete x.dy; delete x.fside; }
+      else b.links.push(Object.assign({ id: uid('lk'), a: tid, b: x.id }, S.bLkSty || {})); }); return; }
   S.bSel = d.x.id; bMut((b) => { const x = b.items.find((i) => i.id === d.x.id); const t = b.items.find((i) => i.id === tid); if (!x || !t) return;
     if (t.fold) t.fold = false; x.parent = tid; delete x.lv0; delete x.c0; b.items = b.items.filter((i) => i !== x).concat([x]); delete x.side; delete x.dir; delete x.x; delete x.y; delete x.k; delete x.layout; delete x.theme; delete x.free; delete x.dx; delete x.dy; delete x.fside; delete x.pill; delete x.g; if (!t.parent) { const dx = (d.ex - tr.left - tr.width / 2) / tr.width, dy = (d.ey - tr.top - tr.height / 2) / tr.height; x.dir = Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? 'l' : 'r') : (dy < 0 ? 'u' : 'd'); } }); });
 function mmMove(b, x, how) {
