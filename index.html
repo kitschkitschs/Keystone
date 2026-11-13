@@ -6251,7 +6251,7 @@ function bDock(b) { const x = b.items.find((i) => i.id === S.bSel); const P = S.
       + bCF('Colour', 'ln', o0.col, 'Auto');
     else { const T = one && bSnapTarget(b);
       pan = (T ? `<div class="prow"><span class="mono plab">Point</span>${bPtArrows('lnpt')}${pB('lnat', '', 'Auto')}</div>` : '')
-        + (one && !isG ? `<div class="prow"><span class="mono plab">Move</span>${pB('lnmove', '', icon('move', 18), false, 'ico')}</div>` : '')
+        + (one && !isG ? `<div class="prow"><span class="mono plab">Move</span>${pB('lnmove', '', icon('move', 18), false, 'ico')}<span class="mono plab" style="margin-left:10px">Delete</span>${pB('lndel', '', icon('trash', 18), false, 'ico dang')}</div>` : '')
         + `<div class="prow">${L.length > 1 ? `<span class="mono plab">${L.length}</span>` : ''}<span class="mono plab">Arrows</span>${[['', 'None'], ['end', icon('move-right', 17)], ['start', icon('move-left', 17)], ['both', icon('move-horizontal', 17)]].map(([k, l]) => pB('lnset', 'arrow:' + k, l, (o0.arrow || '') === k, k ? 'ico' : '')).join('')}</div>`
         + `<div class="prow"><span class="mono plab">Logic</span>${pB('lnset', 'brk:' + (o0.brk ? '' : '1'), 'Break', !!o0.brk)}${pB('lnset', 'q:' + (o0.q ? '' : '1'), 'Question', !!o0.q)}</div>`; }
     return `<div class="bdock" id="bdock">${bPanW(pan)}<div class="bdrow">${row}</div></div>`; }
@@ -6635,7 +6635,7 @@ function mindLayout(b, only) {
 const mmAlso = (b, x) => (x.also || []).filter((id) => id !== x.parent && b.items.some((i) => i.id === id));
 function mmShared(b, P) { const MI = mmItems(b); const kids = {}; MI.forEach((i) => { if (i.parent) (kids[i.parent] = kids[i.parent] || []).push(i.id); });
   const shift = (id, dx, dy) => { const p = P[id]; if (!p) return; p.cx += dx; p.cy += dy; if (p.el) p.el = Object.assign({}, p.el, { x: p.el.x + dx, y0: p.el.y0 + dy }); if (p.bus) p.bus = Object.assign({}, p.bus, { x: p.bus.x + dx, y: p.bus.y + dy, y0: p.bus.y0 + dy }); (kids[id] || []).forEach((k) => shift(k, dx, dy)); };
-  b.items.forEach((x) => { const p = P[x.id]; if (!p || !x.parent || !P[x.parent]) return; const ps = mmAlso(b, x).filter((id) => P[id]); if (!ps.length) { delete p.shared; return; }
+  MI.forEach((x) => { const p = P[x.id]; if (!p || !x.parent || !P[x.parent]) return; const ps = mmAlso(b, x).filter((id) => P[id]); if (!ps.length) { delete p.shared; return; }
     // clear of everything hanging off its parents (their other branches), not just the parents themselves
     const mine = new Set(); const sub = (id) => { mine.add(id); (kids[id] || []).forEach(sub); }; sub(x.id); const reach = []; const walk = (id) => { if (mine.has(id) || !P[id]) return; reach.push(P[id]); (kids[id] || []).forEach(walk); }; [x.parent].concat(ps).forEach(walk);
     const all = [x.parent].concat(ps).map((id) => P[id]); const ax = all.reduce((t, q) => t + q.cx, 0) / all.length, ay = all.reduce((t, q) => t + q.cy, 0) / all.length;
@@ -6649,7 +6649,7 @@ function mmItems(b) { const G = (b.groups || []); if (!G.length) return b.items;
   const own = new Set(b.items.filter((x) => !x.t && x.ls && G.some((g) => g.parent === x.id && b.items.some((i) => i.g === g.id && i.parent === x.id))).map((x) => x.id));
   b.items.forEach((i) => { if (own.has(i.id)) { out.push(Object.assign({}, i, { ls: undefined, ownLs: i.ls })); return; }
     const g = i.g && gs.get(i.g); if (!g || g.parent !== i.parent || i.free) { if (i.parent && own.has(i.parent) && !i.free) { const oid = 'g:own:' + i.parent; if (!seen.has(oid)) { seen.add(oid); out.push({ id: oid, parent: i.parent, text: '', ls: (b.items.find((x) => x.id === i.parent) || {}).ls, dir: 'd', virt: true }); } out.push(Object.assign({}, i, { parent: oid })); return; } out.push(i); return; }
-    if (!seen.has(g.id)) { seen.add(g.id); out.push({ id: 'g:' + g.id, parent: g.parent, text: '', ls: g.ls || 'list', dir: g.dir, virt: true, at: g.at, iside: g.iside }); } out.push(Object.assign({}, i, { parent: 'g:' + g.id })); }); return out; }
+    if (!seen.has(g.id)) { seen.add(g.id); out.push({ id: 'g:' + g.id, parent: g.parent, text: '', ls: g.ls || 'list', dir: g.dir, virt: true, at: g.at, iside: g.iside, also: g.also }); } out.push(Object.assign({}, i, { parent: 'g:' + g.id })); }); return out; }
 function treeLayout(b, root, P, col, opt = {}) {
   const N = mmItems(b); const ids = []; const base = opt.base || (!root.parent && root.lv0) || 0; // a word cut off its line keeps the look it had (the owner, 2026-11-12)
   const all = (id) => { const x = N.find((i) => i.id === id); return x && x.fold && x.parent ? [] : N.filter((i) => i.parent === id); };
@@ -6890,10 +6890,12 @@ function mindSvg(b, thumb, only, L0) { const Lo = L0 || mindLayout(b, only); if 
     const grp = x.virt && GS.get(String(x.id).slice(2)); const at = grp && grp.at != null ? +grp.at : null;
     // from a word to its lists: square lines that leave the word together and split at one point
     const LG = x.parent && P[x.parent] && p.virt && !p.el && !p.bus && !p.rad && !p.free && mmListGeo(P, x, MI.filter((i) => i.parent === x.id), P[x.parent], at, SH[x.parent], grp && grp.jat);
-    if (x.parent && P[x.parent] && p.shared) { [x.parent].concat(mmAlso(b, x)).forEach((pid) => { const q = P[pid]; if (!q) return; const sh = p.shared;
+    if (x.parent && P[x.parent] && p.shared && !LG && !p.virt) { [x.parent].concat(mmAlso(b, x)).forEach((pid) => { const q = P[pid]; if (!q) return; const sh = p.shared;
         if (sh.v) { const v = sh.v; const ax = X(q.cx), ay = Y(q.cy + v * q.h / 2), bx = X(p.cx), by = Y(p.cy - v * p.h / 2); const m = Math.max(14, Math.abs(by - ay) / 2); lines += `<path d="M${ax} ${ay}C${ax} ${ay + v * m} ${bx} ${by - v * m} ${bx} ${by}" ${LS}/>`; }
         else { const s = sh.s; const ax = X(q.cx + s * q.w / 2), ay = Y(q.cy), bx = X(p.cx - s * p.w / 2), by = Y(p.cy); const m = Math.max(14, Math.abs(bx - ax) * 0.55); lines += `<path d="M${ax} ${ay}C${ax + s * m} ${ay} ${bx - s * m} ${by} ${bx} ${by}" ${LS}/>`; } }); }
-    else if (LG) { GEO[grp ? grp.id : x.id] = LG; const lst = grp && grp.lst; lines += `<path d="${mmElb(LG.trunk.map(([u, v]) => [X(u), Y(v)]))}" ${LS}/>` + (lst === 'bullet' || lst === 'num' ? '' : `<path d="M${X(LG.spine[0][0])} ${Y(LG.spine[0][1])}L${X(LG.spine[1][0])} ${Y(LG.spine[1][1])}" ${LS}/>`); }
+    else if (LG) { GEO[grp ? grp.id : x.id] = LG; const lst = grp && grp.lst; lines += `<path d="${mmElb(LG.trunk.map(([u, v]) => [X(u), Y(v)]))}" ${LS}/>`;
+      if (p.shared) mmAlso(b, x).forEach((pid) => { const Li = P[pid] && mmListGeo(P, x, MI.filter((i) => i.parent === x.id), P[pid], null, SH[pid], null); if (Li) lines += `<path d="${mmElb(Li.trunk.map(([u, v]) => [X(u), Y(v)]))}" ${LS}/>`; }); // a list shared by several words (the owner, 2026-11-13)
+      lines += '' + (lst === 'bullet' || lst === 'num' ? '' : `<path d="M${X(LG.spine[0][0])} ${Y(LG.spine[0][1])}L${X(LG.spine[1][0])} ${Y(LG.spine[1][1])}" ${LS}/>`); }
     else if (x.parent && P[x.parent] && p.virt && !p.el && !p.bus && !p.rad && !p.free) { const q = P[x.parent];
       if (p.fan) { const s = p.side, [ax, ay] = mmAnchor(q, s > 0 ? 'r' : 'l', at || 0, SH[x.parent]), mx = ax + s * Math.min(16, Math.abs(p.cx - ax) / 2); const J = grp && JX[grp.id] || { x: p.cx, y: p.cy }; lines += `<path d="${mmElb([[X(ax), Y(ay)], [X(mx), Y(ay)], [X(mx), Y(J.y)], [X(J.x), Y(J.y)]])}" ${LS}/>`; }
       else if (p.vs) { const v = p.vs, ay = q.cy + v * q.h / 2; const many = Object.keys(P).filter((id) => P[id].virt && P[id].vs === v && !P[id].el && !P[id].bus && P[id].pid === x.parent).length > 1; const by = many ? p.cy - v * 14 : p.cy; let ax = Math.abs(p.cx - q.cx) < q.w / 2 && Math.abs(p.cy - ay) < 40 ? p.cx : q.cx, ay2 = ay; if (at != null) [ax, ay2] = mmAnchor(q, v > 0 ? 'd' : 'u', at, SH[x.parent]);
@@ -6958,7 +6960,7 @@ function bFollow(n) { const m = $('#main'), w = n.closest('.mbwrap'); if (!m || 
   m.scrollTop += dy; w.scrollLeft += cx - (wr.left + wr.right) / 2; }
 function mmEnd(el, next) { const b = curBoard(); const n = el.closest('.mmn'); if (!b || !n) return; const x = b.items.find((i) => i.id === n.dataset.id); if (!x) return;
   el.contentEditable = 'false'; const t = el.innerText.replace(/\n$/, '').trim();
-  if (!t && (x.parent || !mmKids(b, x.id).length)) { const drop = (id) => { mmKids(b, id).forEach((k) => drop(k.id)); b.items = b.items.filter((i) => i.id !== id); }; drop(x.id); S.bSel = x.parent || null; }
+  if (!t && (x.parent || !mmKids(b, x.id).length)) { const drop = (id) => { mmKids(b, id).forEach((k) => drop(k.id)); b.items = b.items.filter((i) => i.id !== id); }; drop(x.id); S.bSel = null; } // nothing else gets picked (the owner, 2026-11-13)
   else x.text = t || x.text || 'Idea';
   if (S.bEditBefore) bPush(b, S.bEditBefore); S.bEditBefore = null; bTouch(b); save(); render();
   // a tap on another bubble while I was writing picks that bubble (2026-11-12: the tap used to be lost, so the next branch grew from the wrong word)
@@ -7020,11 +7022,13 @@ document.addEventListener('pointerup', () => { const d = mDrag; if (!d) return; 
   const tid = d.t.dataset.id; const tr = d.t.getBoundingClientRect();
   // already connected to something: a drop adds one more connection and keeps the ones it has, so one bubble can join
   // several (the owner, 2026-11-13); only a loose bubble becomes a branch of the one it's dropped on
-  const conn = d.x.parent || mmKids(d.b, d.x.id).length || (d.b.links || []).some((l) => l.a === d.x.id || l.b === d.x.id);
-  if (conn) { S.bSel = d.x.id; if (d.x.parent === tid) { render(); return; } const anc = new Set(); for (let q = d.b.items.find((i) => i.id === d.x.parent); q; q = d.b.items.find((i) => i.id === q.parent)) anc.add(q.id);
-    bMut((b) => { const x = b.items.find((i) => i.id === d.x.id); if (!x) return; b.links = (b.links || []).filter((l) => !((l.a === x.id && l.b === tid) || (l.a === tid && l.b === x.id))); // a loose link between the two becomes a branch
-      if (x.parent && !anc.has(tid) && rootOf(b, tid) && rootOf(b, x.id) && rootOf(b, tid).id === rootOf(b, x.id).id) { /* same map: a shared branch; another map: a link */ x.also = (x.also || []).filter((id) => id !== tid).concat([tid]); delete x.free; delete x.dx; delete x.dy; delete x.fside; }
-      else b.links.push(Object.assign({ id: uid('lk'), a: tid, b: x.id }, S.bLkSty || {})); }); return; }
+  // a drop never makes a link, links come only from Link (the owner, 2026-11-13); another map: nothing changes
+  if (d.x.parent) { S.bSel = null; const anc = new Set(); for (let q = d.b.items.find((i) => i.id === d.x.parent); q; q = d.b.items.find((i) => i.id === q.parent)) anc.add(q.id);
+    const same = rootOf(d.b, tid) && rootOf(d.b, d.x.id) && rootOf(d.b, tid).id === rootOf(d.b, d.x.id).id; const grp = d.x.g && (d.b.groups || []).find((g) => g.id === d.x.g && g.parent === d.x.parent);
+    if (!same || anc.has(tid) || d.x.parent === tid || (grp && d.b.items.some((i) => i.id === tid && i.g === grp.id))) { render(); return; }
+    // a list item dropped on a bubble: the whole list joins that bubble too; any other word joins it on its own
+    bMut((b) => { const o = grp ? (b.groups || []).find((g) => g.id === grp.id) : b.items.find((i) => i.id === d.x.id); if (!o) return; b.links = (b.links || []).filter((l) => !((l.a === d.x.id && l.b === tid) || (l.a === tid && l.b === d.x.id)));
+      o.also = (o.also || []).filter((id) => id !== tid).concat([tid]); if (!grp) { delete o.free; delete o.dx; delete o.dy; delete o.fside; } }); return; }
   S.bSel = d.x.id; bMut((b) => { const x = b.items.find((i) => i.id === d.x.id); const t = b.items.find((i) => i.id === tid); if (!x || !t) return;
     if (t.fold) t.fold = false; x.parent = tid; delete x.lv0; delete x.c0; b.items = b.items.filter((i) => i !== x).concat([x]); delete x.side; delete x.dir; delete x.x; delete x.y; delete x.k; delete x.layout; delete x.theme; delete x.free; delete x.dx; delete x.dy; delete x.fside; delete x.pill; delete x.g; if (!t.parent) { const dx = (d.ex - tr.left - tr.width / 2) / tr.width, dy = (d.ey - tr.top - tr.height / 2) / tr.height; x.dir = Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? 'l' : 'r') : (dy < 0 ? 'u' : 'd'); } }); });
 function mmMove(b, x, how) {
@@ -7092,7 +7096,7 @@ function boardAction(act, a, ref, v) {
     case 'block': bMut((bb, x) => { if (x) x.lock = !x.lock || undefined; }); S.bPanel = null; render(); return true;
     case 'bdelitem': { const x = selItem(); if (!x) return true;
       const drop = (id) => { b.items.filter((i) => i.parent === id).forEach((k) => drop(k.id)); b.items = b.items.filter((i) => i.id !== id); };
-      S.bSel = x.t ? null : x.parent || null; S.bPanel = null; bMut((bb) => { if (!x.t) drop(x.id); else bb.items = bb.items.filter((i) => i !== x); if (bb.links) bb.links = bb.links.filter((l) => bb.items.some((i) => i.id === l.a) && bb.items.some((i) => i.id === l.b)); }); return true; }
+      S.bSel = null; S.bPanel = null; bMut((bb) => { if (!x.t) drop(x.id); else bb.items = bb.items.filter((i) => i !== x); if (bb.links) bb.links = bb.links.filter((l) => bb.items.some((i) => i.id === l.a) && bb.items.some((i) => i.id === l.b)); }); return true; }
     case 'medit': if (S.bSel) mmEdit(S.bSel); return true;
     case 'mgrow': S.bGrow = v; bToolsOnly(); return true;
     // Auto adds a branch without moving the ones already there (2026-11-12: the map kept swapping sides on my phone)
@@ -7152,6 +7156,7 @@ function boardAction(act, a, ref, v) {
     case 'lndel': { const key = (S.bLines || [])[0]; S.bLines = null; S.bLnMove = false; if (!key || !b) { render(); return true; }
       if (key.startsWith('lk:')) { bMut((bb) => { bb.links = (bb.links || []).filter((l) => l.id !== key.slice(3)); }); return true; }
       // a branch line taken away: the word and what grows from it become a map of their own
+      { const x0 = b.items.find((i) => i.id === key); const al = x0 && mmAlso(b, x0); if (al && al.length) { bMut((bb) => { const x = bb.items.find((i) => i.id === key); if (!x) return; x.parent = al[0]; x.also = al.slice(1); if (!x.also.length) delete x.also; delete x.at; delete x.dir; delete x.side; }); return true; } } // one of several lines: the others stay
       S.bSel = key; S.bKeepLook = true; boardAction('mplace', null, null, 'own'); S.bSel = null; render(); return true; }
     case 'lndone': S.bLnMove = false; S.bLines = null; S.bLnMulti = false; S.bPanel = null; render(); return true;
     case 'lstset': { const k = v.slice(0, v.indexOf(':')), val = v.slice(v.indexOf(':') + 1); const key = (S.bLines || [])[0] || ''; bMut((bb) => { const g = (bb.groups || []).find((q) => 'g:' + q.id === key); if (!g) return; if (k === 'ls') { g.ls = val; delete g.iside; if (val === 'row' && ['bullet', 'num'].includes(g.lst)) delete g.lst; } else if (k === 'iside') { if (val === 'r' || val === 'd') delete g.iside; else g.iside = val; } else if (val) g.lst = val; else delete g.lst; }); return true; }
@@ -7216,7 +7221,7 @@ function bMeasure() { const b = curBoard(); if (!b) return; const W = moodWidth(
 document.addEventListener('click', (e) => { if (mSkip) { mSkip = false; return; } const n = e.target.closest && e.target.closest('.mbmap .mmn');
   if (!n || e.target.closest('.mmc')) return;
   const id = n.dataset.id; if (n.querySelector('.mmt').isContentEditable) return;
-  if (S.bLink) { const from = S.bLink; if (from === id) { S.bLink = null; render(); return; } bMut((bb) => { bb.links = bb.links || []; const ex = bb.links.find((l) => (l.a === from && l.b === id) || (l.a === id && l.b === from)); if (ex) S.bLk = ex.id; else { const nl = Object.assign({ id: uid('lk'), a: from, b: id }, S.bLkSty || {}); bb.links.push(nl); S.bLk = nl.id; } }); S.bSel = null; S.bPanel = null; render(); return; } // linking stays on for more bubbles until I tap the first one again or the board
+  if (S.bLink) { const from = S.bLink; if (from === id) { S.bLink = null; render(); return; } bMut((bb) => { bb.links = bb.links || []; const ex = bb.links.find((l) => (l.a === from && l.b === id) || (l.a === id && l.b === from)); if (ex) S.bLk = ex.id; else { const nl = Object.assign({ id: uid('lk'), a: from, b: id }, S.bLkSty || {}); bb.links.push(nl); S.bLk = nl.id; } }); S.bLink = null; S.bSel = null; S.bPanel = null; render(); return; }
   if (S.bMulti || e.shiftKey) { const L = S.bMulti || (S.bSel && S.bSel !== id ? [S.bSel] : []); if (!S.bMulti) S.bGpar = null; if (id === S.bGpar) return; const bb = curBoard(); const md = S.bMulti ? S.bSelMode || 'one' : 'one'; let add = [id]; const me = bb.items.find((i) => i.id === id);
     const desc = (q) => bb.items.filter((i) => i.parent === q && !i.t).forEach((k) => { add.push(k.id); desc(k.id); });
     if (md === 'branch') desc(id); if (md === 'list' && me && me.g) add = bb.items.filter((i) => i.g === me.g && i.parent === me.parent).map((i) => i.id); if (md === 'map') { const r = rootOf(bb, id); add = [r.id]; desc(r.id); }
@@ -7333,7 +7338,7 @@ function bPaintBub(x) { const st = S.bPaint && S.bPaint.st; if (st && Object.key
 document.addEventListener('click', (e) => { if (!S.bMap || !S.bTool || S.bMulti || S.bVw) return; const cv = e.target.closest && e.target.closest('.mbwrap .mbcanvas'); if (!cv || e.target.closest('.mmc')) return;
   const n = e.target.closest('.mbmap .mmn'), h = e.target.closest('.mmhit'), lk = e.target.closest('.mblk'); const key = h ? h.dataset.ln : lk ? 'lk:' + lk.dataset.lk : null; const T = S.bTool;
   if (!n && !key) return; e.stopPropagation(); e.preventDefault(); if (mSkip) { mSkip = false; return; }
-  if (T === 'link') { if (!n) return; const id = n.dataset.id; if (!S.bLink) { S.bLink = id; render(); return; } const from = S.bLink; if (from === id) { S.bLink = null; render(); return; } /* stays on: one bubble links to several, tap it again to stop (the owner, 2026-11-13) */
+  if (T === 'link') { if (!n) return; const id = n.dataset.id; if (!S.bLink) { S.bLink = id; render(); return; } const from = S.bLink; S.bLink = null; if (from === id) { render(); return; }
     bMut((bb) => { bb.links = bb.links || []; if (!bb.links.some((l) => (l.a === from && l.b === id) || (l.a === id && l.b === from))) bb.links.push(Object.assign({ id: uid('lk'), a: from, b: id }, S.bLkSty || {})); }); return; }
   if (T === 'line') { const b0 = curBoard(); if (!b0) return;
     if (S.bLnMove && n && (S.bLines || []).length === 1) { const key0 = S.bLines[0], to = n.dataset.id; S.bLnMove = false;
