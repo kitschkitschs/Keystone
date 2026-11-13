@@ -400,7 +400,7 @@ document.addEventListener('pointerdown', (e) => {
   const W = board.clientWidth;
   if (!box) { // tap on the empty board: let go of the picked thing; a double tap writes text there
     const R = board.getBoundingClientRect(); const pt = { x: (e.clientX - R.left) / W, y: (e.clientY - R.top) / W }; const now = Date.now();
-    if (bTap && now - bTap.t < 350 && Math.hypot(pt.x - bTap.x, pt.y - bTap.y) < 0.04) { bTap = null; e.preventDefault(); if (S.bMap) bBubbleAt(b, pt); else bAdd('text', pt); return; }
+    if (bTap && now - bTap.t < 350 && Math.hypot(pt.x - bTap.x, pt.y - bTap.y) < 0.04) { bTap = null; e.preventDefault(); mSkip = true; setTimeout(() => { mSkip = false; }, 450); /* the click that follows lands on the new bubble: it mustn't count as a tap for a map tool (the owner, 2026-11-13) */ if (S.bMap) bBubbleAt(b, pt); else bAdd('text', pt); return; }
     bTap = { t: now, ...pt }; bPanStart(e); if (S.bSel || S.bPanel || S.bLink || S.bLk || S.bMulti || S.bLines) { S.bSel = null; S.bPanel = null; S.bLink = null; S.bLk = null; S.bMulti = null; S.bLines = null; S.bLnMulti = false; render(); } return; }
   if (e.target.closest('.mbtx') && e.target.closest('.mbtx').isContentEditable) return; // typing
   const x = b.items.find((i) => i.id === box.dataset.id); if (!x) return;
@@ -712,8 +712,8 @@ function mmNormal(q, side, at, shp) { const [x, y] = mmAnchor(q, side, at, shp);
   if (shp === 'circle') { const L = Math.hypot(x - q.cx, y - q.cy) || 1; return [(x - q.cx) / L, (y - q.cy) / L]; }
   if (shp === 'pill' && (side === 'l' || side === 'r')) { const ccx = q.cx + (side === 'r' ? 1 : -1) * (q.w / 2 - q.h / 2); const L = Math.hypot(x - ccx, y - q.cy) || 1; return [(x - ccx) / L, (y - q.cy) / L]; }
   return { r: [1, 0], l: [-1, 0], u: [0, -1], d: [0, 1] }[side]; }
-function mmSnapAts(q, side, shp) { if (shp === 'circle' || shp === 'pill') return side === 'u' || side === 'd' ? (shp === 'pill' && q.w - q.h < 30 ? [0] : [-0.5, 0, 0.5].concat(shp === 'pill' && q.w - q.h > 90 ? [-1, 1] : [])).sort((a, c) => a - c) : [-0.5, 0, 0.5];
-  if (side === 'u' || side === 'd') return q.w >= 110 ? [-1, -0.5, 0, 0.5, 1] : [-0.6, 0, 0.6]; return q.h >= 46 ? [-0.6, 0, 0.6] : [0]; }
+// only the middle of each side and the four corners (the owner, 2026-11-13): top and bottom carry the corners
+function mmSnapAts(q, side, shp) { const round = shp === 'circle' || shp === 'pill'; /* round ends: the corners sit on the sides' curves */ if (side === 'l' || side === 'r') return round ? [-0.75, 0, 0.75] : [0]; return round ? [0] : [-1, 0, 1]; }
 // which bubble shows snap points now, and what tapping one does
 function bSnapTarget(b) { const sel = S.bSel && b.items.find((i) => i.id === S.bSel);
   if (sel && !sel.t && S.bPanel === 'mdir') return { on: sel.id, sides: ['l', 'u', 'd', 'r'], mode: 'new', cur: S.bNewPt && S.bNewPt.on === sel.id ? [S.bNewPt.side, S.bNewPt.v] : null };
@@ -1056,7 +1056,7 @@ function bMeasure() { const b = curBoard(); if (!b) return; const W = moodWidth(
 document.addEventListener('click', (e) => { if (mSkip) { mSkip = false; return; } const n = e.target.closest && e.target.closest('.mbmap .mmn');
   if (!n || e.target.closest('.mmc')) return;
   const id = n.dataset.id; if (n.querySelector('.mmt').isContentEditable) return;
-  if (S.bLink) { const from = S.bLink; if (from === id) { S.bLink = null; render(); return; } bMut((bb) => { bb.links = bb.links || []; const ex = bb.links.find((l) => (l.a === from && l.b === id) || (l.a === id && l.b === from)); if (ex) S.bLk = ex.id; else { const nl = Object.assign({ id: uid('lk'), a: from, b: id }, S.bLkSty || {}); bb.links.push(nl); S.bLk = nl.id; } }); S.bLink = null; S.bSel = null; S.bPanel = null; render(); return; }
+  if (S.bLink) { const from = S.bLink; if (from === id) { S.bLink = null; render(); return; } bMut((bb) => { bb.links = bb.links || []; const ex = bb.links.find((l) => (l.a === from && l.b === id) || (l.a === id && l.b === from)); if (ex) S.bLk = ex.id; else { const nl = Object.assign({ id: uid('lk'), a: from, b: id }, S.bLkSty || {}); bb.links.push(nl); S.bLk = nl.id; } }); S.bSel = null; S.bPanel = null; render(); return; } // linking stays on for more bubbles until I tap the first one again or the board
   if (S.bMulti || e.shiftKey) { const L = S.bMulti || (S.bSel && S.bSel !== id ? [S.bSel] : []); if (!S.bMulti) S.bGpar = null; if (id === S.bGpar) return; const bb = curBoard(); const md = S.bMulti ? S.bSelMode || 'one' : 'one'; let add = [id]; const me = bb.items.find((i) => i.id === id);
     const desc = (q) => bb.items.filter((i) => i.parent === q && !i.t).forEach((k) => { add.push(k.id); desc(k.id); });
     if (md === 'branch') desc(id); if (md === 'list' && me && me.g) add = bb.items.filter((i) => i.g === me.g && i.parent === me.parent).map((i) => i.id); if (md === 'map') { const r = rootOf(bb, id); add = [r.id]; desc(r.id); }
@@ -1173,7 +1173,7 @@ function bPaintBub(x) { const st = S.bPaint && S.bPaint.st; if (st && Object.key
 document.addEventListener('click', (e) => { if (!S.bMap || !S.bTool || S.bMulti || S.bVw) return; const cv = e.target.closest && e.target.closest('.mbwrap .mbcanvas'); if (!cv || e.target.closest('.mmc')) return;
   const n = e.target.closest('.mbmap .mmn'), h = e.target.closest('.mmhit'), lk = e.target.closest('.mblk'); const key = h ? h.dataset.ln : lk ? 'lk:' + lk.dataset.lk : null; const T = S.bTool;
   if (!n && !key) return; e.stopPropagation(); e.preventDefault(); if (mSkip) { mSkip = false; return; }
-  if (T === 'link') { if (!n) return; const id = n.dataset.id; if (!S.bLink) { S.bLink = id; render(); return; } const from = S.bLink; S.bLink = null; if (from === id) { render(); return; }
+  if (T === 'link') { if (!n) return; const id = n.dataset.id; if (!S.bLink) { S.bLink = id; render(); return; } const from = S.bLink; if (from === id) { S.bLink = null; render(); return; } /* stays on: one bubble links to several, tap it again to stop (the owner, 2026-11-13) */
     bMut((bb) => { bb.links = bb.links || []; if (!bb.links.some((l) => (l.a === from && l.b === id) || (l.a === id && l.b === from))) bb.links.push(Object.assign({ id: uid('lk'), a: from, b: id }, S.bLkSty || {})); }); return; }
   if (T === 'line') { const b0 = curBoard(); if (!b0) return;
     if (S.bLnMove && n && (S.bLines || []).length === 1) { const key0 = S.bLines[0], to = n.dataset.id; S.bLnMove = false;
