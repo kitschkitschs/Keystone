@@ -865,6 +865,10 @@ document.addEventListener('pointerup', () => { const d = mDrag; if (!d) return; 
     const nx = (d.ex - d.gx - R.left) / W, ny = (d.ey - d.gy - R.top) / W; const old = rootOf(d.b, d.x.id);
     S.bSel = d.x.id; bMut((b) => { const x = b.items.find((i) => i.id === d.x.id); if (!x) return; if (x.parent) { x.k = (old && old.k) || 1; x.theme = old && old.theme; x.layout = old && old.layout; } x.parent = null; delete x.side; delete x.dir; x.x = nx; x.y = Math.max(0.02, ny); x.z = bTopZ(b) + 1; }); return; }
   const tid = d.t.dataset.id; const tr = d.t.getBoundingClientRect();
+  // already connected to something: a drop adds one more connection and keeps the ones it has, so one bubble can join
+  // several (the owner, 2026-11-13); only a loose bubble becomes a branch of the one it's dropped on
+  const conn = d.x.parent || mmKids(d.b, d.x.id).length || (d.b.links || []).some((l) => l.a === d.x.id || l.b === d.x.id);
+  if (conn) { S.bSel = d.x.id; if (d.x.parent === tid) { render(); return; } bMut((b) => { b.links = b.links || []; if (!b.links.some((l) => (l.a === d.x.id && l.b === tid) || (l.a === tid && l.b === d.x.id))) b.links.push(Object.assign({ id: uid('lk'), a: tid, b: d.x.id }, S.bLkSty || {})); }); return; }
   S.bSel = d.x.id; bMut((b) => { const x = b.items.find((i) => i.id === d.x.id); const t = b.items.find((i) => i.id === tid); if (!x || !t) return;
     if (t.fold) t.fold = false; x.parent = tid; delete x.lv0; delete x.c0; b.items = b.items.filter((i) => i !== x).concat([x]); delete x.side; delete x.dir; delete x.x; delete x.y; delete x.k; delete x.layout; delete x.theme; delete x.free; delete x.dx; delete x.dy; delete x.fside; delete x.pill; delete x.g; if (!t.parent) { const dx = (d.ex - tr.left - tr.width / 2) / tr.width, dy = (d.ey - tr.top - tr.height / 2) / tr.height; x.dir = Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? 'l' : 'r') : (dy < 0 ? 'u' : 'd'); } }); });
 function mmMove(b, x, how) {
