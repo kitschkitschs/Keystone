@@ -1755,7 +1755,7 @@ function migrate(m) {
   tMigrate(m); cMigrate(m); sSessMigrate(m); hMigrate(m); nMigrate(m); shMigrate(m); wMigrate(m); wMigrate2(m); wMigrate3(m); oeMigrate(m); hyperMigrate(m); oeMigrate2(m); remMigrate(m); // Training and Expeditions folders (2026-11-04)
   ciRepair(m);
   // 2026-11-11: snack day = the first snack logged in a week; training extras link to a training item, not a kind and distance
-  snackFix(m); afterFix(m); latteFix(m);
+  snackFix(m); afterFix(m); latteGone(m);
   return m;
 }
 // the check-in questions live in the Morning and Evening tabs of Check-ins, and sleep quality in the Sleep group. An emptied app
@@ -1988,7 +1988,7 @@ function hSummary(gid, d) {
 const mealsOn = (d) => M.photos[d] || [];
 const mealSrc = (p) => p.asset ? blobUrl(p.asset) : p.src;
 function mealTile(p, d) {
-  const kw = KINDS3.find((k) => k[0] === mealKind(p))[1]; const sub = kw; // a meal's tags are data only and never show on it (2026-11-13)
+  const kw = p.nocount ? '' : KINDS3.find((k) => k[0] === mealKind(p))[1]; const sub = kw; // a meal's tags are data only and never show on it (2026-11-13)
   const lab = [sub, p.text].filter(Boolean).join(' · ');
   return `<button class="photo${mealSrc(p) ? '' : ' txt'}" data-a="${mealSrc(p) ? 'mealview' : 'meal'}" data-ref="${p.id}" data-v="${d}" aria-label="Meal${lab ? ': ' + esc(lab) : ''}">${mealSrc(p) ? `<img src="${esc(mealSrc(p))}" alt="">${p.text ? `<span>${esc(p.text)}</span>` : ''}` : `<em>${esc(p.text || kw)}</em><span>${esc(sub)}</span>`}</button>`;
 }
@@ -2008,12 +2008,12 @@ function foodAnswers(d) {
 // A day earns a star when it reaches its meals and stays within what it allows.
 // the owner's words (2026-11-02): fruit and veg between meals = a BITE (Norwegian mellommåltid); a pastry or cake = a snack, on snack day.
 const KINDS3 = [['meal', 'Meal', 'Meals'], ['snack', 'Bite', 'Bites'], ['treat', 'Snack', 'Snacks']];
-// a latte is a tag on a meal now, not a kind of meal (2026-11-13); the meal plan still allots lattes, counted from that tag
-const PLANK = KINDS3.concat([['latte', 'Latte', 'Lattes']]);
-const isLatte = (p) => (p.tags || []).some((t) => t.toLowerCase() === 'latte');
-function latteFix(m) { if (!m.settings || m.settings.latte2) return; m.settings.latte2 = true; const T = m.settings.foodTags = m.settings.foodTags || []; if (!T.some((t) => t.toLowerCase() === 'latte')) T.push('Latte');
-  Object.values(m.photos || {}).forEach((L) => (L || []).forEach((p) => { if (p.kind !== 'latte') return; p.kind = 'snack'; p.tags = p.tags || []; if (!isLatte(p)) p.tags.push('Latte'); })); }
-const LATTE0 = 1; // lattes a day until I set my own in the meal plan
+// no lattes in the meal plan after all (2026-11-13): the lattes logged as meals while it was there stop counting
+const PLANK = KINDS3;
+function isLatte(p) { return (p.tags || []).some((t) => String(t).toLowerCase() === 'latte'); }
+function latteGone(m) { if (!m.settings || m.settings.latte4) return; m.settings.latte4 = true; m.settings.foodTags = (m.settings.foodTags || []).filter((t) => t.toLowerCase() !== 'latte');
+  Object.keys(m.photos || {}).forEach((d) => { m.photos[d] = (m.photos[d] || []).filter((p) => { if (!isLatte(p) && p.kind !== 'latte') return true;
+    p.tags = (p.tags || []).filter((t) => t.toLowerCase() !== 'latte'); const keep = p.src || p.asset || (p.text && !/^\s*latte\s*$/i.test(p.text)); if (keep) { p.nocount = true; delete p.kind; } return !!keep; }); }); }
 const mealKind = (p) => (p.kind && p.kind !== 'latte' ? p.kind : '') || ((p.tags || []).includes('Snacks') ? 'snack' : (p.tags || []).includes('Treat') ? 'treat' : 'meal');
 function PLAN0() { return { week: [0, 1, 2, 3, 4, 5, 6].map(() => ({ meal: 2, snack: 2, treat: 0 })), extras: [{ id: 'x-snackday', name: 'Snack day', meal: 0, snack: 0, any: 0, treat: 1, weekly: true }, { id: 'x-sugar', name: 'Low blood sugar', meal: 0, snack: 0, any: 1 }, { id: 'x-light', name: 'Light hike', meal: 0, snack: 1, any: 0 }, { id: 'x-hike', name: 'Proper hike', meal: 1, snack: 1, any: 0 }], days: {} }; }
 // "After every workout" on a task became "Always after" on the workout items (2026-11-11): each workout (not general
@@ -2058,16 +2058,15 @@ function whenLabel(w) {
   if (!w) return ''; if (w.src === 'sym') return ((I(w.id) || {}).name || 'a') + ' symptom';
   if (w.src === 'tag') return (w.opt || (I(w.id) || {}).name || 'a') + ' tag'; if (w.src === 'treat') return 'the first snack of the week'; if (w.src === 'train' && w.id) return ((I(w.id) || {}).name || 'a training session') + ' done'; if (w.src === 'train') return (w.kind || 'Training') + ' of ' + (w.km || 0) + ' km or more'; return '';
 }
-function dayCounts(d) { const c = { meal: 0, snack: 0, treat: 0, latte: 0 }; mealsOn(d).forEach((p) => { const k = mealKind(p); c[k] = (c[k] || 0) + 1; if (isLatte(p)) c.latte++; }); return c; }
+function dayCounts(d) { const c = { meal: 0, snack: 0, treat: 0 }; mealsOn(d).filter((p) => !p.nocount).forEach((p) => { const k = mealKind(p); c[k] = (c[k] || 0) + 1; }); return c; }
 function dayCheck(d) {
   const base = mealPlan().week[wdOf(d)]; const ex = dayExtras(d).reduce((a, x) => ({ meal: a.meal + (x.meal || 0), snack: a.snack + (x.snack || 0), any: a.any + (x.any || 0), treat: a.treat + (x.treat || 0) }), { meal: 0, snack: 0, any: 0, treat: 0 });
   const c = dayCounts(d); const overMeal = Math.max(0, c.meal - base.meal - ex.meal); const anyLeft = ex.any - overMeal;
   const snackMax = base.snack + ex.snack + Math.max(0, anyLeft);
   const r = { c, base, ex, mealOk: anyLeft >= 0, mealMax: base.meal + ex.meal + ex.any, snackOk: c.snack <= snackMax, snackMax, treatOk: c.treat <= base.treat + ex.treat, treatMax: base.treat + ex.treat };
-  r.latteMax = base.latte == null ? LATTE0 : base.latte; r.latteOk = c.latte <= r.latteMax;
-  r.broken = breakHits(d); r.followed = d < T0 && mealsOn(d).length > 0 && r.mealOk && r.snackOk && r.treatOk && r.latteOk && !r.broken.length; return r;
+  r.broken = breakHits(d); r.followed = d < T0 && mealsOn(d).length > 0 && r.mealOk && r.snackOk && r.treatOk && !r.broken.length; return r;
 }
-const dayBroke = (d) => { if (d > T0 || overOn(d)) return false; const r = dayCheck(d); return r.broken.length > 0 || !r.mealOk || !r.snackOk || !r.treatOk || !r.latteOk; };
+const dayBroke = (d) => { if (d > T0 || overOn(d)) return false; const r = dayCheck(d); return r.broken.length > 0 || !r.mealOk || !r.snackOk || !r.treatOk; };
 const followed = (d) => !overOn(d) && dayCheck(d).followed; // an overeating day gets only its red mark (2026-11-10)
 // Items that break a food diary day (2026-11-03): if any is logged, the day gets no star. A tag counts when ticked,
 // a scale when it's at or above the level picked, an avoidance item when avoided. mealPlan().breaks = [{id, min}]
@@ -2113,7 +2112,7 @@ function linkField(x) {
 }
 function mealWeekSheet() {
   const mp = mealPlan();
-  let h = `<div class="pgrid"><span></span>${PLANK.map((k) => `<span class="mono">${k[2]}</span>`).join('')}${WD.map((w, i) => `<span class="pd">${w}</span>${PLANK.map(([k]) => stepper('mwstep', i, k, mp.week[i][k] == null ? (k === 'latte' ? LATTE0 : 0) : mp.week[i][k])).join('')}`).join('')}</div>`;
+  let h = `<div class="pgrid"><span></span>${PLANK.map((k) => `<span class="mono">${k[2]}</span>`).join('')}${WD.map((w, i) => `<span class="pd">${w}</span>${PLANK.map(([k]) => stepper('mwstep', i, k, mp.week[i][k] || 0)).join('')}`).join('')}</div>`;
   h += `<div class="fld" style="margin-top:16px"><span class="mono">Extras</span>${mp.extras.map((x) => `<div class="xrow"><div class="inrow"><span class="xdot" style="background:${xcol(x)}" aria-hidden="true"></span><input class="inp" data-xname="${x.id}" value="${esc(x.name)}" aria-label="Extra name"><button class="rm" data-a="xrm" data-v="${x.id}" aria-label="Remove ${esc(x.name)}">✕</button></div><div style="margin-top:8px">${colorField('x:' + x.id, xcol(x))}</div>${linkField(x)}
     <div class="pgrid x"><span class="mono">Meals</span><span class="mono">Bites</span><span class="mono">Either</span><span class="mono">Snacks</span>${['meal', 'snack', 'any', 'treat'].map((f) => stepper('xstep', x.id, f, x[f] || 0)).join('')}</div>
     <button class="addbtn" data-a="xweekly" data-v="${x.id}" aria-pressed="${!!x.weekly}" style="min-height:36px;font-size:13px"><span class="circ ${x.weekly ? 'done' : ''}" style="--c:var(--quiet);width:18px;height:18px">${x.weekly ? '✓' : ''}</span>Once a week at most</button></div>`).join('')}
@@ -2128,7 +2127,7 @@ function planPanel(d) {
   const r = dayCheck(d);
   const cell = (n, max, label, ok, extra) => `<div class="cnt3 ${ok ? '' : 'over'}"><b>${n}<small>/${max}</small></b><span>${label}</span>${extra ? `<i>${extra}</i>` : ''}</div>`;
   const ex = r.mealMax > r.base.meal ? '+' + (r.mealMax - r.base.meal) + ' extra' : '';
-  const K = [['meal', r.base.meal, 'Meals', r.mealOk, ex, r.mealMax], ['snack', r.snackMax, 'Bites', r.snackOk, '', r.snackMax], ['treat', r.treatMax, r.treatMax ? 'Snacks · snack day' : 'Snacks', r.treatOk, '', r.treatMax], ['latte', r.latteMax, 'Lattes', r.latteOk, '', r.latteMax]];
+  const K = [['meal', r.base.meal, 'Meals', r.mealOk, ex, r.mealMax], ['snack', r.snackMax, 'Bites', r.snackOk, '', r.snackMax], ['treat', r.treatMax, r.treatMax ? 'Snacks · snack day' : 'Snacks', r.treatOk, '', r.treatMax]];
   // every kind the meal plan allots shows as a counter, and a kind with none allotted shows once I've had one (2026-11-13)
   const show = K.filter(([k, , , , , mx]) => mx > 0 || r.c[k] > 0);
   return show.length ? `<div class="counts${overOn(d) ? ' fgrey' : ''}">${show.map(([k, mx, l, ok, x]) => cell(r.c[k], mx, l, ok, x)).join('')}</div>` : '';
@@ -2450,7 +2449,7 @@ function healthAction(act, a, ref, v) {
     case 'xadd': { xcapture(); change(() => { mealPlan().extras.push({ id: uid('x'), name: 'New extra', meal: 0, snack: 1, any: 0 }); }); render(); return true; }
     case 'xrm': { xcapture(); change(() => { const mp = mealPlan(); mp.extras = mp.extras.filter((e) => e.id !== v); }); render(); return true; }
     case 'mealweek': openSheet({ kind: 'mealweek', title: 'Meal plan', back: S.sheet }); return true;
-    case 'mwstep': { xcapture(); change(() => { const w = mealPlan().week[+a.dataset.k]; const f0 = a.dataset.f; const cur = w[f0] == null ? (f0 === 'latte' ? LATTE0 : 0) : w[f0]; w[f0] = Math.max(0, Math.min(9, cur + +v)); }); renderLayer(); return true; }
+    case 'mwstep': { xcapture(); change(() => { const w = mealPlan().week[+a.dataset.k]; const f0 = a.dataset.f; const cur = w[f0] || 0; w[f0] = Math.max(0, Math.min(9, cur + +v)); }); renderLayer(); return true; }
     case 'meal': openSheet({ kind: 'photo', ref, d: v || T0, title: 'Meal', back: S.sheet && S.sheet.kind === 'diary' ? S.sheet : null }); return true;
     case 'mealnew': { const p = { id: uid('p'), tags: [], at: nowHM(), text: '', kind: 'meal' }; change(() => { (M.photos[T0] = M.photos[T0] || []).push(p); }); openSheet({ kind: 'photo', ref: p.id, d: T0, title: 'Meal', isNew: true }); return true; }
     case 'mealdone': { mcapture(); const s = S.sheet; const p = curMeal(); if (p && s.isNew && !p.text && !mealSrc(p)) { M.photos[T0] = mealsOn(T0).filter((x) => x.id !== p.id); } save(); closeSheet(); render(); return true; }
