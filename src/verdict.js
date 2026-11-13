@@ -187,11 +187,14 @@ function cookCard(go) { const P = prepsOpen(); const nx = P[0] && I(P[0]); const
     segs: Array.from({ length: 7 }, (_, i) => { const d = addDays(T0, i); return P.some((k) => (I(k).when || {}).date === d) ? (i === 0 ? SEGOK : SEGSOFT) : SEG0; }), foot: 'This week · one bar per day' }); }
 // a picked card is outlined in its own verdict colour (2026-11-10)
 const stripCard = (id, name, lvl, word, segs, on) => `<button class="vroom ${on ? 'on' : ''}" data-a="vpick" data-ref="${id}" aria-pressed="${on}"${on ? ` style="border-color:${VDOT[lvl]}"` : ''}><b>${esc(name)}</b><span class="vv"><i style="background:${VDOT[lvl]}"></i>${esc(word)}</span>${segBar(segs, 'sm')}</button>`;
-function jobRow(j, place, plain) { const it = I(j.id); const late = j.left < 0; const filled = late ? 7 : Math.max(1, 7 - Math.round(j.fresh * 7));
+// the bar counts down to the next repeat (the owner, 2026-11-13): one segment per day up to 14 days, then one per week, past ten weeks one per month
+function jobSegs(j) { const n = Math.max(1, j.n || 7); const u = n <= 14 ? 1 : n <= 70 ? 7 : 30; const segs = Math.min(12, Math.max(1, Math.round(n / u))); const late = j.left < 0;
+  const filled = late ? segs : Math.min(segs, Math.ceil(Math.max(0, j.left) / u)); return Array.from({ length: segs }, (_, i) => i < filled ? (late ? SEGLATE : SEGDUE) : SEG0); }
+function jobRow(j, place, plain) { const it = I(j.id); const late = j.left < 0;
   if (!plain) { const on = isDone(j.id, T0); const c = late ? SEGLATE : SEGDUE; // tick circle like Study (2026-11-04)
     return `<div class="vjob vtk" data-ref="${j.id}"><button class="tickbtn" data-a="vtick" data-ref="${j.id}" aria-label="Tick ${esc(tnm(it))} as done today" aria-pressed="${on}"><span class="circ ${on ? 'done vcol' : halfOf(j.id) ? 'half' : ''}" style="--c:${c}">${on ? '✓' : ''}</span></button>${jobRow(j, place, true).replace('<button class="vjob" data-a="vjob"', '<button class="vjin" data-a="sched"')}</div>`; }
   const unit = late ? (j.left === -1 ? 'day overdue' : 'days overdue') : j.left === 1 ? 'day left' : 'days left';
-  return `<button class="vjob" data-a="vjob" data-ref="${j.id}"><span class="vjh"><span class="vjt"><b>${inm(it)}</b></span><span class="vbig"><em ${late ? 'class="late"' : ''}>${Math.abs(j.left)}</em> ${unit}</span></span><span class="mono vjm">${esc(place)}</span>${segBar(Array.from({ length: 7 }, (_, i) => i < filled ? (late ? SEGLATE : SEGDUE) : SEG0))}</button>`; }
+  return `<button class="vjob" data-a="vjob" data-ref="${j.id}"><span class="vjh"><span class="vjt"><b>${inm(it)}</b></span><span class="vbig"><em ${late ? 'class="late"' : ''}>${Math.abs(j.left)}</em> ${unit}</span></span><span class="mono vjm">${esc(place)}</span>${segBar(jobSegs(j))}</button>`; }
 // tick: the subject page's version, with a circle on the left in the urgency bar's colour; the rest of the card opens the timer (2026-11-04)
 function taskRow(t, tick) { const it = I(t.id);
   if (tick) { const u = studyUrg(t); const c = u ? u[0] : '#ABA59C'; const on = !!val(T0, t.id);

@@ -65,6 +65,7 @@ nav.areas .pill{width:52px;height:36px;border-radius:18px;display:flex;align-ite
 .row{display:flex;align-items:center;gap:14px;min-height:48px;width:100%}
 .row .lbl{flex:1;min-width:0;line-height:1.3}
 .row .sub{display:block;font-size:13px;color:var(--quiet)}
+.row .sub.where{font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;margin-top:1px}
 .plusic{width:44px;height:44px;flex-shrink:0;display:grid;place-items:center;border-radius:22px;border:1.5px dashed var(--quiet);color:var(--ink2)}
 .qhead{display:flex;align-items:flex-start;gap:10px;margin:-4px 0 6px}.qhead .note{flex:1;margin:0;font-size:15px;color:var(--ink)}.inp.estin{width:92px;flex:0 0 92px;text-align:center}
 .inrow .blkbtn{flex-shrink:0;width:44px;height:44px;border-radius:22px;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;color:var(--ink2)}.bhead .bico{display:grid;place-items:center;width:28px;height:28px;margin:-6px -4px;color:var(--ink2)}
@@ -1537,7 +1538,7 @@ function itemRow(id, list, d) {
       ${open ? `<div class="steps" data-list="s:${id}">${steps.map((s) => I(s).type === 'checkin' ? ciStepRow(s, id, d, live) : `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" style="width:18px;height:40px" data-a="step" data-ref="${s}" aria-label="Tick ${esc(tnm(s))}"><span class="circ ${val(d, s) ? 'done' : ''}${pOpt(id, s).optional ? ' opt' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span></button>` : `<span class="circ ${val(d, s) ? 'done' : ''}${pOpt(id, s).optional ? ' opt' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span>`}<span class="lbl">${nm(s, I(s).name)}${S.edit && stepNote(s, id) && !(S.area === 'plan' && S.page === 'today') ? `<span class="sub">${esc(stepNote(s, id))}</span>` : ''}</span>${tail(s, 's:' + id, { gear: false })}</div>`).join('')}
         ${S.edit ? `<button class="addrow" data-a="addstep" data-ref="${id}"><span class="plus">+</span>Add step</button>` : ''}</div>` : ''}</div>`;
   }
-  return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, live)}<span class="lbl">${S.edit ? nm(id, it.name) + '' : `<button data-a="${live ? 'sched' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left">${inm(it)}${tdur(it)}</button>`}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>${tail(id, list)}</div>`; // estimate on the right (2026-11-04)
+  return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, live)}<span class="lbl">${S.edit ? nm(id, it.name) + '' : `<button data-a="${live ? 'sched' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left">${inm(it)}${tdur(it)}</button>`}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}${onToday && !S.edit && whereOf(id) ? `<span class="sub where">${esc(whereOf(id))}</span>` : ''}</span>${tail(id, list)}</div>`; // estimate on the right (2026-11-04)
 }
 // A past day is an overview of everything ticked, logged and added that day (2026-11-08), not the old list.
 function pastDay(d) {
@@ -1681,14 +1682,24 @@ function placeDay(d) {
   const out = []; const DL = dayList(d);
   // items with a set time (and appointments) are fixed for the whole day; untimed items flow around ALL of them, and a block
   // that spills over pushes the next block's untimed items later, so nothing hides behind anything (2026-11-02)
+  // a started two-part chore's second part sits on Schedule at the time its timer goes off (the owner, 2026-11-13);
+  // if something with a set time is there, it falls into the first free spot behind it
+  const twoAt = {}; Object.keys(M.half || {}).forEach((id) => { const it = I(id); if (!it || !it.two || isDone(id, d)) return; const due = new Date(M.half[id].at + (+it.two || 2) * 3600000);
+    const sh = new Date(due); sh.setHours(sh.getHours() - DAY_H); if (iso(sh) !== d) return; twoAt[id] = due.getHours() * 60 + due.getMinutes() + (iso(due) !== d ? 1440 : 0); });
+  DL.forEach((x) => { x.items = x.items.filter((id) => !(id in twoAt)); });
   const allFixed = []; DL.forEach(({ b, items, appts }) => { const g = G(b);
     items.filter((id) => I(id).time).forEach((id) => { const t = hm(tAt(id, d)); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), blk: b }); });
     (appts || []).forEach((id) => { const t = hm(tAt(id, d) || g.start); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), appt: true, blk: b }); }); });
+  const twos = Object.keys(twoAt).sort((p, q) => twoAt[p] - twoAt[q]).map((id) => { const len = I(id).dur || 30; let a0 = twoAt[id], moved = true;
+    while (moved) { moved = false; allFixed.forEach((f) => { if (a0 < f.b && a0 + len > f.a) { a0 = f.b; moved = true; } }); }
+    const B = blockIds(); const blk = B.find((b) => hm(G(b).start) <= a0 && a0 < hm(G(b).end)) || B.filter((b) => hm(G(b).start) <= a0).pop() || B[0];
+    const f = { id, a: a0, b: a0 + len, blk, two: true }; allFixed.push(f); return f; });
+  twos.forEach((f) => out.push(f));
   // a block that runs over keeps its extra items: they spill past its end into a red stretch on Schedule (2026-11-02)
   DL.forEach(({ b, items, appts }) => {
     const g = G(b); let cur = hm(g.start);
     const fixed = allFixed.filter((f) => f.blk === b);
-    allFixed.filter((f) => f.blk === b).forEach((f) => out.push(f));
+    allFixed.filter((f) => f.blk === b && !f.two).forEach((f) => out.push(f));
     // a day's own order may say an item comes after an appointment: then it starts after that appointment ends
     // ... and the same after an item with a set time (2026-11-11), even when that leaves room in front of it
     const o = ((M.dayOrder || {})[d] || {})[b] || []; const after = {};
@@ -3775,11 +3786,14 @@ function cookCard(go) { const P = prepsOpen(); const nx = P[0] && I(P[0]); const
     segs: Array.from({ length: 7 }, (_, i) => { const d = addDays(T0, i); return P.some((k) => (I(k).when || {}).date === d) ? (i === 0 ? SEGOK : SEGSOFT) : SEG0; }), foot: 'This week · one bar per day' }); }
 // a picked card is outlined in its own verdict colour (2026-11-10)
 const stripCard = (id, name, lvl, word, segs, on) => `<button class="vroom ${on ? 'on' : ''}" data-a="vpick" data-ref="${id}" aria-pressed="${on}"${on ? ` style="border-color:${VDOT[lvl]}"` : ''}><b>${esc(name)}</b><span class="vv"><i style="background:${VDOT[lvl]}"></i>${esc(word)}</span>${segBar(segs, 'sm')}</button>`;
-function jobRow(j, place, plain) { const it = I(j.id); const late = j.left < 0; const filled = late ? 7 : Math.max(1, 7 - Math.round(j.fresh * 7));
+// the bar counts down to the next repeat (the owner, 2026-11-13): one segment per day up to 14 days, then one per week, past ten weeks one per month
+function jobSegs(j) { const n = Math.max(1, j.n || 7); const u = n <= 14 ? 1 : n <= 70 ? 7 : 30; const segs = Math.min(12, Math.max(1, Math.round(n / u))); const late = j.left < 0;
+  const filled = late ? segs : Math.min(segs, Math.ceil(Math.max(0, j.left) / u)); return Array.from({ length: segs }, (_, i) => i < filled ? (late ? SEGLATE : SEGDUE) : SEG0); }
+function jobRow(j, place, plain) { const it = I(j.id); const late = j.left < 0;
   if (!plain) { const on = isDone(j.id, T0); const c = late ? SEGLATE : SEGDUE; // tick circle like Study (2026-11-04)
     return `<div class="vjob vtk" data-ref="${j.id}"><button class="tickbtn" data-a="vtick" data-ref="${j.id}" aria-label="Tick ${esc(tnm(it))} as done today" aria-pressed="${on}"><span class="circ ${on ? 'done vcol' : halfOf(j.id) ? 'half' : ''}" style="--c:${c}">${on ? '✓' : ''}</span></button>${jobRow(j, place, true).replace('<button class="vjob" data-a="vjob"', '<button class="vjin" data-a="sched"')}</div>`; }
   const unit = late ? (j.left === -1 ? 'day overdue' : 'days overdue') : j.left === 1 ? 'day left' : 'days left';
-  return `<button class="vjob" data-a="vjob" data-ref="${j.id}"><span class="vjh"><span class="vjt"><b>${inm(it)}</b></span><span class="vbig"><em ${late ? 'class="late"' : ''}>${Math.abs(j.left)}</em> ${unit}</span></span><span class="mono vjm">${esc(place)}</span>${segBar(Array.from({ length: 7 }, (_, i) => i < filled ? (late ? SEGLATE : SEGDUE) : SEG0))}</button>`; }
+  return `<button class="vjob" data-a="vjob" data-ref="${j.id}"><span class="vjh"><span class="vjt"><b>${inm(it)}</b></span><span class="vbig"><em ${late ? 'class="late"' : ''}>${Math.abs(j.left)}</em> ${unit}</span></span><span class="mono vjm">${esc(place)}</span>${segBar(jobSegs(j))}</button>`; }
 // tick: the subject page's version, with a circle on the left in the urgency bar's colour; the rest of the card opens the timer (2026-11-04)
 function taskRow(t, tick) { const it = I(t.id);
   if (tick) { const u = studyUrg(t); const c = u ? u[0] : '#ABA59C'; const on = !!val(T0, t.id);
