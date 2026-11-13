@@ -139,7 +139,7 @@ function subjVerdict(s) {
 function studyVerdict() {
   const V = subjIds().map(subjVerdict); const T = V.flatMap((v) => v.tasks); const b = dayBar(null);
   const sd = b.filter((c) => c === SEGOK).length, ud = b.filter((c) => c === SEGSOFT).length;
-  const wk = Array.from({ length: 7 }, (_, i) => minOn(null, addDays(T0, -i))).reduce((a, c) => a + c, 0);
+  const wk = Array.from({ length: 7 }, (_, i) => minOn(null, addDays(T0, -i)) + supMin(addDays(T0, -i))).reduce((a, c) => a + c, 0);
   const next = T.filter((t) => t.due !== undefined && t.due >= 0).sort((a, c) => a.due - c.due)[0];
   // Study support counts as showing up (2026-10-28): never framed as missed study
   // the main card tells deadlines and review apart (2026-11-10): deadlines decide the first part, review adds "but slipping" or "review due"
@@ -366,9 +366,11 @@ function timerPage() {
 // Study support is a normal journal page with the tag 'Study support' (2026-11-10): today's one opens, or a new one starts
 const SUP_TAG = 'Study support'; // its pages also carry 'Studies' (the owner, 2026-11-12)
 const supEntry = (e) => !!e && (e.tags || []).includes(SUP_TAG);
+// one Study support page a day: it always opens the same page (the owner, 2026-11-13)
+const supToday = () => (M.journal || []).find((x) => x.d === T0 && supEntry(x)) || null;
 const supOn = () => S.area === 'notebook' && S.nbView === 'jpage' && (supEntry(jCurrent()) || (S.jEntry === 'new' && (S.jNewTags || []).includes(SUP_TAG)));
 function supOpen() { const cur = S.nbView === 'jpage' && S.area === 'notebook'; if (cur) { jSync(); jDropEmpty(); save(); }
-  const e = (M.journal || []).filter((x) => x.d === T0 && supEntry(x)).pop(); S.sheet = null; S.menu = false; S.stv = null; S.jFrom = 'study'; S.area = 'notebook'; S.insOn = false; S.jBack = 'home';
+  const e = supToday(); S.sheet = null; S.menu = false; S.stv = null; S.jFrom = 'study'; S.area = 'notebook'; S.insOn = false; S.jBack = 'home';
   S.jMenu = false; S.jTagOpen = false; S.jRe = null; S.jSel = null; S.jCaret = null; S.nbView = 'jpage'; S.jEntry = e ? e.id : 'new'; S.jNewTags = e ? null : [SUP_TAG, 'Studies'];
   render(); if (typeof jGrow === 'function') jGrow(); $('#main').scrollTop = 0; }
 function saveTimer(msg) { const t = M.timer; if (!t) return; const min = Math.round(tElapsed() / 60000); const id = t.id && I(t.id) ? t.id : null; const before = minOn(null, T0) + supMin(T0);
