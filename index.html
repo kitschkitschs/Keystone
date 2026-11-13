@@ -6627,7 +6627,7 @@ function mindLayout(b, only) {
   roots.forEach((root) => { const t = treeLayout(b, root, P, col); trees.push(t);
     let dx = 0, dy = 0; if (only) {} else if (root.ox != null) { dx = root.ox; dy = root.oy; } else if (yb != null) dy = yb + 80 - t.y0;
     t.ids.forEach((id) => { P[id].cx += dx; P[id].cy += dy; }); if (root.ox == null) yb = Math.max(yb == null ? -Infinity : yb, t.y1 + dy); });
-  mmShared(b, P);
+  mmShared(b, P); mmRowMid(b, P);
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; Object.values(P).forEach((p) => { const e = p.l ? 26 : 0; x0 = Math.min(x0, p.cx - p.w / 2 - e); x1 = Math.max(x1, p.cx + p.w / 2 + e); y0 = Math.min(y0, p.cy - p.h / 2 - e); y1 = Math.max(y1, p.cy + p.h / 2 + e); });
   return { P, col, root: roots[0], roots, x0: x0 - MM.pad, y0: y0 - MM.pad, W: x1 - x0 + MM.pad * 2, H: y1 - y0 + MM.pad * 2 }; }
 // a word with more than one parent (x.also, the owner 2026-11-13): it sits centred between all its parents, past the
@@ -6644,6 +6644,13 @@ function mmShared(b, P) { const MI = mmItems(b); const kids = {}; MI.forEach((i)
       shift(x.id, ax - p.cx, (v > 0 ? Math.max(p.cy, want) : Math.min(p.cy, want)) - p.cy); p.shared = { v }; }
     else { const s = p.side || (p.cx >= ax ? 1 : -1); const edge = s > 0 ? Math.max(...reach.map((q) => q.cx + q.w / 2)) : Math.min(...reach.map((q) => q.cx - q.w / 2)); const want = edge + s * MM.hg + s * p.w / 2;
       shift(x.id, (s > 0 ? Math.max(p.cx, want) : Math.min(p.cx, want)) - p.cx, ay - p.cy); p.shared = { s }; } }); }
+// a row hangs centred on the line from its word: the middle between its first and last item sits right under the stem,
+// whatever the items' widths (the owner, 2026-11-13)
+function mmRowMid(b, P) { const MI = mmItems(b); const kids = {}; MI.forEach((i) => { if (i.parent) (kids[i.parent] = kids[i.parent] || []).push(i.id); });
+  const shift = (id, dx) => { const p = P[id]; if (!p) return; p.cx += dx; if (p.el) p.el = Object.assign({}, p.el, { x: p.el.x + dx }); if (p.bus) p.bus = Object.assign({}, p.bus, { x: p.bus.x + dx }); (kids[id] || []).forEach((k) => shift(k, dx)); };
+  MI.forEach((v) => { if (!v.virt || !P[v.id] || !P[v.parent]) return; const g = (b.groups || []).find((q) => 'g:' + q.id === v.id); if (!g || g.at != null || g.jat) return;
+    const ms = (kids[v.id] || []).filter((id) => P[id] && P[id].bus); if (ms.length < 2) return; const xs = ms.map((id) => P[id].cx); const mid = (Math.min(...xs) + Math.max(...xs)) / 2;
+    const q = P[v.parent], p = P[v.id]; const want = p.shared ? p.cx : q.cx; const dx = want - mid; if (Math.abs(dx) < 0.5) return; ms.forEach((id) => shift(id, dx)); }); }
 // free words (x.free) are left out of the tidy layout: they sit where I put them (dx, dy from their parent) and their own branches are laid out from them
 function mmItems(b) { const G = (b.groups || []); if (!G.length) return b.items; const gs = new Map(G.map((g) => [g.id, g])); const out = [], seen = new Set();
   const own = new Set(b.items.filter((x) => !x.t && x.ls && G.some((g) => g.parent === x.id && b.items.some((i) => i.g === g.id && i.parent === x.id))).map((x) => x.id));
