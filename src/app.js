@@ -1988,7 +1988,7 @@ function hSummary(gid, d) {
 const mealsOn = (d) => M.photos[d] || [];
 const mealSrc = (p) => p.asset ? blobUrl(p.asset) : p.src;
 function mealTile(p, d) {
-  const kw = KINDS3.find((k) => k[0] === mealKind(p))[1]; const sub = [kw].concat(p.tags || []).join(', ');
+  const kw = KINDS3.find((k) => k[0] === mealKind(p))[1]; const sub = kw; // a meal's tags are data only and never show on it (2026-11-13)
   const lab = [sub, p.text].filter(Boolean).join(' · ');
   return `<button class="photo${mealSrc(p) ? '' : ' txt'}" data-a="${mealSrc(p) ? 'mealview' : 'meal'}" data-ref="${p.id}" data-v="${d}" aria-label="Meal${lab ? ': ' + esc(lab) : ''}">${mealSrc(p) ? `<img src="${esc(mealSrc(p))}" alt="">${p.text ? `<span>${esc(p.text)}</span>` : ''}` : `<em>${esc(p.text || kw)}</em><span>${esc(sub)}</span>`}</button>`;
 }
