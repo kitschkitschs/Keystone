@@ -6900,8 +6900,13 @@ function mindSvg(b, thumb, only, L0) { const Lo = L0 || mindLayout(b, only); if 
     if (x.parent && P[x.parent] && p.shared && !LG && !p.virt) { [x.parent].concat(mmAlso(b, x)).forEach((pid) => { const q = P[pid]; if (!q) return; const sh = p.shared;
         if (sh.v) { const v = sh.v; const ax = X(q.cx), ay = Y(q.cy + v * q.h / 2), bx = X(p.cx), by = Y(p.cy - v * p.h / 2); const m = Math.max(14, Math.abs(by - ay) / 2); lines += `<path d="M${ax} ${ay}C${ax} ${ay + v * m} ${bx} ${by - v * m} ${bx} ${by}" ${LS}/>`; }
         else { const s = sh.s; const ax = X(q.cx + s * q.w / 2), ay = Y(q.cy), bx = X(p.cx - s * p.w / 2), by = Y(p.cy); const m = Math.max(14, Math.abs(bx - ax) * 0.55); lines += `<path d="M${ax} ${ay}C${ax + s * m} ${ay} ${bx - s * m} ${by} ${bx} ${by}" ${LS}/>`; } }); }
-    else if (LG) { GEO[grp ? grp.id : x.id] = LG; const lst = grp && grp.lst; lines += `<path d="${mmElb(LG.trunk.map(([u, v]) => [X(u), Y(v)]))}" ${LS}/>`;
-      if (p.shared) mmAlso(b, x).forEach((pid) => { const Li = P[pid] && mmListGeo(P, x, MI.filter((i) => i.parent === x.id), P[pid], null, SH[pid], null); if (Li) lines += `<path d="${mmElb(Li.trunk.map(([u, v]) => [X(u), Y(v)]))}" ${LS}/>`; }); // a list shared by several words (the owner, 2026-11-13)
+    else if (LG) { GEO[grp ? grp.id : x.id] = LG; const lst = grp && grp.lst;
+      if (p.shared && p.shared.v) { // a list shared by several words (the owner, 2026-11-13): each word's line curves into one point, one stem goes on to the list
+        const v = p.shared.v; const E = LG.row ? [(LG.spine[0][0] + LG.spine[1][0]) / 2, LG.y] : LG.trunk[LG.trunk.length - 1]; const J = [E[0], E[1] - v * 16];
+        lines += `<path d="M${X(J[0])} ${Y(J[1])}L${X(E[0])} ${Y(E[1])}" ${LS}/>`;
+        [x.parent].concat(mmAlso(b, x)).forEach((pid) => { const q = P[pid]; if (!q) return; const ax = X(q.cx), ay = Y(q.cy + v * q.h / 2), bx = X(J[0]), by = Y(J[1]); const m = Math.max(12, Math.abs(by - ay) / 2); lines += `<path d="M${ax} ${ay}C${ax} ${ay + v * m} ${bx} ${by - v * m} ${bx} ${by}" ${LS}/>`; }); }
+      else { lines += `<path d="${mmElb(LG.trunk.map(([u, v]) => [X(u), Y(v)]))}" ${LS}/>`;
+        if (p.shared) mmAlso(b, x).forEach((pid) => { const Li = P[pid] && mmListGeo(P, x, MI.filter((i) => i.parent === x.id), P[pid], null, SH[pid], null); if (Li) lines += `<path d="${mmElb(Li.trunk.map(([u, v]) => [X(u), Y(v)]))}" ${LS}/>`; }); }
       lines += '' + (lst === 'bullet' || lst === 'num' ? '' : `<path d="M${X(LG.spine[0][0])} ${Y(LG.spine[0][1])}L${X(LG.spine[1][0])} ${Y(LG.spine[1][1])}" ${LS}/>`); }
     else if (x.parent && P[x.parent] && p.virt && !p.el && !p.bus && !p.rad && !p.free) { const q = P[x.parent];
       if (p.fan) { const s = p.side, [ax, ay] = mmAnchor(q, s > 0 ? 'r' : 'l', at || 0, SH[x.parent]), mx = ax + s * Math.min(16, Math.abs(p.cx - ax) / 2); const J = grp && JX[grp.id] || { x: p.cx, y: p.cy }; lines += `<path d="${mmElb([[X(ax), Y(ay)], [X(mx), Y(ay)], [X(mx), Y(J.y)], [X(J.x), Y(J.y)]])}" ${LS}/>`; }
@@ -6951,7 +6956,7 @@ function mindSvg(b, thumb, only, L0) { const Lo = L0 || mindLayout(b, only); if 
 function bListFor(b, par, side, at) { b.groups = (b.groups || []).filter((q) => b.items.some((i) => i.g === q.id && i.parent === q.parent)); let g = (b.groups || []).find((q) => q.parent === par && q.ls === 'list' && (q.dir || '') === (side || '')); if (!g) { g = Object.assign({ id: uid('mg'), parent: par, ls: 'list' }, side ? { dir: side } : {}, +at ? { at: +at } : {}); (b.groups = b.groups || []).push(g); } return g.id; }
 function mmNew(parent, after, dir, gid) { const b = curBoard(); if (!b) return; const before = bState(b); const id = uid('mn');
   const par = b.items.find((i) => i.id === parent); if (par && par.fold) par.fold = false;
-  const it = { id, text: '', parent }; const pd = dir || (after && !(b.items.find((i) => i.id === parent) || {}).parent && mmDir(after)); if (after && after.g && !gid) gid = after.g; if (gid) { it.g = gid; delete it.dir; } else if (pd) it.dir = pd; if (after) { const i = b.items.indexOf(after); b.items.splice(i + 1, 0, it); } else b.items.push(it); bTouch(b);
+  const it = { id, text: '', parent }; const pd = dir || (after && mmDir(after)); if (after && !after.g && !gid && after.at != null) it.at = after.at; /* a new word next to another goes the same way, from the same point (the owner, 2026-11-13) */ if (after && after.g && !gid) gid = after.g; if (gid) { it.g = gid; delete it.dir; } else if (pd) it.dir = pd; if (after) { const i = b.items.indexOf(after); b.items.splice(i + 1, 0, it); } else b.items.push(it); bTouch(b);
   S.bSel = id; S.bPanel = null; render(); mmEdit(id, before); }
 function mmEdit(id, before) { const el = document.querySelector(`.mmn[data-id="${id}"] .mmt`); if (!el) return; const b = curBoard();
   S.bEditBefore = before || (b && bState(b)); el.contentEditable = 'plaintext-only'; el.focus({ preventScroll: true });
