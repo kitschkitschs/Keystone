@@ -352,6 +352,8 @@ function tElapsed() { const t = M.timer; if (!t) return 0; return (t.acc || 0) +
 const fmtClock = (ms) => { const s = Math.floor(ms / 1000); return pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60); };
 const tPct = () => Math.min(100, Math.round((minOn(null, T0) + supMin(T0) + tElapsed() / 60000) / sessLen() * 100));
 const T_C = 2 * Math.PI * 104;
+// the generic Study session's clock shows the whole day's study time, Study support writing included (the owner, 2026-11-13)
+const tShown = () => { const id = M.timer && M.timer.id && I(M.timer.id) ? M.timer.id : null; return tElapsed() + (id ? 0 : minOn(null, T0) * 60000 + supMs()); };
 const tRule = () => { const m = Math.floor(minOn(null, T0) + supMin(T0) + tElapsed() / 60000); return m >= sessLen() ? dur(m) + ' today · session done' : m + ' of ' + sessLen() + ' min today'; };
 // the timer (polished, 2026-11-10): what I'm working on, the clock inside a ring that fills up to one study session, one line of progress, the buttons
 function timerPage() {
@@ -359,7 +361,7 @@ function timerPage() {
   const sub = id ? (() => { const s = subjIds().find((x) => sIds(x).includes(id)); return s ? G(s).name : ''; })() : '';
   return (S.studyMode ? '' : crumbs([[studyName(), ''], ['Timer']])) + `<div class="vtimer">
     <button class="vtt" data-a="vtpick" aria-label="Change what I'm working on">${esc(id ? I(id).name : 'Study session')} <span class="chev" aria-hidden="true">⌄</span></button><span class="mono vtsub">${esc(sub)}</span>
-    <div class="vring"><svg viewBox="0 0 224 224" aria-hidden="true"><circle cx="112" cy="112" r="104" fill="none" stroke="var(--soft)" stroke-width="8"/><circle id="tring" cx="112" cy="112" r="104" fill="none" stroke="${col}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${T_C}" stroke-dashoffset="${T_C * (1 - tPct() / 100)}" transform="rotate(-90 112 112)"/></svg><div class="vclock ${run ? '' : 'idle'}" id="tclock" role="timer">${fmtClock(tElapsed())}</div></div>
+    <div class="vring"><svg viewBox="0 0 224 224" aria-hidden="true"><circle cx="112" cy="112" r="104" fill="none" stroke="var(--soft)" stroke-width="8"/><circle id="tring" cx="112" cy="112" r="104" fill="none" stroke="${col}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${T_C}" stroke-dashoffset="${T_C * (1 - tPct() / 100)}" transform="rotate(-90 112 112)"/></svg><div class="vclock ${run ? '' : 'idle'}" id="tclock" role="timer">${fmtClock(tShown())}</div></div>
     <span class="mono" id="trule">${tRule()}</span>
     <div class="btns" style="justify-content:center"><button class="btn dark vtgo" data-a="${run ? 'tpause' : 'tstart'}">${run ? 'Pause' : any ? 'Carry on' : 'Start'}</button>${run || any ? '<button class="btn" data-a="tstop">Stop and save</button>' : ''}</div></div>`;
 }
@@ -378,7 +380,7 @@ function saveTimer(msg) { const t = M.timer; if (!t) return; const min = Math.ro
   change(() => { M.study = M.study || {}; (M.study[T0] = M.study[T0] || []).push({ id, min }); L(T0); }, msg || ('Saved ' + dur(min) + (before < sessLen() && before + min >= sessLen() ? ' · study session done' : '')), false); }
 let supT = 0;
 setInterval(() => {
-  const c = document.getElementById('tclock'); if (c && M.timer && M.timer.start) { c.textContent = fmtClock(tElapsed()); const b = document.getElementById('tring'); if (b) b.setAttribute('stroke-dashoffset', T_C * (1 - tPct() / 100)); const r = document.getElementById('trule'); if (r) r.textContent = tRule(); }
+  const c = document.getElementById('tclock'); if (c && M.timer && M.timer.start) { c.textContent = fmtClock(tShown()); const b = document.getElementById('tring'); if (b) b.setAttribute('stroke-dashoffset', T_C * (1 - tPct() / 100)); const r = document.getElementById('trule'); if (r) r.textContent = tRule(); }
   // Study support time runs only while writing (typed in the last 20 seconds), and pauses when you stop
   if (supOn() && S.supLast && Date.now() - S.supLast < 20000) {
     M.support = M.support || {}; const sp = M.support[T0] = M.support[T0] || { text: '', ms: 0, min: 0 }; const was = sp.min + minOn(null, T0) >= sessLen();

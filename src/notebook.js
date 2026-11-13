@@ -106,6 +106,7 @@ function renderJournal() { const e = jCurrent(); const T = (e && e.tags) || []; 
   const items = (typeof supOn === 'function' && supOn() ? supClock() : '') + (ed ? `<label role="menuitem" class="jmrow" tabindex="0">${jmi('image-plus', 'Add a picture')}<input type="file" accept="image/*" multiple id="jimgin" hidden></label><span class="mono jmtag">Paper</span>${[['lined', 'Lined'], ['blank', 'Blank']].map(([k, l]) => `<button role="menuitemradio" data-a="jpaper" data-v="${k}" aria-checked="${jBlank(e) === (k === 'blank')}">${l}${jBlank(e) === (k === 'blank') ? icon('check', 16, 2) : ''}</button>`).join('')}<span class="mono jmtag">Text</span><span class="jtxtm jmtxt">${jTxtRows(e)}</span>` : `<button role="menuitem" data-a="jreply" data-ref="${e.id}">${jmi('reply', 'Write an answer')}</button>`)
     + `<button role="menuitem" data-a="jnew">${jmi('file-plus', 'Fresh page')}</button><button role="menuitem" data-a="jlistopen">${jmi('book-open', 'Earlier pages')}</button>` 
     + `<span class="mono jmtag">Tags</span>${jTags().map((t) => `<button role="menuitemcheckbox" data-a="jtagtog" data-v="${esc(t)}" aria-checked="${T.includes(t)}">${esc(t)}${T.includes(t) ? icon('check', 16, 2) : ''}</button>`).join('')}${addOpen('jnewtagin') ? `<div class="inrow jtagnew"><input class="inp" id="jnewtagin" placeholder="New tag" enterkeyhint="done" autocomplete="off"><button class="btn" data-a="jnewtag">Add</button></div>` : `<button role="menuitem" data-a="openadd" data-v="jnewtagin">${jmi('plus', 'New tag')}</button>`}`
+    + (e && (e.text || '').trim() ? `<button role="menuitem" data-a="jcopy" data-ref="${e.id}">${jmi('copy', 'Copy as text')}</button>` : '') // (the owner, 2026-11-13)
     + (e ? `<button role="menuitem" class="ndel" data-a="jdelete" data-ref="${e.id}">${jmi('trash', 'Delete this page')}</button>` : ''); // Delete sits at the bottom (2026-11-08)
   const tools = `<span class="vsortw"><button class="fbtn" data-a="jmenu" aria-label="More" aria-haspopup="menu" aria-expanded="${!!S.jMenu}">${icon('ellipsis', 18)}</button>${S.jMenu ? `<span class="vsortx" data-a="jmenu"></span><span class="vdrop vsortm jmenu" role="menu">${items}</span>` : ''}</span>`;
   return `<div class="jhead"><span class="mono jstamp">${esc(stampOf(e ? e.d : T0, ''))}</span>${tools}<button class="jbook" data-a="jsave" aria-label="Close">${jBookBtn()}</button></div>${jLinks(e)}`
@@ -222,7 +223,7 @@ function jPtOff(node, off) { const fl = document.querySelector('.jpaper .jflow')
   const L = [...fl.querySelectorAll('.jl:not(.jprobe)')]; const n = L[off] || null; return n ? +n.dataset.a : (L.length ? +L[L.length - 1].dataset.b : 0); }
 function jSelOffs() { const s = getSelection(); if (!s || !s.rangeCount) return null; const r = s.getRangeAt(0); const a = jPtOff(r.startContainer, r.startOffset), b = jPtOff(r.endContainer, r.endOffset); return a == null || b == null ? null : [Math.min(a, b), Math.max(a, b)]; }
 function jSpanAt(o) { const L = [...document.querySelectorAll('.jpaper .jflow .jl:not(.jprobe)')]; return L.find((n) => +n.dataset.a <= o && o < +n.dataset.b) || L.find((n) => +n.dataset.b === o) || L.find((n) => +n.dataset.a === o) || L[L.length - 1]; }
-function jSetCaret(o, o2) { const fl = document.querySelector('.jpaper .jflow'); if (!fl) return; const at = (x) => { const n = jSpanAt(x); if (!n) return [fl, 0]; const tw = document.createTreeWalker(n, NodeFilter.SHOW_TEXT); const ts = []; while (tw.nextNode()) ts.push(tw.currentNode); if (!ts.length) return [n, 0]; if (n.classList.contains('e')) return [ts[0], 0]; let k = Math.max(0, x - +n.dataset.a); for (const t of ts) { if (k <= t.length) return [t, k]; k -= t.length; } const lt = ts[ts.length - 1]; return [lt, lt.length]; };
+function jSetCaret(o, o2) { const fl = document.querySelector('.jpaper .jflow'); if (!fl) return; const at = (x) => { const n = jSpanAt(x); if (!n) return [fl, 0]; const tw = document.createTreeWalker(n, NodeFilter.SHOW_TEXT); const ts = []; while (tw.nextNode()) ts.push(tw.currentNode); if (!ts.length) return [n, 0]; if (n.classList.contains('e')) return [ts[0], ts[0].length]; let k = Math.max(0, x - +n.dataset.a); for (const t of ts) { if (k <= t.length) return [t, k]; k -= t.length; } const lt = ts[ts.length - 1]; return [lt, lt.length]; };
   const [n1, k1] = at(o); const r = document.createRange(); r.setStart(n1, k1); if (o2 != null && o2 !== o) { const [n2, k2] = at(o2); r.setEnd(n2, k2); } else r.collapse(true); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
 // one edit to the words: replace [s, t) with str, keeping the paragraph styles in step
 function jEdit(s, t, str) { const e = jMake(); const T = e.text || ''; s = Math.max(0, Math.min(s, T.length)); t = Math.max(s, Math.min(t, T.length));
@@ -266,16 +267,26 @@ if (window.visualViewport) visualViewport.addEventListener('resize', jFollowSoon
 // while a word is being composed it may run past the end of its line: let that line wrap until the word is done, instead of the page sliding sideways
 document.addEventListener('compositionupdate', (ev) => { const fl = ev.target.closest && ev.target.closest('.jflow'); if (!fl) return; const s = getSelection(); const n = s && s.rangeCount ? s.getRangeAt(0).startContainer : null; const el = n && (n.nodeType === 3 ? n.parentNode : n); const sp = el && el.closest && el.closest('.jl'); if (sp && sp.scrollWidth > sp.clientWidth + 1) sp.classList.add('cmp'); jFollowSoon(); });
 let jComp = false;
-document.addEventListener('compositionstart', (ev) => { if (ev.target.closest && ev.target.closest('.jflow')) jComp = true; });
-document.addEventListener('compositionend', (ev) => { if (!(ev.target.closest && ev.target.closest('.jflow'))) return; jComp = false; setTimeout(jSyncDom, 0); });
+// A word the keyboard composes goes into the text by where it started, not by reading the page back: replacing the
+// composed word, the browser can melt a line into the one above it (the owner, 2026-11-13: a line break jumped up a
+// line on the phone). jCR = the stretch of text the word replaces, jCD = the word so far.
+let jCR = null, jCD = '';
+function jCommit() { if (!jCR) { jSyncDom(); return; } const [s, t] = jCR; jCR = null; const c = jEdit(s, t, jCD || ''); jCD = ''; jLayoutText(); jSetCaret(c); S.jCaret = c; S.jCaretEnd = c; jFollowSoon(); }
+document.addEventListener('compositionstart', (ev) => { if (ev.target.closest && ev.target.closest('.jflow')) { jComp = true; jCR = null; jCD = ''; } });
+document.addEventListener('compositionupdate', (ev) => { if (ev.target.closest && ev.target.closest('.jflow')) jCD = ev.data || ''; });
+document.addEventListener('compositionend', (ev) => { if (!(ev.target.closest && ev.target.closest('.jflow'))) return; jComp = false; if (ev.data != null) jCD = ev.data; setTimeout(jCommit, 0); });
 // Enter makes the new line here, before the keyboard can put its own break in the page (the owner, 2026-11-12: the text jumped a line up)
 document.addEventListener('keydown', (ev) => { if (ev.key !== 'Enter' || ev.ctrlKey || ev.metaKey || ev.altKey) return; const fl = ev.target.closest && ev.target.closest('.jflow'); if (!fl || !fl.isContentEditable) return;
-  ev.preventDefault(); if (jComp) { jComp = false; jSyncDom(); } { const r = jFromDom(); const e0 = jCurrent(); if (r && r.text !== ((e0 && e0.text) || '')) jSyncDom(); }
+  ev.preventDefault(); if (jComp || jCR) { jComp = false; jCommit(); } { const r = jFromDom(); const e0 = jCurrent(); if (r && r.text !== ((e0 && e0.text) || '')) jSyncDom(); }
   const so = jSelOffs(); if (!so) return; const c = jEdit(so[0], so[1], '\n'); jLayoutText(); jSetCaret(c); S.jCaret = c; S.jCaretEnd = c; jFollowSoon(); });
 document.addEventListener('beforeinput', (ev) => { const fl = ev.target.closest && ev.target.closest('.jflow'); if (!fl || !fl.isContentEditable) return; const brk = ev.inputType === 'insertParagraph' || ev.inputType === 'insertLineBreak';
   // Enter while the keyboard is still composing a word: the word goes in first, then the new paragraph (2026-11-11: Enter jumped a line up)
-  if (brk && (ev.isComposing || jComp)) { jComp = false; jSyncDom(); }
-  else if (ev.isComposing || jComp || ev.inputType === 'insertCompositionText') return;
+  if (ev.inputType === 'insertCompositionText' && !jCR) { const tr = ev.getTargetRanges ? ev.getTargetRanges()[0] : null; let a = tr ? jPtOff(tr.startContainer, tr.startOffset) : null, b = tr ? jPtOff(tr.endContainer, tr.endOffset) : null;
+    if (a == null || b == null) { const so = jSelOffs(); if (so) [a, b] = so; } if (a != null && b != null) jCR = [Math.min(a, b), Math.max(a, b)]; }
+  if (ev.inputType === 'insertCompositionText') jCD = ev.data || '';
+  if (brk && (ev.isComposing || jComp || jCR)) { jComp = false; jCommit(); }
+  else if (ev.isComposing || ev.inputType === 'insertCompositionText') return;
+  else if (jComp || jCR) { jComp = false; jCommit(); } /* a key that isn't part of the word ends it, even without compositionend */
   // a word the keyboard just finished (composition) may not be in the page's text yet; take it in first, or the next key
   // (the space) rebuilds the lines from the old text and the word disappears (2026-11-11)
   { const r = jFromDom(); const e0 = jCurrent(); if (r && r.text !== ((e0 && e0.text) || '')) jSyncDom(); }
@@ -370,6 +381,7 @@ function notebookAction(act, a, ref, v) {
     case 'ntagmenu': ncapture(); S.nTagOpen = !S.nTagOpen; renderLayer(); return true;
     case 'notesave': { if (a && !a.dataset.ok && a.classList.contains('npad')) { nAuto(); a.dataset.ok = '1'; a.classList.add('peeled'); setTimeout(() => { a.dispatchEvent(new MouseEvent('click', { bubbles: true })); }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 700); return true; }
       S.nTagOpen = false; nAuto(); S.sheet = null; render(); return true; }
+    case 'jcopy': { if (S.nbView === 'jpage' && typeof jSync === 'function') jSync(); const e = (M.journal || []).find((x) => x.id === ref); S.jMenu = false; render(); noteCopy(e && (e.text || '').trim(), 'Page'); return true; }
     case 'ncopy': { ncapture(); S.nTagOpen = false; renderLayer(); const D = S.sheet.draft; noteCopy([D.title, D.text].filter((x) => (x || '').trim()).join('\n\n')); return true; }
     case 'ndelete': { const s = S.sheet; S.sheet = null; S.nTagOpen = false; change(() => { const L = noteList(s); const i = L.findIndex((x) => x.id === s.ref); if (i >= 0) L.splice(i, 1); }, 'Note deleted'); return true; }
     case 'nfopen': S.nFOpen = !S.nFOpen; render(); return true;
@@ -408,6 +420,6 @@ function notebookAction(act, a, ref, v) {
   return false;
 }
 
-async function noteCopy(t) { if (!t) { flash('Nothing in the note to copy'); return; }
-  try { await navigator.clipboard.writeText(t); flash('Note copied'); return; } catch (e) {}
-  try { const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); flash(ok ? 'Note copied' : 'Could not copy the note'); } catch (e) { flash('Could not copy the note'); } }
+async function noteCopy(t, what = 'Note') { const w = what.toLowerCase(); if (!t) { flash('Nothing in the ' + w + ' to copy'); return; }
+  try { await navigator.clipboard.writeText(t); flash(what + ' copied'); return; } catch (e) {}
+  try { const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); flash(ok ? what + ' copied' : 'Could not copy the ' + w); } catch (e) { flash('Could not copy the ' + w); } }

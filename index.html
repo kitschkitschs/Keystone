@@ -1321,7 +1321,7 @@ function dayListRaw(d, raw) {
     const inBlock = (k) => placements(k).some((p) => G(p)); // a check-in inside a routine shows there instead (2026-11-02)
     if (mi && inBlock(mi)) out[0].items.unshift(mi); if (ei && inBlock(ei)) out[out.length - 1].items.push(ei); }
   const appts = apptsOn(d);
-  appts.forEach((id) => { const x = at(blockAtTime(I(id).time || '23:59')); if (x) x.appts = (x.appts || []).concat([id]); });
+  appts.forEach((id) => { const x = at(blockAtTime(tAt(id, d) || '23:59')); if (x) x.appts = (x.appts || []).concat([id]); });
   return dropMissed(out, d);
 }
 // Missed (2026-11-02): an item marked missed leaves that day's list and schedule and drops into a Missed section.
@@ -1672,14 +1672,16 @@ function slotDrop(out) {
     const studyOn = all.some((id) => sids.has(id) || (I(id) && I(id).part && sids.has(I(id).part))), choreOn = all.some((id) => cids.has(id)), moveOn = all.some((id) => tids.has(id));
     if (studyOn || choreOn || moveOn || hobOn) out.forEach((x) => { x.items = x.items.filter((id) => !(I(id) && I(id).type === 'slot' && ((I(id).opens === 'study' && studyOn) || (I(id).opens === 'chores' && choreOn) || (I(id).opens === 'training' && moveOn) || (I(id).opens === 'hobbies' && hobOn)))); });
   return out; }
+// a set-time item dragged on the Schedule for one day keeps that day's time in M.dayTime (2026-11-13)
+const tAt = (id, d) => ((M.dayTime || {})[d] || {})[id] || I(id).time;
 function placeDay(d) {
   const fz = frozenOf(d); if (fz) { const keep = new Set(slotDrop([{ items: fz.filter((o) => !o.appt).map((o) => o.id) }])[0].items); return fz.filter((o) => !isMissed(o.id, d) && (o.appt || keep.has(o.id))).map((o) => Object.assign({}, o)); }
   const out = []; const DL = dayList(d);
   // items with a set time (and appointments) are fixed for the whole day; untimed items flow around ALL of them, and a block
   // that spills over pushes the next block's untimed items later, so nothing hides behind anything (2026-11-02)
   const allFixed = []; DL.forEach(({ b, items, appts }) => { const g = G(b);
-    items.filter((id) => I(id).time).forEach((id) => allFixed.push({ id, a: hm(I(id).time), b: hm(I(id).time) + (I(id).dur || 30), blk: b }));
-    (appts || []).forEach((id) => allFixed.push({ id, a: hm(I(id).time || g.start), b: hm(I(id).time || g.start) + (I(id).dur || 30), appt: true, blk: b })); });
+    items.filter((id) => I(id).time).forEach((id) => { const t = hm(tAt(id, d)); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), blk: b }); });
+    (appts || []).forEach((id) => { const t = hm(tAt(id, d) || g.start); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), appt: true, blk: b }); }); });
   // a block that runs over keeps its extra items: they spill past its end into a red stretch on Schedule (2026-11-02)
   DL.forEach(({ b, items, appts }) => {
     const g = G(b); let cur = hm(g.start);
@@ -1763,7 +1765,7 @@ function renderSchedule() {
       const fd = faded(di, o); const allFaded = [...Array(run).keys()].every((r) => faded(di + r, o));
       const lab = bk && !dayV && !jl && run > 1 ? `<span class="blab bkl" data-run="${rk}" style="top:${top}px;height:${ht}px;width:calc(${run} * (100% + 4px) - 4px)" aria-hidden="true"><span class="bkt"><span>${inm(it)}</span></span></span>`
         : !dayV && !jl && run > 1 && ht >= 14 ? `<span class="blab ${ht >= 30 ? '' : 'brow'} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''}" data-run="${rk}" style="top:${top}px;height:${ht}px;width:calc(${run} * (100% + 4px) - 4px);color:${allFaded ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" aria-hidden="true">${icon(boxIcon(o), 12, 2)}${fits ? `<span class="bn">${inm(it)}</span>` : ''}</span>` : '';
-      const mv = !o.appt && !it.time && it.type !== 'checkin' && d >= T0;
+      const mv = it.type !== 'checkin' && d >= T0; // set-time items and appointments move too, snapping to what's around them (2026-11-13)
       return `<button class="box ${dayV ? 'wide' : ''} ${mv ? 'mv' : ''} ${jl ? 'jl' : ''} ${jr ? 'jr' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && I(o.id) && I(o.id).brk ? ' brk ' + bkE : ''}" style="top:${top}px;height:${!o.appt && it.brk ? Math.max(14, yIn(o.b, o.blk) - top) : ht}px;--c:${c};--bg:${fd ? mix(pale(c), TH.page, 0.5) : pale(c)};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" ${rk ? `data-run="${rk}"` : ''} data-from="${o.a}" data-to="${o.b}" aria-label="${esc(tnm(it))}, ${fmtHM(o.a)}">${inner}</button>${lab}`; }).join('') + '</div>';
   });
   S.ymap = { y, h0, h1, zones: blockIds().filter((b) => OV[b]).map((b) => ({ b, top: yIn(ends[b], b), h: OV[b] / 60 * PX, e: ends[b], ov: OV[b] })) };
@@ -2551,11 +2553,28 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
   if (day !== x.from && !(it.when && it.when.mode === 'once')) { flash('Repeats keep their days. Change the rule in its settings.'); render(); return; }
   if (day < T0) { flash('Past days stay as they were'); render(); return; }
   // the untimed items already in that block on that day, in time order; drop after the last one that starts before m
+  // an item with a set time (or an appointment): its new time snaps to the nearest edge on that day, the end of the item
+  // before it, the start of the item after it or a block's start, so things can be blocked together (the owner, 2026-11-13)
+  const o0 = placeDay(x.from).find((o) => o.id === x.id) || {};
+  if (it.time || o0.appt) { const len = (o0.b - o0.a) || it.dur || 30; const tm = minuteAt((top - cr.top) / x.sc);
+    const cand = blockIds().map((k) => hm(G(k).start));
+    placeDay(day).filter((o) => o.id !== x.id && I(o.id).type !== 'checkin').forEach((o) => { cand.push(o.b); cand.push(o.appt || I(o.id).time ? o.a - len : o.a); });
+    const nr = cand.reduce((p, q) => Math.abs(q - tm) < Math.abs(p - tm) ? q : p, Infinity);
+    const a = Math.max(0, Math.abs(nr - tm) <= 30 ? nr : Math.round(tm / 5) * 5); const T = fmtHM(a); const nb = blockAtTime(T); const once = it.when && it.when.mode === 'once';
+    const unOrder = (o) => Object.values(o || {}).forEach((l) => { const i = l.indexOf(x.id); if (i >= 0) l.splice(i, 1); });
+    change(() => {
+      if (S.edit || once || o0.appt) { it.time = T; Object.values(M.dayTime || {}).forEach((q) => { delete q[x.id]; }); Object.values(M.dayOrder || {}).forEach(unOrder); Object.values(M.dayMove || {}).forEach((q) => { delete q[x.id]; });
+        if (day !== x.from && it.when) it.when.date = day;
+        if (!o0.appt && G(nb)) { const home = blockIds().find((k) => G(k).kids.includes(x.id)); if (home && home !== nb) { G(home).kids.splice(G(home).kids.indexOf(x.id), 1); G(nb).kids.push(x.id); } } }
+      else { ((M.dayTime = M.dayTime || {})[day] = M.dayTime[day] || {})[x.id] = T; unOrder((M.dayOrder || {})[day]);
+        const mv = (M.dayMove = M.dayMove || {})[day] = M.dayMove[day] || {}; const home = placements(x.id).find((p) => G(p) && G(p).style === 'dayblock'); if (home === nb) delete mv[x.id]; else mv[x.id] = nb; }
+    }, 'Moved ' + it.name + ' to ' + T + (day !== x.from ? ' on ' + fmtDate(day) : S.edit && !once && !o0.appt ? ' on every day' : ''));
+    return; }
   const PD = placeDay(day); const inB = PD.filter((o) => o.blk === b && I(o.id).type !== 'checkin' && o.id !== x.id);
   const prev = inB.filter((o) => mid(o) < m).sort((p, q) => p.b - q.b).pop();
   const idx = inB.filter((o) => mid(o) < m).length;
   // dropped in front of an item with a set time (a routine at 22:00): it's tacked on, ending right where that item starts
-  const nxt = inB.filter((o) => mid(o) >= m).sort((p, q) => p.a - q.a)[0]; const tk0 = (id) => { const T = (M.dayTack || {})[day] || {}; return (id in T ? T[id] : I(id).before) || null; }; /* in front of something already tacked on: it joins that row */ /* a break is never something to tack onto, and the drop has to be nearer the set-time item than the item before it (2026-11-11) */ const pv0 = inB.filter((o) => mid(o) < m).sort((p, q) => p.b - q.b).pop(); const near = (q) => !pv0 || (q.a - m) < (m - pv0.b);
+  const nxt = inB.filter((o) => mid(o) >= m).sort((p, q) => p.a - q.a)[0]; const tk0 = (id) => { const T = (M.dayTack || {})[day] || {}; return (id in T ? T[id] : I(id).before) || null; }; /* in front of something already tacked on: it joins that row */ /* a break is never something to tack onto, and the drop has to be nearer the set-time item than the item before it (2026-11-11) */ const pv0 = inB.filter((o) => mid(o) < m).sort((p, q) => p.b - q.b).pop(); const b0 = g && g.start ? hm(g.start) : 0; const near = (q) => (q.a - m) < (m - (pv0 ? pv0.b : b0)); /* with nothing before it, the block's start under its title is the other anchor (the owner, 2026-11-13) */
   // a break takes it only when the drop is right at it, within 20 minutes of its start (2026-11-12: in front of or behind everything, breaks included)
   const tack = !nxt ? null : nxt.appt || I(nxt.id).time ? (near(nxt) && (!I(nxt.id).brk || nxt.a - m <= 20) ? nxt.id : null) : tk0(nxt.id);
   const setTack = () => { const T = (M.dayTack = M.dayTack || {})[day] = (M.dayTack[day] || {}); T[x.id] = tack; };
@@ -3919,6 +3938,8 @@ function tElapsed() { const t = M.timer; if (!t) return 0; return (t.acc || 0) +
 const fmtClock = (ms) => { const s = Math.floor(ms / 1000); return pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60); };
 const tPct = () => Math.min(100, Math.round((minOn(null, T0) + supMin(T0) + tElapsed() / 60000) / sessLen() * 100));
 const T_C = 2 * Math.PI * 104;
+// the generic Study session's clock shows the whole day's study time, Study support writing included (the owner, 2026-11-13)
+const tShown = () => { const id = M.timer && M.timer.id && I(M.timer.id) ? M.timer.id : null; return tElapsed() + (id ? 0 : minOn(null, T0) * 60000 + supMs()); };
 const tRule = () => { const m = Math.floor(minOn(null, T0) + supMin(T0) + tElapsed() / 60000); return m >= sessLen() ? dur(m) + ' today · session done' : m + ' of ' + sessLen() + ' min today'; };
 // the timer (polished, 2026-11-10): what I'm working on, the clock inside a ring that fills up to one study session, one line of progress, the buttons
 function timerPage() {
@@ -3926,7 +3947,7 @@ function timerPage() {
   const sub = id ? (() => { const s = subjIds().find((x) => sIds(x).includes(id)); return s ? G(s).name : ''; })() : '';
   return (S.studyMode ? '' : crumbs([[studyName(), ''], ['Timer']])) + `<div class="vtimer">
     <button class="vtt" data-a="vtpick" aria-label="Change what I'm working on">${esc(id ? I(id).name : 'Study session')} <span class="chev" aria-hidden="true">⌄</span></button><span class="mono vtsub">${esc(sub)}</span>
-    <div class="vring"><svg viewBox="0 0 224 224" aria-hidden="true"><circle cx="112" cy="112" r="104" fill="none" stroke="var(--soft)" stroke-width="8"/><circle id="tring" cx="112" cy="112" r="104" fill="none" stroke="${col}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${T_C}" stroke-dashoffset="${T_C * (1 - tPct() / 100)}" transform="rotate(-90 112 112)"/></svg><div class="vclock ${run ? '' : 'idle'}" id="tclock" role="timer">${fmtClock(tElapsed())}</div></div>
+    <div class="vring"><svg viewBox="0 0 224 224" aria-hidden="true"><circle cx="112" cy="112" r="104" fill="none" stroke="var(--soft)" stroke-width="8"/><circle id="tring" cx="112" cy="112" r="104" fill="none" stroke="${col}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${T_C}" stroke-dashoffset="${T_C * (1 - tPct() / 100)}" transform="rotate(-90 112 112)"/></svg><div class="vclock ${run ? '' : 'idle'}" id="tclock" role="timer">${fmtClock(tShown())}</div></div>
     <span class="mono" id="trule">${tRule()}</span>
     <div class="btns" style="justify-content:center"><button class="btn dark vtgo" data-a="${run ? 'tpause' : 'tstart'}">${run ? 'Pause' : any ? 'Carry on' : 'Start'}</button>${run || any ? '<button class="btn" data-a="tstop">Stop and save</button>' : ''}</div></div>`;
 }
@@ -3945,7 +3966,7 @@ function saveTimer(msg) { const t = M.timer; if (!t) return; const min = Math.ro
   change(() => { M.study = M.study || {}; (M.study[T0] = M.study[T0] || []).push({ id, min }); L(T0); }, msg || ('Saved ' + dur(min) + (before < sessLen() && before + min >= sessLen() ? ' · study session done' : '')), false); }
 let supT = 0;
 setInterval(() => {
-  const c = document.getElementById('tclock'); if (c && M.timer && M.timer.start) { c.textContent = fmtClock(tElapsed()); const b = document.getElementById('tring'); if (b) b.setAttribute('stroke-dashoffset', T_C * (1 - tPct() / 100)); const r = document.getElementById('trule'); if (r) r.textContent = tRule(); }
+  const c = document.getElementById('tclock'); if (c && M.timer && M.timer.start) { c.textContent = fmtClock(tShown()); const b = document.getElementById('tring'); if (b) b.setAttribute('stroke-dashoffset', T_C * (1 - tPct() / 100)); const r = document.getElementById('trule'); if (r) r.textContent = tRule(); }
   // Study support time runs only while writing (typed in the last 20 seconds), and pauses when you stop
   if (supOn() && S.supLast && Date.now() - S.supLast < 20000) {
     M.support = M.support || {}; const sp = M.support[T0] = M.support[T0] || { text: '', ms: 0, min: 0 }; const was = sp.min + minOn(null, T0) >= sessLen();
@@ -5792,6 +5813,7 @@ function renderJournal() { const e = jCurrent(); const T = (e && e.tags) || []; 
   const items = (typeof supOn === 'function' && supOn() ? supClock() : '') + (ed ? `<label role="menuitem" class="jmrow" tabindex="0">${jmi('image-plus', 'Add a picture')}<input type="file" accept="image/*" multiple id="jimgin" hidden></label><span class="mono jmtag">Paper</span>${[['lined', 'Lined'], ['blank', 'Blank']].map(([k, l]) => `<button role="menuitemradio" data-a="jpaper" data-v="${k}" aria-checked="${jBlank(e) === (k === 'blank')}">${l}${jBlank(e) === (k === 'blank') ? icon('check', 16, 2) : ''}</button>`).join('')}<span class="mono jmtag">Text</span><span class="jtxtm jmtxt">${jTxtRows(e)}</span>` : `<button role="menuitem" data-a="jreply" data-ref="${e.id}">${jmi('reply', 'Write an answer')}</button>`)
     + `<button role="menuitem" data-a="jnew">${jmi('file-plus', 'Fresh page')}</button><button role="menuitem" data-a="jlistopen">${jmi('book-open', 'Earlier pages')}</button>` 
     + `<span class="mono jmtag">Tags</span>${jTags().map((t) => `<button role="menuitemcheckbox" data-a="jtagtog" data-v="${esc(t)}" aria-checked="${T.includes(t)}">${esc(t)}${T.includes(t) ? icon('check', 16, 2) : ''}</button>`).join('')}${addOpen('jnewtagin') ? `<div class="inrow jtagnew"><input class="inp" id="jnewtagin" placeholder="New tag" enterkeyhint="done" autocomplete="off"><button class="btn" data-a="jnewtag">Add</button></div>` : `<button role="menuitem" data-a="openadd" data-v="jnewtagin">${jmi('plus', 'New tag')}</button>`}`
+    + (e && (e.text || '').trim() ? `<button role="menuitem" data-a="jcopy" data-ref="${e.id}">${jmi('copy', 'Copy as text')}</button>` : '') // (the owner, 2026-11-13)
     + (e ? `<button role="menuitem" class="ndel" data-a="jdelete" data-ref="${e.id}">${jmi('trash', 'Delete this page')}</button>` : ''); // Delete sits at the bottom (2026-11-08)
   const tools = `<span class="vsortw"><button class="fbtn" data-a="jmenu" aria-label="More" aria-haspopup="menu" aria-expanded="${!!S.jMenu}">${icon('ellipsis', 18)}</button>${S.jMenu ? `<span class="vsortx" data-a="jmenu"></span><span class="vdrop vsortm jmenu" role="menu">${items}</span>` : ''}</span>`;
   return `<div class="jhead"><span class="mono jstamp">${esc(stampOf(e ? e.d : T0, ''))}</span>${tools}<button class="jbook" data-a="jsave" aria-label="Close">${jBookBtn()}</button></div>${jLinks(e)}`
@@ -5908,7 +5930,7 @@ function jPtOff(node, off) { const fl = document.querySelector('.jpaper .jflow')
   const L = [...fl.querySelectorAll('.jl:not(.jprobe)')]; const n = L[off] || null; return n ? +n.dataset.a : (L.length ? +L[L.length - 1].dataset.b : 0); }
 function jSelOffs() { const s = getSelection(); if (!s || !s.rangeCount) return null; const r = s.getRangeAt(0); const a = jPtOff(r.startContainer, r.startOffset), b = jPtOff(r.endContainer, r.endOffset); return a == null || b == null ? null : [Math.min(a, b), Math.max(a, b)]; }
 function jSpanAt(o) { const L = [...document.querySelectorAll('.jpaper .jflow .jl:not(.jprobe)')]; return L.find((n) => +n.dataset.a <= o && o < +n.dataset.b) || L.find((n) => +n.dataset.b === o) || L.find((n) => +n.dataset.a === o) || L[L.length - 1]; }
-function jSetCaret(o, o2) { const fl = document.querySelector('.jpaper .jflow'); if (!fl) return; const at = (x) => { const n = jSpanAt(x); if (!n) return [fl, 0]; const tw = document.createTreeWalker(n, NodeFilter.SHOW_TEXT); const ts = []; while (tw.nextNode()) ts.push(tw.currentNode); if (!ts.length) return [n, 0]; if (n.classList.contains('e')) return [ts[0], 0]; let k = Math.max(0, x - +n.dataset.a); for (const t of ts) { if (k <= t.length) return [t, k]; k -= t.length; } const lt = ts[ts.length - 1]; return [lt, lt.length]; };
+function jSetCaret(o, o2) { const fl = document.querySelector('.jpaper .jflow'); if (!fl) return; const at = (x) => { const n = jSpanAt(x); if (!n) return [fl, 0]; const tw = document.createTreeWalker(n, NodeFilter.SHOW_TEXT); const ts = []; while (tw.nextNode()) ts.push(tw.currentNode); if (!ts.length) return [n, 0]; if (n.classList.contains('e')) return [ts[0], ts[0].length]; let k = Math.max(0, x - +n.dataset.a); for (const t of ts) { if (k <= t.length) return [t, k]; k -= t.length; } const lt = ts[ts.length - 1]; return [lt, lt.length]; };
   const [n1, k1] = at(o); const r = document.createRange(); r.setStart(n1, k1); if (o2 != null && o2 !== o) { const [n2, k2] = at(o2); r.setEnd(n2, k2); } else r.collapse(true); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
 // one edit to the words: replace [s, t) with str, keeping the paragraph styles in step
 function jEdit(s, t, str) { const e = jMake(); const T = e.text || ''; s = Math.max(0, Math.min(s, T.length)); t = Math.max(s, Math.min(t, T.length));
@@ -5952,16 +5974,26 @@ if (window.visualViewport) visualViewport.addEventListener('resize', jFollowSoon
 // while a word is being composed it may run past the end of its line: let that line wrap until the word is done, instead of the page sliding sideways
 document.addEventListener('compositionupdate', (ev) => { const fl = ev.target.closest && ev.target.closest('.jflow'); if (!fl) return; const s = getSelection(); const n = s && s.rangeCount ? s.getRangeAt(0).startContainer : null; const el = n && (n.nodeType === 3 ? n.parentNode : n); const sp = el && el.closest && el.closest('.jl'); if (sp && sp.scrollWidth > sp.clientWidth + 1) sp.classList.add('cmp'); jFollowSoon(); });
 let jComp = false;
-document.addEventListener('compositionstart', (ev) => { if (ev.target.closest && ev.target.closest('.jflow')) jComp = true; });
-document.addEventListener('compositionend', (ev) => { if (!(ev.target.closest && ev.target.closest('.jflow'))) return; jComp = false; setTimeout(jSyncDom, 0); });
+// A word the keyboard composes goes into the text by where it started, not by reading the page back: replacing the
+// composed word, the browser can melt a line into the one above it (the owner, 2026-11-13: a line break jumped up a
+// line on the phone). jCR = the stretch of text the word replaces, jCD = the word so far.
+let jCR = null, jCD = '';
+function jCommit() { if (!jCR) { jSyncDom(); return; } const [s, t] = jCR; jCR = null; const c = jEdit(s, t, jCD || ''); jCD = ''; jLayoutText(); jSetCaret(c); S.jCaret = c; S.jCaretEnd = c; jFollowSoon(); }
+document.addEventListener('compositionstart', (ev) => { if (ev.target.closest && ev.target.closest('.jflow')) { jComp = true; jCR = null; jCD = ''; } });
+document.addEventListener('compositionupdate', (ev) => { if (ev.target.closest && ev.target.closest('.jflow')) jCD = ev.data || ''; });
+document.addEventListener('compositionend', (ev) => { if (!(ev.target.closest && ev.target.closest('.jflow'))) return; jComp = false; if (ev.data != null) jCD = ev.data; setTimeout(jCommit, 0); });
 // Enter makes the new line here, before the keyboard can put its own break in the page (the owner, 2026-11-12: the text jumped a line up)
 document.addEventListener('keydown', (ev) => { if (ev.key !== 'Enter' || ev.ctrlKey || ev.metaKey || ev.altKey) return; const fl = ev.target.closest && ev.target.closest('.jflow'); if (!fl || !fl.isContentEditable) return;
-  ev.preventDefault(); if (jComp) { jComp = false; jSyncDom(); } { const r = jFromDom(); const e0 = jCurrent(); if (r && r.text !== ((e0 && e0.text) || '')) jSyncDom(); }
+  ev.preventDefault(); if (jComp || jCR) { jComp = false; jCommit(); } { const r = jFromDom(); const e0 = jCurrent(); if (r && r.text !== ((e0 && e0.text) || '')) jSyncDom(); }
   const so = jSelOffs(); if (!so) return; const c = jEdit(so[0], so[1], '\n'); jLayoutText(); jSetCaret(c); S.jCaret = c; S.jCaretEnd = c; jFollowSoon(); });
 document.addEventListener('beforeinput', (ev) => { const fl = ev.target.closest && ev.target.closest('.jflow'); if (!fl || !fl.isContentEditable) return; const brk = ev.inputType === 'insertParagraph' || ev.inputType === 'insertLineBreak';
   // Enter while the keyboard is still composing a word: the word goes in first, then the new paragraph (2026-11-11: Enter jumped a line up)
-  if (brk && (ev.isComposing || jComp)) { jComp = false; jSyncDom(); }
-  else if (ev.isComposing || jComp || ev.inputType === 'insertCompositionText') return;
+  if (ev.inputType === 'insertCompositionText' && !jCR) { const tr = ev.getTargetRanges ? ev.getTargetRanges()[0] : null; let a = tr ? jPtOff(tr.startContainer, tr.startOffset) : null, b = tr ? jPtOff(tr.endContainer, tr.endOffset) : null;
+    if (a == null || b == null) { const so = jSelOffs(); if (so) [a, b] = so; } if (a != null && b != null) jCR = [Math.min(a, b), Math.max(a, b)]; }
+  if (ev.inputType === 'insertCompositionText') jCD = ev.data || '';
+  if (brk && (ev.isComposing || jComp || jCR)) { jComp = false; jCommit(); }
+  else if (ev.isComposing || ev.inputType === 'insertCompositionText') return;
+  else if (jComp || jCR) { jComp = false; jCommit(); } /* a key that isn't part of the word ends it, even without compositionend */
   // a word the keyboard just finished (composition) may not be in the page's text yet; take it in first, or the next key
   // (the space) rebuilds the lines from the old text and the word disappears (2026-11-11)
   { const r = jFromDom(); const e0 = jCurrent(); if (r && r.text !== ((e0 && e0.text) || '')) jSyncDom(); }
@@ -6056,6 +6088,7 @@ function notebookAction(act, a, ref, v) {
     case 'ntagmenu': ncapture(); S.nTagOpen = !S.nTagOpen; renderLayer(); return true;
     case 'notesave': { if (a && !a.dataset.ok && a.classList.contains('npad')) { nAuto(); a.dataset.ok = '1'; a.classList.add('peeled'); setTimeout(() => { a.dispatchEvent(new MouseEvent('click', { bubbles: true })); }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 700); return true; }
       S.nTagOpen = false; nAuto(); S.sheet = null; render(); return true; }
+    case 'jcopy': { if (S.nbView === 'jpage' && typeof jSync === 'function') jSync(); const e = (M.journal || []).find((x) => x.id === ref); S.jMenu = false; render(); noteCopy(e && (e.text || '').trim(), 'Page'); return true; }
     case 'ncopy': { ncapture(); S.nTagOpen = false; renderLayer(); const D = S.sheet.draft; noteCopy([D.title, D.text].filter((x) => (x || '').trim()).join('\n\n')); return true; }
     case 'ndelete': { const s = S.sheet; S.sheet = null; S.nTagOpen = false; change(() => { const L = noteList(s); const i = L.findIndex((x) => x.id === s.ref); if (i >= 0) L.splice(i, 1); }, 'Note deleted'); return true; }
     case 'nfopen': S.nFOpen = !S.nFOpen; render(); return true;
@@ -6094,9 +6127,9 @@ function notebookAction(act, a, ref, v) {
   return false;
 }
 
-async function noteCopy(t) { if (!t) { flash('Nothing in the note to copy'); return; }
-  try { await navigator.clipboard.writeText(t); flash('Note copied'); return; } catch (e) {}
-  try { const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); flash(ok ? 'Note copied' : 'Could not copy the note'); } catch (e) { flash('Could not copy the note'); } }
+async function noteCopy(t, what = 'Note') { const w = what.toLowerCase(); if (!t) { flash('Nothing in the ' + w + ' to copy'); return; }
+  try { await navigator.clipboard.writeText(t); flash(what + ' copied'); return; } catch (e) {}
+  try { const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); flash(ok ? what + ' copied' : 'Could not copy the ' + w); } catch (e) { flash('Could not copy the ' + w); } }
 
 // ---------- Notebook boards (2026-11-06): moodboards (photos, text, notes and colours placed freely) and mind maps (tidy automatic layout) ----------
 // M.boards = [{ id, kind: 'mood' | 'mind', title, upd, items: [...], bg, pat, snap, layout }]

@@ -306,7 +306,7 @@ function dayListRaw(d, raw) {
     const inBlock = (k) => placements(k).some((p) => G(p)); // a check-in inside a routine shows there instead (2026-11-02)
     if (mi && inBlock(mi)) out[0].items.unshift(mi); if (ei && inBlock(ei)) out[out.length - 1].items.push(ei); }
   const appts = apptsOn(d);
-  appts.forEach((id) => { const x = at(blockAtTime(I(id).time || '23:59')); if (x) x.appts = (x.appts || []).concat([id]); });
+  appts.forEach((id) => { const x = at(blockAtTime(tAt(id, d) || '23:59')); if (x) x.appts = (x.appts || []).concat([id]); });
   return dropMissed(out, d);
 }
 // Missed (2026-11-02): an item marked missed leaves that day's list and schedule and drops into a Missed section.
@@ -657,14 +657,16 @@ function slotDrop(out) {
     const studyOn = all.some((id) => sids.has(id) || (I(id) && I(id).part && sids.has(I(id).part))), choreOn = all.some((id) => cids.has(id)), moveOn = all.some((id) => tids.has(id));
     if (studyOn || choreOn || moveOn || hobOn) out.forEach((x) => { x.items = x.items.filter((id) => !(I(id) && I(id).type === 'slot' && ((I(id).opens === 'study' && studyOn) || (I(id).opens === 'chores' && choreOn) || (I(id).opens === 'training' && moveOn) || (I(id).opens === 'hobbies' && hobOn)))); });
   return out; }
+// a set-time item dragged on the Schedule for one day keeps that day's time in M.dayTime (2026-11-13)
+const tAt = (id, d) => ((M.dayTime || {})[d] || {})[id] || I(id).time;
 function placeDay(d) {
   const fz = frozenOf(d); if (fz) { const keep = new Set(slotDrop([{ items: fz.filter((o) => !o.appt).map((o) => o.id) }])[0].items); return fz.filter((o) => !isMissed(o.id, d) && (o.appt || keep.has(o.id))).map((o) => Object.assign({}, o)); }
   const out = []; const DL = dayList(d);
   // items with a set time (and appointments) are fixed for the whole day; untimed items flow around ALL of them, and a block
   // that spills over pushes the next block's untimed items later, so nothing hides behind anything (2026-11-02)
   const allFixed = []; DL.forEach(({ b, items, appts }) => { const g = G(b);
-    items.filter((id) => I(id).time).forEach((id) => allFixed.push({ id, a: hm(I(id).time), b: hm(I(id).time) + (I(id).dur || 30), blk: b }));
-    (appts || []).forEach((id) => allFixed.push({ id, a: hm(I(id).time || g.start), b: hm(I(id).time || g.start) + (I(id).dur || 30), appt: true, blk: b })); });
+    items.filter((id) => I(id).time).forEach((id) => { const t = hm(tAt(id, d)); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), blk: b }); });
+    (appts || []).forEach((id) => { const t = hm(tAt(id, d) || g.start); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), appt: true, blk: b }); }); });
   // a block that runs over keeps its extra items: they spill past its end into a red stretch on Schedule (2026-11-02)
   DL.forEach(({ b, items, appts }) => {
     const g = G(b); let cur = hm(g.start);
@@ -748,7 +750,7 @@ function renderSchedule() {
       const fd = faded(di, o); const allFaded = [...Array(run).keys()].every((r) => faded(di + r, o));
       const lab = bk && !dayV && !jl && run > 1 ? `<span class="blab bkl" data-run="${rk}" style="top:${top}px;height:${ht}px;width:calc(${run} * (100% + 4px) - 4px)" aria-hidden="true"><span class="bkt"><span>${inm(it)}</span></span></span>`
         : !dayV && !jl && run > 1 && ht >= 14 ? `<span class="blab ${ht >= 30 ? '' : 'brow'} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''}" data-run="${rk}" style="top:${top}px;height:${ht}px;width:calc(${run} * (100% + 4px) - 4px);color:${allFaded ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" aria-hidden="true">${icon(boxIcon(o), 12, 2)}${fits ? `<span class="bn">${inm(it)}</span>` : ''}</span>` : '';
-      const mv = !o.appt && !it.time && it.type !== 'checkin' && d >= T0;
+      const mv = it.type !== 'checkin' && d >= T0; // set-time items and appointments move too, snapping to what's around them (2026-11-13)
       return `<button class="box ${dayV ? 'wide' : ''} ${mv ? 'mv' : ''} ${jl ? 'jl' : ''} ${jr ? 'jr' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && I(o.id) && I(o.id).brk ? ' brk ' + bkE : ''}" style="top:${top}px;height:${!o.appt && it.brk ? Math.max(14, yIn(o.b, o.blk) - top) : ht}px;--c:${c};--bg:${fd ? mix(pale(c), TH.page, 0.5) : pale(c)};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" ${rk ? `data-run="${rk}"` : ''} data-from="${o.a}" data-to="${o.b}" aria-label="${esc(tnm(it))}, ${fmtHM(o.a)}">${inner}</button>${lab}`; }).join('') + '</div>';
   });
   S.ymap = { y, h0, h1, zones: blockIds().filter((b) => OV[b]).map((b) => ({ b, top: yIn(ends[b], b), h: OV[b] / 60 * PX, e: ends[b], ov: OV[b] })) };
@@ -1536,11 +1538,28 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
   if (day !== x.from && !(it.when && it.when.mode === 'once')) { flash('Repeats keep their days. Change the rule in its settings.'); render(); return; }
   if (day < T0) { flash('Past days stay as they were'); render(); return; }
   // the untimed items already in that block on that day, in time order; drop after the last one that starts before m
+  // an item with a set time (or an appointment): its new time snaps to the nearest edge on that day, the end of the item
+  // before it, the start of the item after it or a block's start, so things can be blocked together (the owner, 2026-11-13)
+  const o0 = placeDay(x.from).find((o) => o.id === x.id) || {};
+  if (it.time || o0.appt) { const len = (o0.b - o0.a) || it.dur || 30; const tm = minuteAt((top - cr.top) / x.sc);
+    const cand = blockIds().map((k) => hm(G(k).start));
+    placeDay(day).filter((o) => o.id !== x.id && I(o.id).type !== 'checkin').forEach((o) => { cand.push(o.b); cand.push(o.appt || I(o.id).time ? o.a - len : o.a); });
+    const nr = cand.reduce((p, q) => Math.abs(q - tm) < Math.abs(p - tm) ? q : p, Infinity);
+    const a = Math.max(0, Math.abs(nr - tm) <= 30 ? nr : Math.round(tm / 5) * 5); const T = fmtHM(a); const nb = blockAtTime(T); const once = it.when && it.when.mode === 'once';
+    const unOrder = (o) => Object.values(o || {}).forEach((l) => { const i = l.indexOf(x.id); if (i >= 0) l.splice(i, 1); });
+    change(() => {
+      if (S.edit || once || o0.appt) { it.time = T; Object.values(M.dayTime || {}).forEach((q) => { delete q[x.id]; }); Object.values(M.dayOrder || {}).forEach(unOrder); Object.values(M.dayMove || {}).forEach((q) => { delete q[x.id]; });
+        if (day !== x.from && it.when) it.when.date = day;
+        if (!o0.appt && G(nb)) { const home = blockIds().find((k) => G(k).kids.includes(x.id)); if (home && home !== nb) { G(home).kids.splice(G(home).kids.indexOf(x.id), 1); G(nb).kids.push(x.id); } } }
+      else { ((M.dayTime = M.dayTime || {})[day] = M.dayTime[day] || {})[x.id] = T; unOrder((M.dayOrder || {})[day]);
+        const mv = (M.dayMove = M.dayMove || {})[day] = M.dayMove[day] || {}; const home = placements(x.id).find((p) => G(p) && G(p).style === 'dayblock'); if (home === nb) delete mv[x.id]; else mv[x.id] = nb; }
+    }, 'Moved ' + it.name + ' to ' + T + (day !== x.from ? ' on ' + fmtDate(day) : S.edit && !once && !o0.appt ? ' on every day' : ''));
+    return; }
   const PD = placeDay(day); const inB = PD.filter((o) => o.blk === b && I(o.id).type !== 'checkin' && o.id !== x.id);
   const prev = inB.filter((o) => mid(o) < m).sort((p, q) => p.b - q.b).pop();
   const idx = inB.filter((o) => mid(o) < m).length;
   // dropped in front of an item with a set time (a routine at 22:00): it's tacked on, ending right where that item starts
-  const nxt = inB.filter((o) => mid(o) >= m).sort((p, q) => p.a - q.a)[0]; const tk0 = (id) => { const T = (M.dayTack || {})[day] || {}; return (id in T ? T[id] : I(id).before) || null; }; /* in front of something already tacked on: it joins that row */ /* a break is never something to tack onto, and the drop has to be nearer the set-time item than the item before it (2026-11-11) */ const pv0 = inB.filter((o) => mid(o) < m).sort((p, q) => p.b - q.b).pop(); const near = (q) => !pv0 || (q.a - m) < (m - pv0.b);
+  const nxt = inB.filter((o) => mid(o) >= m).sort((p, q) => p.a - q.a)[0]; const tk0 = (id) => { const T = (M.dayTack || {})[day] || {}; return (id in T ? T[id] : I(id).before) || null; }; /* in front of something already tacked on: it joins that row */ /* a break is never something to tack onto, and the drop has to be nearer the set-time item than the item before it (2026-11-11) */ const pv0 = inB.filter((o) => mid(o) < m).sort((p, q) => p.b - q.b).pop(); const b0 = g && g.start ? hm(g.start) : 0; const near = (q) => (q.a - m) < (m - (pv0 ? pv0.b : b0)); /* with nothing before it, the block's start under its title is the other anchor (the owner, 2026-11-13) */
   // a break takes it only when the drop is right at it, within 20 minutes of its start (2026-11-12: in front of or behind everything, breaks included)
   const tack = !nxt ? null : nxt.appt || I(nxt.id).time ? (near(nxt) && (!I(nxt.id).brk || nxt.a - m <= 20) ? nxt.id : null) : tk0(nxt.id);
   const setTack = () => { const T = (M.dayTack = M.dayTack || {})[day] = (M.dayTack[day] || {}); T[x.id] = tack; };
