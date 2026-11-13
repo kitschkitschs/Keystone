@@ -309,7 +309,7 @@ document.addEventListener('input', (ev) => { const fl = ev.target.closest && ev.
 document.addEventListener('selectionchange', () => { const fl = document.querySelector('.jpaper .jflow'); if (!fl || document.activeElement !== fl) return; const so = jSelOffs(); if (so) { S.jCaret = so[0]; S.jCaretEnd = so[1]; } });
 document.addEventListener('selectionchange', () => requestAnimationFrame(jSelBar));
 // the entry being written; made on first use
-function jMake() { let e = jCurrent(); if (e) return e; if ((S.jNewTags || []).includes('Study support') && typeof supToday === 'function' && (e = supToday())) { S.jEntry = e.id; return e; } e = { id: uid('j'), d: T0, at: nowHM(), text: '', tags: [], ps: [{}] }; if (M.jPaper === 'blank') e.paper = 'blank'; if (S.jRe) e.re = S.jRe; if (S.jNewTags) e.tags = S.jNewTags.slice(); (M.journal = M.journal || []).push(e); S.jEntry = e.id; const pa = document.querySelector('.jpaper'); if (pa && !pa.dataset.jref) { /* keeps following jCurrent */ } return e; }
+function jMake() { let e = jCurrent(); if (e) return e; if (S.jNewSup && typeof supToday === 'function' && (e = supToday())) { S.jEntry = e.id; return e; } e = { id: uid('j'), d: T0, at: nowHM(), text: '', tags: [], ps: [{}] }; if (M.jPaper === 'blank') e.paper = 'blank'; if (S.jRe) e.re = S.jRe; if (S.jNewTags) e.tags = S.jNewTags.slice(); if (S.jNewSup) e.sup = true; (M.journal = M.journal || []).push(e); S.jEntry = e.id; const pa = document.querySelector('.jpaper'); if (pa && !pa.dataset.jref) { /* keeps following jCurrent */ } return e; }
 function jSync() { if (jComp) { jComp = false; jSyncDom(); } return jCurrent(); }
 function jAddImg(pic, r, nth) { nth = nth || 0; const e = jMake(); const PW = S.jPW || 336; const sp = S.jCaret != null ? jSpanAt(S.jCaret) : null; const row = sp ? Math.round(parseFloat(sp.style.top) / JLH) : 0; const z = Math.max(1, ...(e.imgs || []).map((q) => q.z || 1)) + 1;
   const q = Object.assign({ id: uid('ji'), w: 0.45, x: Math.min(0.5, nth * 0.1), y: (row + nth) * JLH + 4, z, r: r || 1 }, pic); (e.imgs = e.imgs || []).push(q); save(); S.jSel = q.id; S.jMenu = false; const c = S.jCaret != null ? S.jCaret : (e.text || '').length; render(); jLayout(); const fl = document.querySelector('.jflow'); if (fl) { fl.focus({ preventScroll: true }); jSetCaret(c); } }
@@ -366,7 +366,7 @@ function jListSheet() { const J = (M.journal || []).slice().sort((a, b) => (b.d 
   return J.length ? `<div class="hlist">${J.map((e) => `<div class="tg"><button class="l" data-a="jopen" data-ref="${e.id}" style="text-align:left"><span class="mono" style="font-size:10px;color:var(--quiet)">${esc(stampOf(e.d, e.at))}</span><small style="color:var(--ink);font-size:15px">${esc(jPlain(e.text).split('\n')[0].slice(0, 80))}</small></button></div>`).join('')}</div>` : '<p class="empty">Nothing written yet.</p>'; }
 function jGrow() { jLayout(); jMinis(); }
 let jT;
-function jFromBack() { S.jNewTags = null; if (S.jFrom) { S.area = S.jFrom; S.jFrom = null; S.nbView = 'home'; S.page = null; } }
+function jFromBack() { S.jNewTags = null; S.jNewSup = false; if (S.jFrom) { S.area = S.jFrom; S.jFrom = null; S.nbView = 'home'; S.page = null; } }
 function jDropEmpty() { const e = jCurrent(); if (e && jEditable(e) && jEmpty(e)) M.journal = M.journal.filter((x) => x !== e); }
 document.addEventListener('input', (ev) => { const t = ev.target;
   // growing the page must not move where I am in a long note: the pop-up keeps its scroll position
@@ -386,8 +386,8 @@ function notebookAction(act, a, ref, v) {
     case 'ndelete': { const s = S.sheet; S.sheet = null; S.nTagOpen = false; change(() => { const L = noteList(s); const i = L.findIndex((x) => x.id === s.ref); if (i >= 0) L.splice(i, 1); }, 'Note deleted'); return true; }
     case 'nfopen': S.nFOpen = !S.nFOpen; render(); return true;
     case 'ntag': S.nTag = v; S.nFOpen = false; render(); return true;
-    case 'jnew': S.jNewTags = null; S.jFrom = null; if (S.nbView === 'jpage') { jSync(); jDropEmpty(); save(); } S.jMenu = false; S.jBack = S.nbView === 'jpage' ? (S.jBack || 'home') : (S.nbView || 'home'); S.jTagOpen = false; S.jRe = null; S.jSel = null; S.jCaret = null; S.nbView = 'jpage'; S.jEntry = 'new'; render(); jGrow(); $('#main').scrollTop = 0; requestAnimationFrame(() => { const t = document.getElementById('jtext'); if (t) { jLayout(); t.focus(); jSetCaret(((jCurrent() || {}).text || '').length); } }); return true;
-    case 'jopen': S.jNewTags = null; S.jFrom = null; jSync(); jDropEmpty(); S.jBack = S.nbView === 'jpage' ? (S.jBack || 'home') : (S.nbView || 'home'); S.jTagOpen = false; S.jRe = null; S.jSel = null; S.jCaret = null; S.nbView = 'jpage'; S.jEntry = ref; S.sheet = null; render(); jGrow(); $('#main').scrollTop = 0; return true;
+    case 'jnew': S.jNewTags = null; S.jNewSup = false; S.jFrom = null; if (S.nbView === 'jpage') { jSync(); jDropEmpty(); save(); } S.jMenu = false; S.jBack = S.nbView === 'jpage' ? (S.jBack || 'home') : (S.nbView || 'home'); S.jTagOpen = false; S.jRe = null; S.jSel = null; S.jCaret = null; S.nbView = 'jpage'; S.jEntry = 'new'; render(); jGrow(); $('#main').scrollTop = 0; requestAnimationFrame(() => { const t = document.getElementById('jtext'); if (t) { jLayout(); t.focus(); jSetCaret(((jCurrent() || {}).text || '').length); } }); return true;
+    case 'jopen': S.jNewTags = null; S.jNewSup = false; S.jFrom = null; jSync(); jDropEmpty(); S.jBack = S.nbView === 'jpage' ? (S.jBack || 'home') : (S.nbView || 'home'); S.jTagOpen = false; S.jRe = null; S.jSel = null; S.jCaret = null; S.nbView = 'jpage'; S.jEntry = ref; S.sheet = null; render(); jGrow(); $('#main').scrollTop = 0; return true;
     case 'jfopen': S.jFOpen = !S.jFOpen; render(); return true;
     case 'jtagf': S.jTag = v; S.jFOpen = false; render(); return true;
     case 'jtags': { S.jMenu = false; if (S.jTagOpen) { S.jTagOpen = false; render(); return true; } jMake(); jSync(); save(); S.jTagOpen = true; render(); return true; }
@@ -415,7 +415,7 @@ function notebookAction(act, a, ref, v) {
       const e0 = jCurrent(); const ed = jEditable(e0); jSync(); jDropEmpty();
       save(); S.jTagOpen = false; S.jMenu = false; S.jTxt = false; S.jRe = null; S.jSel = null; S.nbView = S.jBack || 'home'; S.jEntry = null; jFromBack(); render(); return true; }
     // (a page opened from Studies goes back to Studies)
-    case 'nbgo': S.jNewTags = null; S.jFrom = null; S.nbView = v; if (v === 'words') { S.wView = 'list'; S.wMenu = false; } S.nFOpen = false; render(); $('#main').scrollTop = 0; return true;
+    case 'nbgo': S.jNewTags = null; S.jNewSup = false; S.jFrom = null; S.nbView = v; if (v === 'words') { S.wView = 'list'; S.wMenu = false; } S.nFOpen = false; render(); $('#main').scrollTop = 0; return true;
   }
   return false;
 }

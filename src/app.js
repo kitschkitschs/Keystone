@@ -471,7 +471,7 @@ function tickCircle(id, d, live) {
   const st = val(d, id); const done = isDone(id, d); const much = typeof st === 'string' && st.startsWith('much');
   const c = colorOf(id);
   const inner = much ? '' : done ? '✓' : '';
-  const circ = `<span class="circ ${much ? 'much' : done ? 'done' : d === T0 && halfOf(id) ? 'half' : ''}" style="--c:${c}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : 'aria-hidden="true"'}>${inner}</span>`;
+  const circ = `<span class="circ ${much ? 'much' : done ? 'done' : d === T0 && halfOf(id) ? 'half' : ''}${I(id) && I(id).optional ? ' opt' : ''}" style="--c:${c}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : 'aria-hidden="true"'}>${inner}</span>`;
   if (!live || S.edit) return S.edit ? circ : `<span class="tickbtn">${circ}</span>`;
   return `<button class="tickbtn" data-a="tick" data-ref="${id}" aria-label="Tick ${esc(tnm(id))}">${circ}</button>`;
 }
@@ -483,7 +483,7 @@ function ciStepRow(s, rid, d, live) {
 }
 // A routine opens by itself once it's due today (its start time on Schedule has come) and stays open until closed.
 // Opening or closing by hand is kept for that day, also after a reload (2026-11-03).
-// the small mark for an optional item; its icon is mine to pick in edit mode
+// optional items get a dotted tick circle instead of a small icon (the owner, 2026-11-13); the old mark is kept unused
 const optMark = () => S.edit ? `<span class="optic" data-a="iconfor" data-v="ui:optional" role="button" aria-label="Optional. Change this icon">${icon(uiIc('optional', 'circle-dashed'), 14)}</span>` : `<span class="optic" role="img" aria-label="Optional">${icon(uiIc('optional', 'circle-dashed'), 14)}</span>`;
 const stepNote = (s, rid) => { const x = pOpt(rid, s); const W = { rest: 'Days without a workout', train: 'Days with a workout', days: (x.days || []).slice().sort().map((k) => WD[k]).join(', ') }; return [x.optional ? 'Optional' : '', W[x.only] || ''].filter(Boolean).join(' · '); };
 function routineOpen(id, d) {
@@ -517,11 +517,11 @@ function itemRow(id, list, d) {
   if (it.type === 'routine') {
     const open = S.edit || routineOpen(id, d); const steps = S.edit ? rStepsAll(id) : rSteps(id, d);
     return `<div data-ref="${id}"><div class="row">${grip()}${tickCircle(id, d, live)}
-      <button class="lbl" data-a="ropen" data-ref="${id}" aria-expanded="${!!open}" style="display:flex;align-items:center;gap:10px">${S.edit ? `<span style="flex:1">${nm(id, it.name)}${it.optional ? optMark() : ''}</span>` : `<span style="flex:1">${inm(it)}${it.optional ? optMark() : ''}${tdur(it)}</span>`}${S.edit ? '' : `${fold(open)}`}</button>${tail(id, list)}</div>
-      ${open ? `<div class="steps" data-list="s:${id}">${steps.map((s) => I(s).type === 'checkin' ? ciStepRow(s, id, d, live) : `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" style="width:18px;height:40px" data-a="step" data-ref="${s}" aria-label="Tick ${esc(tnm(s))}"><span class="circ ${val(d, s) ? 'done' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span></button>` : `<span class="circ ${val(d, s) ? 'done' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span>`}<span class="lbl">${nm(s, I(s).name)}${pOpt(id, s).optional ? optMark() : ''}${S.edit && stepNote(s, id) && !(S.area === 'plan' && S.page === 'today') ? `<span class="sub">${esc(stepNote(s, id))}</span>` : ''}</span>${tail(s, 's:' + id, { gear: false })}</div>`).join('')}
+      <button class="lbl" data-a="ropen" data-ref="${id}" aria-expanded="${!!open}" style="display:flex;align-items:center;gap:10px">${S.edit ? `<span style="flex:1">${nm(id, it.name)}</span>` : `<span style="flex:1">${inm(it)}${tdur(it)}</span>`}${S.edit ? '' : `${fold(open)}`}</button>${tail(id, list)}</div>
+      ${open ? `<div class="steps" data-list="s:${id}">${steps.map((s) => I(s).type === 'checkin' ? ciStepRow(s, id, d, live) : `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" style="width:18px;height:40px" data-a="step" data-ref="${s}" aria-label="Tick ${esc(tnm(s))}"><span class="circ ${val(d, s) ? 'done' : ''}${pOpt(id, s).optional ? ' opt' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span></button>` : `<span class="circ ${val(d, s) ? 'done' : ''}${pOpt(id, s).optional ? ' opt' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span>`}<span class="lbl">${nm(s, I(s).name)}${S.edit && stepNote(s, id) && !(S.area === 'plan' && S.page === 'today') ? `<span class="sub">${esc(stepNote(s, id))}</span>` : ''}</span>${tail(s, 's:' + id, { gear: false })}</div>`).join('')}
         ${S.edit ? `<button class="addrow" data-a="addstep" data-ref="${id}"><span class="plus">+</span>Add step</button>` : ''}</div>` : ''}</div>`;
   }
-  return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, live)}<span class="lbl">${S.edit ? nm(id, it.name) + (onToday && it.optional ? optMark() : '') : `<button data-a="${live ? 'sched' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left">${inm(it)}${onToday && it.optional ? optMark() : ''}${tdur(it)}</button>`}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>${tail(id, list)}</div>`; // estimate on the right (2026-11-04)
+  return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, live)}<span class="lbl">${S.edit ? nm(id, it.name) + '' : `<button data-a="${live ? 'sched' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left">${inm(it)}${tdur(it)}</button>`}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>${tail(id, list)}</div>`; // estimate on the right (2026-11-04)
 }
 // A past day is an overview of everything ticked, logged and added that day (2026-11-08), not the old list.
 function pastDay(d) {
@@ -613,6 +613,7 @@ function renderToday() {
     const g = G(b); const shown = live ? items.filter((id) => S.edit || !isDone(id, d)) : items;
     const apShown = live && !S.edit ? (appts || []).filter((id) => !isDone(id, d)) : (appts || []);
     if (!S.edit && !shown.length && !apShown.length) return '';
+    if (live && !S.edit && !apShown.length && shown.every((id) => I(id) && I(id).brk)) return ''; // only breaks left once the rest is ticked: the block falls away (the owner, 2026-11-13)
     const open = S.edit || S.open['b:' + b] !== false;
     const ap = appts || []; const total = items.length + ap.length, left = items.concat(ap).filter((id) => !isDone(id, d)).length;
     const apRow = (id) => `<div class="appt" data-appt="${id}" style="--c:${G(catOf(id)).color}">${tickCircle(id, d, live)}<button data-a="peek" data-ref="${id}" data-d="${d}" style="display:flex;align-items:center;gap:10px;flex:1;min-height:44px;text-align:left"><b>${esc(apTime(I(id)))}</b><span style="flex:1">${inm(id)}${tdur(I(id))}</span><span class="cnt">${live && I(id).time ? inTime(I(id).time) : ''}</span></button></div>`;
@@ -1680,7 +1681,7 @@ function migrate(m) {
     FS.forEach((w, k) => { const d = addDays(T0, -(k + 1)); if (!(m.feel[d] || []).length) m.feel[d] = w; }); }
   // Past days keep a frozen layout. When the way days are laid out changes, the old snapshots are drawn
   // with the old rules and look broken, so they're taken again with the current rules (2026-11-03).
-  (m.journal || []).forEach((e) => { if ((e.tags || []).includes('Study support') && !e.tags.includes('Studies')) e.tags.push('Studies'); }); // Study support pages are tagged Studies too
+  (m.journal || []).forEach((e) => { if ((e.tags || []).includes('Study support')) { e.sup = true; e.tags = e.tags.filter((t) => t !== 'Study support'); if (!e.tags.includes('Studies')) e.tags.push('Studies'); } }); if (m.jTagList) m.jTagList = m.jTagList.filter((t) => t !== 'Study support'); // Study support pages carry only 'Studies', with a hidden mark (the owner, 2026-11-13)
   if (m.settings.layoutV !== LAYOUT_V) { m.settings.layoutV = LAYOUT_V; m.frozen = {}; }
   delete m.feelSym;
   // DYSREGULATED feelings family (2026-11-03): feelings that are out of proportion, aimed inward or outward; all symptomatic

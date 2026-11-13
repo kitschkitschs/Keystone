@@ -252,6 +252,7 @@ html.dark .jmp{background-image:repeating-linear-gradient(to bottom,transparent 
 .row.substep{min-height:40px;padding-left:34px;gap:12px}.row.substep .circ{width:20px;height:20px;font-size:11px}.row.substep .lbl{font-size:14px;color:var(--ink2)}
 .circ{width:22px;height:22px;border-radius:11px;border:1.75px solid var(--c);flex-shrink:0;box-sizing:border-box;display:grid;place-items:center;color:var(--card);font-size:12px;position:relative}
 .circ.done{background:var(--done);border-color:var(--done)}
+.circ.opt{border-style:dotted;border-width:2px}
 .circ.half{background:linear-gradient(to top,var(--c,var(--done)) 50%,transparent 50%)}
 .circ.much{background:var(--much);border-color:var(--much)}
 .circ.much::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:1.5px solid var(--much)}
@@ -1486,7 +1487,7 @@ function tickCircle(id, d, live) {
   const st = val(d, id); const done = isDone(id, d); const much = typeof st === 'string' && st.startsWith('much');
   const c = colorOf(id);
   const inner = much ? '' : done ? '✓' : '';
-  const circ = `<span class="circ ${much ? 'much' : done ? 'done' : d === T0 && halfOf(id) ? 'half' : ''}" style="--c:${c}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : 'aria-hidden="true"'}>${inner}</span>`;
+  const circ = `<span class="circ ${much ? 'much' : done ? 'done' : d === T0 && halfOf(id) ? 'half' : ''}${I(id) && I(id).optional ? ' opt' : ''}" style="--c:${c}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : 'aria-hidden="true"'}>${inner}</span>`;
   if (!live || S.edit) return S.edit ? circ : `<span class="tickbtn">${circ}</span>`;
   return `<button class="tickbtn" data-a="tick" data-ref="${id}" aria-label="Tick ${esc(tnm(id))}">${circ}</button>`;
 }
@@ -1498,7 +1499,7 @@ function ciStepRow(s, rid, d, live) {
 }
 // A routine opens by itself once it's due today (its start time on Schedule has come) and stays open until closed.
 // Opening or closing by hand is kept for that day, also after a reload (2026-11-03).
-// the small mark for an optional item; its icon is mine to pick in edit mode
+// optional items get a dotted tick circle instead of a small icon (the owner, 2026-11-13); the old mark is kept unused
 const optMark = () => S.edit ? `<span class="optic" data-a="iconfor" data-v="ui:optional" role="button" aria-label="Optional. Change this icon">${icon(uiIc('optional', 'circle-dashed'), 14)}</span>` : `<span class="optic" role="img" aria-label="Optional">${icon(uiIc('optional', 'circle-dashed'), 14)}</span>`;
 const stepNote = (s, rid) => { const x = pOpt(rid, s); const W = { rest: 'Days without a workout', train: 'Days with a workout', days: (x.days || []).slice().sort().map((k) => WD[k]).join(', ') }; return [x.optional ? 'Optional' : '', W[x.only] || ''].filter(Boolean).join(' · '); };
 function routineOpen(id, d) {
@@ -1532,11 +1533,11 @@ function itemRow(id, list, d) {
   if (it.type === 'routine') {
     const open = S.edit || routineOpen(id, d); const steps = S.edit ? rStepsAll(id) : rSteps(id, d);
     return `<div data-ref="${id}"><div class="row">${grip()}${tickCircle(id, d, live)}
-      <button class="lbl" data-a="ropen" data-ref="${id}" aria-expanded="${!!open}" style="display:flex;align-items:center;gap:10px">${S.edit ? `<span style="flex:1">${nm(id, it.name)}${it.optional ? optMark() : ''}</span>` : `<span style="flex:1">${inm(it)}${it.optional ? optMark() : ''}${tdur(it)}</span>`}${S.edit ? '' : `${fold(open)}`}</button>${tail(id, list)}</div>
-      ${open ? `<div class="steps" data-list="s:${id}">${steps.map((s) => I(s).type === 'checkin' ? ciStepRow(s, id, d, live) : `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" style="width:18px;height:40px" data-a="step" data-ref="${s}" aria-label="Tick ${esc(tnm(s))}"><span class="circ ${val(d, s) ? 'done' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span></button>` : `<span class="circ ${val(d, s) ? 'done' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span>`}<span class="lbl">${nm(s, I(s).name)}${pOpt(id, s).optional ? optMark() : ''}${S.edit && stepNote(s, id) && !(S.area === 'plan' && S.page === 'today') ? `<span class="sub">${esc(stepNote(s, id))}</span>` : ''}</span>${tail(s, 's:' + id, { gear: false })}</div>`).join('')}
+      <button class="lbl" data-a="ropen" data-ref="${id}" aria-expanded="${!!open}" style="display:flex;align-items:center;gap:10px">${S.edit ? `<span style="flex:1">${nm(id, it.name)}</span>` : `<span style="flex:1">${inm(it)}${tdur(it)}</span>`}${S.edit ? '' : `${fold(open)}`}</button>${tail(id, list)}</div>
+      ${open ? `<div class="steps" data-list="s:${id}">${steps.map((s) => I(s).type === 'checkin' ? ciStepRow(s, id, d, live) : `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" style="width:18px;height:40px" data-a="step" data-ref="${s}" aria-label="Tick ${esc(tnm(s))}"><span class="circ ${val(d, s) ? 'done' : ''}${pOpt(id, s).optional ? ' opt' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span></button>` : `<span class="circ ${val(d, s) ? 'done' : ''}${pOpt(id, s).optional ? ' opt' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span>`}<span class="lbl">${nm(s, I(s).name)}${S.edit && stepNote(s, id) && !(S.area === 'plan' && S.page === 'today') ? `<span class="sub">${esc(stepNote(s, id))}</span>` : ''}</span>${tail(s, 's:' + id, { gear: false })}</div>`).join('')}
         ${S.edit ? `<button class="addrow" data-a="addstep" data-ref="${id}"><span class="plus">+</span>Add step</button>` : ''}</div>` : ''}</div>`;
   }
-  return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, live)}<span class="lbl">${S.edit ? nm(id, it.name) + (onToday && it.optional ? optMark() : '') : `<button data-a="${live ? 'sched' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left">${inm(it)}${onToday && it.optional ? optMark() : ''}${tdur(it)}</button>`}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>${tail(id, list)}</div>`; // estimate on the right (2026-11-04)
+  return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, live)}<span class="lbl">${S.edit ? nm(id, it.name) + '' : `<button data-a="${live ? 'sched' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left">${inm(it)}${tdur(it)}</button>`}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>${tail(id, list)}</div>`; // estimate on the right (2026-11-04)
 }
 // A past day is an overview of everything ticked, logged and added that day (2026-11-08), not the old list.
 function pastDay(d) {
@@ -1628,6 +1629,7 @@ function renderToday() {
     const g = G(b); const shown = live ? items.filter((id) => S.edit || !isDone(id, d)) : items;
     const apShown = live && !S.edit ? (appts || []).filter((id) => !isDone(id, d)) : (appts || []);
     if (!S.edit && !shown.length && !apShown.length) return '';
+    if (live && !S.edit && !apShown.length && shown.every((id) => I(id) && I(id).brk)) return ''; // only breaks left once the rest is ticked: the block falls away (the owner, 2026-11-13)
     const open = S.edit || S.open['b:' + b] !== false;
     const ap = appts || []; const total = items.length + ap.length, left = items.concat(ap).filter((id) => !isDone(id, d)).length;
     const apRow = (id) => `<div class="appt" data-appt="${id}" style="--c:${G(catOf(id)).color}">${tickCircle(id, d, live)}<button data-a="peek" data-ref="${id}" data-d="${d}" style="display:flex;align-items:center;gap:10px;flex:1;min-height:44px;text-align:left"><b>${esc(apTime(I(id)))}</b><span style="flex:1">${inm(id)}${tdur(I(id))}</span><span class="cnt">${live && I(id).time ? inTime(I(id).time) : ''}</span></button></div>`;
@@ -2695,7 +2697,7 @@ function migrate(m) {
     FS.forEach((w, k) => { const d = addDays(T0, -(k + 1)); if (!(m.feel[d] || []).length) m.feel[d] = w; }); }
   // Past days keep a frozen layout. When the way days are laid out changes, the old snapshots are drawn
   // with the old rules and look broken, so they're taken again with the current rules (2026-11-03).
-  (m.journal || []).forEach((e) => { if ((e.tags || []).includes('Study support') && !e.tags.includes('Studies')) e.tags.push('Studies'); }); // Study support pages are tagged Studies too
+  (m.journal || []).forEach((e) => { if ((e.tags || []).includes('Study support')) { e.sup = true; e.tags = e.tags.filter((t) => t !== 'Study support'); if (!e.tags.includes('Studies')) e.tags.push('Studies'); } }); if (m.jTagList) m.jTagList = m.jTagList.filter((t) => t !== 'Study support'); // Study support pages carry only 'Studies', with a hidden mark (the owner, 2026-11-13)
   if (m.settings.layoutV !== LAYOUT_V) { m.settings.layoutV = LAYOUT_V; m.frozen = {}; }
   delete m.feelSym;
   // DYSREGULATED feelings family (2026-11-03): feelings that are out of proportion, aimed inward or outward; all symptomatic
@@ -3953,13 +3955,13 @@ function timerPage() {
 }
 // Study support is a normal journal page with the tag 'Study support' (2026-11-10): today's one opens, or a new one starts
 const SUP_TAG = 'Study support'; // its pages also carry 'Studies' (the owner, 2026-11-12)
-const supEntry = (e) => !!e && (e.tags || []).includes(SUP_TAG);
+const supEntry = (e) => !!e && !!e.sup; // a hidden mark, the page itself only carries 'Studies' (the owner, 2026-11-13)
 // one Study support page a day: it always opens the same page (the owner, 2026-11-13)
 const supToday = () => (M.journal || []).find((x) => x.d === T0 && supEntry(x)) || null;
-const supOn = () => S.area === 'notebook' && S.nbView === 'jpage' && (supEntry(jCurrent()) || (S.jEntry === 'new' && (S.jNewTags || []).includes(SUP_TAG)));
+const supOn = () => S.area === 'notebook' && S.nbView === 'jpage' && (supEntry(jCurrent()) || (S.jEntry === 'new' && !!S.jNewSup));
 function supOpen() { const cur = S.nbView === 'jpage' && S.area === 'notebook'; if (cur) { jSync(); jDropEmpty(); save(); }
   const e = supToday(); S.sheet = null; S.menu = false; S.stv = null; S.jFrom = 'study'; S.area = 'notebook'; S.insOn = false; S.jBack = 'home';
-  S.jMenu = false; S.jTagOpen = false; S.jRe = null; S.jSel = null; S.jCaret = null; S.nbView = 'jpage'; S.jEntry = e ? e.id : 'new'; S.jNewTags = e ? null : [SUP_TAG, 'Studies'];
+  S.jMenu = false; S.jTagOpen = false; S.jRe = null; S.jSel = null; S.jCaret = null; S.nbView = 'jpage'; S.jEntry = e ? e.id : 'new'; S.jNewTags = e ? null : ['Studies']; S.jNewSup = !e;
   render(); if (typeof jGrow === 'function') jGrow(); $('#main').scrollTop = 0; }
 function saveTimer(msg) { const t = M.timer; if (!t) return; const min = Math.round(tElapsed() / 60000); const id = t.id && I(t.id) ? t.id : null; const before = minOn(null, T0) + supMin(T0);
   M.timer = null; if (min < 1) { save(); render(); flash('Under a minute, not saved'); return; }
@@ -6016,7 +6018,7 @@ document.addEventListener('input', (ev) => { const fl = ev.target.closest && ev.
 document.addEventListener('selectionchange', () => { const fl = document.querySelector('.jpaper .jflow'); if (!fl || document.activeElement !== fl) return; const so = jSelOffs(); if (so) { S.jCaret = so[0]; S.jCaretEnd = so[1]; } });
 document.addEventListener('selectionchange', () => requestAnimationFrame(jSelBar));
 // the entry being written; made on first use
-function jMake() { let e = jCurrent(); if (e) return e; if ((S.jNewTags || []).includes('Study support') && typeof supToday === 'function' && (e = supToday())) { S.jEntry = e.id; return e; } e = { id: uid('j'), d: T0, at: nowHM(), text: '', tags: [], ps: [{}] }; if (M.jPaper === 'blank') e.paper = 'blank'; if (S.jRe) e.re = S.jRe; if (S.jNewTags) e.tags = S.jNewTags.slice(); (M.journal = M.journal || []).push(e); S.jEntry = e.id; const pa = document.querySelector('.jpaper'); if (pa && !pa.dataset.jref) { /* keeps following jCurrent */ } return e; }
+function jMake() { let e = jCurrent(); if (e) return e; if (S.jNewSup && typeof supToday === 'function' && (e = supToday())) { S.jEntry = e.id; return e; } e = { id: uid('j'), d: T0, at: nowHM(), text: '', tags: [], ps: [{}] }; if (M.jPaper === 'blank') e.paper = 'blank'; if (S.jRe) e.re = S.jRe; if (S.jNewTags) e.tags = S.jNewTags.slice(); if (S.jNewSup) e.sup = true; (M.journal = M.journal || []).push(e); S.jEntry = e.id; const pa = document.querySelector('.jpaper'); if (pa && !pa.dataset.jref) { /* keeps following jCurrent */ } return e; }
 function jSync() { if (jComp) { jComp = false; jSyncDom(); } return jCurrent(); }
 function jAddImg(pic, r, nth) { nth = nth || 0; const e = jMake(); const PW = S.jPW || 336; const sp = S.jCaret != null ? jSpanAt(S.jCaret) : null; const row = sp ? Math.round(parseFloat(sp.style.top) / JLH) : 0; const z = Math.max(1, ...(e.imgs || []).map((q) => q.z || 1)) + 1;
   const q = Object.assign({ id: uid('ji'), w: 0.45, x: Math.min(0.5, nth * 0.1), y: (row + nth) * JLH + 4, z, r: r || 1 }, pic); (e.imgs = e.imgs || []).push(q); save(); S.jSel = q.id; S.jMenu = false; const c = S.jCaret != null ? S.jCaret : (e.text || '').length; render(); jLayout(); const fl = document.querySelector('.jflow'); if (fl) { fl.focus({ preventScroll: true }); jSetCaret(c); } }
@@ -6073,7 +6075,7 @@ function jListSheet() { const J = (M.journal || []).slice().sort((a, b) => (b.d 
   return J.length ? `<div class="hlist">${J.map((e) => `<div class="tg"><button class="l" data-a="jopen" data-ref="${e.id}" style="text-align:left"><span class="mono" style="font-size:10px;color:var(--quiet)">${esc(stampOf(e.d, e.at))}</span><small style="color:var(--ink);font-size:15px">${esc(jPlain(e.text).split('\n')[0].slice(0, 80))}</small></button></div>`).join('')}</div>` : '<p class="empty">Nothing written yet.</p>'; }
 function jGrow() { jLayout(); jMinis(); }
 let jT;
-function jFromBack() { S.jNewTags = null; if (S.jFrom) { S.area = S.jFrom; S.jFrom = null; S.nbView = 'home'; S.page = null; } }
+function jFromBack() { S.jNewTags = null; S.jNewSup = false; if (S.jFrom) { S.area = S.jFrom; S.jFrom = null; S.nbView = 'home'; S.page = null; } }
 function jDropEmpty() { const e = jCurrent(); if (e && jEditable(e) && jEmpty(e)) M.journal = M.journal.filter((x) => x !== e); }
 document.addEventListener('input', (ev) => { const t = ev.target;
   // growing the page must not move where I am in a long note: the pop-up keeps its scroll position
@@ -6093,8 +6095,8 @@ function notebookAction(act, a, ref, v) {
     case 'ndelete': { const s = S.sheet; S.sheet = null; S.nTagOpen = false; change(() => { const L = noteList(s); const i = L.findIndex((x) => x.id === s.ref); if (i >= 0) L.splice(i, 1); }, 'Note deleted'); return true; }
     case 'nfopen': S.nFOpen = !S.nFOpen; render(); return true;
     case 'ntag': S.nTag = v; S.nFOpen = false; render(); return true;
-    case 'jnew': S.jNewTags = null; S.jFrom = null; if (S.nbView === 'jpage') { jSync(); jDropEmpty(); save(); } S.jMenu = false; S.jBack = S.nbView === 'jpage' ? (S.jBack || 'home') : (S.nbView || 'home'); S.jTagOpen = false; S.jRe = null; S.jSel = null; S.jCaret = null; S.nbView = 'jpage'; S.jEntry = 'new'; render(); jGrow(); $('#main').scrollTop = 0; requestAnimationFrame(() => { const t = document.getElementById('jtext'); if (t) { jLayout(); t.focus(); jSetCaret(((jCurrent() || {}).text || '').length); } }); return true;
-    case 'jopen': S.jNewTags = null; S.jFrom = null; jSync(); jDropEmpty(); S.jBack = S.nbView === 'jpage' ? (S.jBack || 'home') : (S.nbView || 'home'); S.jTagOpen = false; S.jRe = null; S.jSel = null; S.jCaret = null; S.nbView = 'jpage'; S.jEntry = ref; S.sheet = null; render(); jGrow(); $('#main').scrollTop = 0; return true;
+    case 'jnew': S.jNewTags = null; S.jNewSup = false; S.jFrom = null; if (S.nbView === 'jpage') { jSync(); jDropEmpty(); save(); } S.jMenu = false; S.jBack = S.nbView === 'jpage' ? (S.jBack || 'home') : (S.nbView || 'home'); S.jTagOpen = false; S.jRe = null; S.jSel = null; S.jCaret = null; S.nbView = 'jpage'; S.jEntry = 'new'; render(); jGrow(); $('#main').scrollTop = 0; requestAnimationFrame(() => { const t = document.getElementById('jtext'); if (t) { jLayout(); t.focus(); jSetCaret(((jCurrent() || {}).text || '').length); } }); return true;
+    case 'jopen': S.jNewTags = null; S.jNewSup = false; S.jFrom = null; jSync(); jDropEmpty(); S.jBack = S.nbView === 'jpage' ? (S.jBack || 'home') : (S.nbView || 'home'); S.jTagOpen = false; S.jRe = null; S.jSel = null; S.jCaret = null; S.nbView = 'jpage'; S.jEntry = ref; S.sheet = null; render(); jGrow(); $('#main').scrollTop = 0; return true;
     case 'jfopen': S.jFOpen = !S.jFOpen; render(); return true;
     case 'jtagf': S.jTag = v; S.jFOpen = false; render(); return true;
     case 'jtags': { S.jMenu = false; if (S.jTagOpen) { S.jTagOpen = false; render(); return true; } jMake(); jSync(); save(); S.jTagOpen = true; render(); return true; }
@@ -6122,7 +6124,7 @@ function notebookAction(act, a, ref, v) {
       const e0 = jCurrent(); const ed = jEditable(e0); jSync(); jDropEmpty();
       save(); S.jTagOpen = false; S.jMenu = false; S.jTxt = false; S.jRe = null; S.jSel = null; S.nbView = S.jBack || 'home'; S.jEntry = null; jFromBack(); render(); return true; }
     // (a page opened from Studies goes back to Studies)
-    case 'nbgo': S.jNewTags = null; S.jFrom = null; S.nbView = v; if (v === 'words') { S.wView = 'list'; S.wMenu = false; } S.nFOpen = false; render(); $('#main').scrollTop = 0; return true;
+    case 'nbgo': S.jNewTags = null; S.jNewSup = false; S.jFrom = null; S.nbView = v; if (v === 'words') { S.wView = 'list'; S.wMenu = false; } S.nFOpen = false; render(); $('#main').scrollTop = 0; return true;
   }
   return false;
 }
