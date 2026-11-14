@@ -91,9 +91,10 @@ function seed() {
       'b-morning': { name: 'Morning', style: 'dayblock', holds: 'task', start: '07:00', end: '09:00', color: '#D9AE72', icon: 'sunrise', kids: ['ci-m', 'r-morning', 't-walk'] },
       'b-study': { name: 'Study', style: 'dayblock', holds: 'task', start: '09:00', end: '18:00', color: '#3FAFA6', icon: 'book-open', kids: ['t-tax', 't-lamp'] },
       'b-evening': { name: 'Evening', style: 'dayblock', holds: 'task', start: '18:00', end: '23:00', color: '#A877C4', icon: 'moon', kids: ['t-wipe', 't-brine', 't-wash', 't-shower', 't-knit', 't-tv', 'r-evening', 'ci-e'] },
-      'g-appts': { name: 'Appointments', holds: 'acats', kids: ['c-appt', 'c-social'] },
+      'g-appts': { name: 'Appointments', holds: 'acats', kids: ['c-appt', 'c-social', 'c-travel'] },
       'c-appt': { name: 'Appointments', style: 'acat', holds: 'appt', color: '#6F9BD6', icon: 'calendar-clock', kids: ['a-hair', 'a-gp', 'a-dent'] },
-      'c-social': { name: 'Social', style: 'acat', holds: 'appt', color: '#EC8FA8', icon: 'users', kids: ['a-coffee'] }
+      'c-social': { name: 'Social', style: 'acat', holds: 'appt', color: '#EC8FA8', icon: 'users', kids: ['a-coffee'] },
+      'c-travel': { name: 'Travel', style: 'acat', holds: 'appt', color: '#5FA8A0', icon: 'plane', kids: [] }
     },
     items: it,
     tags: { 't-hyg': 'Hygiene', 't-move': 'Movement', 't-media': 'Media', 't-hobby': 'Hobbies', 't-sleep': 'Sleep' },
@@ -158,9 +159,14 @@ const halfOf = (id) => (M.half || {})[id];
 function twoTick(id) { const it = I(id); if (!it || !it.two || isDone(id, T0)) return false;
   if (halfOf(id)) { twoFinish(id); return true; }
   const at = Date.now(); const due = new Date(at + (+it.two || 2) * 3600000);
-  change(() => { (M.half = M.half || {})[id] = { at }; if (typeof remList === 'function') remList().push({ id: uid('rm'), text: it.name + ': part two', time: pad(due.getHours()) + ':' + pad(due.getMinutes()), rep: 'once', date: iso(due), item: id, on: true, two: id }); }, 'Started ' + it.name);
+  change(() => { (M.half = M.half || {})[id] = { at, d: T0 }; if (typeof remList === 'function') remList().push({ id: uid('rm'), text: it.name + ': part two', time: pad(due.getHours()) + ':' + pad(due.getMinutes()), rep: 'once', date: iso(due), item: id, on: true, two: id }); }, 'Started ' + it.name);
   if (typeof remSync === 'function') remSync(); return true; }
 function twoFinish(id) { change(() => { if (M.half) delete M.half[id]; M.reminders = (M.reminders || []).filter((r) => r.two !== id); L(T0)[id] = 'done'; }, I(id).name + ' done'); if (typeof remSync === 'function') remSync(); }
+// a two-part chore still waiting when its day ends counts as missed that day (2026-11-14); it keeps showing at the
+// earliest free spot of the next days until I finish it, and never counts as the day's chore
+const halfDay = (h) => { if (h.d) return h.d; const x = new Date(h.at); x.setHours(x.getHours() - DAY_H); return iso(x); };
+function halfRoll(m) { Object.keys(m.half || {}).forEach((id) => { const h = m.half[id]; if (!h || h.rolled) return; const sd = halfDay(h); if (sd >= T0) return; h.d = sd; h.rolled = true; m.missed = m.missed || {}; (m.missed[sd] = m.missed[sd] || {})[id] = true; }); }
+const halfOld = (id) => { const h = (M.half || {})[id]; return !!h && halfDay(h) < T0; };
 const TWO_ASKED = new Set();
 function twoCheck() { if (S.sheet || S.edit || document.hidden) return; const now = Date.now();
   const id = Object.keys(M.half || {}).find((k) => I(k) && I(k).two && !TWO_ASKED.has(k) && now - M.half[k].at >= (+I(k).two || 2) * 3600000);
@@ -297,7 +303,8 @@ function dayListRaw(d, raw) {
   // one-off chores, not Homemaking or Cooking) drops the Daily chore slot (2026-11-06)
   slotDrop(out);
   // a started two-part chore waits on Today, and counts as a real chore there, the generic chore slot drops on Today only, Schedule keeps it (2026-11-12)
-  if (d === T0) { const has = new Set(out.flatMap((x) => x.items)); Object.keys(M.half || {}).forEach((id) => { if (!I(id) || has.has(id)) return; const x = at(blockOfItem(id)) || out[out.length - 1]; if (x) x.items.push(id); }); }
+  if (d === T0) { const has = new Set(out.flatMap((x) => x.items)); Object.keys(M.half || {}).forEach((id) => { if (!I(id)) return; const old = halfOld(id); if (has.has(id) && !old) return;
+    if (old) out.forEach((x) => { x.items = x.items.filter((k) => k !== id); }); const x = at(blockOfItem(id)) || out[out.length - 1]; if (x) { if (old) x.items.unshift(id); else x.items.push(id); } }); }
   afterWork(out, d);
   { const R = out.flatMap((x) => x.items).filter((id) => I(id) && I(id).type === 'routine'); const inR = new Set(R.flatMap((r) => rSteps(r, d).filter(isLinkPart))); if (inR.size) out.forEach((x) => { x.items = x.items.filter((id) => !inR.has(id)); }); }
   // check-ins: morning opens the day, evening closes it
@@ -388,7 +395,7 @@ function linkPass(d) { const L0 = M.log[d] = M.log[d] || {};
   Object.keys(M.items).forEach((id) => { const ls = I(id).links; if (!ls || !ls.length || !linkDone(id, d)) return; ls.forEach((t) => { if (!I(t) || t === id || L0[t] != null) return; L0[t] = linkVal(t); L0['ln:' + t] = id; }); });
   if (!Object.keys(L0).length) delete M.log[d]; }
 function change(fn, msg, canUndo = true) { freezePast(); const before = JSON.stringify(M); if (HIST.last == null) HIST.last = before; HIST.t = 0; fn(); keepToday(); try { linkPass(T0); if (S.day && S.day < T0) linkPass(S.day); } catch (_) {} try { snapDay(T0); if (S.day && S.day < T0 && S.area === 'plan') snapDay(S.day); } catch (_) {} save(); HIST.t = 0; render(); } // no pop-up when I tick or save (2026-11-10); undo history is kept by save()
-function dayTick() { const t = appDay(); if (t === T0) return; const old = T0; T0 = t; if (S.day === old) S.day = t; if (S.sday === old) S.sday = t; if (S.monthOf === old.slice(0, 7)) S.monthOf = t.slice(0, 7); S.dayComp = null; render(); }
+function dayTick() { const t = appDay(); if (t === T0) return; const old = T0; T0 = t; try { halfRoll(M); save(); } catch (_) {} if (S.day === old) S.day = t; if (S.sday === old) S.sday = t; if (S.monthOf === old.slice(0, 7)) S.monthOf = t.slice(0, 7); S.dayComp = null; render(); }
 setInterval(dayTick, 30000); document.addEventListener('visibilitychange', () => { if (!document.hidden) dayTick(); }); window.addEventListener('focus', dayTick);
 // every change is a step (2026-11-12: undo several steps, then redo): save() compares with the last state it saw; changes
 // close together (typing) make one step. Loading data starts the history afresh (HIST.last = null).
@@ -588,7 +595,7 @@ const mi = (key, def) => S.edit ? `<span class="miic" data-a="iconfor" data-v="u
 // what a day had on it and how much got done, kept for the calendar's marks. Counted after every change, wherever I tick
 // (a chore page, the + sheet, Studies), not only while Today is on screen, so yesterday's mark is always right (2026-11-10)
 // a started two-part chore stands in for the generic chore on Today (not on Schedule, which is for planning)
-function halfDrop(DL) { if (Object.keys(M.half || {}).some((id) => I(id))) DL.forEach((x) => { x.items = x.items.filter((id) => !(I(id) && I(id).type === 'slot' && I(id).opens === 'chores')); }); return DL; }
+function halfDrop(DL) { return DL; } // a started two-part chore no longer stands in for the day's chore (2026-11-14: unfinished doesn't count)
 function snapDay(d, DL) { DL = DL || (d === T0 ? halfDrop(dayList(d)) : dayList(d)); const opt = (id) => !!(I(id) && I(id).optional); let due = missedOn(d).filter((id) => !opt(id)).length, done = 0; DL.forEach((x) => x.items.concat(x.appts || []).forEach((id) => { if (I(id) && I(id).brk) return; const dn = I(id) && I(id).type === 'routine' ? isDone(id, d) && rComplete(id, d) : isDone(id, d); if (opt(id) && !dn) return; due++; if (dn) done++; })); /* an optional item only counts once it's done */ M.snap[d] = { due, done };
   // a bad day is finished when its own list and the day's appointments are done (2026-11-10: an empty Bad day list never finished)
   if (isBad(d)) { const bl = badList().concat(DL.flatMap((x) => x.appts || [])).filter((id, i, A) => A.indexOf(id) === i); Object.assign(M.snap[d], { bad: 1, bdue: bl.length, bdone: bl.filter((id) => isDone(id, d)).length }); }
@@ -655,7 +662,7 @@ const frozenOf = (d) => d < T0 && M.frozen && M.frozen[d] ? M.frozen[d].filter((
 function slotDrop(out) {
   const all = out.flatMap((x) => x.items); const sids = typeof subjIds === 'function' ? new Set(subjIds().flatMap(sIds)) : new Set(); const cids = typeof choreIds === 'function' ? new Set(choreIds()) : new Set();
     const tids = typeof trainCats === 'function' ? new Set(trainCats().flatMap(kidsOf)) : new Set(); const hobOn = typeof hobArea === 'function' && all.some((id) => hobArea(id));
-    const studyOn = all.some((id) => sids.has(id) || (I(id) && I(id).part && sids.has(I(id).part))), choreOn = all.some((id) => cids.has(id)), moveOn = all.some((id) => tids.has(id));
+    const studyOn = all.some((id) => sids.has(id) || (I(id) && I(id).part && sids.has(I(id).part))), choreOn = all.some((id) => cids.has(id) && !(M.half || {})[id]), moveOn = all.some((id) => tids.has(id));
     if (studyOn || choreOn || moveOn || hobOn) out.forEach((x) => { x.items = x.items.filter((id) => !(I(id) && I(id).type === 'slot' && ((I(id).opens === 'study' && studyOn) || (I(id).opens === 'chores' && choreOn) || (I(id).opens === 'training' && moveOn) || (I(id).opens === 'hobbies' && hobOn)))); });
   return out; }
 // a set-time item dragged on the Schedule for one day keeps that day's time in M.dayTime (2026-11-13)
@@ -667,11 +674,17 @@ function placeDay(d) {
   // that spills over pushes the next block's untimed items later, so nothing hides behind anything (2026-11-02)
   // a started two-part chore's second part sits on Schedule at the time its timer goes off (the owner, 2026-11-13);
   // if something with a set time is there, it falls into the first free spot behind it
-  const twoAt = {}; Object.keys(M.half || {}).forEach((id) => { const it = I(id); if (!it || !it.two || isDone(id, d)) return; const due = new Date(M.half[id].at + (+it.two || 2) * 3600000);
-    const sh = new Date(due); sh.setHours(sh.getHours() - DAY_H); if (iso(sh) !== d) return; twoAt[id] = due.getHours() * 60 + due.getMinutes() + (iso(due) !== d ? 1440 : 0); });
+  const twoAt = {}; Object.keys(M.half || {}).forEach((id) => { const it = I(id); if (!it || !it.two || isDone(id, d) || isMissed(id, d)) return; const due = new Date(M.half[id].at + (+it.two || 2) * 3600000);
+    const sh = new Date(due); sh.setHours(sh.getHours() - DAY_H); if (iso(sh) !== d || halfDay(M.half[id]) !== d) return; twoAt[id] = due.getHours() * 60 + due.getMinutes() + (iso(due) !== d ? 1440 : 0); });
   DL.forEach((x) => { x.items = x.items.filter((id) => !(id in twoAt)); });
+  // missed items that come back on their own (an overdue repeat, a task past its date, one moved on from a bad day, an unfinished
+  // two-part chore) don't keep their set time: they take the first free spot at the top of their block (2026-11-14)
+  const dT = (M.dayTime || {})[d] || {}; const carried = new Set(d < T0 ? [] : DL.flatMap((x) => x.items).filter((id) => { const it = I(id); if (!it || it.type === 'checkin' || it.brk || dT[id]) return false;
+    return (M.half || {})[id] ? halfOld(id) : (d === T0 && lateBy(id) > 0) || !onDay(id, d); }));
+  if (carried.size) DL.forEach((x) => { const c = x.items.filter((id) => carried.has(id)); x.items = c.concat(x.items.filter((id) => !carried.has(id))); });
+  const fixedT = (id) => I(id).time && !carried.has(id);
   const allFixed = []; DL.forEach(({ b, items, appts }) => { const g = G(b);
-    items.filter((id) => I(id).time).forEach((id) => { const t = hm(tAt(id, d)); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), blk: b }); });
+    items.filter(fixedT).forEach((id) => { const t = hm(tAt(id, d)); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), blk: b }); });
     (appts || []).forEach((id) => { const t = hm(tAt(id, d) || g.start); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), appt: true, blk: b }); }); });
   const twos = Object.keys(twoAt).sort((p, q) => twoAt[p] - twoAt[q]).map((id) => { const len = I(id).dur || 30; let a0 = twoAt[id], moved = true;
     while (moved) { moved = false; allFixed.forEach((f) => { if (a0 < f.b && a0 + len > f.a) { a0 = f.b; moved = true; } }); }
@@ -693,8 +706,8 @@ function placeDay(d) {
     // backwards; a day's own choice wins over the every-day one (it.before)
     const dt = (M.dayTack || {})[d] || {}; const tackOf = (id) => { const t = (id in dt ? dt[id] : I(id).before) || null; return t && I(t) ? t : null; }; // breaks too (2026-11-12), but only when dropped right at them (see the drop)
     const tacked = new Set(); const busy = fixed.slice();
-    fixed.forEach((f) => { let end = f.a; items.filter((id) => !I(id).time && tackOf(id) === f.id).reverse().forEach((id) => { const len = I(id).dur || 30; if (end - len < hm(g.start)) return; /* no room before the block starts: it flows as usual */ const q = { id, a: end - len, b: end, blk: b }; out.push(q); busy.push(q); tacked.add(id); end -= len; }); });
-    items.filter((id) => !I(id).time && !tacked.has(id)).forEach((id) => { const len = I(id).dur || 30; let moved = true; if (after[id]) cur = Math.max(cur, after[id]);
+    fixed.forEach((f) => { let end = f.a; items.filter((id) => !fixedT(id) && !carried.has(id) && tackOf(id) === f.id).reverse().forEach((id) => { const len = I(id).dur || 30; if (end - len < hm(g.start)) return; /* no room before the block starts: it flows as usual */ const q = { id, a: end - len, b: end, blk: b }; out.push(q); busy.push(q); tacked.add(id); end -= len; }); });
+    items.filter((id) => !fixedT(id) && !tacked.has(id)).forEach((id) => { const len = I(id).dur || 30; let moved = true; if (after[id]) cur = Math.max(cur, after[id]);
       while (moved) { moved = false; busy.forEach((f) => { if (cur < f.b && cur + len > f.a) { cur = f.b; moved = true; } }); }
       out.push({ id, a: cur, b: cur + len, blk: b }); cur += len; });
   });
@@ -1755,7 +1768,9 @@ function migrate(m) {
   tMigrate(m); cMigrate(m); sSessMigrate(m); hMigrate(m); nMigrate(m); shMigrate(m); wMigrate(m); wMigrate2(m); wMigrate3(m); oeMigrate(m); hyperMigrate(m); oeMigrate2(m); remMigrate(m); // Training and Expeditions folders (2026-11-04)
   ciRepair(m);
   // 2026-11-11: snack day = the first snack logged in a week; training extras link to a training item, not a kind and distance
-  snackFix(m); afterFix(m); latteGone(m);
+  snackFix(m); afterFix(m); latteGone(m); halfRoll(m);
+  // a third kind of appointment, Travel (2026-11-14); added once, so removing it in edit mode sticks
+  if (m.settings && !m.settings.travel1 && m.groups['g-appts']) { m.settings.travel1 = true; if (!m.groups['c-travel']) { m.groups['c-travel'] = { name: 'Travel', style: 'acat', holds: 'appt', color: '#5FA8A0', icon: 'plane', kids: [] }; m.groups['g-appts'].kids.push('c-travel'); } }
   return m;
 }
 // the check-in questions live in the Morning and Evening tabs of Check-ins, and sleep quality in the Sleep group. An emptied app
@@ -2378,6 +2393,8 @@ async function addPhoto(file, into, nth, many) {
 const nowHM = () => { const n = new Date(); return pad(n.getHours()) + ':' + pad(n.getMinutes()); };
 function xcapture() { document.querySelectorAll('[data-xname]').forEach((el) => { const x = mealPlan().extras.find((e) => e.id === el.dataset.xname); if (x && el.value.trim()) x.name = el.value.trim(); }); }
 document.addEventListener('change', (e) => { if (e.target.dataset && e.target.dataset.xname) { xcapture(); save(); return; }
+  // an appointment lasts an hour unless I say otherwise: picking the start fills in the end (2026-11-14)
+  if (e.target.id === 'dtime' && document.getElementById('dend')) { const en = document.getElementById('dend'); const st = e.target.value; if (st && (!en.value || hm(en.value) <= hm(st))) en.value = fmtHM((hm(st) + 60) % 1440); }
   const ds = e.target.dataset || {};
   if (ds.fadd != null) { const w = e.target.value.trim().toLowerCase(); if (w && !feelSet().some((x) => x[2].includes(w))) change(() => { const set = JSON.parse(JSON.stringify(feelSet())); set[+ds.fadd][2].push(w); M.settings.feelings = set; }); renderLayer(); return; }
   if (ds.partadd) { const k = e.target.value; const s = S.sheet; if (k && s && I(k)) { capture(); (s.steps = s.steps || []).push({ id: k, name: I(k).name, link: true, optional: false, only: '', days: [], tags: [] }); } renderLayer(); return; }
