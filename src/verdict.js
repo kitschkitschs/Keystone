@@ -313,13 +313,13 @@ function studyLanding() {
   const ord = ['urg', 'dl', 'since'].includes(M.settings.studySort) ? M.settings.studySort : 'urg';
   const by = { urg: (a, b) => urg(b) - urg(a), dl: (a, b) => (a.due === undefined) - (b.due === undefined) || (a.due || 0) - (b.due || 0) || urg(b) - urg(a), since: (a, b) => b.since - a.since };
   // Show filter in the same menu (2026-11-06): all tasks, or only the ones scheduled for today (their day or a session today)
-  const todayOnly = M.settings.studyShow === 'today';
+  const todayOnly = M.settings.studyShow === 'today'; const every = M.settings.studyShow === 'every'; // Show all (2026-11-14): every open task, repeats that aren't due yet too
   const T = subjIds().filter((s) => !pick || s === pick).flatMap(sTasks).filter((t) => !todayOnly || schedToday(t.id))
     // a repeat only needs me once its review is 2 days off or less (2026-11-10); a picked subject still lists everything
-    .filter((t) => pick || t.due !== undefined || !repeatable(I(t.id)) || (period(I(t.id)) || SDEF) - t.since <= 2).sort(by[ord] || by.urg);
+    .filter((t) => pick || every || t.due !== undefined || !repeatable(I(t.id)) || (period(I(t.id)) || SDEF) - t.since <= 2).sort(by[ord] || by.urg);
   const ORD = [['urg', 'Most urgent'], ['dl', 'Soonest deadline'], ['since', 'Longest since studied']];
-  const ob = `<span class="vsortw"><button class="fbtn" data-a="vsortopen" aria-label="Order" aria-haspopup="menu" aria-expanded="${!!S.vsortOpen}" aria-pressed="${ord !== 'urg' || !!S.vsortOpen}">${icon('arrow-down-wide-narrow', 18)}</button>${S.vsortOpen ? `<span class="vsortx" data-a="vsortopen"></span><span class="vdrop vsortm" role="menu"><span class="mono">Order</span>${ORD.map(([k, l]) => `<button role="menuitemradio" data-a="vsort" data-v="${k}" aria-checked="${ord === k}" aria-current="${ord === k}">${l}${ord === k ? icon('check', 16, 2) : ''}</button>`).join('')}<span class="mono">Show</span>${[['all', 'All tasks'], ['today', 'Scheduled today']].map(([k, l]) => { const on = (todayOnly ? 'today' : 'all') === k; return `<button role="menuitemradio" data-a="vshow" data-v="${k}" aria-checked="${on}" aria-current="${on}">${l}${on ? icon('check', 16, 2) : ''}</button>`; }).join('')}</span>` : ''}</span>`;
-  h += vlab(pick ? G(pick).name : 'Needs me most', ob) + (T.length ? T.map((t) => taskRow(t, true)).join('') : `<p class="empty">${todayOnly ? 'Nothing scheduled for today.' : pick ? 'No open study tasks.' : 'Nothing needs me right now.'}</p>`);
+  const ob = `<span class="vsortw"><button class="fbtn" data-a="vsortopen" aria-label="Order" aria-haspopup="menu" aria-expanded="${!!S.vsortOpen}" aria-pressed="${ord !== 'urg' || todayOnly || every || !!S.vsortOpen}">${icon('arrow-down-wide-narrow', 18)}</button>${S.vsortOpen ? `<span class="vsortx" data-a="vsortopen"></span><span class="vdrop vsortm" role="menu"><span class="mono">Order</span>${ORD.map(([k, l]) => `<button role="menuitemradio" data-a="vsort" data-v="${k}" aria-checked="${ord === k}" aria-current="${ord === k}">${l}${ord === k ? icon('check', 16, 2) : ''}</button>`).join('')}<span class="mono">Show</span>${[['all', 'Needs me'], ['every', 'Show all'], ['today', 'Scheduled today']].map(([k, l]) => { const on = (todayOnly ? 'today' : every ? 'every' : 'all') === k; return `<button role="menuitemradio" data-a="vshow" data-v="${k}" aria-checked="${on}" aria-current="${on}">${l}${on ? icon('check', 16, 2) : ''}</button>`; }).join('')}</span>` : ''}</span>`;
+  h += vlab(pick ? G(pick).name : every ? 'All tasks' : todayOnly ? 'Scheduled today' : 'Needs me most', ob) + (T.length ? T.map((t) => taskRow(t, true)).join('') : `<p class="empty">${todayOnly ? 'Nothing scheduled for today.' : pick ? 'No open study tasks.' : 'Nothing needs me right now.'}</p>`);
   // no Open button for a picked subject; tapping its card again opens it (2026-11-10)
   return h;
 }
@@ -476,7 +476,7 @@ function verdictAction(act, a, ref, v) {
     case 'vtick': { const was = !!val(T0, ref); if (was) { change(() => { delete L(T0)[ref]; }, 'Unticked ' + I(ref).name); return true; } logDone(ref, T0); return true; }
     case 'vadd': vNew(v); return true;
     case 'vsortopen': S.vsortOpen = !S.vsortOpen; render(); return true;
-    case 'vshow': M.settings.studyShow = v === 'today' ? 'today' : 'all'; S.vsortOpen = false; save(); render(); return true;
+    case 'vshow': M.settings.studyShow = ['today', 'every'].includes(v) ? v : 'all'; S.vsortOpen = false; save(); render(); return true;
     case 'vsort': M.settings.studySort = v; S.vsortOpen = false; save(); render(); return true;
     case 'vsugg': { const [n, d] = v.split('|'); const id = uid('i'); change(() => { M.items[id] = { name: n, type: 'task', when: { mode: 'every', n: +d }, kind: 'behaviour', tags: [], insight: true, made: T0, dur: 20 }; G(ref).kids.push(id); }, 'Added ' + n); return true; }
     case 'vaddroom': vNewGroup('g-rooms', { name: 'New room', style: 'room', holds: 'task' }, 'Added a room'); return true;
