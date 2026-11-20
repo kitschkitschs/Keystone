@@ -2003,8 +2003,8 @@ function sheetBody() {
     // started on an earlier day: I can say which day I did part two
     if (days.length) return `<p class="note" style="font-size:14px">When did I finish it?</p><div class="chips" style="margin-top:6px">${days.reverse().map((x) => `<button class="chip" data-a="twoon" data-ref="${s.ref}" data-v="${x}">${esc(relDay(x))}</button>`).join('')}</div><div class="btns"><button class="btn dark" data-a="twoyes" data-ref="${s.ref}">Today</button><button class="btn" data-a="closesheet">Not yet</button></div>`;
     return `<p class="note" style="font-size:14px">Did I finish it?</p><div class="btns"><button class="btn dark" data-a="twoyes" data-ref="${s.ref}">Yes, done</button><button class="btn" data-a="closesheet">Not yet</button></div>`; }
-  if (s.kind === 'skipped') { const D = skipList(); const span = D.length === 1 ? fmtDate(D[0]) : fmtDate(D[0]) + ' – ' + fmtDate(D[D.length - 1]);
-    return `<p class="note" style="font-size:14px">I didn't open Almanac on ${D.length === 1 ? 'one day' : D.length + ' days'}: ${esc(span)}. Should ${D.length === 1 ? 'it be a bad day' : 'they be bad days'}?</p><div class="btns"><button class="btn dark" data-a="skipbad">Make ${D.length === 1 ? 'it a bad day' : 'them bad days'}</button><button class="btn" data-a="skipkeep">Leave ${D.length === 1 ? 'it' : 'them'}</button></div>`; }
+  if (s.kind === 'skipped') { const D = skipList(); const P = s.pick || []; // I pick which days were bad days; the rest stay just skipped (2026-11-20)
+    return `<p class="note" style="font-size:14px">I didn't open Almanac on ${D.length === 1 ? 'one day' : D.length + ' days'}. Which ${D.length === 1 ? 'was a bad day' : 'were bad days'}?</p><div class="chips" style="margin-top:6px">${D.map((x) => `<button class="chip" data-a="skippick" data-v="${x}" aria-pressed="${P.includes(x)}">${esc(fmtDate(x))}</button>`).join('')}</div><div class="btns"><button class="btn dark" data-a="skipbad">${P.length ? (P.length === 1 ? 'Make it a bad day' : 'Make them bad days') : 'Just skipped'}</button></div>`; }
   if (s.kind === 'much') return `<p class="note" style="font-size:14px">Too much “${esc((I(s.ref) || G(s.ref) || {}).name || '')}”. What kind?</p><div class="btns"><button class="btn dark" data-a="much" data-v="hyper">Hyperfixation</button><button class="btn dark" data-a="much" data-v="inert">Inertia</button><button class="btn" data-a="much" data-v="">Skip</button></div>`;
   if (s.kind === 'checkin') return checkinSheet(s);
   if (s.kind === 'feel') return feelSheet();
@@ -2353,8 +2353,8 @@ document.addEventListener('click', (e) => {
     case 'tick': tick(ref); break;
     case 'twoyes': S.sheet = null; twoFinish(ref); break;
     case 'twoon': S.sheet = null; twoFinishOn(ref, v); break;
-    case 'skipbad': { const D = skipList(); S.sheet = null; change(() => { M.badDays = M.badDays || {}; D.forEach((x) => { M.badDays[x] = 'skip'; }); M.settings.skipAsk = addDays(T0, -1); D.forEach((x) => snapDay(x)); }, D.length === 1 ? 'Made it a bad day' : 'Made them bad days'); break; }
-    case 'skipkeep': S.sheet = null; M.settings.skipAsk = addDays(T0, -1); save(); render(); break;
+    case 'skippick': { const P = S.sheet.pick = S.sheet.pick || []; const i = P.indexOf(v); if (i >= 0) P.splice(i, 1); else P.push(v); renderLayer(); return true; }
+    case 'skipbad': { const P = (S.sheet && S.sheet.pick) || []; S.sheet = null; change(() => { M.badDays = M.badDays || {}; P.forEach((x) => { M.badDays[x] = 'skip'; }); M.settings.skipAsk = addDays(T0, -1); P.forEach((x) => snapDay(x)); }, P.length ? (P.length === 1 ? 'Made it a bad day' : 'Made them bad days') : null); break; }
     case 'step': { const it = I(ref); const was = val(T0, ref); change(() => { if (was) delete L(T0)[ref]; else { L(T0)[ref] = 'done'; if (M.missed && M.missed[T0]) delete M.missed[T0][ref]; } }, was ? 'Unticked ' + it.name : null); break; }
     case 'checkin': openSheet({ kind: 'checkin', ref, title: I(ref).name }); break;
     case 'cidone': { const was = val(T0, v); change(() => { if (was) { delete L(T0)[v]; if (I(v).which === 'morning') delete L(T0)['ci-mfeel']; } else L(T0)[v] = 'done'; }, was ? 'Check-in not done' : 'Check-in done'); S.sheet = null; render(); break; }
