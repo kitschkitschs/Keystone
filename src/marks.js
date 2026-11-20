@@ -9,6 +9,7 @@ const mkHole = (id, body) => `<g mask="url(#mkhole-${id})">${body}</g>`;
 const MK_SHAPES = [
   ['star', 'Star', '<path d="M12 4.2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4-3.9-3.8 5.4-.8z"/>', 3.2],
   ['circle', 'Circle', '<circle cx="12" cy="12" r="8.6"/>', 0],
+  ['dot', 'Dot', '<circle cx="12" cy="12" r="2.8"/>', 0], // as small as a flower's centre (2026-11-20)
   ['cloud', 'Cloud', '<path d="M7.2 18.6h9.9a4.1 4.1 0 0 0 .4-8.2 5.6 5.6 0 0 0-10.7-.7 4.5 4.5 0 0 0 .4 8.9z"/>', 1.2],
   ['flower', 'Flower', mkHole('a', mkRot(5, 72, '<circle cx="12" cy="6.9" r="4.2" transform="ROT"/>')), 0],
   ['petals4', 'Four petals', mkHole('b', mkRot(4, 90, '<circle cx="12" cy="7" r="4.4" transform="ROT"/>')), 0],
