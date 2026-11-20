@@ -157,10 +157,15 @@ function grpCol(k, n) { const g = G(k); if (!g || (n || 0) > 8) return '#9A9387'
 // the second tick, a reminder goes off after it.two hours, and once those hours are up the app asks if I finished it.
 const halfOf = (id) => (M.half || {})[id];
 function twoTick(id) { const it = I(id); if (!it || !it.two || isDone(id, T0)) return false;
-  if (halfOf(id)) { twoFinish(id); return true; }
+  if (halfOf(id)) { if (halfOld(id)) openSheet({ kind: 'two', ref: id, title: it.name }); else twoFinish(id); return true; }
   const at = Date.now(); const due = new Date(at + (+it.two || 2) * 3600000);
   change(() => { (M.half = M.half || {})[id] = { at, d: T0 }; if (typeof remList === 'function') remList().push({ id: uid('rm'), text: it.name + ': part two', time: pad(due.getHours()) + ':' + pad(due.getMinutes()), rep: 'once', date: iso(due), item: id, on: true, two: id }); }, 'Started ' + it.name);
   if (typeof remSync === 'function') remSync(); return true; }
+// part two done on an earlier day, when I didn't tick it then (2026-11-20): it counts on that day, not missed there
+function twoFinishOn(id, d) { if (d === T0) { twoFinish(id); return; } const h = halfOf(id);
+  change(() => { if (M.half) delete M.half[id]; M.reminders = (M.reminders || []).filter((r) => r.two !== id); (M.log[d] = M.log[d] || {})[id] = 'done'; if (M.missed && M.missed[d]) delete M.missed[d][id];
+    const fz = (M.frozen || {})[d]; if (fz && !fz.some((o) => o.id === id)) { const b = blockOfItem(id); let a0 = hm(G(b).start); if (h && halfDay(h) === d) { const due = new Date(h.at + (+I(id).two || 2) * 3600000); a0 = due.getHours() * 60 + due.getMinutes(); } fz.push({ id, a: a0, b: a0 + (I(id).dur || 30), blk: b, appt: false }); }
+    snapDay(d); }, I(id).name + ' done'); if (typeof remSync === 'function') remSync(); }
 function twoFinish(id) { change(() => { if (M.half) delete M.half[id]; M.reminders = (M.reminders || []).filter((r) => r.two !== id); L(T0)[id] = 'done'; }, I(id).name + ' done'); if (typeof remSync === 'function') remSync(); }
 // a two-part chore still waiting when its day ends counts as missed that day (2026-11-14); it keeps showing at the
 // earliest free spot of the next days until I finish it, and never counts as the day's chore
@@ -172,7 +177,7 @@ function twoCheck() { if (S.sheet || S.edit || document.hidden) return; const no
   const id = Object.keys(M.half || {}).find((k) => I(k) && I(k).two && !TWO_ASKED.has(k) && now - M.half[k].at >= (+I(k).two || 2) * 3600000);
   if (id) { TWO_ASKED.add(id); openSheet({ kind: 'two', ref: id, title: I(id).name }); } }
 document.addEventListener('visibilitychange', () => { if (document.hidden) TWO_ASKED.clear(); else setTimeout(twoCheck, 400); });
-setInterval(twoCheck, 60000); setTimeout(twoCheck, 1500);
+setInterval(twoCheck, 60000); setTimeout(() => { skipCheck(); twoCheck(); }, 1500);
 function blockOfItem(id) { const pl = placements(id).find((p) => G(p) && G(p).style === 'dayblock'); return pl || blockIds()[blockIds().length - 1]; }
 function blockAtTime(t) { const m = hm(t); return blockIds().find((b) => hm(G(b).start) <= m && m < hm(G(b).end)) || blockIds()[blockIds().length - 1]; }
 function placeName(p) { if (p.startsWith('s:')) return (I(p.slice(2)) || {}).name + ' (steps)'; const g = G(p); return g.style === 'dayblock' ? 'Day block · ' + g.name : g.style === 'acat' ? 'Appointments · ' + g.name : g.name; }
@@ -270,11 +275,21 @@ function whenText(it) {
 // BAD DAYS (2026-11-08): a bad day (M.badDays[day]) keeps only its appointments and its own Bad day list;
 // everything else scheduled moves on to the next normal day. I can still look at it and tick it on the bad day.
 const isBad = (d) => !!((M.badDays || {})[d]);
+// SKIPPED DAYS (2026-11-20): a past day I never opened the app on. M.seen[day] marks the days I did; for days before
+// that was kept, any log, food diary or saved list counts as a visit. Skipped days show in the calendar.
+function seenDay() { M.seen = M.seen || {}; if (!M.seen[T0]) { M.seen[T0] = 1; return true; } return false; }
+// the first day I used the app: the earliest day with something logged, saved or seen
+const firstDay = () => { let f = T0; const see = (k) => { if (k < f && /^\d{4}-\d\d-\d\d$/.test(k)) f = k; };
+  Object.keys(M.log || {}).forEach((k) => { if (Object.keys(M.log[k] || {}).length) see(k); }); Object.keys(M.seen || {}).forEach(see); Object.keys(M.frozen || {}).forEach(see); return f; };
+function skipped(d) { if (d >= T0 || d < firstDay() || (M.seen || {})[d] || isBad(d)) return false; const L0 = M.log[d]; if (L0 && Object.keys(L0).length) return false; if ((M.frozen || {})[d] || ((M.photos || {})[d] || []).length || ((M.missed || {})[d] && Object.keys(M.missed[d]).length)) return false; return true; }
+// the days to ask about when I come back: skipped ones since I last answered, up to a month back
+function skipList() { const stop = M.settings.skipAsk || ''; const out = []; for (let x = addDays(T0, -1); x > stop && out.length < 60 && skipped(x); x = addDays(x, -1)) out.unshift(x); return out; } // the days I was away just now, back to the last day I used it
+function skipCheck() { if (S.sheet || S.edit) return; if (skipList().length) openSheet({ kind: 'skipped', title: 'Welcome back' }); else if (!M.settings.skipAsk || M.settings.skipAsk < addDays(T0, -1)) { M.settings.skipAsk = addDays(T0, -1); save(); } }
 const badList = () => ((G('g-bad') || {}).kids || []).filter((id) => I(id));
 const badMoved = (d) => dayListRaw(d, true).flatMap((x) => x.items.map((id) => ({ id, b: x.b }))).filter((o) => I(o.id).type !== 'checkin');
 function dayList(d) { const out = dayListRaw(d); if (frozenOf(d)) return out;
   if (isBad(d)) { out.forEach((x) => { x.items = []; }); return out; }
-  const run = []; for (let p = addDays(d, -1); run.length < 30 && isBad(p); p = addDays(p, -1)) run.push(p);
+  const run = []; for (let p = addDays(d, -1); run.length < 30 && isBad(p) && M.badDays[p] !== 'skip'; p = addDays(p, -1)) run.push(p); // a skipped day made bad excuses the day, its work doesn't pile onto today
   run.forEach((p) => dayListRaw(p, true).forEach((x) => x.items.forEach((id) => {
     if (I(id).type === 'checkin' || run.some((q) => isDone(id, q)) || out.some((z) => z.items.includes(id))) return;
     const y = out.find((z) => z.b === x.b); if (y) y.items.push(id); })));
@@ -319,7 +334,10 @@ function dayListRaw(d, raw) {
 // It counts as not done. Kept in M.missed[day][id], apart from the day log.
 const isMissed = (id, d) => { const v = ((M.missed || {})[d] || {})[id]; return !!v && v !== 'r'; };
 const missedOn = (d) => Object.entries((M.missed || {})[d] || {}).filter(([id, v]) => I(id) && v !== 'r' && I(id).type !== 'step').map(([id]) => id); // parts a ticked routine missed ('r') count in the routine, not on their own
-function dropMissed(out, d) { out.forEach((x) => { x.items = x.items.filter((id) => !isMissed(id, d)); if (x.appts) x.appts = x.appts.filter((id) => !isMissed(id, d)); }); return out; }
+// a two-part chore waiting on its second part only stays on a past day's list if that's the day it got done (2026-11-20)
+function halfWait(id, d) { const it = I(id); if (!it || !it.two || d >= T0 || isDone(id, d)) return false;
+  for (let x = addDays(d, -1), k = 0; k < 60; x = addDays(x, -1), k++) { if (isDone(id, x)) return false; if (((M.missed || {})[x] || {})[id] === true) return true; } return false; }
+function dropMissed(out, d) { out.forEach((x) => { x.items = x.items.filter((id) => !isMissed(id, d) && !halfWait(id, d)); if (x.appts) x.appts = x.appts.filter((id) => !isMissed(id, d)); }); return out; }
 // Move an item to place idx of block b on one day only (repeats and routines). One-off tasks move for good.
 function seqOf(day, b, excl) { return placeDay(day).filter((o) => o.blk === b && I(o.id).type !== 'checkin' && o.id !== excl).sort((p, q) => p.a - q.a).map((o) => o.id); }
 function moveOnDay(id, day, b, idx) {
@@ -394,7 +412,7 @@ function linkPass(d) { const L0 = M.log[d] = M.log[d] || {};
   Object.keys(M.items).forEach((id) => { const ls = I(id).links; if (!ls || !ls.length || !linkDone(id, d)) return; ls.forEach((t) => { if (!I(t) || t === id || L0[t] != null) return; L0[t] = linkVal(t); L0['ln:' + t] = id; }); });
   if (!Object.keys(L0).length) delete M.log[d]; }
 function change(fn, msg, canUndo = true) { freezePast(); const before = JSON.stringify(M); if (HIST.last == null) HIST.last = before; HIST.t = 0; fn(); keepToday(); try { linkPass(T0); if (S.day && S.day < T0) linkPass(S.day); } catch (_) {} try { snapDay(T0); if (S.day && S.day < T0 && S.area === 'plan') snapDay(S.day); } catch (_) {} save(); HIST.t = 0; render(); } // no pop-up when I tick or save (2026-11-10); undo history is kept by save()
-function dayTick() { const t = appDay(); if (t === T0) return; const old = T0; T0 = t; try { halfRoll(M); save(); } catch (_) {} if (S.day === old) S.day = t; if (S.sday === old) S.sday = t; if (S.monthOf === old.slice(0, 7)) S.monthOf = t.slice(0, 7); S.dayComp = null; render(); }
+function dayTick() { const t = appDay(); if (t === T0) return; const old = T0; T0 = t; try { halfRoll(M); seenDay(); save(); } catch (_) {} setTimeout(skipCheck, 600); if (S.day === old) S.day = t; if (S.sday === old) S.sday = t; if (S.monthOf === old.slice(0, 7)) S.monthOf = t.slice(0, 7); S.dayComp = null; render(); }
 setInterval(dayTick, 30000); document.addEventListener('visibilitychange', () => { if (!document.hidden) dayTick(); }); window.addEventListener('focus', dayTick);
 // every change is a step (2026-11-12: undo several steps, then redo): save() compares with the last state it saw; changes
 // close together (typing) make one step. Loading data starts the history afresh (HIST.last = null).
@@ -454,10 +472,11 @@ function render() { WKC.clear(); bkDot(); setTimeout(navTrack, 0);
 // Today: calendar strip, then the picked day's blocks
 function dayCell(d, inMonth = true, c = 't') {
   const s = M.snap[d]; const selD = c === 's' ? (S.sview === 'day' ? S.sday : null) : c === 'f' ? (S.fday || T0) : c === 'x' ? (S.xday || T0) : S.day; const bd = (c === 't' || c === 's') && d <= T0 && isBad(d) && (d < T0 || !!(s && s.bdue > 0 && s.bdone >= s.bdue)); // bad days: their own mark, or a small dot when not all done (2026-11-08)
-  const star = c === 'x' ? false : c === 'f' ? trainStar(d) : bd ? !!(s && s.bdue > 0 && s.bdone >= s.bdue) : d <= T0 && !(d === T0 && isBad(d)) && s && s.due > 0 && s.done >= s.due;
+  const star = c === 'x' ? false : c === 'f' ? trainStar(d) : bd ? !!(s && s.bdue > 0 && s.bdone >= s.bdue) || M.badDays[d] === 'skip' : d <= T0 && !(d === T0 && isBad(d)) && s && s.due > 0 && s.done >= s.due;
   const ck = c === 's' ? 'sched' : c === 'f' ? 'train' : 'plan'; // what shows is set in edit mode › Calendars
   const aw = c === 'x' ? tripsOn(d)[0] || null : awayOf(ck, d); // the Expeditions calendar always shows its trips (2026-11-06)
-  return `<button class="day fday ${d === selD ? 'sel' : ''} ${d === T0 ? 'today' : ''} ${inMonth ? '' : 'out'}${awayCls(aw, d)}" data-a="pickday" data-c="${c}" data-v="${d}" aria-label="${fmtDate(d)}${aw ? ', away: ' + esc(aw.name) : star ? ', all done' : ''}">
+  const sk = (c === 't' || c === 's') && !aw && skipped(d); // a day I never opened the app (2026-11-20)
+  return `<button class="day fday ${d === selD ? 'sel' : ''} ${d === T0 ? 'today' : ''} ${inMonth ? '' : 'out'}${sk ? ' skip' : ''}${awayCls(aw, d)}" data-a="pickday" data-c="${c}" data-v="${d}" aria-label="${fmtDate(d)}${aw ? ', away: ' + esc(aw.name) : star ? ', all done' : sk ? ', skipped' : ''}">
     ${aw || c === 'x' ? '' : calLines(ck, d) + calDotsHtml(ck, d)}
     <span class="n">${star && !aw ? markSvg(c === 'f' ? 'train' : bd ? 'bad' : 'plan', null, 'star') : bd && !aw ? `<i class="badot" style="background:${starCol('bad')}"></i>` : ''}${parse(d).getDate()}</span></button>`;
 }
@@ -670,7 +689,7 @@ function slotDrop(out, d = T0) {
 // a set-time item dragged on the Schedule for one day keeps that day's time in M.dayTime (2026-11-13)
 const tAt = (id, d) => ((M.dayTime || {})[d] || {})[id] || I(id).time;
 function placeDay(d) {
-  const fz = frozenOf(d); if (fz) { return fz.filter((o) => !isMissed(o.id, d)).map((o) => Object.assign({}, o)); }
+  const fz = frozenOf(d); if (fz) { return fz.filter((o) => !isMissed(o.id, d) && !halfWait(o.id, d)).map((o) => Object.assign({}, o)); }
   const out = []; const DL = dayList(d);
   // items with a set time (and appointments) are fixed for the whole day; untimed items flow around ALL of them, and a block
   // that spills over pushes the next block's untimed items later, so nothing hides behind anything (2026-11-02)
@@ -682,8 +701,11 @@ function placeDay(d) {
   // missed items that come back on their own (an overdue repeat, a task past its date, one moved on from a bad day, an unfinished
   // two-part chore) don't keep their set time: they take the first free spot at the top of their block (2026-11-14)
   const dT = (M.dayTime || {})[d] || {}; const carried = new Set(d < T0 ? [] : DL.flatMap((x) => x.items).filter((id) => { const it = I(id); if (!it || it.type === 'checkin' || it.brk || dT[id]) return false;
+    if (afterSrc()[id] && workoutOn(d, id)) return false; // a shower that follows today's workout stays behind it (2026-11-20)
     return (M.half || {})[id] ? halfOld(id) : (d === T0 && lateBy(id) > 0) || !onDay(id, d); }));
-  if (carried.size) DL.forEach((x) => { const c = x.items.filter((id) => carried.has(id)); x.items = c.concat(x.items.filter((id) => !carried.has(id))); });
+  // repeats keep the order they always have unless I move them (2026-11-20); only an unfinished two-part chore goes to the top
+  const topped = new Set([...carried].filter((id) => (M.half || {})[id]));
+  if (topped.size) DL.forEach((x) => { const c = x.items.filter((id) => topped.has(id)); x.items = c.concat(x.items.filter((id) => !topped.has(id))); });
   const fixedT = (id) => I(id).time && !carried.has(id);
   const allFixed = []; DL.forEach(({ b, items, appts }) => { const g = G(b);
     items.filter(fixedT).forEach((id) => { const t = hm(tAt(id, d)); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), blk: b }); });
@@ -958,7 +980,12 @@ function sheetBody() {
   if (s.kind === 'hyper') { const pk = hval(T0, 'pt:' + s.ref) || []; const c = hcolor(s.ref); const chip = ([h, l]) => `<button class="hchip" data-a="hpart" data-ref="${s.ref}" data-v="${esc(h)}" aria-pressed="${pk.includes(h)}" style="${pk.includes(h) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(l)}</button>`; const HB = hyperHobs(s.ref), DT = (I(s.ref).parts || []).map((w) => [w, w]); const hobOn = HB.some(([h]) => pk.includes(h));
       return `<p class="note" style="font-size:14px">Which hobbies?</p><div class="chips">${HB.map(chip).join('')}</div><div class="btns" style="margin-top:16px"><button class="btn dark" data-a="hyperdone" ${hobOn || !HB.length ? '' : 'disabled'}>Done</button></div>`; }
   if (false) { return `<div class="chips">${partOpts(s.ref).map(([h, l]) => `<button class="hchip" data-a="hpart" data-ref="${s.ref}" data-v="${esc(h)}" aria-pressed="${pk.includes(h)}" style="${pk.includes(h) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(l)}</button>`).join('')}</div><div class="btns" style="margin-top:16px"><button class="btn dark" data-a="hyperdone" ${pk.length ? '' : 'disabled'}>Done</button></div>`; }
-  if (s.kind === 'two') return `<p class="note" style="font-size:14px">Did I finish it?</p><div class="btns"><button class="btn dark" data-a="twoyes" data-ref="${s.ref}">Yes, done</button><button class="btn" data-a="closesheet">Not yet</button></div>`;
+  if (s.kind === 'two') { const h = halfOf(s.ref); const sd = h ? halfDay(h) : T0; const days = []; for (let x = sd; x < T0 && days.length < 14; x = addDays(x, 1)) days.push(x);
+    // started on an earlier day: I can say which day I did part two
+    if (days.length) return `<p class="note" style="font-size:14px">When did I finish it?</p><div class="chips" style="margin-top:6px">${days.reverse().map((x) => `<button class="chip" data-a="twoon" data-ref="${s.ref}" data-v="${x}">${esc(relDay(x))}</button>`).join('')}</div><div class="btns"><button class="btn dark" data-a="twoyes" data-ref="${s.ref}">Today</button><button class="btn" data-a="closesheet">Not yet</button></div>`;
+    return `<p class="note" style="font-size:14px">Did I finish it?</p><div class="btns"><button class="btn dark" data-a="twoyes" data-ref="${s.ref}">Yes, done</button><button class="btn" data-a="closesheet">Not yet</button></div>`; }
+  if (s.kind === 'skipped') { const D = skipList(); const span = D.length === 1 ? fmtDate(D[0]) : fmtDate(D[0]) + ' – ' + fmtDate(D[D.length - 1]);
+    return `<p class="note" style="font-size:14px">I didn't open Almanac on ${D.length === 1 ? 'one day' : D.length + ' days'}: ${esc(span)}. Should ${D.length === 1 ? 'it be a bad day' : 'they be bad days'}?</p><div class="btns"><button class="btn dark" data-a="skipbad">Make ${D.length === 1 ? 'it a bad day' : 'them bad days'}</button><button class="btn" data-a="skipkeep">Leave ${D.length === 1 ? 'it' : 'them'}</button></div>`; }
   if (s.kind === 'much') return `<p class="note" style="font-size:14px">Too much “${esc((I(s.ref) || G(s.ref) || {}).name || '')}”. What kind?</p><div class="btns"><button class="btn dark" data-a="much" data-v="hyper">Hyperfixation</button><button class="btn dark" data-a="much" data-v="inert">Inertia</button><button class="btn" data-a="much" data-v="">Skip</button></div>`;
   if (s.kind === 'checkin') return checkinSheet(s);
   if (s.kind === 'feel') return feelSheet();
@@ -1306,6 +1333,9 @@ document.addEventListener('click', (e) => {
     case 'unmiss': { const d = a.dataset.d || T0; change(() => { delete M.missed[d][ref]; }, 'Put back ' + I(ref).name); break; }
     case 'tick': tick(ref); break;
     case 'twoyes': S.sheet = null; twoFinish(ref); break;
+    case 'twoon': S.sheet = null; twoFinishOn(ref, v); break;
+    case 'skipbad': { const D = skipList(); S.sheet = null; change(() => { M.badDays = M.badDays || {}; D.forEach((x) => { M.badDays[x] = 'skip'; }); M.settings.skipAsk = addDays(T0, -1); D.forEach((x) => snapDay(x)); }, D.length === 1 ? 'Made it a bad day' : 'Made them bad days'); break; }
+    case 'skipkeep': S.sheet = null; M.settings.skipAsk = addDays(T0, -1); save(); render(); break;
     case 'step': { const it = I(ref); const was = val(T0, ref); change(() => { if (was) delete L(T0)[ref]; else { L(T0)[ref] = 'done'; if (M.missed && M.missed[T0]) delete M.missed[T0][ref]; } }, was ? 'Unticked ' + it.name : null); break; }
     case 'checkin': openSheet({ kind: 'checkin', ref, title: I(ref).name }); break;
     case 'cidone': { const was = val(T0, v); change(() => { if (was) { delete L(T0)[v]; if (I(v).which === 'morning') delete L(T0)['ci-mfeel']; } else L(T0)[v] = 'done'; }, was ? 'Check-in not done' : 'Check-in done'); S.sheet = null; render(); break; }
@@ -1770,7 +1800,7 @@ function migrate(m) {
   tMigrate(m); cMigrate(m); sSessMigrate(m); hMigrate(m); nMigrate(m); shMigrate(m); wMigrate(m); wMigrate2(m); wMigrate3(m); oeMigrate(m); hyperMigrate(m); oeMigrate2(m); remMigrate(m); // Training and Expeditions folders (2026-11-04)
   ciRepair(m);
   // 2026-11-11: snack day = the first snack logged in a week; training extras link to a training item, not a kind and distance
-  snackFix(m); afterFix(m); latteGone(m); halfRoll(m);
+  snackFix(m); afterFix(m); latteGone(m); halfRoll(m); m.seen = m.seen || {}; m.seen[T0] = 1;
   // a third kind of appointment, Travel (2026-11-14); added once, so removing it in edit mode sticks
   if (m.settings && !m.settings.travel1 && m.groups['g-appts']) { m.settings.travel1 = true; if (!m.groups['c-travel']) { m.groups['c-travel'] = { name: 'Travel', style: 'acat', holds: 'appt', color: '#5FA8A0', icon: 'plane', kids: [] }; m.groups['g-appts'].kids.push('c-travel'); } }
   return m;
