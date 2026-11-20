@@ -242,7 +242,10 @@ html.dark .jmp{background-image:repeating-linear-gradient(to bottom,transparent 
 .moreset{display:flex;align-items:center;width:100%;min-height:44px;color:var(--quiet);font-size:14px}.moreset .chev{margin-left:auto}
 .row.substep{min-height:40px;padding-left:34px;gap:12px}.row.substep .circ{width:20px;height:20px;font-size:11px}.row.substep .lbl{font-size:14px;color:var(--ink2)}
 .circ{width:22px;height:22px;border-radius:11px;border:1.75px solid var(--c);flex-shrink:0;box-sizing:border-box;display:grid;place-items:center;color:var(--card);font-size:12px;position:relative}
-.circ.done{background:var(--done);border-color:var(--done)}
+.circ.done{background:var(--c,var(--done));border-color:var(--c,var(--done))}
+/* done tasks go quiet: the circle is a plain dot in its colour and the name greys out (2026-11-20) */
+:is(.row,.appt):has(> .tickbtn > .circ.done) > :is(.lbl,button),:is(.row,.appt):has(> .circ.done) > .lbl{color:var(--faint2)}
+:is(.row,.appt):has(> .tickbtn > .circ.done) > :is(.lbl,button) *,:is(.row,.appt):has(> .circ.done) > .lbl *{color:inherit}
 .circ.opt{border-style:dotted;border-width:2px}
 .circ.half{background:linear-gradient(to top,var(--c,var(--done)) 50%,transparent 50%)}
 .circ.much{background:var(--much);border-color:var(--much)}
