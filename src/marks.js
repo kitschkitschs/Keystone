@@ -18,7 +18,7 @@ const MK_SHAPES = [
   ['mountain', 'Mountains', '<path d="M2.6 19.4l6.6-11.6 3.6 6.2 2.4-3.8 6.2 9.2z"/>', 1.4],
   ['sprout', 'Sprout', '<path d="M12 12.4C11.6 8.2 8.6 5.6 4.2 5.8c.2 4.4 3.4 7 7.8 6.6zM12 11c.4-4 3.4-6.6 7.8-6.4-.2 4.2-3.4 6.8-7.8 6.4z"/><rect x="11.1" y="10.6" width="1.8" height="10.4" rx=".9"/>', 0.6],
 ];
-const MK_SIZES = [['s', 'Small', 26], ['m', 'Medium', 30], ['l', 'Large', 34]];
+const MK_SIZES = [['s', 'Small', 20], ['m', 'Medium', 24], ['l', 'Large', 28]];
 const MK_LOOKS = [['fill', 'Filled'], ['soft', 'Soft'], ['line', 'Outline']];
 const MK_CALS = { plan: 'Today and Schedule', bad: 'Bad days', train: 'Training', food: 'Meal plan and diary' };
 const MK_DEF = { plan: { shape: 'star', size: 'l', look: 'fill' }, bad: { shape: 'cloud', size: 'l', look: 'fill' }, food: { shape: 'star', size: 'l', look: 'fill' }, train: { shape: 'flower', size: 'm', look: 'fill' }, over: { shape: 'circle', size: 'l', look: 'fill' }, broke: { shape: 'circle', size: 'l', look: 'soft' }, part: { shape: 'star', size: 'l', look: 'line' }, bpart: { shape: 'cloud', size: 'l', look: 'line' }, bempty: { shape: 'circle', size: 's', look: 'soft' } }; // part, bpart, bempty: unfinished day, unfinished bad day, bad day with nothing in it (2026-11-20)
