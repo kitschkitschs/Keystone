@@ -476,7 +476,7 @@ function render() { WKC.clear(); bkDot(); setTimeout(navTrack, 0);
 function dayStamp(d, c) { const s = M.snap[d];
   if (c === 'x') return null; if (c === 'f') return trainStar(d) ? 'train' : null;
   if (d > T0 || skipped(d)) return null;
-  if (isBad(d)) { if (M.badDays[d] === 'skip' || (s && s.bdue > 0 && s.bdone >= s.bdue)) return 'bad'; if (d === T0) return null; return s && s.bdue > 0 ? 'bpart' : 'bempty'; }
+  if (isBad(d)) { if (s && s.bdue > 0 && s.bdone >= s.bdue) return 'bad'; if (d === T0) return null; return M.badDays[d] !== 'skip' && s && s.bdone > 0 ? 'bpart' : 'bempty'; } // nothing logged (or a skipped day I made bad) = empty bad day
   if (!s || !(s.due > 0)) return null; if (s.done >= s.due) return 'plan'; return d < T0 ? 'part' : null; }
 const STAMP_SAY = { plan: ', all done', part: ', some left', bad: ', bad day, all done', bpart: ', bad day, some left', bempty: ', bad day', train: ', all done' };
 function dayCell(d, inMonth = true, c = 't') {
