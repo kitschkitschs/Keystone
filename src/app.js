@@ -503,7 +503,7 @@ function renderCal(c = 't') {
 function tickCircle(id, d, live) {
   const st = val(d, id); const done = isDone(id, d); const much = typeof st === 'string' && st.startsWith('much');
   const c = colorOf(id);
-  const inner = much ? '' : done ? '✓' : '';
+  const inner = ''; // a done task is just a dot filled with its colour (2026-11-20)
   const circ = `<span class="circ ${much ? 'much' : done ? 'done' : d === T0 && halfOf(id) ? 'half' : ''}${I(id) && I(id).optional ? ' opt' : ''}" style="--c:${c}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : 'aria-hidden="true"'}>${inner}</span>`;
   if (!live || S.edit) return S.edit ? circ : `<span class="tickbtn">${circ}</span>`;
   return `<button class="tickbtn" data-a="tick" data-ref="${id}" aria-label="Tick ${esc(tnm(id))}">${circ}</button>`;
@@ -511,7 +511,7 @@ function tickCircle(id, d, live) {
 // A check-in is a step of its routine (2026-11-02): morning check-in in Morning routine, evening in Evening routine.
 // Its circle shows if it's done; tapping the row opens the check-in.
 function ciStepRow(s, rid, d, live) {
-  const on = !!val(d, s); const circ = `<span class="circ ${on ? 'done' : ''}" style="--c:${colorOf(rid)}">${on ? '✓' : ''}</span>`;
+  const on = !!val(d, s); const circ = `<span class="circ ${on ? 'done' : ''}" style="--c:${colorOf(rid)}"></span>`;
   return `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" style="width:18px;height:40px" data-a="checkin" data-ref="${s}" aria-label="Open ${esc(tnm(s))}">${circ}</button><button class="lbl" data-a="checkin" data-ref="${s}" style="display:flex;align-items:center;text-align:left"><span style="flex:1">${inm(s)}</span><span class="chev" aria-hidden="true">›</span></button>` : `${circ}<span class="lbl">${nm(s, I(s).name)}</span>`}${tail(s, 's:' + rid, { gear: false })}</div>`;
 }
 // A routine opens by itself once it's due today (its start time on Schedule has come) and stays open until closed.
@@ -551,7 +551,7 @@ function itemRow(id, list, d) {
     const open = S.edit || routineOpen(id, d); const steps = S.edit ? rStepsAll(id) : rSteps(id, d);
     return `<div data-ref="${id}"><div class="row">${grip()}${tickCircle(id, d, live)}
       <button class="lbl" data-a="ropen" data-ref="${id}" aria-expanded="${!!open}" style="display:flex;align-items:center;gap:10px">${S.edit ? `<span style="flex:1">${nm(id, it.name)}</span>` : `<span style="flex:1">${inm(it)}${tdur(it)}</span>`}${S.edit ? '' : `${fold(open)}`}</button>${tail(id, list)}</div>
-      ${open ? `<div class="steps" data-list="s:${id}">${steps.map((s) => I(s).type === 'checkin' ? ciStepRow(s, id, d, live) : `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" style="width:18px;height:40px" data-a="step" data-ref="${s}" aria-label="Tick ${esc(tnm(s))}"><span class="circ ${val(d, s) ? 'done' : ''}${pOpt(id, s).optional ? ' opt' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span></button>` : `<span class="circ ${val(d, s) ? 'done' : ''}${pOpt(id, s).optional ? ' opt' : ''}" style="--c:${colorOf(id)}">${val(d, s) ? '✓' : ''}</span>`}<span class="lbl">${nm(s, I(s).name)}${S.edit && stepNote(s, id) && !(S.area === 'plan' && S.page === 'today') ? `<span class="sub">${esc(stepNote(s, id))}</span>` : ''}</span>${tail(s, 's:' + id, { gear: false })}</div>`).join('')}
+      ${open ? `<div class="steps" data-list="s:${id}">${steps.map((s) => I(s).type === 'checkin' ? ciStepRow(s, id, d, live) : `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" style="width:18px;height:40px" data-a="step" data-ref="${s}" aria-label="Tick ${esc(tnm(s))}"><span class="circ ${val(d, s) ? 'done' : ''}${pOpt(id, s).optional ? ' opt' : ''}" style="--c:${colorOf(id)}"></span></button>` : `<span class="circ ${val(d, s) ? 'done' : ''}${pOpt(id, s).optional ? ' opt' : ''}" style="--c:${colorOf(id)}"></span>`}<span class="lbl">${nm(s, I(s).name)}${S.edit && stepNote(s, id) && !(S.area === 'plan' && S.page === 'today') ? `<span class="sub">${esc(stepNote(s, id))}</span>` : ''}</span>${tail(s, 's:' + id, { gear: false })}</div>`).join('')}
         ${S.edit ? `<button class="addrow" data-a="addstep" data-ref="${id}"><span class="plus">+</span>Add step</button>` : ''}</div>` : ''}</div>`;
   }
   return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, live)}<span class="lbl">${S.edit ? nm(id, it.name) + '' : `<button data-a="${live ? 'sched' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left">${inm(it)}${tdur(it)}</button>`}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}${onToday && !S.edit && whereOf(id) ? `<span class="sub where">${esc(whereOf(id))}</span>` : ''}</span>${tail(id, list)}</div>`; // estimate on the right (2026-11-04)
@@ -666,7 +666,7 @@ function renderToday() {
   if (live && !S.edit) {
     const doneIds = DL.flatMap((x) => x.items.concat(x.appts || []).filter((id) => isDone(id, d)).map((id) => ({ id, b: x.b }))).concat(bad ? badList().filter((id) => isDone(id, d)).map((id) => ({ id, b: 'g-bad' })) : []);
     if (doneIds.length) h += `<div class="donebox"><button class="donebtn" data-a="showdone">${fold(S.showDone)} Done today · ${doneIds.length}</button>
-      ${S.showDone ? doneIds.map(({ id }) => `<button class="drow" data-a="tick" data-ref="${id}" aria-label="${esc(tnm(id))}, done. Tap to change"><span class="circ ${String(val(d, id) || '').startsWith('much') ? 'much' : 'done'}">${String(val(d, id) || '').startsWith('much') ? '' : '✓'}</span><span>${inm(id)}${String(val(d, id) || '').startsWith('much') ? ' · too much' : ''}</span></button>`).join('') : ''}</div>`;
+      ${S.showDone ? doneIds.map(({ id }) => `<button class="drow" data-a="tick" data-ref="${id}" aria-label="${esc(tnm(id))}, done. Tap to change"><span class="circ ${String(val(d, id) || '').startsWith('much') ? 'much' : 'done'}" style="--c:${colorOf(id)}"></span><span>${inm(id)}${String(val(d, id) || '').startsWith('much') ? ' · too much' : ''}</span></button>`).join('') : ''}</div>`;
     const mis = missedOn(d);
     if (mis.length) h += `<div class="donebox"><button class="donebtn" data-a="showmissed">${fold(S.showMissed)} Missed · ${mis.length}</button>
       ${S.showMissed ? mis.map((id) => `<button class="drow" data-a="unmiss" data-ref="${id}" data-d="${d}" aria-label="${esc(tnm(id))}, missed. Tap to put it back"><span class="circ missed" aria-hidden="true">–</span><span style="flex:1">${inm(id)}</span><span class="cnt">Put back</span></button>`).join('') : ''}</div>`;
