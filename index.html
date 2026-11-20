@@ -1007,8 +1007,13 @@ html.dark .feelcard.empty{background:#33302C}html.dark .jcard .jct,html.dark .jc
    every count sits centred in it: 1-3 in one row, 4 as a square, 5 as three over two, 6 as three over three */
 .day.fday .cdots{box-sizing:border-box;width:calc(3 * var(--cd,5px) + 4px);height:calc(2 * var(--cd,5px) + 2px);display:flex;flex-wrap:wrap;justify-content:center;align-content:center;gap:2px}
 .day.fday .cdots.n4{padding:0 calc(var(--cd,5px) / 2 + 1px)}
+/* the date and its dots share one row, so the dots are centred on the digits themselves (2026-11-20) */
+.day.fday .dh{position:absolute;left:5px;right:4px;top:5px;height:11px;display:flex;align-items:center;justify-content:space-between;z-index:1;pointer-events:none}
+.day.fday .dh .n{position:static;text-box:trim-both cap alphabetic}
+.day.fday .dh .cdots{position:static;flex:none;transform:none}
 .day.fday .star{top:calc(50% + 5px);transform:translate(-50%,-50%);z-index:0}
 .mkprev .day.fday{min-height:0}
+.skfood{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--line2);font-size:14px}.skfood .chips{flex-wrap:nowrap}
 /* a day I never opened the app: empty, with its date greyed (2026-11-20) */
 .day.skip .n{color:var(--faint2)}
 </style>
@@ -1521,7 +1526,7 @@ function dayCell(d, inMonth = true, c = 't') {
   const sk = (c === 't' || c === 's') && !aw && skipped(d); // a day I never opened the app (2026-11-20)
   const st = aw ? null : dayStamp(d, c);
   return `<button class="day fday ${d === selD ? 'sel' : ''} ${d === T0 ? 'today' : ''} ${inMonth ? '' : 'out'}${sk ? ' skip' : ''}${awayCls(aw, d)}" data-a="pickday" data-c="${c}" data-v="${d}" aria-label="${fmtDate(d)}${aw ? ', away: ' + esc(aw.name) : st ? STAMP_SAY[st] : sk ? ', skipped' : ''}">
-    ${aw || c === 'x' ? '' : calLines(ck, d) + calDotsHtml(ck, d)}<span class="n">${parse(d).getDate()}</span>${st ? markSvg(st, null, 'star') : ''}</button>`;
+    ${aw || c === 'x' ? '' : calLines(ck, d)}<span class="dh"><span class="n">${parse(d).getDate()}</span>${aw || c === 'x' ? '' : calDotsHtml(ck, d)}</span>${st ? markSvg(st, null, 'star') : ''}</button>`;
 }
 function renderCal(c = 't') {
   let weeks; const mon = c === 's' ? S.smonth : c === 'f' || c === 'x' ? S[c + 'month'] : S.month, monthOf = c === 's' ? S.smonthOf : c === 'f' || c === 'x' ? (S[c + 'monthOf'] || T0.slice(0, 7)) : S.monthOf, anchor = c === 's' ? S.sday : c === 'f' || c === 'x' ? (S[c + 'day'] || T0) : S.day;
@@ -2027,7 +2032,8 @@ function sheetBody() {
     if (days.length) return `<p class="note" style="font-size:14px">When did I finish it?</p><div class="chips" style="margin-top:6px">${days.reverse().map((x) => `<button class="chip" data-a="twoon" data-ref="${s.ref}" data-v="${x}">${esc(relDay(x))}</button>`).join('')}</div><div class="btns"><button class="btn dark" data-a="twoyes" data-ref="${s.ref}">Today</button><button class="btn" data-a="closesheet">Not yet</button></div>`;
     return `<p class="note" style="font-size:14px">Did I finish it?</p><div class="btns"><button class="btn dark" data-a="twoyes" data-ref="${s.ref}">Yes, done</button><button class="btn" data-a="closesheet">Not yet</button></div>`; }
   if (s.kind === 'skipped') { const D = skipList(); const P = s.pick || []; // I pick which days were bad days; the rest stay just skipped (2026-11-20)
-    return `<p class="note" style="font-size:14px">I didn't open Almanac on ${D.length === 1 ? 'one day' : D.length + ' days'}. Which ${D.length === 1 ? 'was a bad day' : 'were bad days'}?</p><div class="chips" style="margin-top:6px">${D.map((x) => `<button class="chip" data-a="skippick" data-v="${x}" aria-pressed="${P.includes(x)}">${esc(fmtDate(x))}</button>`).join('')}</div><div class="btns"><button class="btn dark" data-a="skipbad">${P.length ? (P.length === 1 ? 'Make it a bad day' : 'Make them bad days') : 'Just skipped'}</button></div>`; }
+    return `<p class="note" style="font-size:14px">I didn't open Almanac on ${D.length === 1 ? 'one day' : D.length + ' days'}. Which ${D.length === 1 ? 'was a bad day' : 'were bad days'}?</p><div class="chips" style="margin-top:6px">${D.map((x) => `<button class="chip" data-a="skippick" data-v="${x}" aria-pressed="${P.includes(x)}">${esc(fmtDate(x))}</button>`).join('')}</div><p class="note" style="font-size:14px;margin-top:18px">Did I follow my meal plan?</p>${D.map((x) => { const f = (s.food || {})[x] || ''; return `<div class="skfood"><span>${esc(fmtDate(x))}</span><div class="chips">${[['ok', 'Followed'], ['fail', 'Failed'], ['', 'Skip']].map(([v, l]) => `<button class="chip" data-a="skipfood" data-ref="${x}" data-v="${v}" aria-pressed="${f === v}">${l}</button>`).join('')}</div></div>`; }).join('')}
+      <div class="btns"><button class="btn dark" data-a="skipbad">Done</button></div>`; } // and whether I followed the meal plan on each (2026-11-20)
   if (s.kind === 'much') return `<p class="note" style="font-size:14px">Too much “${esc((I(s.ref) || G(s.ref) || {}).name || '')}”. What kind?</p><div class="btns"><button class="btn dark" data-a="much" data-v="hyper">Hyperfixation</button><button class="btn dark" data-a="much" data-v="inert">Inertia</button><button class="btn" data-a="much" data-v="">Skip</button></div>`;
   if (s.kind === 'checkin') return checkinSheet(s);
   if (s.kind === 'feel') return feelSheet();
@@ -2377,7 +2383,8 @@ document.addEventListener('click', (e) => {
     case 'twoyes': S.sheet = null; twoFinish(ref); break;
     case 'twoon': S.sheet = null; twoFinishOn(ref, v); break;
     case 'skippick': { const P = S.sheet.pick = S.sheet.pick || []; const i = P.indexOf(v); if (i >= 0) P.splice(i, 1); else P.push(v); renderLayer(); return true; }
-    case 'skipbad': { const P = (S.sheet && S.sheet.pick) || []; S.sheet = null; change(() => { M.badDays = M.badDays || {}; P.forEach((x) => { M.badDays[x] = 'skip'; }); M.settings.skipAsk = addDays(T0, -1); P.forEach((x) => snapDay(x)); }, P.length ? (P.length === 1 ? 'Made it a bad day' : 'Made them bad days') : null); break; }
+    case 'skipfood': { const F = S.sheet.food = S.sheet.food || {}; if (v) F[ref] = v; else delete F[ref]; renderLayer(); return true; }
+    case 'skipbad': { const P = (S.sheet && S.sheet.pick) || []; const F = (S.sheet && S.sheet.food) || {}; S.sheet = null; change(() => { M.badDays = M.badDays || {}; P.forEach((x) => { M.badDays[x] = 'skip'; }); M.foodMark = M.foodMark || {}; Object.keys(F).forEach((x) => { M.foodMark[x] = F[x]; }); M.settings.skipAsk = addDays(T0, -1); P.forEach((x) => snapDay(x)); }, P.length ? (P.length === 1 ? 'Made it a bad day' : 'Made them bad days') : null); break; }
     case 'step': { const it = I(ref); const was = val(T0, ref); change(() => { if (was) delete L(T0)[ref]; else { L(T0)[ref] = 'done'; if (M.missed && M.missed[T0]) delete M.missed[T0][ref]; } }, was ? 'Unticked ' + it.name : null); break; }
     case 'checkin': openSheet({ kind: 'checkin', ref, title: I(ref).name }); break;
     case 'cidone': { const was = val(T0, v); change(() => { if (was) { delete L(T0)[v]; if (I(v).which === 'morning') delete L(T0)['ci-mfeel']; } else L(T0)[v] = 'done'; }, was ? 'Check-in not done' : 'Check-in done'); S.sheet = null; render(); break; }
@@ -3155,8 +3162,9 @@ function dayCheck(d) {
   const r = { c, base, ex, mealOk: anyLeft >= 0, mealMax: base.meal + ex.meal + ex.any, snackOk: c.snack <= snackMax, snackMax, treatOk: c.treat <= base.treat + ex.treat, treatMax: base.treat + ex.treat };
   r.broken = breakHits(d); r.followed = d < T0 && mealsOn(d).length > 0 && r.mealOk && r.snackOk && r.treatOk && !r.broken.length; return r;
 }
-const dayBroke = (d) => { if (d > T0 || overOn(d)) return false; const r = dayCheck(d); return r.broken.length > 0 || !r.mealOk || !r.snackOk || !r.treatOk; };
-const followed = (d) => !overOn(d) && dayCheck(d).followed; // an overeating day gets only its red mark (2026-11-10)
+// a day I wasn't here for can be marked followed or failed by hand from the welcome-back sheet (M.foodMark, 2026-11-20)
+const dayBroke = (d) => { if (d > T0 || overOn(d)) return false; const fm = (M.foodMark || {})[d]; if (fm) return fm === 'fail'; const r = dayCheck(d); return r.broken.length > 0 || !r.mealOk || !r.snackOk || !r.treatOk; };
+const followed = (d) => !overOn(d) && ((M.foodMark || {})[d] ? M.foodMark[d] === 'ok' : dayCheck(d).followed); // an overeating day gets only its red mark (2026-11-10)
 // Items that break a food diary day (2026-11-03): if any is logged, the day gets no star. A tag counts when ticked,
 // a scale when it's at or above the level picked, an avoidance item when avoided. mealPlan().breaks = [{id, min}]
 const BREAKABLE = (k) => { const it = I(k); return it && it.type === 'tracker' && (it.scale === 'yesno' || it.scale === 'avoid' || SCALES[it.scale]); };
@@ -3175,7 +3183,7 @@ function foodCal0() {
   if (F.month) { const [y, m] = F.monthOf.split('-').map(Number); let w = weekStart(iso(new Date(y, m - 1, 1))); weeks = []; while (weeks.length === 0 || w.slice(0, 7) <= F.monthOf) { weeks.push(w); w = addDays(w, 7); } }
   else weeks = [weekStart(F.day)];
   const cell = (d) => { const star = followed(d); const inM = !F.month || d.slice(0, 7) === F.monthOf; const ex = dayExtras(d).length; const ov = overOn(d);
-    return `<button class="day fday ${d === F.day && (!F.month || F.sel === 'day') ? 'sel' : ''} ${d === T0 ? 'today' : ''} ${inM ? '' : 'out'}${awayCls(awayOf('food', d), d)}" data-a="fdday" data-v="${d}" aria-label="${fmtDate(d)}${star ? ', meal plan followed' : dayBroke(d) ? ', day broken' : ''}${ex ? ', with extras' : ''}${ov ? ', overeating: ' + SCALES.symptom3[ov - 1] : ''}">${awayOf('food', d) ? '' : calLines('food', d) + calDotsHtml('food', d)}<span class="n">${parse(d).getDate()}</span>${ov && !awayOf('food', d) ? markSvg('over', null, 'star', { col: overCol(ov) }) : dayBroke(d) && !awayOf('food', d) ? markSvg('broke', null, 'star') : star && !awayOf('food', d) ? markSvg('food', null, 'star') : ''}</button>`; };
+    return `<button class="day fday ${d === F.day && (!F.month || F.sel === 'day') ? 'sel' : ''} ${d === T0 ? 'today' : ''} ${inM ? '' : 'out'}${awayCls(awayOf('food', d), d)}" data-a="fdday" data-v="${d}" aria-label="${fmtDate(d)}${star ? ', meal plan followed' : dayBroke(d) ? ', day broken' : ''}${ex ? ', with extras' : ''}${ov ? ', overeating: ' + SCALES.symptom3[ov - 1] : ''}">${awayOf('food', d) ? '' : calLines('food', d)}<span class="dh"><span class="n">${parse(d).getDate()}</span>${awayOf('food', d) ? '' : calDotsHtml('food', d)}</span>${ov && !awayOf('food', d) ? markSvg('over', null, 'star', { col: overCol(ov) }) : dayBroke(d) && !awayOf('food', d) ? markSvg('broke', null, 'star') : star && !awayOf('food', d) ? markSvg('food', null, 'star') : ''}</button>`; };
   return `<div class="stack calblk" style="gap:6px">${F.month ? `<div class="calnav"><button data-a="fdmonth" data-v="-1" aria-label="Previous month">‹</button><span>${MONTHS[+F.monthOf.slice(5) - 1]} ${F.monthOf.slice(0, 4)}</span><button data-a="fdmonth" data-v="1" aria-label="Next month">›</button></div>` : ''}
     <div><div class="wk wkh"><span style="text-align:left">W</span>${WD.map((x) => `<span>${x.toUpperCase()}</span>`).join('')}</div>
     ${weeks.map((w) => `<div class="wk wkr">${F.month ? `<button class="wkn ${F.sel === 'week' && F.week === w ? 'sel' : ''}" data-a="fdweek" data-v="${w}" aria-label="Show week ${isoWeek(w)}" aria-pressed="${F.sel === 'week' && F.week === w}">${isoWeek(w)}</button>` : `<span class="wkn">${isoWeek(w)}</span>`}${[0, 1, 2, 3, 4, 5, 6].map((i) => cell(addDays(w, i))).join('')}</div>`).join('')}</div>
