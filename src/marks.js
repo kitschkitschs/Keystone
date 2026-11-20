@@ -69,11 +69,11 @@ function calDots(k, d) { const out = [];
     sec.forEach(([ks, col]) => { if (d <= T0 ? ks.some((x) => isDone(x, d)) : ks.some((x) => ((I(x) || {}).when || {}).mode === 'once' && I(x).when.date === d && !everDone(x))) out.push(col); }); }
   if (calOn(k, 'train')) trainDots(d).forEach((g) => out.push(g.color));
   if (calOn(k, 'extras')) dayExtras(d).forEach((x) => out.push(xcol(x)));
-  return out.slice(0, 4); }
+  return out.slice(0, 6); } // up to six: rows of three beside the date (2026-11-20)
 // dot size, one setting for every calendar (2026-11-20)
 const CAL_DOTSZ = [[3, 'Tiny'], [4, 'Small'], [5, 'Normal']];
 const calDotSz = () => (M.settings || {}).calDot || 5;
-const calDotsHtml = (k, d) => { const c = calDots(k, d); return c.length ? `<span class="cdots" style="--cd:${calDotSz()}px" aria-hidden="true">${c.map((x) => `<i style="background:${x}"></i>`).join('')}</span>` : ''; };
+const calDotsHtml = (k, d) => { const c = calDots(k, d); return c.length ? `<span class="cdots n${c.length}" style="--cd:${calDotSz()}px" aria-hidden="true">${c.map((x) => `<i style="background:${x}"></i>`).join('')}</span>` : ''; };
 function calsSheet() {
   const row = (k, f, l, sub) => `<div class="tg"><span class="l">${l}<small>${sub}</small></span><button class="swt" role="switch" aria-checked="${calOn(k, f)}" data-a="caltog" data-ref="${k}" data-v="${f}" aria-label="${l} on ${k}"></button></div>`;
   return `<div class="fld calset"><span class="mono">Dot size</span><div class="chips">${CAL_DOTSZ.map(([v, l]) => `<button class="chip" data-a="caldot" data-v="${v}" aria-pressed="${calDotSz() === v}">${l}</button>`).join('')}</div></div>` + CAL_LIST.map(([k, name]) => { const mk = k === 'sched' ? 'plan' : k;
