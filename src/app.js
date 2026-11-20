@@ -470,15 +470,23 @@ function render() { WKC.clear(); bkDot(); setTimeout(navTrack, 0);
 }
 
 // Today: calendar strip, then the picked day's blocks
+// Calendar days (2026-11-20): date in the top left, dots on the right, the stamp in the middle.
+// Stamps on Today and Schedule: plan = all done, part = some left, bad = bad day all done,
+// bpart = bad day with some left, bempty = bad day with nothing in it. Skipped days stay empty with a grey date.
+function dayStamp(d, c) { const s = M.snap[d];
+  if (c === 'x') return null; if (c === 'f') return trainStar(d) ? 'train' : null;
+  if (d > T0 || skipped(d)) return null;
+  if (isBad(d)) { if (M.badDays[d] === 'skip' || (s && s.bdue > 0 && s.bdone >= s.bdue)) return 'bad'; if (d === T0) return null; return s && s.bdue > 0 ? 'bpart' : 'bempty'; }
+  if (!s || !(s.due > 0)) return null; if (s.done >= s.due) return 'plan'; return d < T0 ? 'part' : null; }
+const STAMP_SAY = { plan: ', all done', part: ', some left', bad: ', bad day, all done', bpart: ', bad day, some left', bempty: ', bad day', train: ', all done' };
 function dayCell(d, inMonth = true, c = 't') {
-  const s = M.snap[d]; const selD = c === 's' ? (S.sview === 'day' ? S.sday : null) : c === 'f' ? (S.fday || T0) : c === 'x' ? (S.xday || T0) : S.day; const bd = (c === 't' || c === 's') && d <= T0 && isBad(d) && (d < T0 || !!(s && s.bdue > 0 && s.bdone >= s.bdue)); // bad days: their own mark, or a small dot when not all done (2026-11-08)
-  const star = c === 'x' ? false : c === 'f' ? trainStar(d) : bd ? !!(s && s.bdue > 0 && s.bdone >= s.bdue) || M.badDays[d] === 'skip' : d <= T0 && !(d === T0 && isBad(d)) && s && s.due > 0 && s.done >= s.due;
+  const selD = c === 's' ? (S.sview === 'day' ? S.sday : null) : c === 'f' ? (S.fday || T0) : c === 'x' ? (S.xday || T0) : S.day;
   const ck = c === 's' ? 'sched' : c === 'f' ? 'train' : 'plan'; // what shows is set in edit mode › Calendars
   const aw = c === 'x' ? tripsOn(d)[0] || null : awayOf(ck, d); // the Expeditions calendar always shows its trips (2026-11-06)
   const sk = (c === 't' || c === 's') && !aw && skipped(d); // a day I never opened the app (2026-11-20)
-  return `<button class="day fday ${d === selD ? 'sel' : ''} ${d === T0 ? 'today' : ''} ${inMonth ? '' : 'out'}${sk ? ' skip' : ''}${awayCls(aw, d)}" data-a="pickday" data-c="${c}" data-v="${d}" aria-label="${fmtDate(d)}${aw ? ', away: ' + esc(aw.name) : star ? ', all done' : sk ? ', skipped' : ''}">
-    ${aw || c === 'x' ? '' : calLines(ck, d) + calDotsHtml(ck, d)}
-    <span class="n">${star && !aw ? markSvg(c === 'f' ? 'train' : bd ? 'bad' : 'plan', null, 'star') : bd && !aw ? `<i class="badot" style="background:${starCol('bad')}"></i>` : ''}${parse(d).getDate()}</span></button>`;
+  const st = aw ? null : dayStamp(d, c);
+  return `<button class="day fday ${d === selD ? 'sel' : ''} ${d === T0 ? 'today' : ''} ${inMonth ? '' : 'out'}${sk ? ' skip' : ''}${awayCls(aw, d)}" data-a="pickday" data-c="${c}" data-v="${d}" aria-label="${fmtDate(d)}${aw ? ', away: ' + esc(aw.name) : st ? STAMP_SAY[st] : sk ? ', skipped' : ''}">
+    ${aw || c === 'x' ? '' : calLines(ck, d) + calDotsHtml(ck, d)}<span class="n">${parse(d).getDate()}</span>${st ? markSvg(st, null, 'star') : ''}</button>`;
 }
 function renderCal(c = 't') {
   let weeks; const mon = c === 's' ? S.smonth : c === 'f' || c === 'x' ? S[c + 'month'] : S.month, monthOf = c === 's' ? S.smonthOf : c === 'f' || c === 'x' ? (S[c + 'monthOf'] || T0.slice(0, 7)) : S.monthOf, anchor = c === 's' ? S.sday : c === 'f' || c === 'x' ? (S[c + 'day'] || T0) : S.day;
@@ -944,7 +952,6 @@ function sheetBody() {
   if (s.kind[0] === 'v') return vSheet(s);
   if (s.kind === 'trip') return tripSheet(s);
   if (s.kind === 'mark') return markSheet(s);
-  if (s.kind === 'mkpick') return mkPickSheet(s);
   if (s.kind === 'word') return wordSheet(s);
   if (s.kind === 'rem') return remSheet(s);
   if (s.kind === 'cals') return calsSheet();
@@ -1055,7 +1062,7 @@ function pageAdds(ab) { if (S.insOn) return null; const fileIn = (id, ref, ic, l
   if (S.area === 'health') { if (S.page === 'expeds') return ab('tripnew', 'mountain', 'Expedition', 'data-v="planned"') + ab('tripnew', 'star', 'Wish', 'data-v="wish"'); }
   return null; }
 // Star colours, one per calendar kind (plan = Today + Schedule, train, food), set in edit mode (2026-11-05)
-const starCol = (k) => ((M.settings || {}).starCols || {})[k] || (k === 'bad' ? '#8C9EBF' : k === 'broke' ? '#E3A99B' : '#EBCB95');
+const starCol = (k) => ((M.settings || {}).starCols || {})[k] || (k === 'part' ? starCol('plan') : k === 'bpart' || k === 'bempty' ? starCol('bad') : k === 'bad' ? '#8C9EBF' : k === 'broke' ? '#E3A99B' : '#EBCB95'); // unfinished stamps follow their day's colour until set
 const starSvg = (k, sz = 18) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4-3.9-3.8 5.4-.8z" fill="${starCol(k)}" stroke="${starCol(k)}" stroke-width="3.2" stroke-linejoin="round"/></svg>`;
 // Training marks a fully done day with a flower instead of a star (2026-11-05)
 const flowerSvg = (col, sz, cls = '') => `<svg class="${cls}" width="${sz}" height="${sz}" viewBox="0 0 24 24" aria-hidden="true"><g fill="${col}"><ellipse cx="12" cy="6.3" rx="2.9" ry="5" transform="rotate(0 12 12)"/><ellipse cx="12" cy="6.3" rx="2.9" ry="5" transform="rotate(72 12 12)"/><ellipse cx="12" cy="6.3" rx="2.9" ry="5" transform="rotate(144 12 12)"/><ellipse cx="12" cy="6.3" rx="2.9" ry="5" transform="rotate(216 12 12)"/><ellipse cx="12" cy="6.3" rx="2.9" ry="5" transform="rotate(288 12 12)"/></g></svg>`;
@@ -1413,7 +1420,7 @@ document.addEventListener('click', (e) => { const b = e.target.closest && e.targ
   const c = b.querySelector('.circ') || b; const r = c.getBoundingClientRect(); lastTick = { t: Date.now(), x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, true);
 function celebrate(kind) { const ph = $('#phone'); if (!ph || !lastTick) return; const P = ph.getBoundingClientRect(); const ox = lastTick.x - P.left, oy = lastTick.y - P.top; lastTick = null;
   const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const mk0 = document.querySelector(`#main .day[data-v="${T0}"] .n svg`); if (mk0) mk0.style.opacity = '0'; // the mark waits for its flight
+  const mk0 = document.querySelector(`#main .day[data-v="${T0}"] .star`); if (mk0) mk0.style.opacity = '0'; // the mark waits for its flight
   const fx = document.createElement('div'); fx.className = 'cfx'; ph.appendChild(fx); setTimeout(() => fx.remove(), 2600);
   if (!calm) { const cols = PAL.map((x) => x[1]).concat([starCol(kind)]);
     for (let i = 0; i < 70; i++) { const p = document.createElement('i'); const a = Math.random() * Math.PI * 2, v = 90 + Math.random() * 170, w = 5 + Math.random() * 5;
@@ -1426,13 +1433,13 @@ function celebrate(kind) { const ph = $('#phone'); if (!ph || !lastTick) return;
   // the flight follows the cell while the page scrolls up, and grows to the cell mark's own size, so it lands exactly on it (2026-11-09)
   const f = document.createElement('div'); f.className = 'cfmark'; f.innerHTML = markSvg(kind, 48, 'star'); f.style.cssText = `left:0;top:0;opacity:0`; fx.appendChild(f);
   const t0 = performance.now(), dur = calm ? 1 : 1300; const ease = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-  const step = (now) => { const mk = document.querySelector(`#main .day[data-v="${T0}"] .n svg`); const t = Math.min(1, (now - t0) / dur);
+  const step = (now) => { const mk = document.querySelector(`#main .day[data-v="${T0}"] .star`); const t = Math.min(1, (now - t0) / dur);
     if (!mk) { f.remove(); return; } mk.style.opacity = '0'; const C = mk.getBoundingClientRect(); const tx = C.left + C.width / 2 - P.left, ty = C.top + C.height / 2 - P.top;
     // pop up at the row (first 20%), then arc to the cell
     const pop = Math.min(1, t / 0.2), e = ease(Math.max(0, (t - 0.2) / 0.8)); const x = ox + (tx - ox) * e, y = oy + (ty - oy) * e - Math.sin(e * Math.PI) * 60;
     const big = 1.5, end = C.width / 48; const sc = t < 0.2 ? 0.3 + (big - 0.3) * pop : big + (end - big) * e;
     f.style.opacity = String(Math.min(1, pop * 1.5)); f.style.transform = `translate(${x - 24}px,${y - 24}px) scale(${sc}) rotate(${(1 - e) * -25}deg)`;
-    if (t < 1) requestAnimationFrame(step); else { f.remove(); mk.style.opacity = ''; if (!calm) mk.animate([{ transform: 'translate(-50%,-52%) scale(1.25)' }, { transform: 'translate(-50%,-52%) scale(1)' }], { duration: 260, easing: 'ease-out' }); /* keeps its own centring */ } };
+    if (t < 1) requestAnimationFrame(step); else { f.remove(); mk.style.opacity = ''; if (!calm) mk.animate([{ transform: 'translate(-50%,-50%) scale(1.25)' }, { transform: 'translate(-50%,-50%) scale(1)' }], { duration: 260, easing: 'ease-out' }); /* keeps its own centring */ } };
   requestAnimationFrame(step); }
 function tick(id) {
   const it = I(id); const cur = val(T0, id) || null;
@@ -2133,7 +2140,7 @@ function foodCal0() {
   if (F.month) { const [y, m] = F.monthOf.split('-').map(Number); let w = weekStart(iso(new Date(y, m - 1, 1))); weeks = []; while (weeks.length === 0 || w.slice(0, 7) <= F.monthOf) { weeks.push(w); w = addDays(w, 7); } }
   else weeks = [weekStart(F.day)];
   const cell = (d) => { const star = followed(d); const inM = !F.month || d.slice(0, 7) === F.monthOf; const ex = dayExtras(d).length; const ov = overOn(d);
-    return `<button class="day fday ${d === F.day && (!F.month || F.sel === 'day') ? 'sel' : ''} ${d === T0 ? 'today' : ''} ${inM ? '' : 'out'}${awayCls(awayOf('food', d), d)}" data-a="fdday" data-v="${d}" aria-label="${fmtDate(d)}${star ? ', meal plan followed' : dayBroke(d) ? ', day broken' : ''}${ex ? ', with extras' : ''}${ov ? ', overeating: ' + SCALES.symptom3[ov - 1] : ''}">${awayOf('food', d) ? '' : calLines('food', d) + calDotsHtml('food', d)}<span class="n">${ov && !awayOf('food', d) ? markSvg('over', null, 'star', { col: overCol(ov) }) : dayBroke(d) && !awayOf('food', d) ? markSvg('broke', null, 'star') : star && !awayOf('food', d) ? markSvg('food', null, 'star') : ''}${parse(d).getDate()}</span></button>`; };
+    return `<button class="day fday ${d === F.day && (!F.month || F.sel === 'day') ? 'sel' : ''} ${d === T0 ? 'today' : ''} ${inM ? '' : 'out'}${awayCls(awayOf('food', d), d)}" data-a="fdday" data-v="${d}" aria-label="${fmtDate(d)}${star ? ', meal plan followed' : dayBroke(d) ? ', day broken' : ''}${ex ? ', with extras' : ''}${ov ? ', overeating: ' + SCALES.symptom3[ov - 1] : ''}">${awayOf('food', d) ? '' : calLines('food', d) + calDotsHtml('food', d)}<span class="n">${parse(d).getDate()}</span>${ov && !awayOf('food', d) ? markSvg('over', null, 'star', { col: overCol(ov) }) : dayBroke(d) && !awayOf('food', d) ? markSvg('broke', null, 'star') : star && !awayOf('food', d) ? markSvg('food', null, 'star') : ''}</button>`; };
   return `<div class="stack calblk" style="gap:6px">${F.month ? `<div class="calnav"><button data-a="fdmonth" data-v="-1" aria-label="Previous month">‹</button><span>${MONTHS[+F.monthOf.slice(5) - 1]} ${F.monthOf.slice(0, 4)}</span><button data-a="fdmonth" data-v="1" aria-label="Next month">›</button></div>` : ''}
     <div><div class="wk wkh"><span style="text-align:left">W</span>${WD.map((x) => `<span>${x.toUpperCase()}</span>`).join('')}</div>
     ${weeks.map((w) => `<div class="wk wkr">${F.month ? `<button class="wkn ${F.sel === 'week' && F.week === w ? 'sel' : ''}" data-a="fdweek" data-v="${w}" aria-label="Show week ${isoWeek(w)}" aria-pressed="${F.sel === 'week' && F.week === w}">${isoWeek(w)}</button>` : `<span class="wkn">${isoWeek(w)}</span>`}${[0, 1, 2, 3, 4, 5, 6].map((i) => cell(addDays(w, i))).join('')}</div>`).join('')}</div>

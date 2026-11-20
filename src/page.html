@@ -988,9 +988,22 @@ html.dark .feelcard.empty{background:#33302C}html.dark .jcard .jct,html.dark .jc
 .hxt{margin-left:8px;white-space:nowrap;vertical-align:1px}
 .cleft{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:10px 2px 0;font-size:13.5px;color:var(--ink2)}.cleft .mono{flex:none}
 .jmsup{display:flex;flex-direction:column;gap:2px;padding:2px 14px 8px}.jmsup b{font-family:var(--serif);font-size:26px;font-weight:400;font-variant-numeric:tabular-nums}.jmsup small{font-size:12.5px;color:var(--quiet)}
-/* a day I never opened the app: faded number with a dashed ring (2026-11-20) */
-.day.skip .n{color:var(--faint2);border:1.5px dashed var(--line);border-radius:50%;width:30px;height:30px;display:inline-grid;place-items:center}
+/* calendar days (2026-11-20): date in the top left corner, dots on the right, the stamp in the middle */
+.day.fday{padding:0;min-height:58px;align-self:stretch}
+.day.fday .n{position:absolute;left:6px;top:6px;width:auto;height:auto;border-radius:0;display:block;font-size:13px;line-height:1;z-index:1}
+.day.fday.today .n{text-underline-offset:3px}
+.day.fday .cdots{left:auto;right:5px;top:6px;transform:none;gap:2px;justify-content:flex-end}
+.day.fday .cdots:has(i:nth-child(3)){display:grid;grid-template-columns:repeat(2,5px);gap:2px}
+.day.fday .star{top:calc(50% + 7px);transform:translate(-50%,-50%);z-index:0}
+.mkprev .day.fday{min-height:0}
+/* a day I never opened the app: empty, with its date greyed (2026-11-20) */
+.day.skip .n{color:var(--faint2)}
 </style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <mask id="mkhole-a" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect x="-2" y="-2" width="28" height="28" fill="#fff"/><circle cx="12" cy="12" r="2.8" fill="#000"/></mask>
+  <mask id="mkhole-b" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect x="-2" y="-2" width="28" height="28" fill="#fff"/><circle cx="12" cy="12" r="2.4" fill="#000"/></mask>
+  <mask id="mkhole-c" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect x="-2" y="-2" width="28" height="28" fill="#fff"/><circle cx="12" cy="12" r="2.5" fill="#000"/></mask>
+</defs></svg>
 <div class="phone" id="phone">
   <header class="top"><div class="ttl" id="ttl"></div><button class="hb" id="plusbtn" aria-label="Add something">+</button><button class="hb donebtn2" id="donebtn" aria-label="Done editing" hidden>Done</button><button class="hb" id="menubtn" aria-label="Menu">⋯</button></header>
   <div id="editbar"></div>
