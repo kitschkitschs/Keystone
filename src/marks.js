@@ -13,7 +13,7 @@ const MK_SHAPES = [
   ['flower', 'Flower', mkHole('a', mkRot(5, 72, '<circle cx="12" cy="6.9" r="4.2" transform="ROT"/>')), 0],
   ['petals4', 'Four petals', mkHole('b', mkRot(4, 90, '<circle cx="12" cy="7" r="4.4" transform="ROT"/>')), 0],
   ['petals5', 'Oval petals', mkHole('c', mkRot(5, 72, '<ellipse cx="12" cy="6.4" rx="3.6" ry="4.6" transform="ROT"/>')), 0],
-  ['wisps', 'Wisps', '<rect x="5" y="7.6" width="11" height="3.2" rx="1.6"/><rect x="8" y="12" width="12" height="3.2" rx="1.6"/><rect x="4" y="16.4" width="10" height="3.2" rx="1.6"/>', 0],
+  ['wisps', 'Wisps', '<rect x="5" y="6" width="11" height="3.2" rx="1.6"/><rect x="8" y="10.4" width="12" height="3.2" rx="1.6"/><rect x="4" y="14.8" width="10" height="3.2" rx="1.6"/>', 0],
   ['pine', 'Pine', '<path d="M12 2.6l4.6 6.2h-2.4l4 5.4h-2.6l3.8 5H4.6l3.8-5H5.8l4-5.4H7.4z"/><rect x="11" y="18.6" width="2" height="3" rx=".6"/>', 1.2],
   ['mountain', 'Mountains', '<path d="M2.6 19.4l6.6-11.6 3.6 6.2 2.4-3.8 6.2 9.2z"/>', 1.4],
   ['sprout', 'Sprout', '<path d="M12 12.4C11.6 8.2 8.6 5.6 4.2 5.8c.2 4.4 3.4 7 7.8 6.6zM12 11c.4-4 3.4-6.6 7.8-6.4-.2 4.2-3.4 6.8-7.8 6.4z"/><rect x="11.1" y="10.6" width="1.8" height="10.4" rx=".9"/>', 0.6],
@@ -70,10 +70,13 @@ function calDots(k, d) { const out = [];
   if (calOn(k, 'train')) trainDots(d).forEach((g) => out.push(g.color));
   if (calOn(k, 'extras')) dayExtras(d).forEach((x) => out.push(xcol(x)));
   return out.slice(0, 4); }
-const calDotsHtml = (k, d) => { const c = calDots(k, d); return c.length ? `<span class="cdots" aria-hidden="true">${c.map((x) => `<i style="background:${x}"></i>`).join('')}</span>` : ''; };
+// dot size, one setting for every calendar (2026-11-20)
+const CAL_DOTSZ = [[3, 'Tiny'], [4, 'Small'], [5, 'Normal']];
+const calDotSz = () => (M.settings || {}).calDot || 5;
+const calDotsHtml = (k, d) => { const c = calDots(k, d); return c.length ? `<span class="cdots" style="--cd:${calDotSz()}px" aria-hidden="true">${c.map((x) => `<i style="background:${x}"></i>`).join('')}</span>` : ''; };
 function calsSheet() {
   const row = (k, f, l, sub) => `<div class="tg"><span class="l">${l}<small>${sub}</small></span><button class="swt" role="switch" aria-checked="${calOn(k, f)}" data-a="caltog" data-ref="${k}" data-v="${f}" aria-label="${l} on ${k}"></button></div>`;
-  return CAL_LIST.map(([k, name]) => { const mk = k === 'sched' ? 'plan' : k;
+  return `<div class="fld calset"><span class="mono">Dot size</span><div class="chips">${CAL_DOTSZ.map(([v, l]) => `<button class="chip" data-a="caldot" data-v="${v}" aria-pressed="${calDotSz() === v}">${l}</button>`).join('')}</div></div>` + CAL_LIST.map(([k, name]) => { const mk = k === 'sched' ? 'plan' : k;
     return `<div class="fld calset"><span class="mono">${name}</span>
       <button class="tg calmk" data-a="mkopen" data-ref="${mk}"><span class="l">Completed days<small>${k === 'sched' ? 'The same mark as Today' : 'Shape, look, size and colour'}</small></span>${markSvg(mk, 26)}<span class="chev" aria-hidden="true">›</span></button>
       ${k === 'plan' ? [['part', 'Unfinished days', 'Days I did some but not all of'], ['bad', 'Bad days', 'All done on a bad day'], ['bpart', 'Unfinished bad days', 'Not all done on a bad day'], ['bempty', 'Empty bad days', 'Bad days with nothing in them']].map(([r, l, sub]) => `<button class="tg calmk" data-a="mkopen" data-ref="${r}"><span class="l">${l}<small>${sub}</small></span>${markSvg(r, 26)}<span class="chev" aria-hidden="true">›</span></button>`).join('') : ''}
@@ -87,6 +90,7 @@ const calEdit = () => S.edit ? `<div class="starcolw"><button class="starcol" da
 function calAction(act, a, ref, v) {
   switch (act) {
     case 'calsopen': openSheet({ kind: 'cals', title: 'Calendars' }); return true;
+    case 'caldot': change(() => { M.settings.calDot = +v; }); return true;
     case 'caltog': { const now = v.startsWith('ct:') ? ctOn(ref, v.slice(3)) : calOn(ref, v); change(() => { M.settings.calShow = M.settings.calShow || {}; M.settings.calShow[ref] = Object.assign({}, M.settings.calShow[ref], { [v]: !now }); }); return true; }
   }
   return false;
