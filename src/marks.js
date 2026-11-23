@@ -20,15 +20,12 @@ function calDots(k, d) { const out = [];
     sec.forEach(([ks, col]) => { if (d <= T0 ? ks.some((x) => isDone(x, d)) : ks.some((x) => ((I(x) || {}).when || {}).mode === 'once' && I(x).when.date === d && !everDone(x))) out.push(col); }); }
   if (calOn(k, 'train')) trainDots(d).forEach((g) => out.push(g.color));
   if (calOn(k, 'extras')) dayExtras(d).forEach((x) => out.push(xcol(x)));
-  return out.slice(0, 6); } // up to six: rows of three beside the date (2026-11-20)
-// dot size, one setting for every calendar (2026-11-20)
-const CAL_DOTSZ = [[3, 'Tiny'], [4, 'Small'], [5, 'Normal']];
-const calDotSz = () => (M.settings || {}).calDot || 5;
-const calDotsHtml = (k, d) => { const c = calDots(k, d); return c.length ? `<span class="cdots n${c.length}" style="--cd:${calDotSz()}px" aria-hidden="true">${c.map((x) => `<i style="background:${x}"></i>`).join('')}</span>` : ''; };
+  return out.slice(0, 4); } // up to four short lines beside the date, stacked from the top (2026-11-23)
+const calDotsHtml = (k, d) => { const c = calDots(k, d); return c.length ? `<span class="cdots" aria-hidden="true">${c.map((x) => `<i style="background:${x}"></i>`).join('')}</span>` : ''; };
 function calsSheet() {
   const col = ([k, l]) => `<button class="tg" data-a="colopen" data-ref="dot:${k}" aria-label="Colour for ${l.toLowerCase()}"><span class="l">${l}</span><i class="dd" style="position:static;transform:none;border-radius:50%;width:${DOT_LG}px;height:${DOT_LG}px;background:${dotCol(k)}"></i></button>`;
   const row = (k, f, l, sub) => `<div class="tg"><span class="l">${l}<small>${sub}</small></span><button class="swt" role="switch" aria-checked="${calOn(k, f)}" data-a="caltog" data-ref="${k}" data-v="${f}" aria-label="${l} on ${k}"></button></div>`;
-  return `<div class="fld calset"><span class="mono">Day dots</span>${DOT_COLS.map(col).join('')}</div><div class="fld calset"><span class="mono">Dot size</span><div class="chips">${CAL_DOTSZ.map(([v, l]) => `<button class="chip" data-a="caldot" data-v="${v}" aria-pressed="${calDotSz() === v}">${l}</button>`).join('')}</div></div>` + CAL_LIST.map(([k, name]) => {
+  return `<div class="fld calset"><span class="mono">Day dots</span>${DOT_COLS.map(col).join('')}</div>` + CAL_LIST.map(([k, name]) => {
     return `<div class="fld calset"><span class="mono">${name}</span>
       <span class="calsub">Dots</span>${CAL_DOTS.map(([f, l, s]) => row(k, f, l, s)).join('')}
       ${expOn() ? `<span class="calsub">Expeditions</span>${row(k, 'away', 'Away days', 'Covers the days I am away')}${k === 'train' ? row(k, 'count', 'Countdown', 'Days to the next expedition, under the calendar') : ''}` : ''}
@@ -39,7 +36,6 @@ const calEdit = () => S.edit ? `<div class="starcolw"><button class="starcol" da
 function calAction(act, a, ref, v) {
   switch (act) {
     case 'calsopen': openSheet({ kind: 'cals', title: 'Calendars' }); return true;
-    case 'caldot': change(() => { M.settings.calDot = +v; }); return true;
     case 'caltog': { const now = v.startsWith('ct:') ? ctOn(ref, v.slice(3)) : calOn(ref, v); change(() => { M.settings.calShow = M.settings.calShow || {}; M.settings.calShow[ref] = Object.assign({}, M.settings.calShow[ref], { [v]: !now }); }); return true; }
   }
   return false;
