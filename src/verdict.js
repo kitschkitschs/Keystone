@@ -175,7 +175,7 @@ const segBar = (cols, cls = '') => `<span class="vseg ${cls}" aria-hidden="true"
 function vCard(o) {
   const t = VTONE[o.lvl || 0]; const bg = darkOn ? `radial-gradient(130% 110% at 100% 0%,${mix(t, '#33302C', 0.5)} 0%,${mix(t, '#2E2B28', 0.8)} 55%,${mix(t, '#2A2825', 0.9)} 100%)` : `radial-gradient(125% 100% at 100% 0%,${mix(t, TH.card, 0.1)} 0%,${mix(t, TH.card, 0.7)} 58%,${mix(t, TH.card, 0.84)} 100%)`; // dark: the card glows warmer as it needs care
   const tag = o.go ? 'button' : 'div';
-  return `<${tag} class="vcard" ${o.go || ''} style="background:${bg};border-color:${mix(t, TH.line, 0.55)}"><span class="mono">${esc(o.eyebrow)}</span>${o.go && !o.nochev ? '<span class="vchev" aria-hidden="true">›</span>' : ''}<span class="vword">${esc(o.word)}</span>${o.sub ? `<span class="vsub">${esc(o.sub)}</span>` : ''}${segBar(o.segs)}<span class="mono vfoot">${esc(o.foot)}</span></${tag}>`;
+  return `<${tag} class="vcard" ${o.go || ''} style="background:${bg};border-color:${mix(t, TH.line, 0.55)}"><span class="mono">${esc(o.eyebrow)}</span>${o.go && !o.nochev ? '<span class="vchev" aria-hidden="true">' + icon('chevron-right', 16) + '</span>' : ''}<span class="vword">${esc(o.word)}</span>${o.sub ? `<span class="vsub">${esc(o.sub)}</span>` : ''}${segBar(o.segs)}<span class="mono vfoot">${esc(o.foot)}</span></${tag}>`;
 }
 function choreCard(eyebrow, J, W, go, nochev) { const v = verdict(J, W); const late = J.filter((j) => j.left < 0).length; const soon = J.filter((j) => j.left >= 0 && j.left <= 7).length;
   return vCard({ eyebrow, word: J.length ? v.word : 'Nothing yet', lvl: v.lvl, go, nochev, sub: J.length ? (late ? late + ' overdue, ' : '') + soon + ' coming up this week.' : 'Add the jobs that keep coming back.',
@@ -218,7 +218,7 @@ function studyUrg(t) { const it = I(t.id); let filled, late = false;
   if (t.due !== undefined) { late = t.due < 0; const total = Math.max(1, diff(it.made || T0, t.dl)); filled = late ? 7 : Math.max(1, Math.min(7, Math.round((1 - t.due / total) * 7))); }
   else { const n = period(it) || SDEF; late = t.since > n; filled = late ? 7 : Math.max(1, Math.min(7, Math.round(t.since / n * 7))); }
   return Array.from({ length: 7 }, (_, i) => i < filled ? (late ? SEGLATE : SEGDUE) : SEG0); }
-const crumbs = (parts) => `<nav class="crumbs" aria-label="Where I am">${parts.map(([l, v], i) => i < parts.length - 1 ? `<button data-a="vcrumb" data-v="${v}">${esc(l)}</button><span aria-hidden="true">›</span>` : `<span aria-current="page">${esc(l)}</span>`).join('')}</nav>`;
+const crumbs = (parts) => `<nav class="crumbs" aria-label="Where I am">${parts.map(([l, v], i) => i < parts.length - 1 ? `<button data-a="vcrumb" data-v="${v}">${esc(l)}</button><span aria-hidden="true">${icon('chevron-right', 14)}</span>` : `<span aria-current="page">${esc(l)}</span>`).join('')}</nav>`;
 const vlab = (t, extra = '') => `<div class="vlab"><span class="mono">${esc(t)}</span>${extra}</div>`;
 const addRow = (act, v, label) => `<button class="addrow" data-a="${act}" data-v="${v}"><span class="plus">+</span>${esc(label)}</button>`;
 // edit mode: the same lists as rows you can rename, recolour, drag, open (⚙) and remove
@@ -364,7 +364,7 @@ function timerPage() {
   const t = M.timer || {}; const id = t.id && I(t.id) ? t.id : null; const run = !!t.start, any = tElapsed() > 0; const col = M.areas.study.color;
   const sub = id ? (() => { const s = subjIds().find((x) => sIds(x).includes(id)); return s ? G(s).name : ''; })() : '';
   return (S.studyMode ? '' : crumbs([[studyName(), ''], ['Timer']])) + `<div class="vtimer">
-    <button class="vtt" data-a="vtpick" aria-label="Change what I'm working on">${esc(id ? I(id).name : 'Study session')} <span class="chev" aria-hidden="true">⌄</span></button><span class="mono vtsub">${esc(sub)}</span>
+    <button class="vtt" data-a="vtpick" aria-label="Change what I'm working on">${esc(id ? I(id).name : 'Study session')} <span class="chev" aria-hidden="true">${icon('chevron-down', 14)}</span></button><span class="mono vtsub">${esc(sub)}</span>
     <div class="vring"><svg viewBox="0 0 224 224" aria-hidden="true"><circle cx="112" cy="112" r="104" fill="none" stroke="var(--soft)" stroke-width="8"/><circle id="tring" cx="112" cy="112" r="104" fill="none" stroke="${col}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${T_C}" stroke-dashoffset="${T_C * (1 - tPct() / 100)}" transform="rotate(-90 112 112)"/></svg><div class="vclock ${run ? '' : 'idle'}" id="tclock" role="timer">${fmtClock(tShown())}</div></div>
     <span class="mono" id="trule">${tRule()}</span>
     <div class="btns" style="justify-content:center"><button class="btn dark vtgo" data-a="${run ? 'tpause' : 'tstart'}">${run ? 'Pause' : any ? 'Carry on' : 'Start'}</button>${run || any ? '<button class="btn" data-a="tstop">Stop and save</button>' : ''}</div></div>`;
@@ -401,7 +401,7 @@ setInterval(() => { const c = document.getElementById('supclk'); if (c) { c.text
 
 // ---------- title, dropdown, study mode bar, menu ----------
 function vTitle() {
-  const btn = (label) => `<button class="vttl" data-a="vdrop" aria-haspopup="menu" aria-expanded="${!!S.vdrop}">${esc(label)} <span aria-hidden="true">▾</span></button>`;
+  const btn = (label) => `<button class="vttl" data-a="vdrop" aria-haspopup="menu" aria-expanded="${!!S.vdrop}">${esc(label)} <span aria-hidden="true">${icon('chevron-down', 14)}</span></button>`;
   if (S.area === 'home') return S.page ? btn(S.room && G(S.room) ? G(S.room).name : M.pages[S.page].name) : esc(M.areas.home.name);
   if (S.stv) return 'Timer';
   return S.subj && G(S.subj) ? btn(G(S.subj).name) : esc(M.areas.study.name);
@@ -439,7 +439,7 @@ function vSheet(s) {
       <div class="btns">${dn ? '<button class="btn" data-a="vunlog">Untick today</button>' : ''}<button class="btn" data-a="open" data-ref="${s.ref}">Edit</button></div>`; }
   if (s.kind === 'vsess') return `<div class="inrow" style="justify-content:center;gap:18px"><button class="btn" data-a="vsesslen" data-v="-5" aria-label="5 minutes less">−</button><b style="font-size:22px;font-family:var(--serif);font-weight:400">${sessLen()} min</b><button class="btn" data-a="vsesslen" data-v="5" aria-label="5 minutes more">+</button></div>`;
   if (s.kind === 'vtpick') { const cur = (M.timer || {}).id || null;
-    return `<button class="ttrow" data-a="vtset" data-v="" aria-pressed="${!cur}"><b>Just studying</b><span aria-hidden="true">›</span></button>` + subjIds().map((x) => { const T = sTasks(x); return T.length ? `<div class="fld"><span class="mono">${esc(G(x).name)}</span><div class="stack" style="gap:6px">${T.map((t) => `<button class="ttrow" data-a="vtset" data-v="${t.id}" aria-pressed="${cur === t.id}"><b>${inm(t.id)}</b><small>${esc(G(t.g).name)}${t.est ? ' · ' + estHM(taskMin(t.id) / 60) + ' of ' + estHM(t.est) : ''}</small><span aria-hidden="true">›</span></button>`).join('')}</div></div>` : ''; }).join(''); }
+    return `<button class="ttrow" data-a="vtset" data-v="" aria-pressed="${!cur}"><b>Just studying</b><span aria-hidden="true">${icon('chevron-right', 14)}</span></button>` + subjIds().map((x) => { const T = sTasks(x); return T.length ? `<div class="fld"><span class="mono">${esc(G(x).name)}</span><div class="stack" style="gap:6px">${T.map((t) => `<button class="ttrow" data-a="vtset" data-v="${t.id}" aria-pressed="${cur === t.id}"><b>${inm(t.id)}</b><small>${esc(G(t.g).name)}${t.est ? ' · ' + estHM(taskMin(t.id) / 60) + ' of ' + estHM(t.est) : ''}</small><span aria-hidden="true">${icon('chevron-right', 14)}</span></button>`).join('')}</div></div>` : ''; }).join(''); }
   return '';
 }
 function vNew(gid) { const g = G(gid); if (!g) return; const st = g.style;

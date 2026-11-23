@@ -13,7 +13,7 @@ function filesCard(p) { const L = projFiles(p), x = G(p); const kn = { note: 'No
     if (f.k === 'board') { const b = boardOf(f.id); return `<button class="bprev pjpv" data-a="pjbopen" data-ref="${f.id}" style="background:${bBg(b)}" aria-label="${esc(f.name)}">${moodHtml(b, true)}</button>`; }
     const pf = (x.files || []).find((q) => q.id === f.id) || {};
     return `<button class="pjpdf pjpv" data-a="pdfopen" data-v="${p}" data-ref="${f.id}" aria-label="${esc(f.name)}">${pf.thumb ? `<img src="${pf.thumb}" alt="">` : icon('file-text', 28)}${pf.mark ? `<span class="pjmk mono">${icon('bookmark', 12)} p${pf.mark.pg}</span>` : ''}</button>`; };
-  const tile = (f) => `<div class="pjft">${prev(f)}<span class="bname">${esc(f.name)}</span><span class="mono pjfk">${kn[f.k]}${f.upd ? ' · ' + agoText(msDay(f.upd)) : ''}${S.edit && f.k === 'pdf' ? `<button class="rm" data-a="pdfdel" data-ref="${p}" data-v="${f.id}" aria-label="Delete ${esc(f.name)}">✕</button>` : ''}</span></div>`;
+  const tile = (f) => `<div class="pjft">${prev(f)}<span class="bname">${esc(f.name)}</span><span class="mono pjfk">${kn[f.k]}${f.upd ? ' · ' + agoText(msDay(f.upd)) : ''}${S.edit && f.k === 'pdf' ? `<button class="rm" data-a="pdfdel" data-ref="${p}" data-v="${f.id}" aria-label="Delete ${esc(f.name)}">${icon('x', 14)}</button>` : ''}</span></div>`;
   // one add tile: tap it and it offers Note, Board or PDF
   // the + sits in the header and drops down Note, Board or PDF (2026-11-08)
   const menu = S.pjAdd === p ? `<div class="pjaddm"><button data-a="pnnew" data-v="${p}">${icon('sticky-note', 18)}Note</button><button data-a="pjbnew" data-v="${p}">${icon('layout-dashboard', 18)}Board</button><label>${icon('file-text', 18)}PDF<input type="file" accept="application/pdf" id="projpdf" data-ref="${p}" hidden></label></div>` : '';
@@ -35,7 +35,7 @@ function lcardPlus(key, title, count, inner, plus, open) { if (open == null) ope
   return `<section class="card lcard pjcard"><div class="bhead"><button data-a="secopen" data-ref="${key}" aria-expanded="${open}" style="display:flex;align-items:center;gap:8px;flex:1;min-height:44px"><span class="nm mono" style="flex:1;text-align:left">${esc(title)}</span><span class="cnt">${esc(String(count || ''))}</span></button>${plus}<button class="pjchev" data-a="secopen" data-ref="${key}" aria-expanded="${open}" aria-label="${open ? 'Close' : 'Open'} ${esc(title)}">${fold(open)}</button></div>${inner && (open || key && key.startsWith('pjp:')) ? `<div class="list">${inner}</div>` : ''}</section>`; }
 // photos: closed by default, then only the newest row shows
 function photosCard(p) { const x = G(p); const ph = (x.photos || []).slice().reverse(); const key = 'pjp:' + p; if (S.open[key] === undefined) S.open[key] = false; const open = S.edit || S.open[key] !== false;
-  const tile = (q) => `<span class="pph" data-a="phview" data-ref="${p}" data-v="${q.id}"><img src="${esc(projSrc(q))}" alt="">${S.edit ? `<button class="rm" data-a="projphrm" data-ref="${p}" data-v="${q.id}" aria-label="Remove photo">✕</button>` : ''}</span>`;
+  const tile = (q) => `<span class="pph" data-a="phview" data-ref="${p}" data-v="${q.id}"><img src="${esc(projSrc(q))}" alt="">${S.edit ? `<button class="rm" data-a="projphrm" data-ref="${p}" data-v="${q.id}" aria-label="Remove photo">${icon('x', 14)}</button>` : ''}</span>`;
   const add = '';
   const shown = open ? ph : ph.slice(0, 3);
   return lcardPlus(key, 'Photos', ph.length || '', ph.length ? `<div class="pjgrid">${shown.map(tile).join('')}</div>` : '', add, open); }
