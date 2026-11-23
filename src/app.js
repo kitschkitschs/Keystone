@@ -88,13 +88,13 @@ function seed() {
       hobbies: { name: 'Hobbies', icon: 'hot-air-balloon', color: '#EC8FA8', pages: [] },
       notebook: { name: 'Notes', icon: 'pencil', color: '#A877C4', pages: [] }
     },
-    pages: { today: { name: 'Today', color: '#D9AE72' }, schedule: { name: 'Schedule', color: '#D9AE72' }, plan: { name: 'Plan', color: '#D9AE72' }, appts: { name: 'Appointments', color: '#6F9BD6' } },
+    pages: { today: { name: 'Today', color: '#D9AE72' }, schedule: { name: 'Schedule', color: '#D9AE72' }, plan: { name: 'Tasks', color: '#D9AE72' }, appts: { name: 'Plans', color: '#6F9BD6' } },
     groups: {
       'g-blocks': { name: 'Day blocks', holds: 'blocks', kids: ['b-morning', 'b-study', 'b-evening'] },
       'b-morning': { name: 'Morning', style: 'dayblock', holds: 'task', start: '07:00', end: '09:00', color: '#D9AE72', icon: 'sunrise', kids: ['ci-m', 'r-morning', 't-walk'] },
       'b-study': { name: 'Study', style: 'dayblock', holds: 'task', start: '09:00', end: '18:00', color: '#3FAFA6', icon: 'book-open', kids: ['t-tax', 't-lamp'] },
       'b-evening': { name: 'Evening', style: 'dayblock', holds: 'task', start: '18:00', end: '23:00', color: '#A877C4', icon: 'moon', kids: ['t-wipe', 't-brine', 't-wash', 't-shower', 't-knit', 't-tv', 'r-evening', 'ci-e'] },
-      'g-appts': { name: 'Appointments', holds: 'acats', kids: ['c-appt', 'c-social', 'c-travel'] },
+      'g-appts': { name: 'Plans', holds: 'acats', kids: ['c-appt', 'c-social', 'c-travel'] },
       'c-appt': { name: 'Appointments', style: 'acat', holds: 'appt', color: '#6F9BD6', icon: 'calendar-clock', kids: ['a-hair', 'a-gp', 'a-dent'] },
       'c-social': { name: 'Social', style: 'acat', holds: 'appt', color: '#EC8FA8', icon: 'users', kids: ['a-coffee'] },
       'c-travel': { name: 'Travel', style: 'acat', holds: 'appt', color: '#5FA8A0', icon: 'plane', kids: [] }
@@ -183,7 +183,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) TWO_A
 setInterval(twoCheck, 60000); setTimeout(() => { skipCheck(); twoCheck(); }, 1500);
 function blockOfItem(id) { const pl = placements(id).find((p) => G(p) && G(p).style === 'dayblock'); return pl || blockIds()[blockIds().length - 1]; }
 function blockAtTime(t) { const m = hm(t); return blockIds().find((b) => hm(G(b).start) <= m && m < hm(G(b).end)) || blockIds()[blockIds().length - 1]; }
-function placeName(p) { if (p.startsWith('s:')) return (I(p.slice(2)) || {}).name + ' (steps)'; const g = G(p); return g.style === 'dayblock' ? 'Day block · ' + g.name : g.style === 'acat' ? 'Appointments · ' + g.name : g.name; }
+function placeName(p) { if (p.startsWith('s:')) return (I(p.slice(2)) || {}).name + ' (steps)'; const g = G(p); return g.style === 'dayblock' ? 'Day block · ' + g.name : g.style === 'acat' ? 'Plans · ' + g.name : g.name; }
 
 // ---------- log ----------
 const L = (d) => M.log[d] || (M.log[d] = {});
@@ -476,19 +476,20 @@ function render() { WKC.clear(); bkDot(); setTimeout(navTrack, 0);
 }
 
 // Today: calendar strip, then the picked day's blocks
-// Calendar days (2026-11-20): date in the top left, dots on the right, the stamp in the middle.
-// Stamps on Today and Schedule: plan = all done, part = some left, bad = bad day all done,
+// Calendar days (2026-11-20): date in the top left, dots on the right, the day dot in the middle.
+// dayStamp names the day for screen readers: plan = all done, part = some left, bad = bad day all done,
 // bpart = bad day with some left, bempty = bad day with nothing in it. Skipped days stay empty with a grey date.
 function dayStamp(d, c) { const s = M.snap[d];
   if (c === 'x') return null; if (c === 'f') return trainStar(d) ? 'train' : null;
   if (d > T0 || skipped(d)) return null;
   if (isBad(d)) { if (s && s.bdue > 0 && s.bdone >= s.bdue) return 'bad'; if (d === T0) return null; return M.badDays[d] !== 'skip' && s && s.bdone > 0 ? 'bpart' : 'bempty'; } // nothing logged (or a skipped day I made bad) = empty bad day
   if (!s || !(s.due > 0)) return null; if (s.done >= s.due) return 'plan'; return d < T0 ? 'part' : null; }
-// Stone (2026-11-23): Today and Schedule show one dot per day instead of a stamp. It grows and darkens as the day's list gets ticked,
-// and is full ink once all is done; bad days stay grey. Today's dot shows from the first open.
+// Stone (2026-11-23): Today and Schedule show one full-colour dot per day: large when the day's list is all done, small when not.
+// Bad days use the bad-day colour. Today's dot shows from the first open.
 function dayDot(d) { const s = M.snap[d]; if (d > T0) return ''; const bad = isBad(d), due = s ? (bad ? s.bdue : s.due) || 0 : 0, done = s ? (bad ? s.bdone : s.done) || 0 : 0;
-  if (!due && !bad && d !== T0) return ''; const f = due ? Math.min(1, done / due) : 0, z = f >= 1 ? 14 : 3 + Math.round(f * 7);
-  return `<i class="dd" style="width:${z}px;height:${z}px;background:${bad ? 'var(--faint)' : `color-mix(in srgb,var(--ink) ${f >= 1 ? 100 : 30 + Math.round(f * 50)}%,var(--page))`}"></i>`; }
+  if (!due && !bad && d !== T0) return ''; return dayDotHtml(bad ? 'bad' : 'plan', due > 0 && done >= due); }
+// Training: a dot on days with training planned, large once all of it is done.
+function trainDot(d) { if (d > T0) return ''; const ks = trainCats().flatMap(kidsOf).filter((k) => onDay(k, d)); return ks.length ? dayDotHtml('train', ks.every((k) => isDone(k, d))) : ''; }
 const STAMP_SAY = { plan: ', all done', part: ', some left', bad: ', bad day, all done', bpart: ', bad day, some left', bempty: ', bad day', train: ', all done' };
 function dayCell(d, inMonth = true, c = 't') {
   const selD = c === 's' ? (S.sview === 'day' ? S.sday : null) : c === 'f' ? (S.fday || T0) : c === 'x' ? (S.xday || T0) : S.day;
@@ -497,7 +498,7 @@ function dayCell(d, inMonth = true, c = 't') {
   const sk = (c === 't' || c === 's') && !aw && skipped(d); // a day I never opened the app (2026-11-20)
   const st = aw ? null : dayStamp(d, c);
   return `<button class="day fday ${d === selD ? 'sel' : ''} ${d === T0 ? 'today' : ''} ${inMonth ? '' : 'out'}${sk ? ' skip' : ''}${awayCls(aw, d)}" data-a="pickday" data-c="${c}" data-v="${d}" aria-label="${fmtDate(d)}${aw ? ', away: ' + esc(aw.name) : st ? STAMP_SAY[st] : sk ? ', skipped' : ''}">
-    ${aw || c === 'x' ? '' : calLines(ck, d)}<span class="dh"><span class="n">${parse(d).getDate()}</span>${aw || c === 'x' ? '' : calDotsHtml(ck, d)}</span>${c === 't' || c === 's' ? (aw || sk ? '' : dayDot(d)) : st ? markSvg(st, null, 'star') : ''}</button>`;
+    ${aw || c === 'x' ? '' : calLines(ck, d)}<span class="dh"><span class="n">${parse(d).getDate()}</span>${aw || c === 'x' ? '' : calDotsHtml(ck, d)}</span>${c === 't' || c === 's' ? (aw || sk ? '' : dayDot(d)) : c === 'f' && !aw ? trainDot(d) : ''}</button>`;
 }
 function renderCal(c = 't') {
   let weeks; const mon = c === 's' ? S.smonth : c === 'f' || c === 'x' ? S[c + 'month'] : S.month, monthOf = c === 's' ? S.smonthOf : c === 'f' || c === 'x' ? (S[c + 'monthOf'] || T0.slice(0, 7)) : S.monthOf, anchor = c === 's' ? S.sday : c === 'f' || c === 'x' ? (S[c + 'day'] || T0) : S.day;
@@ -591,7 +592,7 @@ function pastDay(d) {
   const mi = missedOn(d);
   dayList(d).forEach((x) => x.items.concat(x.appts || []).forEach((id) => { const it = I(id); if (it && !['checkin', 'slot'].includes(it.type) && !isDone(id, d) && !mi.includes(id) && !tk.includes(id)) mi.push(id); }));
   const ml0 = (id) => ln(I(id).name, '', '', `data-a="peek" data-ref="${id}" data-d="${d}"`, colorOf(id)).replace('class="pdl"', 'class="pdl pdmiss"');
-  [['task', 'Tasks'], ['appt', 'Appointments'], ['home', 'Home'], ['study', 'Study'], ['train', 'Training'], ['hob', 'Hobbies']].forEach(([k, t]) => {
+  [['task', 'Tasks'], ['appt', 'Plans'], ['home', 'Home'], ['study', 'Study'], ['train', 'Training'], ['hob', 'Hobbies']].forEach(([k, t]) => {
     const ids = tk.filter((id) => kindOf(id) === k); let L = ids.map((id) => tl(id, k === 'study' && sm[id] ? mins(sm[id]) : ''));
     const mk = mi.filter((id) => kindOf(id) === k);
     if (k === 'study') L = L.concat(Object.entries(sm).filter(([id]) => !ids.includes(id)).map(([id, m]) => ln(I(id) ? I(id).name : 'Study', '', mins(m), '', I(id) ? colorOf(id) : M.areas.study.color)), sup && sup.min ? [ln('Study support', '', mins(Math.round(sup.min)), '', M.areas.study.color)] : []);
@@ -605,7 +606,7 @@ function pastDay(d) {
   sec('Health', hl);
   const fd = dayMeals(d); if (fd) sec('Food diary', [`<div class="pdfood">${fd}</div>`]);
   sec('Life', (M.events || []).filter((e) => e.day === d).map((e) => ln(e.text, '', '', '', '#9A9387')).concat((M.conds || []).filter((c) => c.start === d || c.end === d).map((c) => ln(c.name, c.start === d ? 'Condition started' : 'Condition ended', '', '', condCol()))));
-  const KIND = { task: 'Task', routine: 'Routine', appt: 'Appointment', tracker: 'Tracker' };
+  const KIND = { task: 'Task', routine: 'Routine', appt: 'Plan', tracker: 'Tracker' };
   // added and written: real previews of notes, journal pages and boards (2026-11-08)
   const NT = (M.notes || []).filter((n) => n.upd && day(n.upd) === d), JJ = (M.journal || []).filter((j) => j.d === d && (j.text || (j.ims || []).length)), BB = (M.boards || []).filter((b) => b.upd && day(b.upd) === d);
   const AL = Object.keys(M.items).filter((id) => I(id).made === d && KIND[I(id).type] && !I(id).part && !I(id).sample).map((id) => ln(tnm(id), '', '', `data-a="peek" data-ref="${id}" data-d="${d}"`, colorOf(id)));
@@ -863,7 +864,7 @@ function renderAppts() {
   const fbar = cats.length > 1 ? colSquares(cats.map((c) => [G(c).color, G(c).name, c]), S.cat !== 'all' && S.cat, 'catsq') : '';
   if (!S.edit) return `<div class="ptools">${abar}${fbar}</div>` + (sec('Today', today) + sec('Coming up', coming) || '<p class="empty">Nothing booked.</p>');
   return chips + (sec('Today', today) + sec('Coming up', coming) || '<p class="empty">Nothing booked.</p>') +
-    `<button class="addbtn" data-a="newappt"><span class="plus">+</span>Add ${S.cat !== 'all' && G(S.cat) ? esc(G(S.cat).name.toLowerCase().replace(/s$/, '')) : 'appointment'}</button>`;
+    `<button class="addbtn" data-a="newappt"><span class="plus">+</span>Add ${S.cat !== 'all' && G(S.cat) ? esc(G(S.cat).name.toLowerCase().replace(/s$/, '')) : 'plan'}</button>`;
 }
 
 // ---------- layer: menu, sheets, toast ----------
@@ -951,7 +952,6 @@ function sheetBody() {
   const s = S.sheet;
   if (s.kind[0] === 'v') return vSheet(s);
   if (s.kind === 'trip') return tripSheet(s);
-  if (s.kind === 'mark') return markSheet(s);
   if (s.kind === 'word') return wordSheet(s);
   if (s.kind === 'rem') return remSheet(s);
   if (s.kind === 'cals') return calsSheet();
@@ -1044,7 +1044,7 @@ function sheetBody() {
     // the page I'm on comes first, under This page (2026-11-08)
     const here = pageAdds((a, ic, l, extra = '') => capTile(l, ic, `data-a="${a}" ${extra}`, null, true)); if (here) h += `<div class="fld"><span class="mono">This page</span><div class="addtiles">${here}</div></div>`;
     // a thin Feeling bar over a 3×2 grid, so the tiles line up (2026-11-08)
-    h += `<div class="fld"><span class="mono">Anywhere</span><div class="addtop">${(() => { const ws = feelOf(T0); const b = ws.length ? fieldBg(ws) : null; return `<button class="feelcard addfeel" data-a="feel" style="${b ? `background:${b.old};background:${b.ok}` : ''}" aria-label="${ws.length ? 'Feelings: ' + esc(ws.join(', ')) + '. Tap to change' : 'How do I feel?'}"></button>`; })()}<div class="addtiles">${tile('newpick', 'check', 'Task')}${tile('newappt', 'calendar-clock', 'Appointment', 'data-v="appt"')}${tile('shopnew', 'shopping-basket', 'Shopping')}${tile('mealnew', 'utensils', 'Meal')}${tile('nnew', 'sticky-note', 'Note')}${tile('wnew', 'book-a', 'Lexicon')}${tile('jnew', 'notebook-pen', 'Journal page')}${tile('bnew', 'layout-dashboard', 'Board')}</div></div></div>`;
+    h += `<div class="fld"><span class="mono">Anywhere</span><div class="addtop">${(() => { const ws = feelOf(T0); const b = ws.length ? fieldBg(ws) : null; return `<button class="feelcard addfeel" data-a="feel" style="${b ? `background:${b.old};background:${b.ok}` : ''}" aria-label="${ws.length ? 'Feelings: ' + esc(ws.join(', ')) + '. Tap to change' : 'How do I feel?'}"></button>`; })()}<div class="addtiles">${tile('newpick', 'check', 'Task')}${tile('newappt', 'calendar-clock', 'Plan', 'data-v="appt"')}${tile('shopnew', 'shopping-basket', 'Shopping')}${tile('mealnew', 'utensils', 'Meal')}${tile('nnew', 'sticky-note', 'Note')}${tile('wnew', 'book-a', 'Lexicon')}${tile('jnew', 'notebook-pen', 'Journal page')}${tile('bnew', 'layout-dashboard', 'Board')}</div></div></div>`;
     // recently ticked: done in the last week, not on Today, newest first
     const recent = []; for (let k = 1; k <= 7 && recent.length < 10; k++) { const d = addDays(T0, -k); Object.entries(M.log[d] || {}).forEach(([id, v]) => { if (recent.length < 10 && v === 'done' && I(id) && ['task', 'routine', 'step'].includes(I(id).type) && !today.includes(id) && !recent.includes(id) && !(I(id).type === 'task' && I(id).when && I(id).when.mode === 'once')) recent.push(id); }); }
     const chip = (id) => { const on = isDone(id, T0); return `<button class="chip${on ? ' done' : ''}" data-a="addtick" data-ref="${id}" aria-pressed="${on}" style="--c:${colorOf(id)}"><span class="d"></span>${inm(id)}</button>`; };
@@ -1069,13 +1069,8 @@ function pageAdds(ab) { if (S.insOn) return null; const fileIn = (id, ref, ic, l
   if (S.area === 'health') { if (S.page === 'expeds') return ab('tripnew', 'mountain', 'Expedition', 'data-v="planned"') + ab('tripnew', 'star', 'Wish', 'data-v="wish"'); }
   return null; }
 // Star colours, one per calendar kind (plan = Today + Schedule, train, food), set in edit mode (2026-11-05)
-const starCol = (k) => ((M.settings || {}).starCols || {})[k] || (k === 'part' ? starCol('plan') : k === 'bpart' || k === 'bempty' ? starCol('bad') : k === 'bad' ? '#8C9EBF' : k === 'broke' ? '#E3A99B' : '#EBCB95'); // unfinished stamps follow their day's colour until set
-const starSvg = (k, sz = 18) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4-3.9-3.8 5.4-.8z" fill="${starCol(k)}" stroke="${starCol(k)}" stroke-width="3.2" stroke-linejoin="round"/></svg>`;
-// Training marks a fully done day with a flower instead of a star (2026-11-05)
-const flowerSvg = (col, sz, cls = '') => `<svg class="${cls}" width="${sz}" height="${sz}" viewBox="0 0 24 24" aria-hidden="true"><g fill="${col}"><ellipse cx="12" cy="6.3" rx="2.9" ry="5" transform="rotate(0 12 12)"/><ellipse cx="12" cy="6.3" rx="2.9" ry="5" transform="rotate(72 12 12)"/><ellipse cx="12" cy="6.3" rx="2.9" ry="5" transform="rotate(144 12 12)"/><ellipse cx="12" cy="6.3" rx="2.9" ry="5" transform="rotate(216 12 12)"/><ellipse cx="12" cy="6.3" rx="2.9" ry="5" transform="rotate(288 12 12)"/></g></svg>`;
-const starEdit = (k) => markEdit(k); // the completed-day mark pop-up (marks.js)
-function getProp(ref, k) { if (ref.startsWith('pdc:')) return k === 'color' ? pdGetCol(ref.slice(4)) : undefined; if (ref.startsWith('ic:')) return k === 'color' ? insColOf(ref.slice(3)) : undefined; if (ref.startsWith('ui:')) return k === 'icon' ? uiIc(ref.slice(3), 'circle') : undefined; if (ref.startsWith('fc:')) return k === 'color' ? feelCol(ref.slice(3), '#9A9387') : undefined; if (ref.startsWith('ctag:')) return k === 'color' ? ctagCol(ref.slice(5)) : undefined; if (ref.startsWith('star:')) return k === 'color' ? starCol(ref.slice(5)) : undefined; if (ref.startsWith('tk:')) return k === 'color' ? tripCol(ref.slice(3)) : undefined; if (ref === 'cc:fit') return k === 'color' ? condCol() : undefined; if (ref.startsWith('x:')) return (mealPlan().extras.find((x) => x.id === ref.slice(2)) || {})[k] || (k === 'color' ? xcol({ id: ref.slice(2) }) : k === 'icon' ? xicon({ id: ref.slice(2) }) : undefined); if (ref.startsWith('a:')) return M.areas[ref.slice(2)][k]; if (ref.startsWith('p:')) return M.pages[ref.slice(2)][k]; if (ref === 'draft') return S.sheet && S.sheet.back && S.sheet.back.draft && S.sheet.back.draft[k]; return (I(ref) || G(ref) || {})[k]; }
-function setProp(ref, k, v) { if (ref.startsWith('pdc:')) { if (k === 'color' && v) pdSetCol(ref.slice(4), v); return; } if (ref.startsWith('ic:')) { if (k === 'color') insSetCol(ref.slice(3), v); return; } if (ref.startsWith('ui:')) { if (k === 'icon') (M.settings.uiIcons = M.settings.uiIcons || {})[ref.slice(3)] = v; return; } if (ref.startsWith('fc:')) { const x = (M.settings.feelings || []).find((y) => y[0] === ref.slice(3)); if (x && k === 'color' && v) x[1] = v; return; } if (ref.startsWith('ctag:')) { const t = ctag(ref.slice(5)); if (t && k === 'color' && v) t.color = v; return; } if (ref === 'cc:fit') { if (k === 'color') { if (v) M.settings.fitCondCol = v; else delete M.settings.fitCondCol; } return; } if (ref.startsWith('tk:')) { if (k === 'color') { M.settings.tripCols = M.settings.tripCols || {}; if (v) M.settings.tripCols[ref.slice(3)] = v; else delete M.settings.tripCols[ref.slice(3)]; } return; } if (ref.startsWith('star:')) { if (k === 'color') { M.settings.starCols = M.settings.starCols || {}; if (v) M.settings.starCols[ref.slice(5)] = v; else delete M.settings.starCols[ref.slice(5)]; } return; } if (ref.startsWith('x:')) { const x = mealPlan().extras.find((e) => e.id === ref.slice(2)); if (x) x[k] = v; return; } if (ref.startsWith('a:')) M.areas[ref.slice(2)][k] = v; else if (ref.startsWith('p:')) M.pages[ref.slice(2)][k] = v; else { const o = I(ref) || G(ref); if (!o) return; if (v === '' || v == null) delete o[k]; else o[k] = v; } }
+function getProp(ref, k) { if (ref.startsWith('pdc:')) return k === 'color' ? pdGetCol(ref.slice(4)) : undefined; if (ref.startsWith('ic:')) return k === 'color' ? insColOf(ref.slice(3)) : undefined; if (ref.startsWith('ui:')) return k === 'icon' ? uiIc(ref.slice(3), 'circle') : undefined; if (ref.startsWith('fc:')) return k === 'color' ? feelCol(ref.slice(3), '#9A9387') : undefined; if (ref.startsWith('ctag:')) return k === 'color' ? ctagCol(ref.slice(5)) : undefined; if (ref.startsWith('dot:')) return k === 'color' ? dotCol(ref.slice(4)) : undefined; if (ref.startsWith('tk:')) return k === 'color' ? tripCol(ref.slice(3)) : undefined; if (ref === 'cc:fit') return k === 'color' ? condCol() : undefined; if (ref.startsWith('x:')) return (mealPlan().extras.find((x) => x.id === ref.slice(2)) || {})[k] || (k === 'color' ? xcol({ id: ref.slice(2) }) : k === 'icon' ? xicon({ id: ref.slice(2) }) : undefined); if (ref.startsWith('a:')) return M.areas[ref.slice(2)][k]; if (ref.startsWith('p:')) return M.pages[ref.slice(2)][k]; if (ref === 'draft') return S.sheet && S.sheet.back && S.sheet.back.draft && S.sheet.back.draft[k]; return (I(ref) || G(ref) || {})[k]; }
+function setProp(ref, k, v) { if (ref.startsWith('pdc:')) { if (k === 'color' && v) pdSetCol(ref.slice(4), v); return; } if (ref.startsWith('ic:')) { if (k === 'color') insSetCol(ref.slice(3), v); return; } if (ref.startsWith('ui:')) { if (k === 'icon') (M.settings.uiIcons = M.settings.uiIcons || {})[ref.slice(3)] = v; return; } if (ref.startsWith('fc:')) { const x = (M.settings.feelings || []).find((y) => y[0] === ref.slice(3)); if (x && k === 'color' && v) x[1] = v; return; } if (ref.startsWith('ctag:')) { const t = ctag(ref.slice(5)); if (t && k === 'color' && v) t.color = v; return; } if (ref === 'cc:fit') { if (k === 'color') { if (v) M.settings.fitCondCol = v; else delete M.settings.fitCondCol; } return; } if (ref.startsWith('tk:')) { if (k === 'color') { M.settings.tripCols = M.settings.tripCols || {}; if (v) M.settings.tripCols[ref.slice(3)] = v; else delete M.settings.tripCols[ref.slice(3)]; } return; } if (ref.startsWith('dot:')) { if (k === 'color') { M.settings.dotCols = M.settings.dotCols || {}; if (v) M.settings.dotCols[ref.slice(4)] = v; else delete M.settings.dotCols[ref.slice(4)]; } return; } if (ref.startsWith('x:')) { const x = mealPlan().extras.find((e) => e.id === ref.slice(2)); if (x) x[k] = v; return; } if (ref.startsWith('a:')) M.areas[ref.slice(2)][k] = v; else if (ref.startsWith('p:')) M.pages[ref.slice(2)][k] = v; else { const o = I(ref) || G(ref); if (!o) return; if (v === '' || v == null) delete o[k]; else o[k] = v; } }
 
 // The item sheet edits a draft; Save writes it back (and places a new item).
 // STUDY SESSIONS (2026-11-06): a study task's estimate can be split into dated sessions (2 h = 1 h Monday, 30 min twice).
@@ -1212,7 +1207,7 @@ function capture() { const s = S.sheet; if (!s || s.kind !== 'item') return; con
   document.querySelectorAll('[data-step]').forEach((el) => { s.steps[+el.dataset.step].name = el.value; });
 }
 function openItem(id) { const it = I(id); if (!it) return; if (it.type === 'step') { const r = placements(id)[0]; if (r) id = r.slice(2); } if (it.part && I(it.part)) id = it.part;
-  const x = I(id); openSheet({ kind: 'item', ref: id, title: x.type === 'appt' ? 'Appointment' : x.type === 'routine' ? 'Routine' : x.type === 'checkin' ? 'Check-in' : 'Task', draft: JSON.parse(JSON.stringify(x)), block: placements(id).find((p) => G(p) && G(p).style === 'dayblock') || (vHomed({ ref: id }) ? '' : blockOfItem(id)), cat: catOf(id), parts: (x.parts || []).filter(I).map((p) => Object.assign({ id: p, date: (I(p).when || {}).date, min: I(p).dur || 30 }, I(p).time ? { time: I(p).time } : {})), steps: (x.steps || []).filter(I).map((s) => { const o = pOpt(id, s); return { id: s, name: I(s).name, link: isLinkPart(s), optional: !!o.optional, only: o.only || '', days: (o.days || []).slice(), tags: (I(s).tags || []).slice() }; }) }); }
+  const x = I(id); openSheet({ kind: 'item', ref: id, title: x.type === 'appt' ? 'Plan' : x.type === 'routine' ? 'Routine' : x.type === 'checkin' ? 'Check-in' : 'Task', draft: JSON.parse(JSON.stringify(x)), block: placements(id).find((p) => G(p) && G(p).style === 'dayblock') || (vHomed({ ref: id }) ? '' : blockOfItem(id)), cat: catOf(id), parts: (x.parts || []).filter(I).map((p) => Object.assign({ id: p, date: (I(p).when || {}).date, min: I(p).dur || 30 }, I(p).time ? { time: I(p).time } : {})), steps: (x.steps || []).filter(I).map((s) => { const o = pOpt(id, s); return { id: s, name: I(s).name, link: isLinkPart(s), optional: !!o.optional, only: o.only || '', days: (o.days || []).slice(), tags: (I(s).tags || []).slice() }; }) }); }
 function newItem(mode, block) {
   // Breaks (2026-11-11): a named stretch of a day block, like Lunch. It takes up time but there's nothing to tick.
   if (mode === 'break') { openSheet({ kind: 'item', isNew: true, title: 'New break', draft: { name: '', brk: true, type: 'task', when: { mode: 'days', days: [0, 1, 2, 3, 4, 5, 6], n: 1, date: T0 }, made: T0, dur: 15, tags: [] }, block: block || blockIds()[0], steps: [] }); return; }
@@ -1220,7 +1215,7 @@ function newItem(mode, block) {
   openSheet({ kind: 'item', isNew: true, title: mode === 'routine' ? 'New routine' : mode === 'every' ? 'New repeat task' : 'New task', draft: D, block: block || blockIds()[blockIds().length - 1], steps: [] });
 }
 function newAppt(pick) { const cat = pick && G(pick) ? pick : S.cat !== 'all' && G(S.cat) ? S.cat : G('g-appts').kids[0];
-  openSheet({ kind: 'item', isNew: true, title: 'New ' + (G(cat) ? G(cat).name.toLowerCase().replace(/s$/, '') : 'appointment'), draft: { name: '', type: 'appt', date: S.day >= T0 ? S.day : T0, time: '', note: '', kind: '', tags: [], insight: false, made: T0 }, cat }); }
+  openSheet({ kind: 'item', isNew: true, title: 'New ' + (G(cat) ? G(cat).name.toLowerCase().replace(/s$/, '') : 'plan'), draft: { name: '', type: 'appt', date: S.day >= T0 ? S.day : T0, time: '', note: '', kind: '', tags: [], insight: false, made: T0 }, cat }); }
 function saveDraft() {
   const s = S.sheet; capture(); const D = s.draft; if (!D.name) { flash('Give it a name first'); return; }
   if (D.type === 'appt' && D.when) { delete D.rep; if (D.when.mode === 'once') delete D.when; }
@@ -1291,7 +1286,6 @@ document.addEventListener('click', (e) => {
   if (remAction(act, a, ref, v)) return;
   if (insightAction(act, a, ref, v)) return;
   if (trainingAction(act, a, ref, v)) return;
-    if (markAction(act, a, ref, v)) return;
     if (calAction(act, a, ref, v)) return;
     if (condAction(act, a, ref, v)) return;
   switch (act) {
@@ -1438,7 +1432,7 @@ function celebrate(kind) { const ph = $('#phone'); if (!ph || !lastTick) return;
   // the mark: from the row up to today's cell, where it settles in
   const main = $('#main'); if (main && main.scrollTop > 0) main.scrollTo({ top: 0, behavior: calm ? 'auto' : 'smooth' });
   // the flight follows the cell while the page scrolls up, and grows to the cell mark's own size, so it lands exactly on it (2026-11-09)
-  const f = document.createElement('div'); f.className = 'cfmark'; f.style.cssText = `left:0;top:0;opacity:0;border-radius:50%;background:${kind === 'bad' ? 'var(--faint)' : 'var(--ink)'}`; fx.appendChild(f);
+  const f = document.createElement('div'); f.className = 'cfmark'; f.style.cssText = `left:0;top:0;opacity:0;border-radius:50%;background:${dotCol(kind === 'bad' ? 'bad' : 'plan')}`; fx.appendChild(f);
   const t0 = performance.now(), dur = calm ? 1 : 1300; const ease = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
   const step = (now) => { const mk = document.querySelector(`#main .day[data-v="${T0}"] .dd`); const t = Math.min(1, (now - t0) / dur);
     if (!mk) { f.remove(); return; } mk.style.opacity = '0'; const C = mk.getBoundingClientRect(); const tx = C.left + C.width / 2 - P.left, ty = C.top + C.height / 2 - P.top;
@@ -1714,7 +1708,6 @@ function oeMigrate(m) { m.settings = m.settings || {}; if (m.settings.overeat1 |
 // sample: overeating yesterday, with a meal on it (only with the examples on)
 function oeMigrate2(m) { if (!m.example || m.settings.overeatEx || !m.items['tr-over']) return; m.settings.overeatEx = true; const d = addDays(T0, -1);
   (m.log[d] = m.log[d] || {})['tr-over'] = 2; m.photos = m.photos || {}; (m.photos[d] = m.photos[d] || []).push({ id: 'p-exover', tags: [], at: '21:30', text: 'Pizza and crisps', kind: 'meal', sample: true }); }
-const overCol = (v) => stepCol(hcolor('tr-over'), v - 1, 3);
 const overOn = (d) => { if (!I('tr-over')) return null; const v = +hval(d, 'tr-over'); return v >= 1 && v <= 3 ? v : null; };
 function migrate(m) {
   if (m.areas && !m.areas.health) {
@@ -1813,6 +1806,7 @@ function migrate(m) {
   // Stone (2026-11-23): Notebook is called Notes, and my palette gets quiet colours that sit on the putty paper; both once
   if (m.settings && !m.settings.stone1) { m.settings.stone1 = true; if (m.areas && m.areas.notebook && m.areas.notebook.name === 'Notebook') m.areas.notebook.name = 'Notes'; }
   if (m.settings && !m.settings.stone2) { m.settings.stone2 = true; if (m.settings.palInit) m.settings.myColors = [...new Set(STONE_PAL.map((p) => p[1]).concat(m.settings.myColors || []))]; } // the fuller Stone palette (2026-11-23)
+  if (m.settings && m.pages && !m.settings.stone3) { m.settings.stone3 = true; const pg = m.pages; if (pg.plan && pg.plan.name === 'Plan') pg.plan.name = 'Tasks'; if (pg.appts && pg.appts.name === 'Appointments') pg.appts.name = 'Plans'; const g = (m.groups || {})['g-appts']; if (g && g.name === 'Appointments') g.name = 'Plans'; } // Planner tabs renamed (2026-11-23)
   if (m.settings && !m.settings.travel1 && m.groups['g-appts']) { m.settings.travel1 = true; if (!m.groups['c-travel']) { m.groups['c-travel'] = { name: 'Travel', style: 'acat', holds: 'appt', color: '#5FA8A0', icon: 'plane', kids: [] }; m.groups['g-appts'].kids.push('c-travel'); } }
   return m;
 }
@@ -2137,13 +2131,13 @@ function breaksUI() {
       return `<div class="inrow brk"><span style="flex:1">${inm(it)}</span>${sc ? `<select class="inp" data-bmin="${b.id}" aria-label="From which answer">${sc.map((w, i) => `<option value="${i + 1}" ${(b.min || 1) === i + 1 ? 'selected' : ''}>${i === 0 ? 'Any answer' : 'From ' + w}</option>`).join('')}</select>` : `<span class="note" style="margin:0">${it.scale === 'avoid' ? 'When avoided' : 'When ticked'}</span>`}<button class="rm" data-a="brkrm" data-v="${b.id}" aria-label="Remove ${esc(tnm(it))}">✕</button></div>`; }).join('')}
     ${all.length ? `<select class="inp" data-badd="1" aria-label="Add an item that breaks the day"><option value="">+ Add an item</option>${all.map((k) => `<option value="${k}">${esc(tnm(k))}</option>`).join('')}</select>` : ''}</div>`;
 }
-function foodCal() { return foodCal0() + calEdit() + (S.edit ? `<div class="starcolw"><button class="starcol" data-a="mkopen" data-ref="broke" aria-label="Change how broken days look">${markSvg('broke', 20)}<span>Broken day mark</span></button></div>` : ''); }
+function foodCal() { return foodCal0() + calEdit(); }
 function foodCal0() {
   const F = S.fd; let weeks;
   if (F.month) { const [y, m] = F.monthOf.split('-').map(Number); let w = weekStart(iso(new Date(y, m - 1, 1))); weeks = []; while (weeks.length === 0 || w.slice(0, 7) <= F.monthOf) { weeks.push(w); w = addDays(w, 7); } }
   else weeks = [weekStart(F.day)];
   const cell = (d) => { const star = followed(d); const inM = !F.month || d.slice(0, 7) === F.monthOf; const ex = dayExtras(d).length; const ov = overOn(d);
-    return `<button class="day fday ${d === F.day && (!F.month || F.sel === 'day') ? 'sel' : ''} ${d === T0 ? 'today' : ''} ${inM ? '' : 'out'}${awayCls(awayOf('food', d), d)}" data-a="fdday" data-v="${d}" aria-label="${fmtDate(d)}${star ? ', meal plan followed' : dayBroke(d) ? ', day broken' : ''}${ex ? ', with extras' : ''}${ov ? ', overeating: ' + SCALES.symptom3[ov - 1] : ''}">${awayOf('food', d) ? '' : calLines('food', d)}<span class="dh"><span class="n">${parse(d).getDate()}</span>${awayOf('food', d) ? '' : calDotsHtml('food', d)}</span>${ov && !awayOf('food', d) ? markSvg('over', null, 'star', { col: overCol(ov) }) : dayBroke(d) && !awayOf('food', d) ? markSvg('broke', null, 'star') : star && !awayOf('food', d) ? markSvg('food', null, 'star') : ''}</button>`; };
+    return `<button class="day fday ${d === F.day && (!F.month || F.sel === 'day') ? 'sel' : ''} ${d === T0 ? 'today' : ''} ${inM ? '' : 'out'}${awayCls(awayOf('food', d), d)}" data-a="fdday" data-v="${d}" aria-label="${fmtDate(d)}${star ? ', meal plan followed' : dayBroke(d) ? ', day broken' : ''}${ex ? ', with extras' : ''}${ov ? ', overeating: ' + SCALES.symptom3[ov - 1] : ''}">${awayOf('food', d) ? '' : calLines('food', d)}<span class="dh"><span class="n">${parse(d).getDate()}</span>${awayOf('food', d) ? '' : calDotsHtml('food', d)}</span>${awayOf('food', d) ? '' : star ? dayDotHtml('fed', true) : dayBroke(d) ? dayDotHtml('broke', true) : ''}</button>`; };
   return `<div class="stack calblk" style="gap:6px">${F.month ? `<div class="calnav"><button data-a="fdmonth" data-v="-1" aria-label="Previous month">‹</button><span>${MONTHS[+F.monthOf.slice(5) - 1]} ${F.monthOf.slice(0, 4)}</span><button data-a="fdmonth" data-v="1" aria-label="Next month">›</button></div>` : ''}
     <div><div class="wk wkh"><span style="text-align:left">W</span>${WD.map((x) => `<span>${x.toUpperCase()}</span>`).join('')}</div>
     ${weeks.map((w) => `<div class="wk wkr">${F.month ? `<button class="wkn ${F.sel === 'week' && F.week === w ? 'sel' : ''}" data-a="fdweek" data-v="${w}" aria-label="Show week ${isoWeek(w)}" aria-pressed="${F.sel === 'week' && F.week === w}">${isoWeek(w)}</button>` : `<span class="wkn">${isoWeek(w)}</span>`}${[0, 1, 2, 3, 4, 5, 6].map((i) => cell(addDays(w, i))).join('')}</div>`).join('')}</div>
@@ -2215,14 +2209,15 @@ function diarySheet() {
 }
 // every day the open month calendar shows, including the spill-over days of the first and last week
 function monthGrid(mo) { const [y, m] = mo.split('-').map(Number); let d = weekStart(iso(new Date(y, m - 1, 1))); const out = []; while (out.length < 42 && (out.length % 7 !== 0 || d.slice(0, 7) <= mo)) { out.push(d); d = addDays(d, 1); } return out; }
+const fdDot = (d) => followed(d) ? `<i class="fdd" role="img" aria-label="Meal plan followed" style="background:${dotCol('fed')}"></i>` : dayBroke(d) ? `<i class="fdd" role="img" aria-label="Meal plan not followed" style="background:${dotCol('broke')}"></i>` : '';
 function logEntries(list, empty) {
   const days = [...new Set(list)].filter((d) => mealsOn(d).length || foodAnswers(d).length).sort().reverse();
   if (!days.length) return `<p class="note" style="padding:14px 2px">${esc(empty)}</p>`;
   return days.map((d) => { const c = dayCounts(d);
     const sum = PLANK.filter(([k]) => c[k]).map(([k, one, many]) => c[k] + ' ' + (c[k] === 1 ? one : many).toLowerCase()).join(' · ');
     const ov = overOn(d); if (ov) { const open = !!(S.fdOpen || {})[d];
-      return `<section class="hsec"><button class="hhead fdh" data-a="fdexp" data-v="${d}" aria-expanded="${open}"><span class="lbl"><span class="mono">${esc(dayLabel(d))}</span>${open && sum ? `<small>${esc(sum)}</small>` : ''}</span><span role="img" aria-label="Overeating: ${SCALES.symptom3[ov - 1]}">${markSvg('over', 16, '', { col: overCol(ov) })}</span></button>${open ? dayMeals(d) : ''}</section>`; }
-    return `<section class="hsec"><button class="hhead fdh" data-a="fdday" data-v="${d}"><span class="lbl"><span class="mono">${esc(dayLabel(d))}</span>${sum ? `<small>${esc(sum)}</small>` : ''}</span>${followed(d) ? `<span role="img" aria-label="Meal plan followed">${markSvg('food', 16)}</span>` : dayBroke(d) ? `<span role="img" aria-label="Day broken">${markSvg('broke', 16)}</span>` : ''}</button>${dayMeals(d)}</section>`; }).join('');
+      return `<section class="hsec"><button class="hhead fdh" data-a="fdexp" data-v="${d}" aria-expanded="${open}"><span class="lbl"><span class="mono">${esc(dayLabel(d))}</span>${open && sum ? `<small>${esc(sum)}</small>` : ''}</span>${fdDot(d)}</button>${open ? dayMeals(d) : ''}</section>`; }
+    return `<section class="hsec"><button class="hhead fdh" data-a="fdday" data-v="${d}"><span class="lbl"><span class="mono">${esc(dayLabel(d))}</span>${sum ? `<small>${esc(sum)}</small>` : ''}</span>${fdDot(d)}</button>${dayMeals(d)}</section>`; }).join('');
 }
 // More sample weeks (2026-11-02: the open month should have a full log to test with)
 function foodSampleMore(m) {
