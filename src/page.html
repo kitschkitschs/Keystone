@@ -574,7 +574,7 @@ textarea.inp{resize:none;font:inherit;padding-top:10px;height:auto}
 .wcard .wedit{position:absolute;right:8px;bottom:8px;width:40px;height:40px;display:grid;place-items:center;color:var(--ink2)}
 .wnav{display:flex;align-items:center;justify-content:center;gap:16px;margin:14px 0}.wnav .mono{font-size:10px;color:var(--ink2)}
 html.dark .wmini .wst,html.dark .wmini .wface,html.dark .wdeck .wst1,html.dark .wdeck .wst2,html.dark .wcard .wf,html.dark .wcard .wb{background:#34312C}
-.cfx{position:absolute;inset:0;pointer-events:none;z-index:70;overflow:hidden}.cfx i{position:absolute;display:block}.cfx .cfmark{position:absolute;width:48px;height:48px;transform-origin:50% 50%;will-change:transform}.cfx .cfmark svg{display:block;width:48px;height:48px}
+.cfx{position:absolute;inset:0;pointer-events:none;z-index:70;overflow:hidden}.cfx i{position:absolute;display:block}.cfx .cfmark{position:absolute;width:48px;height:48px;transform-origin:50% 50%;will-change:transform}
 .shopbtn{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:0 16px;margin:0 0 12px;border-radius:16px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:15px;box-sizing:border-box;text-align:left}.shopbtn b{flex:1;font-weight:600}.shopbtn .cnt{color:var(--ink2);font-size:13px}.shopbtn .chev{color:var(--faint);font-size:18px}
 .shopcopy{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin:10px 0 14px}
 .row.shgot .lbl{text-decoration:line-through;color:var(--ink2)}
@@ -954,7 +954,7 @@ nav.areas.two{grid-template-columns:repeat(2,minmax(0,1fr))}
 
 /* dark mode (2026-11-08, from the cleaning-system reference): warm near-black page, soft charcoal cards with a faint light edge */
 /* ===== Stone (2026-11-23): the look over the whole app. Square corners, hairlines, small spaced caps, one ink. ===== */
-#phone *:not(.dot,.hdot,.ovdot,.badot,.xdot,.dd,.d,.cdots i,.xdots i,.ci-ic,.whl *){border-radius:0!important} /* every corner square; dots and the wheel stay round */
+#phone *:not(.dot,.cfmark,.hdot,.ovdot,.badot,.xdot,.dd,.d,.cdots i,.xdots i,.ci-ic,.whl *){border-radius:0!important} /* every corner square; dots and the wheel stay round */
 .card,.lcard,.hsec{background:transparent;box-shadow:none;border:0}
 .btn,.chip,.fbtn,.scale button,.tag,.hchip,.pick,.menu{box-shadow:none}
 #menubtn{width:28px;margin-right:0}
