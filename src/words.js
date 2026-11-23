@@ -25,7 +25,7 @@ const wPass = (w) => (wF() === 'all' || (w.tags || []).includes(wF())) && (wFL()
 function wDeck() { return wDeckAll().filter((w) => w && !wLeftOut(w) && wPass(w)); }
 // all my words as cards, like the Notepad (2026-11-09)
 // word cards look like the Notepad post-its: the word on the title line, the meaning on its ruled lines (2026-11-10)
-const wTile = (w, i) => `<button class="postit wtile" data-a="wgo" data-ref="${w.id}" style="transform:rotate(${TILTS[i % TILTS.length]}deg)"><span class="pt">${esc(w.word)}</span><span class="wpl">${esc(w.mean || '')}</span><span class="wtfoot">${wFlag(w, 10)}<span class="ptag mono">${esc((w.tags || []).join(' · '))}</span></span></button>`;
+const wTile = (w, i) => `<button class="postit wtile" data-a="wgo" data-ref="${w.id}"><span class="pt">${esc(w.word)}</span><span class="wpl">${esc(w.mean || '')}</span><span class="wtfoot">${wFlag(w, 10)}<span class="ptag mono">${esc((w.tags || []).join(' · '))}</span></span></button>`;
 function wDeckAll() { const ids = wList().map((w) => w.id); if (S.wOrder) { const o = S.wOrder.filter((id) => ids.includes(id)); ids.forEach((id) => { if (!o.includes(id)) o.unshift(id); }); S.wOrder = o; return o.map((id) => wList().find((w) => w.id === id)); } return wSorted(); }
 const wHead = () => `<div class="nbhead"><button class="nbt" data-a="nbgo" data-v="words"><span class="mono">Words</span><span class="chev" aria-hidden="true">›</span></button><button class="nbpen" data-a="wnew" aria-label="New word">${icon('pen-line', 20)}</button></div>`;
 // on the landing: a little stack with the newest word on top
