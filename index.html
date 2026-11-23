@@ -954,7 +954,7 @@ nav.areas.two{grid-template-columns:repeat(2,minmax(0,1fr))}
 
 /* dark mode (2026-11-08, from the cleaning-system reference): warm near-black page, soft charcoal cards with a faint light edge */
 /* ===== Stone (2026-11-23): the look over the whole app. Square corners, hairlines, small spaced caps, one ink. ===== */
-#phone *:not(.dot,.fdd,.cfmark,.hdot,.ovdot,.badot,.xdot,.dd,.d,.cdots i,.xdots i,.ci-ic,.whl *){border-radius:0!important} /* every corner square; dots and the wheel stay round */
+#phone *:not(.dot,.fdd,.cfmark,.hdot,.ovdot,.badot,.xdot,.dd,.d,.xdots i,.ci-ic,.whl *){border-radius:0!important} /* every corner square; dots and the wheel stay round */
 .card,.lcard,.hsec{background:transparent;box-shadow:none;border:0}
 .btn,.chip,.fbtn,.scale button,.tag,.hchip,.pick,.menu{box-shadow:none}
 header.top{padding-right:16px}#plusbtn,#menubtn{width:22px}#menubtn{margin:0 0 0 18px}#donebtn{margin-left:12px} /* the top bar icons keep the same 16px from the edge as the title (2026-11-23) */
@@ -1019,9 +1019,10 @@ nav.areas button{font-size:10px;letter-spacing:.12em;padding:0}
 .box.wide .bn{flex:0 1 auto;text-align:center}
 .tl .box .bt{color:var(--ink);opacity:.6}
 /* block titles like Today's (name and time) in a band with top and bottom lines, over the day columns only; no hour lines in the hour column */
-.bl{left:22px;border:0;border-top:1px solid var(--quiet);border-bottom:1px solid var(--quiet);background:var(--page);z-index:1;align-items:center;gap:12px}
+.bl{left:22px;border:0;border-top:1px solid var(--line2);border-bottom:1px solid var(--line2);background:var(--page);z-index:1;align-items:center;gap:12px}
+.bl::before,.bl::after{content:"";flex:1;border-top:1px solid var(--line)}
 .bl b,.bl em{font:500 10.5px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--ink);white-space:nowrap}
-.bl em{font-weight:400;font-style:normal;color:var(--faint);margin-left:-6px}.bl em::before{content:"· "}
+.bl em{font:400 9.5px var(--mono);letter-spacing:.14em;font-style:normal;color:var(--quiet);margin-left:-6px}.bl em::before{content:"· "}
 .bl.over em{color:#C4503B}
 .tl .hr{left:22px}.tl .hr span{left:-22px}
 .skey{display:flex;flex-wrap:wrap;gap:6px 14px;margin:12px 0 4px 24px;font-size:11.5px;color:var(--ink2)}
@@ -1084,8 +1085,9 @@ input[type=range]::-moz-range-thumb{background:var(--ink);border-color:var(--ink
 .ptools{margin:0 0 6px;align-items:center}.ptools .fbtn{height:22px;min-height:22px}
 .crumbs{margin-top:-12px}
 .nbhead{margin-top:-4px}
-/* Today's blocks sit closer together (2026-11-23) */
-#view.ptoday .stack{gap:6px}#view.ptoday .card .bhead button{margin-top:0}#view.ptoday .card .bhead{min-height:30px}
+/* every page's groups sit as close together as Today's blocks (2026-11-23) */
+#view .stack{gap:6px}#view .card .bhead button{margin-top:0}#view .card .bhead{min-height:30px}#view .hsec .hhead,#view .sechd.vsec{margin-top:0}
+#view.ptoday .calblk+.stack>.card:first-child{margin-top:-7px} /* the first block title sits as close under the calendar as Schedule's first band */
 #view>.card:first-child>.bhead,#view>.card:first-child>.bhead button,#view>.hsec:first-child>.hhead{margin-top:-2px;min-height:12px!important;align-items:center}
 html.dark{--page:#1D1B19;--paper:#34312C;--rule:#433F39;--card:#2B2926;--ink:#EFEAE2;--ink2:#CFC8BC;--quiet:#A59E92;--faint:#7F786E;--faint2:#5F5952;--line:#3D3934;--line2:#35322E;--soft:#36332F;--wash:#3A3226;--washline:#5C4B33;--star:#C9A86F;--done:#8FA488;color-scheme:dark}
 html.dark .card,html.dark .lcard{background:linear-gradient(160deg,#33302C 0%,#2A2825 60%,#272522 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 1px 2px rgba(0,0,0,.3)}
@@ -1127,6 +1129,10 @@ html.dark .feelcard.empty{background:#33302C}html.dark .jcard .jct,html.dark .jc
 .day.fday .dh{position:absolute;left:5px;right:4px;top:5px;height:11px;display:flex;align-items:center;justify-content:space-between;z-index:1;pointer-events:none}
 .day.fday .dh .n{position:static;text-box:trim-both cap alphabetic}
 .day.fday .dh .cdots{position:static;flex:none;transform:none}
+/* Stone (2026-11-23): the dots are short lines beside the date, up to four, stacked from the top; week numbers centred at the top */
+.day.fday .dh{align-items:flex-start}.day.fday .dh .cdots,.day.fday .dh .cdots[class]{width:10px;height:auto;padding:0;display:flex;flex-direction:column;flex-wrap:nowrap;gap:2px;align-items:stretch;justify-content:flex-start}
+.day.fday .dh .cdots i{width:10px;height:2px;margin:0}
+.wkr .wkn,button.wkn{justify-content:center}
 .skfood{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--line2);font-size:14px}.skfood .chips{flex-wrap:nowrap}
 /* a day I never opened the app: empty, with its date greyed (2026-11-20) */
 .day.skip .n{color:var(--faint2)}
@@ -1936,10 +1942,10 @@ function renderSchedule() {
   h += `<div class="tl" style="height:${H}px;margin-top:4px;${cols}">`;
   for (let k = h0; k < h1; k++) h += `<div class="hr ${starts.includes(k * 60) ? 'bs' : ''}" style="top:${y(k * 60)}px"><span>${pad(k)}</span></div>`;
   // block lines, like the old Daybook: a dashed line at each block's start with its name (day view: time used of its length)
-  const P = dayV ? placeDay(S.sday) : null;
+  const P = placeDay(dayV ? S.sday : days.includes(T0) ? T0 : days[0]); // week view counts today's (or the week's first) day, like Today's block titles
   blockIds().forEach((b) => { const g = G(b); const len = hm(g.end) - hm(g.start);
     const E = (m) => estHM(m / 60); let info = E(len), over = !dayV && OV[b] > 0; const overB = OV; // Stone (2026-11-23): titled like Today's blocks, name then time
-    if (dayV) { const used = P.filter((o) => o.blk === b && !o.appt).reduce((t, o) => t + (o.b - o.a), 0); over = used > len; info = E(used) + ' of ' + E(len) + (over ? ' · over by ' + E(used - len) : ''); }
+    { const used = P.filter((o) => o.blk === b && !o.appt).reduce((t, o) => t + (o.b - o.a), 0); over = over || used > len; info = E(used) + ' of ' + E(len) + (over ? ' · over by ' + E(used - len) : ''); }
     const lbl = `<b>${esc(g.name)}</b><em>${info}</em>`;
     // the block's border is a band: dashed top and bottom in one colour, name in between; it sits right under the
     // previous block's last box, so there's no stray gap (2026-11-02)
@@ -5191,15 +5197,12 @@ function calDots(k, d) { const out = [];
     sec.forEach(([ks, col]) => { if (d <= T0 ? ks.some((x) => isDone(x, d)) : ks.some((x) => ((I(x) || {}).when || {}).mode === 'once' && I(x).when.date === d && !everDone(x))) out.push(col); }); }
   if (calOn(k, 'train')) trainDots(d).forEach((g) => out.push(g.color));
   if (calOn(k, 'extras')) dayExtras(d).forEach((x) => out.push(xcol(x)));
-  return out.slice(0, 6); } // up to six: rows of three beside the date (2026-11-20)
-// dot size, one setting for every calendar (2026-11-20)
-const CAL_DOTSZ = [[3, 'Tiny'], [4, 'Small'], [5, 'Normal']];
-const calDotSz = () => (M.settings || {}).calDot || 5;
-const calDotsHtml = (k, d) => { const c = calDots(k, d); return c.length ? `<span class="cdots n${c.length}" style="--cd:${calDotSz()}px" aria-hidden="true">${c.map((x) => `<i style="background:${x}"></i>`).join('')}</span>` : ''; };
+  return out.slice(0, 4); } // up to four short lines beside the date, stacked from the top (2026-11-23)
+const calDotsHtml = (k, d) => { const c = calDots(k, d); return c.length ? `<span class="cdots" aria-hidden="true">${c.map((x) => `<i style="background:${x}"></i>`).join('')}</span>` : ''; };
 function calsSheet() {
   const col = ([k, l]) => `<button class="tg" data-a="colopen" data-ref="dot:${k}" aria-label="Colour for ${l.toLowerCase()}"><span class="l">${l}</span><i class="dd" style="position:static;transform:none;border-radius:50%;width:${DOT_LG}px;height:${DOT_LG}px;background:${dotCol(k)}"></i></button>`;
   const row = (k, f, l, sub) => `<div class="tg"><span class="l">${l}<small>${sub}</small></span><button class="swt" role="switch" aria-checked="${calOn(k, f)}" data-a="caltog" data-ref="${k}" data-v="${f}" aria-label="${l} on ${k}"></button></div>`;
-  return `<div class="fld calset"><span class="mono">Day dots</span>${DOT_COLS.map(col).join('')}</div><div class="fld calset"><span class="mono">Dot size</span><div class="chips">${CAL_DOTSZ.map(([v, l]) => `<button class="chip" data-a="caldot" data-v="${v}" aria-pressed="${calDotSz() === v}">${l}</button>`).join('')}</div></div>` + CAL_LIST.map(([k, name]) => {
+  return `<div class="fld calset"><span class="mono">Day dots</span>${DOT_COLS.map(col).join('')}</div>` + CAL_LIST.map(([k, name]) => {
     return `<div class="fld calset"><span class="mono">${name}</span>
       <span class="calsub">Dots</span>${CAL_DOTS.map(([f, l, s]) => row(k, f, l, s)).join('')}
       ${expOn() ? `<span class="calsub">Expeditions</span>${row(k, 'away', 'Away days', 'Covers the days I am away')}${k === 'train' ? row(k, 'count', 'Countdown', 'Days to the next expedition, under the calendar') : ''}` : ''}
@@ -5210,7 +5213,6 @@ const calEdit = () => S.edit ? `<div class="starcolw"><button class="starcol" da
 function calAction(act, a, ref, v) {
   switch (act) {
     case 'calsopen': openSheet({ kind: 'cals', title: 'Calendars' }); return true;
-    case 'caldot': change(() => { M.settings.calDot = +v; }); return true;
     case 'caltog': { const now = v.startsWith('ct:') ? ctOn(ref, v.slice(3)) : calOn(ref, v); change(() => { M.settings.calShow = M.settings.calShow || {}; M.settings.calShow[ref] = Object.assign({}, M.settings.calShow[ref], { [v]: !now }); }); return true; }
   }
   return false;
