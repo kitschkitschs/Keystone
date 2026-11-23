@@ -821,9 +821,13 @@ function renderSchedule() {
 function renderPlan() {
   const inPlan = (id) => placements(id).some((p) => p.startsWith('s:') || (G(p) && G(p).style === 'dayblock'));
   const all = Object.keys(M.items).filter((id) => ['task', 'routine'].includes(I(id).type) && !I(id).part && !placements(id).some((p) => G(p) && G(p).style === 'sgroup') /* Studies items live on Studies (2026-11-11) */ && !(typeof hobArea === 'function' && hobArea(id)) && (inPlan(id) || homeItem(id)));
-  const cols = [...new Map(all.filter((id) => !I(id).brk).map((id) => [colorOf(id), keyName(id)])).entries()].map(([c, n]) => [c, n, c]);
+  // the filter squares are the overall kinds only: chores, homemaking, cooking, and tasks of no other kind (2026-11-24)
+  const kindOf = (id) => { const pl = placements(id); return pl.includes('g-oneoff') || pl.some((p) => G(p) && G(p).style === 'room') ? 'chores' : pl.includes('g-tend') ? 'homemaking' : pl.includes('g-prep') ? 'cooking' : 'tasks'; };
+  const KC = { chores: ['Chores', grpCol('g-oneoff')], homemaking: ['Homemaking', grpCol('g-tend')], cooking: ['Cooking', grpCol('g-prep')], tasks: ['Tasks', (M.pages.plan || {}).color || '#9A9387'] };
+  const have = new Set(all.filter((id) => !I(id).brk).map(kindOf));
+  const cols = ['tasks', 'chores', 'homemaking', 'cooking'].filter((k) => have.has(k)).map((k) => [KC[k][1], KC[k][0], k]);
   if (S.planC && !cols.some((x) => x[2] === S.planC)) S.planC = null;
-  const tasks = all.filter((id) => !S.planC || I(id).brk || colorOf(id) === S.planC);
+  const tasks = all.filter((id) => !S.planC || I(id).brk || kindOf(id) === S.planC);
   const brks = tasks.filter((id) => I(id).brk); tasks.splice(0, tasks.length, ...tasks.filter((id) => !I(id).brk));
   const nos = tasks.filter((id) => (I(id).when || {}).mode === 'once' && !I(id).when.date && !keeps(id) && !Object.keys(M.log).some((d) => val(d, id)));
   const per = tasks.filter((id) => keeps(id) && !repeatable(I(id)));
@@ -843,7 +847,7 @@ function renderPlan() {
   const abar = `<span class="vsortw"><button class="fbtn" data-a="planaddopen" aria-label="Add" aria-haspopup="menu" aria-expanded="${!!S.planAddOpen}" aria-pressed="${!!S.planAddOpen}">${icon('plus', 18)}</button>${S.planAddOpen ? `<span class="vsortx" data-a="planaddopen"></span><span class="vdrop vsortm vaddm" role="menu">${AO.map(([k, l]) => `<button role="menuitem" data-a="new" data-v="${k}">${l}</button>`).join('')}<span class="mono">Generic</span>${GO.map(([k, l]) => `<button role="menuitem" data-a="slotadd" data-v="${k}">${l}</button>`).join('')}</span>` : ''}</span>`;
   if (S.open['p:Repeat'] === undefined) S.open['p:Repeat'] = false; // Repeat starts folded
   // an add icon on the left balances the filter icon (2026-11-08)
-  return `<div class="ptools">${abar}${fbar}</div>` + sec('Not scheduled', nos, 'Nothing waiting. Tasks without a date land here.') + sec('Scheduled', sch, 'No dated tasks yet.') + sec('Repeat', rep, 'No repeat tasks yet.') + (per.length ? sec('Persistent', per, '') : '') + (brks.length ? sec('Breaks', brks, '') : '') + (slots.length ? lcard('p:Generic', 'Generic', slots.length, slots.map(slotRow).join('')) : '');
+  return `<div class="ptools">${abar}${fbar}</div>` + sec('Not scheduled', nos, 'Nothing waiting. Tasks without a date land here.') + sec('Scheduled', sch, 'No dated tasks yet.') + (S.edit ? sec('Repeat', rep, 'No repeat tasks yet.') + (per.length ? sec('Persistent', per, '') : '') + (brks.length ? sec('Breaks', brks, '') : '') + (slots.length ? lcard('p:Generic', 'Generic', slots.length, slots.map(slotRow).join('')) : '') : ''); // repeats, persistent tasks, breaks and generic items are set up in edit mode (2026-11-24)
 }
 
 // Appointments: categories (Social is one of them), then Today / Coming up / Past.
