@@ -1091,12 +1091,13 @@ input[type=range]::-moz-range-thumb{background:var(--ink);border-color:var(--ink
 #view .stack{gap:6px}#view .card .bhead button{margin-top:0}#view .card .bhead{min-height:30px}#view .hsec .hhead,#view .sechd.vsec{margin-top:0}
 #view.ptoday .calblk+.stack>.card:first-child{margin-top:-7px}
 #view .hsec>.hhead{margin-top:-13px} /* Health groups: the title sits as close under what's above it as Today's first block under the calendar */
-/* plans on Today: a solid block in the category colour, like their Schedule box; time in mono, tick on the right (2026-11-24) */
-#view .appt{background:var(--c);border:0;min-height:36px;margin:2px 0;padding:0 0 0 10px;gap:8px;color:var(--ink)}
-#view .appt>button{min-height:36px!important;gap:12px!important}
-#view .appt b{order:0;font:400 10px var(--mono);letter-spacing:.08em;color:var(--ink);opacity:.7}
-#view .appt>.tickbtn{order:9;margin:0 0 0 4px}
-#view .appt .circ{border-color:var(--ink)!important;background:transparent}#view .appt .circ.done{background:var(--ink)} /* the first block title sits as close under the calendar as Schedule's first band */
+/* plans on Today: a thin border in the category colour; name, then the time like other details; tick on the right (2026-11-24) */
+#view .appt{background:none;border:1px solid var(--c);min-height:36px;margin:2px 0;padding:0 0 0 10px;gap:8px;color:var(--ink)}
+#view .appt .apb{display:flex;align-items:baseline;flex:1;min-width:0;min-height:34px;padding:9px 0;text-align:left}
+#view .appt .apn{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15.5px}
+#view .appt .sub.where{flex:none;margin-left:10px;font:400 9.5px var(--mono);letter-spacing:.14em;color:var(--faint)}
+#view .appt .cnt{margin-left:auto;padding-left:8px;flex:none}
+#view .appt>.tickbtn{order:9;margin:0 0 0 4px} /* the first block title sits as close under the calendar as Schedule's first band */
 #view>.card:first-child>.bhead,#view>.card:first-child>.bhead button,#view>.hsec:first-child>.hhead{margin-top:-2px;min-height:12px!important;align-items:center}
 html.dark{--page:#1D1B19;--paper:#34312C;--rule:#433F39;--card:#2B2926;--ink:#EFEAE2;--ink2:#CFC8BC;--quiet:#A59E92;--faint:#7F786E;--faint2:#5F5952;--line:#3D3934;--line2:#35322E;--soft:#36332F;--wash:#3A3226;--washline:#5C4B33;--star:#C9A86F;--done:#8FA488;color-scheme:dark}
 html.dark .card,html.dark .lcard{background:linear-gradient(160deg,#33302C 0%,#2A2825 60%,#272522 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 1px 2px rgba(0,0,0,.3)}
@@ -1828,7 +1829,7 @@ function renderToday() {
     if (live && !S.edit && !apShown.length && shown.every((id) => I(id) && I(id).brk)) return ''; // only breaks left once the rest is ticked: the block falls away (the owner, 2026-11-13)
     const open = S.edit || S.open['b:' + b] !== false;
     const ap = appts || []; const total = items.length + ap.length, left = items.concat(ap).filter((id) => !isDone(id, d)).length;
-    const apRow = (id) => `<div class="appt" data-appt="${id}" style="--c:${G(catOf(id)).color}">${tickCircle(id, d, live)}<button data-a="peek" data-ref="${id}" data-d="${d}" style="display:flex;align-items:center;gap:10px;flex:1;min-height:44px;text-align:left"><b>${esc(apTime(I(id)))}</b><span style="flex:1">${inm(id)}${tdur(I(id))}</span><span class="cnt">${live && I(id).time ? inTime(I(id).time) : ''}</span></button></div>`;
+    const apRow = (id) => `<div class="appt" data-appt="${id}" style="--c:${G(catOf(id)).color}">${tickCircle(id, d, live)}<button data-a="peek" data-ref="${id}" data-d="${d}" class="apb"><span class="apn">${inm(id)}${tdur(I(id))}</span><span class="sub where">${esc(apTime(I(id)))}</span><span class="cnt">${live && I(id).time ? inTime(I(id).time) : ''}</span></button></div>`; // name first, the time after it like other details; a long name is cut short, the time stays (2026-11-24)
     const seq = apShown.map((id) => ({ id, ap: true })).concat(shown.map((id) => ({ id }))).map((x, k) => Object.assign(x, { k })).sort((p, q) => ((at[p.id] ?? 9999) - (at[q.id] ?? 9999)) || p.k - q.k);
     return `<section class="card" data-ref="${b}">
       <div class="bhead">${grip()}${S.edit ? `<span class="circ" style="--c:${g.color};width:14px;height:14px;background:${g.color}" data-col="${b}" role="button" aria-label="Change colour"></span><span class="nm mono" style="font-size:11px">${nm(b, g.name)}</span><span class="cnt">${g.start}–${g.end}</span>${tail(b, 'g-blocks')}`
