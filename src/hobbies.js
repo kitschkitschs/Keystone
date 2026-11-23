@@ -64,7 +64,7 @@ function renderHobbies() {
   const actRow = (id) => { const it = I(id); const done = isDone(id, T0); const ld = lastEver(id);
     return `<div class="row" data-ref="${id}">${tickCircle(id, T0, true)}<button class="lbl" data-a="${S.edit ? 'open' : 'hobact'}" data-ref="${id}" style="text-align:left"><span>${nm(id, it.name)}</span><span class="sub">${done ? 'Logged today' : ld ? 'Last done ' + agoText(ld) : 'Not done yet'}</span></button>${tail(id, h)}</div>`; };
   const projRow = (p) => { const x = G(p); const ph = (x.photos || []).slice(-1)[0]; const ld = projLast(p); const T = projTasks(p); const left = T.filter((t) => !keeps(t) && !lastEver(t)).length;
-    return `<div class="row prow" data-ref="${p}"><span class="pthumb" style="--c:${g.color}">${ph ? `<img src="${esc(projSrc(ph))}" alt="">` : icon(g.icon || 'folder', 18)}</span><button class="lbl" data-a="${S.edit ? 'gear' : 'hobproj'}" data-ref="${p}" style="text-align:left">${nm(p, x.name)}<span class="sub">${(x.worked || []).includes(T0) ? 'Worked on today' : ld ? 'Last worked on ' + agoText(ld) : 'Not started'}${T.length ? ' · ' + left + ' left' : ''}</span></button>${S.edit ? tail(p, h) : `<span class="chev" aria-hidden="true">›</span>`}</div>`; };
+    return `<div class="row prow" data-ref="${p}"><span class="pthumb" style="--c:${g.color}">${ph ? `<img src="${esc(projSrc(ph))}" alt="">` : ''}</span><button class="lbl" data-a="${S.edit ? 'gear' : 'hobproj'}" data-ref="${p}" style="text-align:left">${nm(p, x.name)}<span class="sub">${(x.worked || []).includes(T0) ? 'Worked on today' : ld ? 'Last worked on ' + agoText(ld) : 'Not started'}${T.length ? ' · ' + left + ' left' : ''}</span></button>${S.edit ? tail(p, h) : `<span class="chev" aria-hidden="true">›</span>`}</div>`; };
   const A = hobActs(h), P = hobProjs(h).filter((p) => !G(p).done), live = P.filter((p) => !G(p).hold), held = P.filter((p) => G(p).hold);
   const hk = 'hbhold:' + h; if (S.open[hk] === undefined) S.open[hk] = false;
   let out = '';
@@ -75,7 +75,7 @@ function renderHobbies() {
   // no + Project button on the page; the top bar + has it (2026-11-08)
   // Archive and Delete for the hobby tab show only in edit mode (2026-11-10)
   if (S.edit) out += hobTabsCard();
-  if (S.edit) out += `<div class="pjbtns"><button class="btn" data-a="hobarch" data-ref="${h}">${icon('archive', 16)} Archive</button><button class="btn danger" data-a="hobdel" data-ref="${h}">Delete</button></div>`;
+  if (S.edit) out += `<div class="pjbtns"><button class="btn" data-a="hobarch" data-ref="${h}">Archive</button><button class="btn danger" data-a="hobdel" data-ref="${h}">Delete</button></div>`;
   return out;
 }
 function projPage(p) { const x = G(p); const h = hobOf(p); const c = G(h).color;
@@ -96,7 +96,7 @@ function dieFace() { const n = S.dieN || 5; const P = { 1: [[2, 2]], 2: [[1, 1],
 // the wheel's own colours, editable in edit mode (2026-11-09): rim, pin and lights
 function surprisePage() {
   const pool = M.settings.hobPool || {};
-  if (S.edit) return `<div class="card rollcard">${hobWheel()}</div>` + hobTabsCard() + lcard(null, 'Surprise me picks from', '', hobIds().map((h) => `<div class="tg"><span class="l"><span class="hdot" data-col="${h}" role="button" aria-label="Change the ${esc(G(h).name)} colour" style="background:${G(h).color};width:16px;height:16px;display:inline-block;border-radius:8px;margin-right:10px;vertical-align:-3px;outline:1.5px dashed var(--faint);outline-offset:2px"></span>${esc(G(h).name)}</span><button class="fbtn hicb" data-ic="${h}" aria-label="Change the icon for ${esc(G(h).name)}" style="color:${mix(G(h).color || '#9A9387', TH.ink, 0.45)}">${icon(G(h).icon || 'star', 18)}</button><button class="swt" role="switch" aria-checked="${pool[h] !== false}" data-a="hobpool" data-v="${h}" aria-label="${esc(G(h).name)}"></button></div>`).join(''));
+  if (S.edit) return `<div class="card rollcard">${hobWheel()}</div>` + hobTabsCard() + lcard(null, 'Surprise me picks from', '', hobIds().map((h) => `<div class="tg"><span class="l"><span class="hdot" data-col="${h}" role="button" aria-label="Change the ${esc(G(h).name)} colour" style="background:${G(h).color};width:16px;height:16px;display:inline-block;border-radius:8px;margin-right:10px;vertical-align:-3px;outline:1.5px dashed var(--faint);outline-offset:2px"></span>${esc(G(h).name)}</span><button class="swt" role="switch" aria-checked="${pool[h] !== false}" data-a="hobpool" data-v="${h}" aria-label="${esc(G(h).name)}"></button></div>`).join(''));
   const r = S.roll && !S.spinning && suggestion(S.roll);
   return `<div class="card rollcard">${hobWheel()}${r ? `<div class="rollin"><span class="mono" style="color:${r.color}">${esc(r.hobby)}</span><p class="rollt">${esc(r.text)}</p><p class="rolls">${esc(r.sub)}</p><div class="pjbtns" style="justify-content:center"><button class="btn" data-a="hobrollgo">Open</button>${r.go ? `<button class="btn" data-a="projwork" data-ref="${r.go}" aria-pressed="${(G(r.go).worked || []).includes(T0)}">${(G(r.go).worked || []).includes(T0) ? 'Done today' : 'Worked on it'}</button>` : ''}</div></div>` : ''}</div>`;
 }

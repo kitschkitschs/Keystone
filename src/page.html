@@ -35,14 +35,14 @@ header.top{display:flex;align-items:center;gap:0;padding:0 0 0 16px;height:46px;
 .body{flex:1;min-height:0;display:flex}
 main{flex:1;min-width:0;overflow-y:auto;overflow-x:hidden;padding:12px 12px 24px 16px;overscroll-behavior:contain}
 .rail{width:28px;flex-shrink:0;padding:12px 0;overflow-y:auto;border-left:1px solid var(--line)}
-.rail nav{display:flex;flex-direction:column}
-.rail button{min-height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.rail nav{display:flex;flex-direction:column;gap:10px}
+.rail button{min-height:0;padding:12px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
 .rail button:last-child{border-bottom:none}
 
 .rail .vl{color:#857E73}
 .editing .rail button[data-page]{outline:1.5px dashed var(--faint2);outline-offset:-4px;touch-action:none}
 .rail button.lift{background:var(--wash)!important;box-shadow:0 4px 12px rgba(60,40,20,.18)}
-.rail .dot{display:none}.editing .rail .dot{display:block;width:8px;height:8px}
+.rail .dot{width:7px;height:7px;flex:none}
 .rail .vl{writing-mode:vertical-rl;font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);white-space:nowrap}
 .rail button[aria-selected="true"] .vl{color:var(--ink)}
 nav.areas{height:auto;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(6,minmax(0,1fr));align-items:center;padding-top:12px;flex-shrink:0;padding-bottom:calc(14px + env(safe-area-inset-bottom,0px));background:var(--page)}
@@ -341,7 +341,7 @@ html.dark .jmp{background-image:repeating-linear-gradient(to bottom,transparent 
 .sechd .cnt{font-size:12px;color:var(--faint)}
 .soft{min-height:32px;padding:0 12px;border-radius:16px;background:var(--card);border:1px solid var(--line);font-size:13px;display:inline-flex;align-items:center;justify-content:center;text-align:center}
 button.wkn{display:flex;align-items:flex-start;justify-content:flex-start;align-self:stretch;margin:0;border-radius:8px}
-button.wkn.sel{display:flex;align-items:center;justify-content:center;padding-top:0;box-shadow:inset 0 0 0 1px var(--quiet);color:var(--ink)}
+button.wkn.sel{color:var(--ink)}
 .box.wide{justify-content:flex-start;gap:8px;padding:0 10px;color:var(--ink)}
 .box .bi{color:var(--deep);display:grid}
 .box .bn{flex:1;min-width:0;text-align:left;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -708,24 +708,13 @@ html.dark .wmini .wst,html.dark .wmini .wface,html.dark .wdeck .wst1,html.dark .
 .ttrow span{grid-row:1/3;grid-column:2;color:var(--quiet);font-size:20px}
 /* joined week boxes (2026-11-02) */
 /* joined pieces overlap by 1px on each side so no hairline gap lets the background (or the red stretch) show through */
-.box.jl{left:-3px;border-top-left-radius:0;border-bottom-left-radius:0}
-.box.jr{right:-3px;border-top-right-radius:0;border-bottom-right-radius:0}
-.box.jl.jr{left:-3px;right:-3px}
-.blab{position:absolute;left:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;pointer-events:none;color:var(--deep);text-align:center;padding:0 4px;box-sizing:border-box}
-.blab.brow{flex-direction:row;gap:6px}
-.blab .bn{flex:none;font-size:11px;line-height:1.2;font-weight:500;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tl.dragging .blab{display:none}
 .circ.missed{border-color:var(--faint2);color:var(--faint);font-size:12px;display:grid;place-items:center}
 /* red stretch under an overfull block (2026-11-02) */
 .ovz{position:absolute;left:0;right:0;z-index:-1;background:repeating-linear-gradient(135deg,rgba(224,100,78,.28) 0 6px,rgba(224,100,78,.17) 6px 12px);border-top:1px dashed #E0644E;border-radius:0 0 6px 6px}
 .box.spill{box-shadow:inset 0 1.5px #E0644E,inset 0 -1.5px #E0644E,inset 1.5px 0 #E0644E,inset -1.5px 0 #E0644E}
 /* a joined spill gets ONE outline drawn round the whole joined block (on its label), not one per day piece, so no seams show */
-.box.spill.jl,.box.spill.jr{box-shadow:none}
 .seg{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.seg .chip{white-space:nowrap;padding-left:11px!important;padding-right:11px!important}
 .seg .chip{justify-content:center;padding-left:0;padding-right:0;font-size:12.5px;letter-spacing:-.1px;white-space:nowrap;min-width:0}
-.blab.spill{border:1.5px solid #E0644E;border-radius:6px}
-.box.spill.loose{box-shadow:inset 0 1.5px #E0644E,inset 0 -1.5px #E0644E,inset 1.5px 0 #E0644E,inset -1.5px 0 #E0644E}
-.box.loose{left:0;right:0;border-radius:6px}
 .btns{display:flex;gap:8px;flex-wrap:wrap}
 .btn{min-height:44px;padding:0 18px;border:1px solid var(--line);background:var(--card);font-weight:500;display:inline-flex;align-items:center;justify-content:center;text-align:center}
 .btn.dark{background:var(--card);border-color:var(--faint);color:var(--ink);box-shadow:0 1px 3px rgba(60,50,30,.12)}
@@ -973,6 +962,16 @@ nav.areas.two{grid-template-columns:repeat(2,minmax(0,1fr))}
 nav.areas{display:flex;justify-content:space-between;padding-left:16px;padding-right:16px}
 nav.areas button{font-size:10px;letter-spacing:.12em;padding:0}
 .circ{font-size:0}
+.rail .dot{border-radius:0!important}
+/* tighter blocks on Today: short rows, small gaps */
+.list{gap:0;padding-bottom:4px}
+#view .row>.tickbtn,#view .steps .tickbtn{height:36px}
+.card .bhead button{margin-top:6px}
+/* Today: the item's place (or Routine) sits beside its name; every arrow in one column before the tick */
+#view .row .lbl .sub.where{display:inline;margin-left:10px;font-size:9.5px;letter-spacing:.14em;vertical-align:1px;color:var(--faint)}
+#view .row .chev{flex:0 0 22px;width:22px;display:inline-flex;align-items:center;justify-content:center}
+/* avoidance: two plain word buttons, filled in their colour once picked */
+.avb{font-size:13px;color:var(--ink2)}
 .rail button[aria-selected="true"] .vl{color:var(--ink)}
 .rail button.dice{color:var(--faint)}.rail button.dice[aria-selected="true"]{color:var(--ink)}
 /* block headings and section heads: caps between two hairlines */
@@ -991,7 +990,7 @@ nav.areas button{font-size:10px;letter-spacing:.12em;padding:0}
 .brkt::before,.brkt::after{border-color:color-mix(in srgb,var(--line) 70%,var(--page))}
 /* rows: the tick box on the right, outlined in the item's colour */
 #view .row>.tickbtn{order:9;margin-left:8px}
-.row{min-height:40px}
+.row{min-height:36px}
 .row .lbl{font-size:15.5px}
 .row .sub{color:var(--faint);font-size:12.5px}
 #view .row>span.circ{width:9px;height:9px;flex:0 0 9px;background:var(--c);border:0;margin:0 4px 0 2px}
@@ -1013,13 +1012,13 @@ nav.areas button{font-size:10px;letter-spacing:.12em;padding:0}
 .toggle-cal svg{width:13px;height:13px}
 .cdots i{width:4px;height:4px}
 /* schedule: an hour per cell, items as tall as they last, breaks solid, a key underneath */
-.tl .col::before{content:"";position:absolute;top:0;bottom:0;left:-2px;border-left:1px solid var(--line2);z-index:-1}
-.tl .col:last-child::after{content:"";position:absolute;top:0;bottom:0;right:-2px;border-right:1px solid var(--line2);z-index:-1}
+.tl .col{margin:0;border-left:1px solid var(--line2)}.tl .col:last-child{border-right:1px solid var(--line2)}
+.tl .box{left:1px;right:1px;filter:saturate(.6)}
 .box{color:var(--ink)}
 .box.wide{justify-content:center;text-align:center}
 .box.wide .bn{flex:0 1 auto;text-align:center}
-.bl{border-top-style:solid;border-bottom-style:solid;border-color:var(--line);background:var(--page)}
-.bl span{font-family:var(--sans);font-weight:500;letter-spacing:.14em;color:var(--ink2)}
+.bl{border-top:1px solid var(--quiet);border-bottom:1px solid var(--quiet);background:var(--page);z-index:1}
+.bl span{font:500 9.5px var(--sans);letter-spacing:.14em;color:var(--ink2)}
 .skey{display:flex;flex-wrap:wrap;gap:6px 14px;margin:12px 0 4px 24px;font-size:11.5px;color:var(--ink2)}
 .skey span{display:inline-flex;align-items:center;gap:6px}
 .skey i{width:10px;height:10px;box-sizing:border-box;border:1px solid}
@@ -1097,9 +1096,7 @@ html.dark .feelcard.empty{background:#33302C}html.dark .jcard .jct,html.dark .jc
 .bkt{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);line-height:1;white-space:nowrap;overflow:hidden;max-width:100%}
 .bkt svg{flex:none}
 
-.tl .blab.bkl{display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:2}
-/* block titles sit centred over the weekday columns, not over the hour column too */
-.bl{padding-left:24px}
+
 
 .stepopts{margin:2px 0 12px;padding:10px 12px 4px;border-radius:12px;background:var(--page);display:flex;flex-direction:column;gap:6px}.stepopts .chips{margin-bottom:4px}.optic{display:inline-flex;vertical-align:-2px;margin-left:6px;color:var(--ink2);opacity:.8}.steplink{display:flex;align-items:center;gap:8px;color:var(--ink)}.stepnote{margin:-2px 0 8px 4px;font-size:10.5px;color:var(--ink2)}
 .hxt{margin-left:8px;white-space:nowrap;vertical-align:1px}
