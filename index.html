@@ -20,7 +20,7 @@
   /* Stone (2026-11-23): putty paper, one ink, hairlines, square corners */
   --page:#D8D6D0; --card:#E1DFDA; --ink:#2E2E2C; --ink2:#5A5A57; --quiet:#6B6B67; --faint:#94938E; --faint2:#A5A49F;
   --line:#C3C1BB; --line2:#C9C7C1; --soft:#CFCDC7; --wash:#CFCDC7; --washline:#BDBBB6; --star:#8A8984; --done:#6B8A66; --much:#B07A4A; --danger:#A8645A;
-  --brk:color-mix(in srgb,var(--ink) 24%,var(--page)); --paper:#E4E2DD; --rule:#C6C4BE;
+  --brk:color-mix(in srgb,var(--ink) 9%,var(--page)); --paper:#E4E2DD; --rule:#C6C4BE;
   --serif:'Newsreader',Georgia,serif; --mono:'IBM Plex Mono',ui-monospace,monospace; --sans:'Inter Tight','Inter',system-ui,-apple-system,sans-serif;
   color-scheme:light;
 }
@@ -1017,16 +1017,15 @@ nav.areas button{font-size:10px;letter-spacing:.12em;padding:0}
 .box{color:var(--ink)}
 .box.wide{justify-content:center;text-align:center}
 .box.wide .bn{flex:0 1 auto;text-align:center}
-/* block titles like Today's: name and time between two hairlines, over the day columns only; no hour lines in the hour column */
-.bl{left:22px;border:0;background:var(--page);z-index:1;align-items:center;gap:12px}
-.bl::before,.bl::after{content:"";flex:1;border-top:1px solid var(--line)}
+/* block titles like Today's (name and time) in a band with top and bottom lines, over the day columns only; no hour lines in the hour column */
+.bl{left:22px;border:0;border-top:1px solid var(--quiet);border-bottom:1px solid var(--quiet);background:var(--page);z-index:1;align-items:center;gap:12px}
 .bl b,.bl em{font:500 10.5px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--ink);white-space:nowrap}
 .bl em{font-weight:400;font-style:normal;color:var(--faint);margin-left:-6px}.bl em::before{content:"· "}
 .bl.over em{color:#C4503B}
 .tl .hr{left:22px}.tl .hr span{left:-22px}
 .skey{display:flex;flex-wrap:wrap;gap:6px 14px;margin:12px 0 4px 24px;font-size:11.5px;color:var(--ink2)}
 .skey span{display:inline-flex;align-items:center;gap:6px}
-.skey i{width:10px;height:10px;box-sizing:border-box;border:1px solid}
+.skey i{width:10px;height:10px;border:0;filter:saturate(.6)}
 .skey i.br{background:var(--brk);border:0}
 /* colour squares to filter by type */
 .tsqs{display:flex;gap:6px;margin-left:auto}
@@ -1080,6 +1079,13 @@ input[type=range]::-moz-range-thumb{background:var(--ink);border-color:var(--ink
 .sheet.notesh header h2{display:none}
 .notesh .ntop{padding-right:40px}
 
+/* every page starts at the calendar's line, 12px under the top bar (2026-11-23) */
+.ptools{margin:0 0 6px;align-items:center}.ptools .fbtn{height:22px;min-height:22px}
+.crumbs{margin-top:-12px}
+.nbhead{margin-top:-4px}
+/* Today's blocks sit closer together (2026-11-23) */
+#view.ptoday .stack{gap:6px}#view.ptoday .card .bhead button{margin-top:0}#view.ptoday .card .bhead{min-height:30px}
+#view>.card:first-child>.bhead,#view>.card:first-child>.bhead button,#view>.hsec:first-child>.hhead{margin-top:-2px;min-height:12px!important;align-items:center}
 html.dark{--page:#1D1B19;--paper:#34312C;--rule:#433F39;--card:#2B2926;--ink:#EFEAE2;--ink2:#CFC8BC;--quiet:#A59E92;--faint:#7F786E;--faint2:#5F5952;--line:#3D3934;--line2:#35322E;--soft:#36332F;--wash:#3A3226;--washline:#5C4B33;--star:#C9A86F;--done:#8FA488;color-scheme:dark}
 html.dark .card,html.dark .lcard{background:linear-gradient(160deg,#33302C 0%,#2A2825 60%,#272522 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 1px 2px rgba(0,0,0,.3)}
 html.dark .vcard{box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 2px 8px rgba(0,0,0,.35)}
@@ -1669,15 +1675,14 @@ function ciStepRow(s, rid, d, live) {
   const on = !!val(d, s); const circ = `<span class="circ ${on ? 'done' : ''}" style="--c:${colorOf(rid)}"></span>`;
   return `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" data-a="checkin" data-ref="${s}" aria-label="Open ${esc(tnm(s))}">${circ}</button><button class="lbl" data-a="checkin" data-ref="${s}" style="display:flex;align-items:center;text-align:left"><span style="flex:1">${inm(s)}</span><span class="chev" aria-hidden="true">›</span></button>` : `${circ}<span class="lbl">${nm(s, I(s).name)}</span>`}${tail(s, 's:' + rid, { gear: false })}</div>`;
 }
-// A routine opens by itself once it's due today (its start time on Schedule has come) and stays open until closed.
+// Routines start closed (2026-11-23; they used to open by themselves once due).
 // Opening or closing by hand is kept for that day, also after a reload (2026-11-03).
 // optional items get a dotted tick circle instead of a small icon (the owner, 2026-11-13); the old mark is kept unused
 const optMark = () => S.edit ? `<span class="optic" data-a="iconfor" data-v="ui:optional" role="button" aria-label="Optional. Change this icon">${icon(uiIc('optional', 'circle-dashed'), 14)}</span>` : `<span class="optic" role="img" aria-label="Optional">${icon(uiIc('optional', 'circle-dashed'), 14)}</span>`;
 const stepNote = (s, rid) => { const x = pOpt(rid, s); const W = { rest: 'Days without a workout', train: 'Days with a workout', days: (x.days || []).slice().sort().map((k) => WD[k]).join(', ') }; return [x.optional ? 'Optional' : '', W[x.only] || ''].filter(Boolean).join(' · '); };
 function routineOpen(id, d) {
   const set = ((M.rOpen || {})[d] || {})[id]; if (set !== undefined) return set;
-  if (d !== T0 || isDone(id, d)) return false;
-  const p = placeDay(T0).find((o) => o.id === id); const n = new Date(); return !!p && p.a <= n.getHours() * 60 + n.getMinutes();
+  return false; // Stone (2026-11-23): every routine starts closed
 }
 // an item's length, shown next to its name on Today in the study/home mono font (2026-11-04)
 // without a length of its own an item counts as 30 min (2026-11-04)

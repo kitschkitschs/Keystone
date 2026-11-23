@@ -526,15 +526,14 @@ function ciStepRow(s, rid, d, live) {
   const on = !!val(d, s); const circ = `<span class="circ ${on ? 'done' : ''}" style="--c:${colorOf(rid)}"></span>`;
   return `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" data-a="checkin" data-ref="${s}" aria-label="Open ${esc(tnm(s))}">${circ}</button><button class="lbl" data-a="checkin" data-ref="${s}" style="display:flex;align-items:center;text-align:left"><span style="flex:1">${inm(s)}</span><span class="chev" aria-hidden="true">›</span></button>` : `${circ}<span class="lbl">${nm(s, I(s).name)}</span>`}${tail(s, 's:' + rid, { gear: false })}</div>`;
 }
-// A routine opens by itself once it's due today (its start time on Schedule has come) and stays open until closed.
+// Routines start closed (2026-11-23; they used to open by themselves once due).
 // Opening or closing by hand is kept for that day, also after a reload (2026-11-03).
 // optional items get a dotted tick circle instead of a small icon (the owner, 2026-11-13); the old mark is kept unused
 const optMark = () => S.edit ? `<span class="optic" data-a="iconfor" data-v="ui:optional" role="button" aria-label="Optional. Change this icon">${icon(uiIc('optional', 'circle-dashed'), 14)}</span>` : `<span class="optic" role="img" aria-label="Optional">${icon(uiIc('optional', 'circle-dashed'), 14)}</span>`;
 const stepNote = (s, rid) => { const x = pOpt(rid, s); const W = { rest: 'Days without a workout', train: 'Days with a workout', days: (x.days || []).slice().sort().map((k) => WD[k]).join(', ') }; return [x.optional ? 'Optional' : '', W[x.only] || ''].filter(Boolean).join(' · '); };
 function routineOpen(id, d) {
   const set = ((M.rOpen || {})[d] || {})[id]; if (set !== undefined) return set;
-  if (d !== T0 || isDone(id, d)) return false;
-  const p = placeDay(T0).find((o) => o.id === id); const n = new Date(); return !!p && p.a <= n.getHours() * 60 + n.getMinutes();
+  return false; // Stone (2026-11-23): every routine starts closed
 }
 // an item's length, shown next to its name on Today in the study/home mono font (2026-11-04)
 // without a length of its own an item counts as 30 min (2026-11-04)
