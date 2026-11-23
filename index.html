@@ -584,7 +584,7 @@ textarea.inp{resize:none;font:inherit;padding-top:10px;height:auto}
 .wcard .wedit{position:absolute;right:8px;bottom:8px;width:40px;height:40px;display:grid;place-items:center;color:var(--ink2)}
 .wnav{display:flex;align-items:center;justify-content:center;gap:16px;margin:14px 0}.wnav .mono{font-size:10px;color:var(--ink2)}
 html.dark .wmini .wst,html.dark .wmini .wface,html.dark .wdeck .wst1,html.dark .wdeck .wst2,html.dark .wcard .wf,html.dark .wcard .wb{background:#34312C}
-.cfx{position:absolute;inset:0;pointer-events:none;z-index:70;overflow:hidden}.cfx i{position:absolute;display:block}.cfx .cfmark{position:absolute;width:48px;height:48px;transform-origin:50% 50%;will-change:transform}.cfx .cfmark svg{display:block;width:48px;height:48px}
+.cfx{position:absolute;inset:0;pointer-events:none;z-index:70;overflow:hidden}.cfx i{position:absolute;display:block}.cfx .cfmark{position:absolute;width:48px;height:48px;transform-origin:50% 50%;will-change:transform}
 .shopbtn{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:0 16px;margin:0 0 12px;border-radius:16px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:15px;box-sizing:border-box;text-align:left}.shopbtn b{flex:1;font-weight:600}.shopbtn .cnt{color:var(--ink2);font-size:13px}.shopbtn .chev{color:var(--faint);font-size:18px}
 .shopcopy{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin:10px 0 14px}
 .row.shgot .lbl{text-decoration:line-through;color:var(--ink2)}
@@ -964,7 +964,7 @@ nav.areas.two{grid-template-columns:repeat(2,minmax(0,1fr))}
 
 /* dark mode (2026-11-08, from the cleaning-system reference): warm near-black page, soft charcoal cards with a faint light edge */
 /* ===== Stone (2026-11-23): the look over the whole app. Square corners, hairlines, small spaced caps, one ink. ===== */
-#phone *:not(.dot,.hdot,.ovdot,.badot,.xdot,.dd,.d,.cdots i,.xdots i,.ci-ic,.whl *){border-radius:0!important} /* every corner square; dots and the wheel stay round */
+#phone *:not(.dot,.cfmark,.hdot,.ovdot,.badot,.xdot,.dd,.d,.cdots i,.xdots i,.ci-ic,.whl *){border-radius:0!important} /* every corner square; dots and the wheel stay round */
 .card,.lcard,.hsec{background:transparent;box-shadow:none;border:0}
 .btn,.chip,.fbtn,.scale button,.tag,.hchip,.pick,.menu{box-shadow:none}
 #menubtn{width:28px;margin-right:0}
@@ -2575,25 +2575,26 @@ document.addEventListener('click', (e) => {
   }
 });
 // ---------- a finished day (2026-11-09): confetti bursts out of the last thing I ticked and the day's mark flies up to the calendar ----------
+// Stone (2026-11-23): square confetti in the Stone palette, and the mark is the day's full dot (grey on a bad day)
 let lastTick = null;
 document.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('[data-a="tick"],[data-a="vtick"],[data-a="psub"],[data-a="addtick"],.tickbtn,[data-a="stick"],[data-a="rstep"],[data-a="cifinish"]'); if (!b) return;
   const c = b.querySelector('.circ') || b; const r = c.getBoundingClientRect(); lastTick = { t: Date.now(), x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, true);
 function celebrate(kind) { const ph = $('#phone'); if (!ph || !lastTick) return; const P = ph.getBoundingClientRect(); const ox = lastTick.x - P.left, oy = lastTick.y - P.top; lastTick = null;
   const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const mk0 = document.querySelector(`#main .day[data-v="${T0}"] .star`); if (mk0) mk0.style.opacity = '0'; // the mark waits for its flight
+  const mk0 = document.querySelector(`#main .day[data-v="${T0}"] .dd`); if (mk0) mk0.style.opacity = '0'; // the mark waits for its flight
   const fx = document.createElement('div'); fx.className = 'cfx'; ph.appendChild(fx); setTimeout(() => fx.remove(), 2600);
-  if (!calm) { const cols = PAL.map((x) => x[1]).concat([starCol(kind)]);
+  if (!calm) { const cols = STONE_PAL.map((x) => x[1]);
     for (let i = 0; i < 70; i++) { const p = document.createElement('i'); const a = Math.random() * Math.PI * 2, v = 90 + Math.random() * 170, w = 5 + Math.random() * 5;
-      p.style.cssText = `left:${ox}px;top:${oy}px;width:${w}px;height:${w * (Math.random() < 0.5 ? 0.45 : 1)}px;background:${cols[i % cols.length]};border-radius:${Math.random() < 0.35 ? '50%' : '1px'}`; fx.appendChild(p);
+      p.style.cssText = `left:${ox}px;top:${oy}px;width:${w}px;height:${w * (Math.random() < 0.5 ? 0.45 : 1)}px;background:${cols[i % cols.length]}`; fx.appendChild(p);
       const dx = Math.cos(a) * v, dy = Math.sin(a) * v - 60, sp = (Math.random() - 0.5) * 900;
       p.animate([{ transform: 'translate(-50%,-50%) rotate(0deg)', opacity: 1 }, { transform: `translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px)) rotate(${sp / 2}deg)`, opacity: 1, offset: 0.45 },
         { transform: `translate(calc(-50% + ${dx * 1.25}px),calc(-50% + ${dy + 260}px)) rotate(${sp}deg)`, opacity: 0 }], { duration: 1500 + Math.random() * 700, easing: 'cubic-bezier(.15,.7,.35,1)', fill: 'forwards' }); } }
   // the mark: from the row up to today's cell, where it settles in
   const main = $('#main'); if (main && main.scrollTop > 0) main.scrollTo({ top: 0, behavior: calm ? 'auto' : 'smooth' });
   // the flight follows the cell while the page scrolls up, and grows to the cell mark's own size, so it lands exactly on it (2026-11-09)
-  const f = document.createElement('div'); f.className = 'cfmark'; f.innerHTML = markSvg(kind, 48, 'star'); f.style.cssText = `left:0;top:0;opacity:0`; fx.appendChild(f);
+  const f = document.createElement('div'); f.className = 'cfmark'; f.style.cssText = `left:0;top:0;opacity:0;border-radius:50%;background:${kind === 'bad' ? 'var(--faint)' : 'var(--ink)'}`; fx.appendChild(f);
   const t0 = performance.now(), dur = calm ? 1 : 1300; const ease = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-  const step = (now) => { const mk = document.querySelector(`#main .day[data-v="${T0}"] .star`); const t = Math.min(1, (now - t0) / dur);
+  const step = (now) => { const mk = document.querySelector(`#main .day[data-v="${T0}"] .dd`); const t = Math.min(1, (now - t0) / dur);
     if (!mk) { f.remove(); return; } mk.style.opacity = '0'; const C = mk.getBoundingClientRect(); const tx = C.left + C.width / 2 - P.left, ty = C.top + C.height / 2 - P.top;
     // pop up at the row (first 20%), then arc to the cell
     const pop = Math.min(1, t / 0.2), e = ease(Math.max(0, (t - 0.2) / 0.8)); const x = ox + (tx - ox) * e, y = oy + (ty - oy) * e - Math.sin(e * Math.PI) * 60;
@@ -5626,13 +5627,13 @@ function hobAction(act, a, ref, v) {
   return fileAction(act, a, ref, v);
 }
 document.addEventListener('change', (e) => { if (e.target && e.target.id === 'projphoto' && e.target.files && e.target.files[0]) addPhotos(e.target.files, 'proj:' + e.target.dataset.ref); });
-// a confetti burst from the wheel when it lands, in the hobby's colour and the palette (2026-11-10)
+// a confetti burst from the wheel when it lands, in the hobby's colour and the Stone palette (2026-11-10, Stone 2026-11-23)
 function wheelBurst(h) { const ph = document.getElementById('phone'), sv = document.querySelector('.whsv'); if (!ph || !sv || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const P = ph.getBoundingClientRect(), R = sv.getBoundingClientRect(); const ox = R.left + R.width / 2 - P.left, oy = R.top + R.height / 2 - P.top;
   const fx = document.createElement('div'); fx.className = 'cfx'; ph.appendChild(fx); setTimeout(() => fx.remove(), 2600);
-  const hc = (G(h) || {}).color; const cols = PAL.map((x) => x[1]).concat(hc ? [hc, hc, hc] : []);
+  const hc = (G(h) || {}).color; const cols = STONE_PAL.map((x) => x[1]).concat(hc ? [hc, hc, hc] : []);
   for (let i = 0; i < 90; i++) { const p = document.createElement('i'); const a = Math.random() * Math.PI * 2, v = 120 + Math.random() * 190, w = 5 + Math.random() * 5;
-    p.style.cssText = `left:${ox}px;top:${oy}px;width:${w}px;height:${w * (Math.random() < 0.5 ? 0.45 : 1)}px;background:${cols[i % cols.length]};border-radius:${Math.random() < 0.35 ? '50%' : '1px'}`; fx.appendChild(p);
+    p.style.cssText = `left:${ox}px;top:${oy}px;width:${w}px;height:${w * (Math.random() < 0.5 ? 0.45 : 1)}px;background:${cols[i % cols.length]}`; fx.appendChild(p);
     const dx = Math.cos(a) * v, dy = Math.sin(a) * v - 60, sp = (Math.random() - 0.5) * 900;
     p.animate([{ transform: 'translate(-50%,-50%) rotate(0deg)', opacity: 1 }, { transform: `translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px)) rotate(${sp / 2}deg)`, opacity: 1, offset: 0.45 },
       { transform: `translate(calc(-50% + ${dx * 1.25}px),calc(-50% + ${dy + 260}px)) rotate(${sp}deg)`, opacity: 0 }], { duration: 1500 + Math.random() * 700, easing: 'cubic-bezier(.15,.7,.35,1)', fill: 'forwards' }); }

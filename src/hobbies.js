@@ -196,13 +196,13 @@ function hobAction(act, a, ref, v) {
   return fileAction(act, a, ref, v);
 }
 document.addEventListener('change', (e) => { if (e.target && e.target.id === 'projphoto' && e.target.files && e.target.files[0]) addPhotos(e.target.files, 'proj:' + e.target.dataset.ref); });
-// a confetti burst from the wheel when it lands, in the hobby's colour and the palette (2026-11-10)
+// a confetti burst from the wheel when it lands, in the hobby's colour and the Stone palette (2026-11-10, Stone 2026-11-23)
 function wheelBurst(h) { const ph = document.getElementById('phone'), sv = document.querySelector('.whsv'); if (!ph || !sv || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const P = ph.getBoundingClientRect(), R = sv.getBoundingClientRect(); const ox = R.left + R.width / 2 - P.left, oy = R.top + R.height / 2 - P.top;
   const fx = document.createElement('div'); fx.className = 'cfx'; ph.appendChild(fx); setTimeout(() => fx.remove(), 2600);
-  const hc = (G(h) || {}).color; const cols = PAL.map((x) => x[1]).concat(hc ? [hc, hc, hc] : []);
+  const hc = (G(h) || {}).color; const cols = STONE_PAL.map((x) => x[1]).concat(hc ? [hc, hc, hc] : []);
   for (let i = 0; i < 90; i++) { const p = document.createElement('i'); const a = Math.random() * Math.PI * 2, v = 120 + Math.random() * 190, w = 5 + Math.random() * 5;
-    p.style.cssText = `left:${ox}px;top:${oy}px;width:${w}px;height:${w * (Math.random() < 0.5 ? 0.45 : 1)}px;background:${cols[i % cols.length]};border-radius:${Math.random() < 0.35 ? '50%' : '1px'}`; fx.appendChild(p);
+    p.style.cssText = `left:${ox}px;top:${oy}px;width:${w}px;height:${w * (Math.random() < 0.5 ? 0.45 : 1)}px;background:${cols[i % cols.length]}`; fx.appendChild(p);
     const dx = Math.cos(a) * v, dy = Math.sin(a) * v - 60, sp = (Math.random() - 0.5) * 900;
     p.animate([{ transform: 'translate(-50%,-50%) rotate(0deg)', opacity: 1 }, { transform: `translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px)) rotate(${sp / 2}deg)`, opacity: 1, offset: 0.45 },
       { transform: `translate(calc(-50% + ${dx * 1.25}px),calc(-50% + ${dy + 260}px)) rotate(${sp}deg)`, opacity: 0 }], { duration: 1500 + Math.random() * 700, easing: 'cubic-bezier(.15,.7,.35,1)', fill: 'forwards' }); }

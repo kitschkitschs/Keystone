@@ -1421,25 +1421,26 @@ document.addEventListener('click', (e) => {
   }
 });
 // ---------- a finished day (2026-11-09): confetti bursts out of the last thing I ticked and the day's mark flies up to the calendar ----------
+// Stone (2026-11-23): square confetti in the Stone palette, and the mark is the day's full dot (grey on a bad day)
 let lastTick = null;
 document.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('[data-a="tick"],[data-a="vtick"],[data-a="psub"],[data-a="addtick"],.tickbtn,[data-a="stick"],[data-a="rstep"],[data-a="cifinish"]'); if (!b) return;
   const c = b.querySelector('.circ') || b; const r = c.getBoundingClientRect(); lastTick = { t: Date.now(), x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, true);
 function celebrate(kind) { const ph = $('#phone'); if (!ph || !lastTick) return; const P = ph.getBoundingClientRect(); const ox = lastTick.x - P.left, oy = lastTick.y - P.top; lastTick = null;
   const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const mk0 = document.querySelector(`#main .day[data-v="${T0}"] .star`); if (mk0) mk0.style.opacity = '0'; // the mark waits for its flight
+  const mk0 = document.querySelector(`#main .day[data-v="${T0}"] .dd`); if (mk0) mk0.style.opacity = '0'; // the mark waits for its flight
   const fx = document.createElement('div'); fx.className = 'cfx'; ph.appendChild(fx); setTimeout(() => fx.remove(), 2600);
-  if (!calm) { const cols = PAL.map((x) => x[1]).concat([starCol(kind)]);
+  if (!calm) { const cols = STONE_PAL.map((x) => x[1]);
     for (let i = 0; i < 70; i++) { const p = document.createElement('i'); const a = Math.random() * Math.PI * 2, v = 90 + Math.random() * 170, w = 5 + Math.random() * 5;
-      p.style.cssText = `left:${ox}px;top:${oy}px;width:${w}px;height:${w * (Math.random() < 0.5 ? 0.45 : 1)}px;background:${cols[i % cols.length]};border-radius:${Math.random() < 0.35 ? '50%' : '1px'}`; fx.appendChild(p);
+      p.style.cssText = `left:${ox}px;top:${oy}px;width:${w}px;height:${w * (Math.random() < 0.5 ? 0.45 : 1)}px;background:${cols[i % cols.length]}`; fx.appendChild(p);
       const dx = Math.cos(a) * v, dy = Math.sin(a) * v - 60, sp = (Math.random() - 0.5) * 900;
       p.animate([{ transform: 'translate(-50%,-50%) rotate(0deg)', opacity: 1 }, { transform: `translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px)) rotate(${sp / 2}deg)`, opacity: 1, offset: 0.45 },
         { transform: `translate(calc(-50% + ${dx * 1.25}px),calc(-50% + ${dy + 260}px)) rotate(${sp}deg)`, opacity: 0 }], { duration: 1500 + Math.random() * 700, easing: 'cubic-bezier(.15,.7,.35,1)', fill: 'forwards' }); } }
   // the mark: from the row up to today's cell, where it settles in
   const main = $('#main'); if (main && main.scrollTop > 0) main.scrollTo({ top: 0, behavior: calm ? 'auto' : 'smooth' });
   // the flight follows the cell while the page scrolls up, and grows to the cell mark's own size, so it lands exactly on it (2026-11-09)
-  const f = document.createElement('div'); f.className = 'cfmark'; f.innerHTML = markSvg(kind, 48, 'star'); f.style.cssText = `left:0;top:0;opacity:0`; fx.appendChild(f);
+  const f = document.createElement('div'); f.className = 'cfmark'; f.style.cssText = `left:0;top:0;opacity:0;border-radius:50%;background:${kind === 'bad' ? 'var(--faint)' : 'var(--ink)'}`; fx.appendChild(f);
   const t0 = performance.now(), dur = calm ? 1 : 1300; const ease = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-  const step = (now) => { const mk = document.querySelector(`#main .day[data-v="${T0}"] .star`); const t = Math.min(1, (now - t0) / dur);
+  const step = (now) => { const mk = document.querySelector(`#main .day[data-v="${T0}"] .dd`); const t = Math.min(1, (now - t0) / dur);
     if (!mk) { f.remove(); return; } mk.style.opacity = '0'; const C = mk.getBoundingClientRect(); const tx = C.left + C.width / 2 - P.left, ty = C.top + C.height / 2 - P.top;
     // pop up at the row (first 20%), then arc to the cell
     const pop = Math.min(1, t / 0.2), e = ease(Math.max(0, (t - 0.2) / 0.8)); const x = ox + (tx - ox) * e, y = oy + (ty - oy) * e - Math.sin(e * Math.PI) * 60;
