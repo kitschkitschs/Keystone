@@ -73,7 +73,7 @@ function bCard(b, i = 0) {
 const bSorted = () => boards().filter((b) => !b.proj).slice().sort((a, b) => (b.upd || 0) - (a.upd || 0));
 function bRow() { const B = bSorted(); return bHead() + (B.length ? `<div class="hscroll brow">${B.map(bCard).join('')}</div>` : '<p class="empty">No boards yet.</p>'); }
 function renderBoardsAll() { const B = bSorted();
-  return nbCrumbs([['Notebook', 'home'], ['Boards']], `<button class="fbtn" data-a="bnew" aria-label="New board">${icon('pen-line', 18)}</button>`) + ''
+  return nbCrumbs([[M.areas.notebook.name, 'home'], ['Boards']], `<button class="fbtn" data-a="bnew" aria-label="New board">${icon('pen-line', 18)}</button>`) + ''
     + (B.length ? `<div class="bgrid">${B.map(bCard).join('')}</div>` : '<p class="empty">No boards yet.</p>'); }
 const boardTitle = (b) => b.title || ((mapRoots(b)[0] || {}).text) || 'Board';
 

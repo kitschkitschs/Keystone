@@ -257,7 +257,7 @@ html.dark .jmp{background-image:repeating-linear-gradient(to bottom,transparent 
 .chev{color:var(--faint)}
 .steps{display:flex;flex-direction:column;padding-left:36px;margin-top:-4px;min-height:4px}
 .steps .row{min-height:40px;gap:12px}
-.steps .circ{width:18px;height:18px;border-width:1.5px;font-size:10px}
+
 .steps .lbl{font-size:14px}
 .appt{display:flex;align-items:center;gap:14px;min-height:44px;padding:0 10px;margin:2px 0;border-radius:10px;border:1.5px solid var(--c);width:100%;box-sizing:border-box}
 .appt b{font-weight:600;font-variant-numeric:tabular-nums}
@@ -350,7 +350,6 @@ button.wkn.sel{display:flex;align-items:center;justify-content:center;padding-to
 .peek{display:grid;grid-template-columns:96px 1fr;gap:10px 12px;margin:8px 0 18px}
 .peek dt{padding-top:3px}
 .peek dd{margin:0;font-size:15px;line-height:1.4}
-.adot{width:22px;height:22px;border-radius:11px;background:var(--c);color:#FAF8F4;display:grid;place-items:center;flex-shrink:0}
 .row.past{opacity:.55}
 .plancard .row{position:relative}
 .rep{position:absolute;top:8px;right:0;color:var(--faint);display:grid}
@@ -675,10 +674,10 @@ html.dark .wmini .wst,html.dark .wmini .wface,html.dark .wdeck .wst1,html.dark .
 .tg{display:flex;align-items:center;gap:12px;min-height:44px}
 .tg .l{flex:1}
 .tg .l small{display:block;font-size:12.5px;color:var(--quiet)}
-.swt{width:44px;height:26px;border-radius:13px;background:var(--line);position:relative;flex-shrink:0}
-.swt::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:#fff;transition:left .15s}
-.swt[aria-checked="true"]{background:var(--faint)}
-.swt[aria-checked="true"]::after{left:21px}
+.swt{width:38px;height:20px;box-sizing:border-box;border:1px solid var(--faint);background:transparent;position:relative;flex-shrink:0}
+.swt::after{content:"";position:absolute;top:3px;left:3px;width:12px;height:12px;background:var(--faint);transition:left .15s}
+.swt[aria-checked="true"]{background:var(--ink);border-color:var(--ink)}
+.swt[aria-checked="true"]::after{left:21px;background:var(--page)}
 /* full-screen check-ins with a step bar (2026-11-02) */
 .cifull{position:absolute;inset:0;z-index:40;background:var(--card);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
 .cibar{display:flex;gap:4px;padding:14px 20px 0}
@@ -769,9 +768,10 @@ html.dark .wmini .wst,html.dark .wmini .wface,html.dark .wdeck .wst1,html.dark .
 .vsortw{position:relative}.vsortx{position:fixed;inset:0;z-index:44}
 .vdrop.vsortm{left:auto;right:-8px;top:30px;width:220px}.vdrop.vsortm .mono{padding:8px 12px 4px;font-size:10px}.vdrop.vsortm button{display:flex;align-items:center;justify-content:space-between;font-size:14px}
 .vstrip{display:flex;gap:10px;overflow-x:auto;margin:0 -12px 16px -16px;padding:2px 12px 6px 16px}
+.vroomw{position:relative;flex:none}.vgo{position:absolute;top:4px;right:4px;width:28px;height:28px;display:grid;place-items:center;color:var(--quiet)}
 .vroom{flex:none;width:130px;box-sizing:border-box;background:var(--card);border-radius:14px;padding:11px 12px 12px;border:1px solid transparent;box-shadow:0 1px 2px rgba(60,50,30,.06);text-align:left}
 .vroom.on{border-color:var(--washline)}
-.vroom b{display:block;font-family:var(--serif);font-weight:400;font-size:19px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vroom b{display:block;padding-right:22px;font-family:var(--serif);font-weight:400;font-size:19px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .vv{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink2);margin:5px 0 9px;white-space:nowrap;overflow:hidden}
 .vv i{width:7px;height:7px;border-radius:4px;flex:none}
 .vjob{display:flex;width:100%;box-sizing:border-box;background:var(--card);padding:14px 16px 13px;margin-bottom:8px;box-shadow:0 1px 2px rgba(60,50,30,.05);text-align:left}
@@ -965,11 +965,14 @@ nav.areas.two{grid-template-columns:repeat(2,minmax(0,1fr))}
 
 /* dark mode (2026-11-08, from the cleaning-system reference): warm near-black page, soft charcoal cards with a faint light edge */
 /* ===== Stone (2026-11-23): the look over the whole app. Square corners, hairlines, small spaced caps, one ink. ===== */
-#phone *:not(.dot,.adot,.hdot,.ovdot,.badot,.xdot,.dd,.d,.swt,.cdots i,.xdots i,.ci-ic,.whl *){border-radius:0!important} /* every corner square; dots, switches and the wheel stay round */
+#phone *:not(.dot,.hdot,.ovdot,.badot,.xdot,.dd,.d,.cdots i,.xdots i,.ci-ic,.whl *){border-radius:0!important} /* every corner square; dots and the wheel stay round */
 .card,.lcard,.hsec{background:transparent;box-shadow:none;border:0}
 .btn,.chip,.fbtn,.scale button,.tag,.hchip,.pick,.menu{box-shadow:none}
 #menubtn{width:28px;margin-right:0}
-.rail .vl{font-weight:400}
+.rail .vl{font-weight:400;font-size:10px;letter-spacing:.12em}
+nav.areas{display:flex;justify-content:space-between;padding-left:16px;padding-right:16px}
+nav.areas button{font-size:10px;letter-spacing:.12em;padding:0}
+.circ{font-size:0}
 .rail button[aria-selected="true"] .vl{color:var(--ink)}
 .rail button.dice{color:var(--faint)}.rail button.dice[aria-selected="true"]{color:var(--ink)}
 /* block headings and section heads: caps between two hairlines */
@@ -977,17 +980,17 @@ nav.areas.two{grid-template-columns:repeat(2,minmax(0,1fr))}
 .card .bhead button::before,.card .bhead button::after,.hsec .hhead::before,.hsec .hhead::after,.sechd.vsec::before,.sechd.vsec::after,.brkt::before,.brkt::after{content:"";flex:1;border-top:1px solid var(--line)}
 .card .bhead button::before,.hsec .hhead::before,.sechd.vsec::before,.brkt::before{order:-1}
 .card .bhead button::after,.hsec .hhead::after,.sechd.vsec::after,.brkt::after{order:9}
-.card .bhead .nm,.hsec .hhead .mono,.sechd.vsec .mono{flex:0 0 auto!important;font:500 10.5px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--ink);text-align:center!important}
-.card .bhead .cnt,.hsec .hhead .cnt,.sechd.vsec .cnt{flex:0 0 auto;font:400 10.5px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
-.card .bhead .cnt:not(:empty)::before,.sechd.vsec .cnt:not(:empty)::before{content:"· "}
+.card .bhead button .nm,.hsec .hhead .mono,.sechd.vsec .mono{flex:0 0 auto!important;font:500 10.5px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--ink);text-align:center!important}
+.card .bhead button .cnt,.hsec .hhead .cnt,.sechd.vsec .cnt{flex:0 0 auto;font:400 10.5px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.card .bhead button .cnt:not(:empty)::before,.sechd.vsec .cnt:not(:empty)::before{content:"· "}
 .card .bhead button .chev,.card .bhead button .bico,.hsec .hhead .hdot,.hsec .hhead .chev,.sechd.vsec .chev{display:none}
 .hhead .fdh .lbl{text-align:center}
 /* a break on Today: a block heading, greyed */
-.brkt{height:auto;min-height:30px;margin:8px 0;gap:12px;border:0}
-.brkt .bkt{font:500 10.5px var(--sans);letter-spacing:.14em;color:var(--faint)}
+
+
 .brkt::before,.brkt::after{border-color:color-mix(in srgb,var(--line) 70%,var(--page))}
 /* rows: the tick box on the right, outlined in the item's colour */
-#view .row>.tickbtn,.vjob>.tickbtn{order:9;margin-left:8px}
+#view .row>.tickbtn{order:9;margin-left:8px}
 .row{min-height:40px}
 .row .lbl{font-size:15.5px}
 .row .sub{color:var(--faint);font-size:12.5px}
@@ -1050,8 +1053,6 @@ input[type=range]::-moz-range-thumb{background:var(--ink);border-color:var(--ink
 .feelsh header{position:static;display:flex;justify-content:space-between;align-items:center;padding:12px 10px 0 16px}
 .feelsh header h2{position:static;width:auto;height:auto;overflow:visible;clip:auto}
 .feelsh .wheel{filter:saturate(.6)}
-.feelsh .wheel path{stroke:var(--page);stroke-width:1.5px}
-.feelsh .ws path{stroke-width:11px;stroke-linejoin:miter;stroke-miterlimit:8}
 .feelsh .wheel text{fill:var(--ink);font-weight:400}
 /* Health, Food, Studies, Home */
 .counts{display:flex;gap:8px}
@@ -1061,11 +1062,13 @@ input[type=range]::-moz-range-thumb{background:var(--ink);border-color:var(--ink
 .xdots i{background:var(--line)}.xdots i.on{background:var(--ink)}
 .vcard,.vjob{box-shadow:none}
 .vcard .vword{font-weight:400}
-.vjob .vtc{display:contents}
-.vjob .vtc .tickbtn{order:9;align-self:center}
-.vjob .vtim{order:0;align-self:flex-start;margin-top:4px;padding:0 10px 0 0;width:auto;height:auto}
-.vjob .vtim svg{width:17px;height:17px;stroke-width:1.5;color:var(--quiet)}
-.vjob>.vjin{flex:1;min-width:0}
+.vtk{align-items:flex-start;gap:10px;padding:0 12px 0 16px}
+.vtk>.vjin{padding-right:0}
+.vtk>.tickbtn,.vtk>.vtc{order:9;padding-top:18px} /* the tick (and Study's clock under it) in one column on the right, level with the name */
+.vtk .tickbtn{width:22px;height:22px;justify-content:center}
+.vtk .vtc{gap:10px}
+.vtk .vtim{width:22px;height:22px;order:2}
+.vtk .vtim svg{width:17px;height:17px;stroke-width:1.5}
 /* notes: straight paper, soft rules; a post-it opens with a close button */
 .postit{background-color:var(--paper);box-shadow:0 1px 0 var(--line),0 6px 14px -10px #0005}
 .sheet.notesh{background:var(--paper)}
@@ -1086,14 +1089,14 @@ html.dark #viewer.vwph{background:rgba(29,27,25,.3)}
 html.dark img{opacity:.96}
 html.dark .feelcard.empty{background:#33302C}html.dark .jcard .jct,html.dark .jct{color:var(--ink2)}html.dark .pjpdf{background:#3A3732}
 /* breaks (2026-11-11): a named stretch of a block, nothing to tick */
-.brkt{display:flex;align-items:center;justify-content:center;width:100%;height:16px;min-height:0;margin:6px 0;box-sizing:border-box;border-top:1px dashed var(--faint2);border-bottom:1px dashed var(--faint2);background:none;padding:0}
-.brkt .bkt{font-size:8.5px;gap:6px}
+.brkt{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;min-height:30px;margin:8px 0;border:0;background:none;padding:0}
+.brkt .bkt{font:500 10.5px var(--sans);letter-spacing:.14em}
 .row.brkrow{gap:8px}.row.brkmin{padding:0;min-height:0}.row.brkrow .bico{display:grid;place-items:center;width:28px;height:28px;margin:-6px -4px;color:var(--ink2);flex:none}
 .row.brkrow .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tl .box.brk{background:transparent!important;border:0!important;border-top:1px dashed var(--faint2)!important;border-bottom:1px dashed var(--faint2)!important;border-radius:0!important;box-shadow:none!important;left:-2px;right:-2px;color:var(--faint)!important;display:flex;align-items:center;justify-content:center;padding:0}
+.tl .box.brk{background:var(--brk);color:var(--ink)}
 .bkt{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);line-height:1;white-space:nowrap;overflow:hidden;max-width:100%}
 .bkt svg{flex:none}
-.tl .box.brk.nt{border-top-color:transparent!important}.tl .box.brk.nb{border-bottom-color:transparent!important}
+
 .tl .blab.bkl{display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:2}
 /* block titles sit centred over the weekday columns, not over the hour column too */
 .bl{padding-left:24px}

@@ -186,7 +186,8 @@ function cookCard(go) { const P = prepsOpen(); const nx = P[0] && I(P[0]); const
     sub: nx ? 'Next: ' + nx.name.toLowerCase() + ', ' + (nd ? lowDay(nd) : 'no date yet') + (nx.time ? ' ' + nx.time : '') + '.' : 'No prep waiting.',
     segs: Array.from({ length: 7 }, (_, i) => { const d = addDays(T0, i); return P.some((k) => (I(k).when || {}).date === d) ? (i === 0 ? SEGOK : SEGSOFT) : SEG0; }), foot: 'This week · one bar per day' }); }
 // a picked card is outlined in its own verdict colour (2026-11-10)
-const stripCard = (id, name, lvl, word, segs, on) => `<button class="vroom ${on ? 'on' : ''}" data-a="vpick" data-ref="${id}" aria-pressed="${on}"${on ? ` style="border-color:${VDOT[lvl]}"` : ''}><b>${esc(name)}</b><span class="vv"><i style="background:${VDOT[lvl]}"></i>${esc(word)}</span>${segBar(segs, 'sm')}</button>`;
+// a tap on the card picks it (its jobs show below); the little arrow in the corner opens it straight away (2026-11-23)
+const stripCard = (id, name, lvl, word, segs, on) => `<div class="vroomw"><button class="vroom ${on ? 'on' : ''}" data-a="vpick" data-ref="${id}" aria-pressed="${on}"${on ? ` style="border-color:${VDOT[lvl]}"` : ''}><b>${esc(name)}</b><span class="vv"><i style="background:${VDOT[lvl]}"></i>${esc(word)}</span>${segBar(segs, 'sm')}</button>${S.edit ? '' : `<button class="vgo" data-a="vopen" data-ref="${id}" aria-label="Open ${esc(name)}">${icon('arrow-up-right', 14, 1.6)}</button>`}</div>`;
 // the bar counts down to the next repeat (the owner, 2026-11-13): one segment per day up to 14 days, then one per week, past ten weeks one per month
 function jobSegs(j) { const n = Math.max(1, j.n || 7); const u = n <= 14 ? 1 : n <= 70 ? 7 : 30; const segs = Math.min(12, Math.max(1, Math.round(n / u))); const late = j.left < 0;
   const filled = late ? segs : Math.min(segs, Math.ceil(Math.max(0, j.left) / u)); return Array.from({ length: segs }, (_, i) => i < filled ? (late ? SEGLATE : SEGDUE) : SEG0); }
@@ -254,7 +255,7 @@ function homeLanding() {
 // the daily study minimum, set in Studies edit mode (2026-11-11)
 function vMinCard() { return lcard(null, 'Study minimum', '', `<div class="inrow" style="justify-content:center;gap:18px;padding:4px 0 2px"><button class="btn" data-a="vsesslen" data-v="-5" aria-label="5 minutes less">−</button><b style="font-size:22px;font-family:var(--serif);font-weight:400">${sessLen()} min</b><button class="btn" data-a="vsesslen" data-v="5" aria-label="5 minutes more">+</button></div>`); }
 function vDefaults(k, what) { const cur = defBlock(k);
-  return lcard(null, 'New ' + what, '', `<div class="vdef"><span class="mono">Day block</span><div class="chips">${blockIds().map((b) => `<button class="chip" data-a="vdefblk" data-ref="${k}" data-v="${b}" aria-pressed="${cur === b}">${esc(G(b).name)}</button>`).join('')}</div><span class="mono" style="display:block;margin-top:14px">Default icon</span><div><button class="btn" data-a="iconfor" data-v="ui:def-${k}" style="display:inline-flex;gap:8px;align-items:center;margin-top:6px">${icon(uiIc('def-' + k, DEFIC[k]), 18)} Change icon</button></div></div>`); }
+  return lcard(null, 'New ' + what, '', `<div class="vdef"><span class="mono">Day block</span><div class="chips">${blockIds().map((b) => `<button class="chip" data-a="vdefblk" data-ref="${k}" data-v="${b}" aria-pressed="${cur === b}">${esc(G(b).name)}</button>`).join('')}</div></div>`); }
 function choresPage() {
   const J = allJobs(); let h = crumbs([['Home', ''], ['Chores']]) + choreCard('Chores', J, CHORE_W, S.edit ? '' : 'data-a="vunpick" aria-label="Show what needs care in every room"', true);
   if (S.edit) h += vlab('Rooms') + eList('g-rooms', roomIds(), 'Add room', 'vaddroom', (r) => kidsOf(r).length + (kidsOf(r).length === 1 ? ' job' : ' jobs'));
@@ -420,13 +421,13 @@ const studyBar = () => [['timer', 'Timer', 'timer'], ['support', 'Study support'
 function vMenu() {
   let h = '';
   // no 'This page' group in the menu any more (2026-11-06), except a project's On hold / Finished (2026-11-08)
-  if (S.area === 'hobbies' && S.proj && G(S.proj) && !S.insOn) { const x = G(S.proj); h += `<span class="mono">Project</span><button role="menuitem" data-a="projhold" data-ref="${S.proj}">${x.hold ? mi('unhold', 'play') : mi('hold', 'pause')} ${x.hold ? 'Take off hold' : 'Put on hold'}</button><button role="menuitem" data-a="projdone" data-ref="${S.proj}">${mi('finished', 'check')} Finished</button>`; }
+  if (S.area === 'hobbies' && S.proj && G(S.proj) && !S.insOn) { const x = G(S.proj); h += `<span class="mono">Project</span><button role="menuitem" data-a="projhold" data-ref="${S.proj}">${x.hold ? 'Take off hold' : 'Put on hold'}</button><button role="menuitem" data-a="projdone" data-ref="${S.proj}">Finished</button>`; }
   // modes are switches (2026-11-06)
-  h += `<span class="mono">Modes</span><button role="menuitemcheckbox" data-a="studymode" aria-checked="${!!S.studyMode}">${mi('studymode', 'graduation-cap')} <span style="flex:1;text-align:left">Study mode</span><span class="swt" aria-hidden="true" aria-checked="${!!S.studyMode}"></span></button>`;
-  h += `<button role="menuitemcheckbox" data-a="badmode" aria-checked="${isBad(T0)}">${mi('badday', 'cloud')} <span style="flex:1;text-align:left">Bad day</span><span class="swt" aria-hidden="true" aria-checked="${isBad(T0)}"></span></button>`;
-  h += `<button role="menuitemcheckbox" data-a="darkmode" aria-checked="${darkOn}">${mi('dark', 'moon')} <span style="flex:1;text-align:left">Dark mode</span><span class="swt" aria-hidden="true" aria-checked="${darkOn}"></span></button>`;
+  h += `<span class="mono">Modes</span><button role="menuitemcheckbox" data-a="studymode" aria-checked="${!!S.studyMode}"><span style="flex:1;text-align:left">Study mode</span><span class="swt" aria-hidden="true" aria-checked="${!!S.studyMode}"></span></button>`;
+  h += `<button role="menuitemcheckbox" data-a="badmode" aria-checked="${isBad(T0)}"><span style="flex:1;text-align:left">Bad day</span><span class="swt" aria-hidden="true" aria-checked="${isBad(T0)}"></span></button>`;
+  h += `<button role="menuitemcheckbox" data-a="darkmode" aria-checked="${darkOn}"><span style="flex:1;text-align:left">Dark mode</span><span class="swt" aria-hidden="true" aria-checked="${darkOn}"></span></button>`;
   // Expeditions can be hidden: the folder and Expedition training go (2026-11-06)
-  h += `<button role="menuitemcheckbox" data-a="expmode" aria-checked="${expOn()}">${mi('exps', 'mountain')} <span style="flex:1;text-align:left">Expeditions</span><span class="swt" aria-hidden="true" aria-checked="${expOn()}"></span></button>`;
+  h += `<button role="menuitemcheckbox" data-a="expmode" aria-checked="${expOn()}"><span style="flex:1;text-align:left">Expeditions</span><span class="swt" aria-hidden="true" aria-checked="${expOn()}"></span></button>`;
   return h;
 }
 
