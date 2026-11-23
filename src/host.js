@@ -29,7 +29,7 @@ const BK_DAYS = 7; // a reminder shows when the last backup is older than this
 const bkAgo = () => { const t = BK.at || BK.first; return t ? Math.floor((Date.now() - t) / 864e5) : 0; };
 const bkDue = () => HOSTED && bkAgo() >= BK_DAYS;
 const bkLine = () => BK.at ? (bkAgo() === 0 ? 'Saved today' : bkAgo() === 1 ? 'Saved yesterday' : 'Saved ' + bkAgo() + ' days ago') : 'Never saved';
-function bkMenu() { if (!HOSTED) return ""; return `<button role="menuitem" data-a="bksave">${mi('bksave', 'hard-drive-download')} <span class="bkl">Save a backup<small${bkDue() ? ' class="due"' : ''}>${bkLine()}</small></span></button><button role="menuitem" data-a="bkload">${mi('bkload', 'hard-drive-upload')} Load a backup</button>`; }
+function bkMenu() { if (!HOSTED) return ""; return `<button role="menuitem" data-a="bksave"><span class="bkl">Save a backup<small${bkDue() ? ' class="due"' : ''}>${bkLine()}</small></span></button><button role="menuitem" data-a="bkload">Load a backup</button>`; }
 function bkDot() { const b = document.getElementById('menubtn'); if (b) b.classList.toggle('dot', bkDue()); }
 const b64 = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(blob); });
 async function bkText() { const files = {}; if (HOSTED) for (const [k, b] of await DBK.fileAll()) files[k] = { type: b.type || '', data: await b64(b) };

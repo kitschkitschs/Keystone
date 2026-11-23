@@ -39,7 +39,7 @@ function wheelSvg(picked) {
     const fill = (w, ring) => !picked.includes(w) ? mix(c, WLINE, WASH[ring]) : ring === 3 ? c : ring === 2 ? mix(c, WBG, 0.22) : mix(c, WBG, 0.42);
     // a picked word lifts out of the wheel (2026-11-06): it slides outward a little, in full colour, with a soft shadow, drawn on top
     const g = (w, d, ring, labHtml) => { const on = picked.includes(w);
-      out.push(`<g class="ws ${on ? 'on' : ''}" data-w="${w}"><path d="${d}" fill="${fill(w, ring)}" stroke="${fill(w, ring)}" stroke-width="${2 * (WI - 1)}" stroke-linejoin="round"/>${labHtml}</g>`); };
+      out.push(`<g class="ws ${on ? 'on' : ''}" data-w="${w}"><path d="${d}" fill="${fill(w, ring)}" stroke="${fill(w, ring)}" stroke-width="${2 * WI - 1.5}" stroke-linejoin="miter" stroke-miterlimit="8"/>${labHtml}</g>`); };
     g(core, rseg(a0, a0 + 60, 0, r1), 3, lab(f, a0 + 30, r1 * 0.58, 15), a0 + 30);
     ps.forEach(([m, o], j) => { const b0 = a0 + 10 * j, b1 = b0 + 10;
       g(m, rseg(b0, b1, r1, r2), 2, lab(m, b0 + 5, (r1 + r2) / 2, 14), b0 + 5);

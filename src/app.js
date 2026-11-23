@@ -25,6 +25,7 @@ const hm = (t) => { if (!t) return null; const [h, m] = t.split(':').map(Number)
 const fmtHM = (m) => pad(Math.floor(m / 60)) + ':' + pad(m % 60);
 
 // ---------- colour ----------
+const STONE_PAL = [['Sage', '#8FA58A'], ['Moss', '#7E8F5E'], ['Ochre', '#C9A55A'], ['Clay', '#B98563'], ['Brick', '#A8645A'], ['Rose', '#B98A92'], ['Plum', '#8E7B9E'], ['Slate', '#7890A8'], ['Teal', '#6E9A96'], ['Pebble', '#9A958A']];
 const PAL = [['Sage', '#7DBE9A'], ['Moss', '#6FA24A'], ['Ochre', '#EDBB3A'], ['Amber', '#F08A3E'], ['Terracotta', '#E0644E'], ['Rose', '#EC8FA8'], ['Plum', '#A877C4'], ['Slate', '#6F9BD6'], ['Teal', '#3FAFA6'], ['Sand', '#D9AE72']];
 const rgb = (h) => { h = h.replace('#', ''); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); };
 // dark mode (2026-11-08): warm near-black, cards that glow warmer as they need care; kept per device
@@ -84,7 +85,7 @@ function seed() {
       plan: { name: 'Planner', icon: 'calendar-days', color: '#D9AE72', pages: ['today', 'schedule', 'plan', 'appts'] },
       study: { name: 'Studies', icon: 'book-text', color: '#3FAFA6', pages: [] }, home: { name: 'Home', icon: 'armchair', color: '#EDBB3A', pages: [] },
       hobbies: { name: 'Hobbies', icon: 'hot-air-balloon', color: '#EC8FA8', pages: [] },
-      notebook: { name: 'Notebook', icon: 'pencil', color: '#A877C4', pages: [] }
+      notebook: { name: 'Notes', icon: 'pencil', color: '#A877C4', pages: [] }
     },
     pages: { today: { name: 'Today', color: '#D9AE72' }, schedule: { name: 'Schedule', color: '#D9AE72' }, plan: { name: 'Plan', color: '#D9AE72' }, appts: { name: 'Appointments', color: '#6F9BD6' } },
     groups: {
@@ -446,7 +447,7 @@ function render() { WKC.clear(); bkDot(); setTimeout(navTrack, 0);
   $('#editbar').innerHTML = S.edit ? `<div class="editbar" role="status"><span>Editing</span></div>` : '';
   // in edit mode Done takes the place of the + (2026-11-04)
   { const db = $('#donebtn'); if (db) db.hidden = !S.edit; }
-  $('#rail').innerHTML = A.pages.length ? `<nav role="tablist" aria-label="${esc(A.name)} pages">${A.pages.map((p) => `<button role="tab" data-page="${p}" aria-selected="${p === S.page}"><span class="dot" style="background:${M.pages[p].color}" ${S.edit ? `data-col="p:${p}" role="button" aria-label="Change colour of ${esc(M.pages[p].name)}"` : ''}></span><span class="vl">${esc(M.pages[p].name)}</span></button>`).join('')}</nav>` : '';
+  $('#rail').innerHTML = A.pages.length ? `<nav role="tablist" aria-label="${esc(A.name)} pages">${A.pages.map((p) => `<button role="tab" data-page="${p}" aria-selected="${p === S.page}"><span class="vl">${esc(M.pages[p].name)}</span></button>`).join('')}</nav>` : '';
   if (S.area === 'hobbies' && !S.insOn) $('#rail').innerHTML = hobRail();
   $('#rail').hidden = (!A.pages.length && S.area !== 'hobbies') || !!S.insOn;
   $('#areas').innerHTML = M.areaOrder.map((a) => { const x = M.areas[a]; const on = a === S.area;
@@ -460,7 +461,7 @@ function render() { WKC.clear(); bkDot(); setTimeout(navTrack, 0);
   else if (S.area === 'notebook') { v.innerHTML = renderNotebook(); $('#ttl').innerHTML = esc(nbTitle()); requestAnimationFrame(jGrow); bMaps(); }
   else if (!A.pages.length) v.innerHTML = `<div class="soon">${esc(A.name)} is rebuilt on the new building blocks after the Planner.<br>The old version stays at its own link until then.</div>`;
   else if (S.page === 'today') { v.innerHTML = renderToday(); if (S.day < T0) { requestAnimationFrame(jMinis); bMaps(); } }
-  else if (S.page === 'schedule') { v.innerHTML = renderSchedule(); const c0 = v.querySelector('.tl .col'); const w = c0 ? Math.round(c0.offsetWidth) : 0; if (S.sview === 'week' && w && w !== S.colW) { S.colW = w; v.innerHTML = renderSchedule(); } }
+  else if (S.page === 'schedule') { v.innerHTML = renderSchedule(); }
   else if (S.page === 'plan') v.innerHTML = renderPlan();
   else if (S.page === 'health') v.innerHTML = renderHealth();
   else if (S.page === 'food') v.innerHTML = diarySheet();
@@ -546,10 +547,10 @@ function itemRow(id, list, d) {
   const it = I(id); const live = d === T0;
   if (it.type === 'slot') return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, false)}<span class="lbl">${S.edit ? nm(id, it.name) : `<button data-a="${live ? 'slot' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left;display:flex;align-items:center;gap:8px"><span style="flex:1">${inm(it)}${live && it.opens === 'study' && minOn(null, T0) + supMin(T0) < sessLen() ? `<span class="tdur">${estHM((minOn(null, T0) + supMin(T0)) / 60)} of ${estHM(sessLen() / 60)}</span>` : ''}${live && slotSub(it) ? `<span class="sub">${esc(slotSub(it))}</span>` : ''}</span>${live ? '<span class="chev" aria-hidden="true">›</span>' : ''}</button>`}</span>${tail(id, list)}</div>`;
   // a break looks like a day block's title (2026-11-11): its icon, its name in small capitals, its length on the right
-  if (it.brk) { const bi = icon(it.icon || 'coffee', 16); const ln = `${it.time ? esc(it.time) + ' · ' : ''}${estHM((it.dur || 15) / 60)}`;
+  if (it.brk) { const ln = `${it.time ? esc(it.time) + ' · ' : ''}${estHM((it.dur || 15) / 60)}`;
     // outside edit mode it's a minimal title like the block titles on Schedule (2026-11-11): dashed lines, small capitals
     if (!S.edit) return `<div class="row brkrow brkmin" data-ref="${id}"><button class="brkt" data-a="${live ? 'open' : 'peek'}" data-ref="${id}" data-d="${d}" aria-label="${esc(tnm(it))}, a break, ${ln}"><span class="bkt"><span>${inm(it)} · ${ln}</span></span></button></div>`;
-    return `<div class="row brkrow" data-ref="${id}">${grip()}<button class="bico" data-a="iconfor" data-v="${id}" aria-label="Change icon">${bi}</button><span class="nm mono" style="flex:1">${nm(id, it.name)}</span><span class="cnt">${ln}</span>${tail(id, list)}</div>`; }
+    return `<div class="row brkrow" data-ref="${id}">${grip()}<span class="nm mono" style="flex:1">${nm(id, it.name)}</span><span class="cnt">${ln}</span>${tail(id, list)}</div>`; }
   if (it.type === 'checkin') return `<div class="row" data-ref="${id}" data-fixed="1">${S.edit ? '<span class="grip"></span>' : ''}${tickCircle(id, d, live)}<button class="lbl" data-a="checkin" data-ref="${id}">${nm(id, it.name)}</button><span class="chev">›</span></div>`;
   const much = String(val(d, id) || '').startsWith('much');
   const late = live ? lateBy(id) : 0;
@@ -626,7 +627,6 @@ const tagNames = () => document.querySelectorAll('#layer [data-tagname]').forEac
 const addChip = (id, label) => addOpen(id) ? '' : `<button class="chip addchip" data-a="openadd" data-v="${id}"><span class="plus" aria-hidden="true">+</span>${esc(label)}</button>`;
 // menu icons can be changed too: in edit mode the icon is its own button (2026-11-08)
 const uiIc = (key, def) => ((M.settings || {}).uiIcons || {})[key] || def;
-const mi = (key, def) => S.edit ? `<span class="miic" data-a="iconfor" data-v="ui:${key}" role="button" aria-label="Change this icon">${icon(uiIc(key, def), 18)}</span>` : icon(uiIc(key, def), 18);
 // what a day had on it and how much got done, kept for the calendar's marks. Counted after every change, wherever I tick
 // (a chore page, the + sheet, Studies), not only while Today is on screen, so yesterday's mark is always right (2026-11-10)
 // a started two-part chore stands in for the generic chore on Today (not on Schedule, which is for planning)
@@ -644,7 +644,7 @@ function renderToday() {
   const bad = isBad(d) && d >= T0;
   const badCard = () => { const g = G('g-bad'); if (!g) return ''; const bl = badList(); const shownB = live && !S.edit ? bl.filter((id) => !isDone(id, d)) : bl;
     if (!S.edit && !shownB.length) return bl.length ? '' : `<p class="empty">Nothing on my bad day list yet.</p>`;
-    return `<section class="card badcard" data-ref="g-bad"><div class="bhead">${S.edit ? `<span class="circ" style="--c:${g.color};width:14px;height:14px;background:${g.color}" data-col="g-bad" role="button" aria-label="Change colour"></span><button class="bico" data-a="iconfor" data-v="g-bad" aria-label="Change icon">${icon(g.icon || 'cloud', 16)}</button><span class="nm mono" style="font-size:11px;flex:1">${nm('g-bad', g.name)}</span>` : `<span class="bico" aria-hidden="true" style="color:${g.color}">${icon(g.icon || 'cloud', 16)}</span><span class="nm mono" style="flex:1">${esc(g.name)}</span>`}<span class="cnt">${bl.filter((id) => !isDone(id, d)).length} left</span></div>
+    return `<section class="card badcard" data-ref="g-bad"><div class="bhead">${S.edit ? `<span class="circ" style="--c:${g.color};width:14px;height:14px;background:${g.color}" data-col="g-bad" role="button" aria-label="Change colour"></span><span class="nm mono" style="font-size:11px;flex:1">${nm('g-bad', g.name)}</span>` : `<span class="nm mono" style="flex:1">${esc(g.name)}</span>`}<span class="cnt">${bl.filter((id) => !isDone(id, d)).length} left</span></div>
       <div class="list" data-list="g-bad">${shownB.map((id) => itemRow(id, 'g-bad', d)).join('')}${S.edit ? `<button class="addrow" data-a="addtask" data-in="g-bad"><span class="plus">+</span>Add to ${esc(g.name)}</button>` : ''}</div></section>`; };
   let h = renderCal() + calEdit(); // the calendar stays in edit mode so calendar changes show live (2026-11-06)
   if (d > T0) h += `<div class="mono" style="margin:8px 2px">Coming up on ${fmtDate(d)}</div>`; // past days: the calendar shows the date (2026-11-08)
@@ -660,8 +660,8 @@ function renderToday() {
     const apRow = (id) => `<div class="appt" data-appt="${id}" style="--c:${G(catOf(id)).color}">${tickCircle(id, d, live)}<button data-a="peek" data-ref="${id}" data-d="${d}" style="display:flex;align-items:center;gap:10px;flex:1;min-height:44px;text-align:left"><b>${esc(apTime(I(id)))}</b><span style="flex:1">${inm(id)}${tdur(I(id))}</span><span class="cnt">${live && I(id).time ? inTime(I(id).time) : ''}</span></button></div>`;
     const seq = apShown.map((id) => ({ id, ap: true })).concat(shown.map((id) => ({ id }))).map((x, k) => Object.assign(x, { k })).sort((p, q) => ((at[p.id] ?? 9999) - (at[q.id] ?? 9999)) || p.k - q.k);
     return `<section class="card" data-ref="${b}">
-      <div class="bhead">${grip()}${S.edit ? `<span class="circ" style="--c:${g.color};width:14px;height:14px;background:${g.color}" data-col="${b}" role="button" aria-label="Change colour"></span><button class="bico" data-a="iconfor" data-v="${b}" aria-label="Change icon">${icon(g.icon || 'clock', 16)}</button><span class="nm mono" style="font-size:11px">${nm(b, g.name)}</span><span class="cnt">${g.start}–${g.end}</span>${tail(b, 'g-blocks')}`
-        : `<button data-a="bopen" data-ref="${b}" aria-expanded="${open}" style="display:flex;align-items:center;gap:8px;width:100%;min-height:44px"><span class="bico" aria-hidden="true">${icon(g.icon || 'clock', 16)}</span><span class="nm mono" style="flex:1">${esc(g.name)}</span><span class="cnt">${estHM(PD.filter((o) => o.blk === b).reduce((t, o) => t + (o.b - o.a), 0) / 60)} of ${estHM((hm(g.end) - hm(g.start)) / 60)}</span>${fold(open)}</button>`}</div>
+      <div class="bhead">${grip()}${S.edit ? `<span class="circ" style="--c:${g.color};width:14px;height:14px;background:${g.color}" data-col="${b}" role="button" aria-label="Change colour"></span><span class="nm mono" style="font-size:11px">${nm(b, g.name)}</span><span class="cnt">${g.start}–${g.end}</span>${tail(b, 'g-blocks')}`
+        : `<button data-a="bopen" data-ref="${b}" aria-expanded="${open}" style="display:flex;align-items:center;gap:8px;width:100%;min-height:44px"><span class="nm mono" style="flex:1">${esc(g.name)}</span><span class="cnt">${estHM(PD.filter((o) => o.blk === b).reduce((t, o) => t + (o.b - o.a), 0) / 60)} of ${estHM((hm(g.end) - hm(g.start)) / 60)}</span>${fold(open)}</button>`}</div>
       ${open ? `<div class="list ${d < T0 ? 'pastday' : ''}" ${d < T0 ? '' : `data-list="${b}"`}>${seq.map((x) => x.ap ? apRow(x.id) : itemRow(x.id, b, d)).join('')}${S.edit ? `<button class="addrow" data-a="addtask" data-in="${b}"><span class="plus">+</span>Add to ${esc(g.name)}</button>` : ''}</div>` : ''}
     </section>`;
   }).join('');
@@ -755,12 +755,7 @@ function placeDay(d) {
   return out;
 }
 const dur = (m) => m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) : '');
-// the default icon for a kind of task, changed in edit mode on its page (2026-11-11)
-const DEFIC = { study: 'book-open', chores: 'spray-can', tend: 'sprout', prep: 'cooking-pot' };
-const defKind = (id) => { const P = placements(id); return P.some((p) => G(p) && G(p).style === 'sgroup') ? 'study' : P.some((p) => p === 'g-oneoff' || (G(p) && G(p).style === 'room')) ? 'chores' : P.includes('g-tend') ? 'tend' : P.includes('g-prep') ? 'prep' : ''; };
-const defIcon = (id) => { const it = I(id); const k = defKind(it && it.part && I(it.part) ? it.part : id); return k ? uiIc('def-' + k, DEFIC[k] || '') : ''; }; // the section's icon until I pick one (2026-11-11)
 const defBlock = (k) => { const b = ((M.settings || {}).defBlock || {})[k]; return b && G(b) && blockIds().includes(b) ? b : k === 'study' ? studyBlock0() : eveBlock(); };
-function boxIcon(o) { const it = I(o.id); return it.icon || (it.brk ? 'coffee' : '') || defIcon(o.id) || (o.appt ? G(catOf(o.id)).icon : it.type === 'checkin' ? (it.which === 'morning' ? 'sun' : 'moon') : it.type === 'routine' ? (hm(G(blockOfItem(o.id)).start) >= 18 * 60 ? 'moon' : 'sun') : 'check'); }
 // colour squares to filter Plan and Appointments by type (Stone, 2026-11-23): all show by default, picking one fades the rest
 // and shows only its items; picking it again shows everything
 const colSquares = (cols, pick, act) => `<span class="tsqs" role="group" aria-label="Show">${cols.map(([c, n, v]) => `<button class="tsq${pick && pick !== v ? ' off' : ''}" style="--c:${c}" data-a="${act}" data-v="${v}" aria-label="${esc(n)}" aria-pressed="${pick === v}"></button>`).join('')}</span>`;
@@ -805,25 +800,15 @@ function renderSchedule() {
   // past days don't fade (2026-11-04); only done items do
   const faded = () => false; // nothing on the Schedule fades, not past days and not done items (2026-11-12)
   days.forEach((d, di) => {
-    h += `<div class="col" data-day="${d}" style="height:${H}px">` + PD[di].map((o) => { const it = I(o.id); const c = o.appt ? G(catOf(o.id)).color : colorOf(o.id); const top0 = yIn(o.a, o.blk), flush = !o.appt && (OV[o.blk] ? o.b >= ends[o.blk] + OV[o.blk] : o.b >= ends[o.blk]); const top = it.brk ? top0 : top0 + 1, ht = Math.max(14, yIn(o.b - 0.01, o.blk) - top0 - (flush ? 1 : 2)); // 1px in from the lines above and below, so boxes sit evenly on the hour lines (2026-11-11) // the last box of a block (or of its red stretch) sits flush on the next block's border (2026-11-03/04)
-      // a break fills its time exactly so its lines sit on the hour lines; a line that would double a block title's line is left out
-      const bkE = !o.appt && it.brk ? [starts.includes(o.a) ? 'nt' : '', starts.includes(o.b) || o.b >= ends[o.blk] ? 'nb' : ''].join(' ') : '';
+    h += `<div class="col" data-day="${d}" style="height:${H}px">` + PD[di].map((o) => { const it = I(o.id); const c = o.appt ? G(catOf(o.id)).color : colorOf(o.id); const top0 = yIn(o.a, o.blk), flush = !o.appt && (OV[o.blk] ? o.b >= ends[o.blk] + OV[o.blk] : o.b >= ends[o.blk]); const top = top0 + 1, ht = Math.max(14, yIn(o.b - 0.01, o.blk) - top0 - (flush ? 1 : 2)); // 1px in from the lines above and below, so boxes sit evenly on the hour lines (2026-11-11) // the last box of a block (or of its red stretch) sits flush on the next block's border (2026-11-03/04)
       const solo = dayV || clash(di, o); const jl = !solo && same(di - 1, o), jr = !solo && same(di + 1, o); let run = 1; if (!jl && !solo) while (same(di + run, o)) run++;
       let st = di; if (jl) while (same(st - 1, o)) st--; const rk = jl || jr ? o.id + '@' + days[st] : '';
-      // a break is drawn like a block title (2026-11-11): dashed lines above and below, its name small in the middle
-      const bk = !o.appt && it.brk; const fitsB = bk && (S.colW || 42) - 6 >= it.name.length * 6.2;
-      const inner = bk ? (jl || run > 1 ? '' : `<span class="bkt">${dayV || fitsB ? `<span>${inm(it)}</span>` : ''}</span>`)
-        : dayV ? `<span class="bi">${icon(boxIcon(o), 14, 2)}</span><span class="bn">${inm(it)}</span><span class="bt">${fmtHM(o.a)}</span>`
-        : jl || run > 1 ? '' : (ht >= 14 ? icon(boxIcon(o), 12, 2) : '');
-      // the joined block's label sits beside the boxes in the column (not inside a button), spanning the joined days
-      // the name only shows when it fits the joined block; otherwise just the icon (2026-11-02)
-      const fits = run * ((S.colW || 42) + 4) - 4 - 10 >= it.name.length * 6.3 + (ht >= 30 ? 0 : 18);
-      // faded = past or done; drawn with paler solid colours, never see-through, so no lines show through (2026-11-03)
-      const fd = faded(di, o); const allFaded = [...Array(run).keys()].every((r) => faded(di + r, o));
-      const lab = bk && !dayV && !jl && run > 1 ? `<span class="blab bkl" data-run="${rk}" style="top:${top}px;height:${ht}px;width:calc(${run} * (100% + 4px) - 4px)" aria-hidden="true"><span class="bkt"><span>${inm(it)}</span></span></span>`
-        : !dayV && !jl && run > 1 && ht >= 14 ? `<span class="blab ${ht >= 30 ? '' : 'brow'} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''}" data-run="${rk}" style="top:${top}px;height:${ht}px;width:calc(${run} * (100% + 4px) - 4px);color:${allFaded ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" aria-hidden="true">${icon(boxIcon(o), 12, 2)}${fits ? `<span class="bn">${inm(it)}</span>` : ''}</span>` : '';
+      // Stone (2026-11-23): the week shows plain coloured boxes, no names or icons; the day view names each box and its start
+      const bk = !o.appt && it.brk;
+      const inner = !dayV ? '' : bk ? `<span class="bkt"><span>${inm(it)}</span></span>` : `<span class="bn">${inm(it)}</span><span class="bt">${fmtHM(o.a)}</span>`;
+      const fd = faded(di, o);
       const mv = it.type !== 'checkin' && d >= T0; // set-time items and appointments move too, snapping to what's around them (2026-11-13)
-      return `<button class="box ${dayV ? 'wide' : ''} ${mv ? 'mv' : ''} ${jl ? 'jl' : ''} ${jr ? 'jr' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && I(o.id) && I(o.id).brk ? ' brk ' + bkE : ''}" style="top:${top}px;height:${!o.appt && it.brk ? Math.max(14, yIn(o.b, o.blk) - top) : ht}px;--c:${c};--bg:${fd ? mix(pale(c), TH.page, 0.5) : pale(c)};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" ${rk ? `data-run="${rk}"` : ''} data-from="${o.a}" data-to="${o.b}" aria-label="${esc(tnm(it))}, ${fmtHM(o.a)}">${inner}</button>${lab}`; }).join('') + '</div>';
+      return `<button class="box ${dayV ? 'wide' : ''} ${mv ? 'mv' : ''} ${jl ? 'jl' : ''} ${jr ? 'jr' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && it.brk ? ' brk' : ''}" style="top:${top}px;height:${ht}px;--c:${c};--bg:${fd ? mix(pale(c), TH.page, 0.5) : pale(c)};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" ${rk ? `data-run="${rk}"` : ''} data-from="${o.a}" data-to="${o.b}" aria-label="${esc(tnm(it))}, ${fmtHM(o.a)}">${inner}</button>`; }).join('') + '</div>';
   });
   S.ymap = { y, h0, h1, zones: blockIds().filter((b) => OV[b]).map((b) => ({ b, top: yIn(ends[b], b), h: OV[b] / 60 * PX, e: ends[b], ov: OV[b] })) };
   h += '</div>';
@@ -874,7 +859,7 @@ function renderAppts() {
   const today = all.filter((x) => x.on === T0).sort(by), coming = all.filter((x) => x.on && x.on > T0).sort(by), past = all.filter((x) => x.on && x.on < T0).sort(by).reverse().slice(0, 12);
   // the same rows as Plan; a filled dot with the category icon takes the place of the tick circle
   const row = (x, isPast) => { const it = I(x.id); const c = G(x.cat).color; const done = x.on === T0 && isDone(x.id, T0);
-    return `<div class="row ${isPast || done ? 'past' : ''}" data-ref="${x.id}"><span class="adot" style="--c:${c}">${icon(it.icon || G(x.cat).icon || 'calendar', 13, 2.2)}</span><button class="lbl" data-a="${S.edit ? 'open' : 'peek'}" data-ref="${x.id}" data-d="${x.on}" style="text-align:left">${S.edit ? nm(x.id, it.name) : inm(it)}<span class="sub">${esc(relDay(x.on))}${it.time ? ' · ' + esc(apTime(it)) : ''}${done ? ' · done' : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></button>${apRepText(it) ? `<span class="rep" title="${esc(apRepText(it))}" aria-label="${esc(apRepText(it))}">${icon('repeat', 12, 2)}</span>` : ''}${tail(x.id, x.cat)}</div>`; };
+    return `<div class="row ${isPast || done ? 'past' : ''}" data-ref="${x.id}"><span class="circ" style="--c:${c}"></span><button class="lbl" data-a="${S.edit ? 'open' : 'peek'}" data-ref="${x.id}" data-d="${x.on}" style="text-align:left">${S.edit ? nm(x.id, it.name) : inm(it)}<span class="sub">${esc(relDay(x.on))}${it.time ? ' · ' + esc(apTime(it)) : ''}${done ? ' · done' : ''}${it.note ? ' · ' + esc(it.note) : ''}</span></button>${apRepText(it) ? `<span class="rep" title="${esc(apRepText(it))}" aria-label="${esc(apRepText(it))}">${icon('repeat', 12, 2)}</span>` : ''}${tail(x.id, x.cat)}</div>`; };
   const sec = (t, xs, p) => xs.length ? lcard('a:' + t, t, xs.length, xs.map((x) => row(x, p)).join('')) : '';
   // outside edit mode: the same row as Plan, Add (a dropdown of categories) on the left and the filter on the right (2026-11-04)
   const one = (c) => esc(G(c).name.replace(/s$/, ''));
@@ -935,8 +920,8 @@ function sheetLayer() { let h = '';
   return h; }
 function renderLayer() { setTimeout(navTrack, 0);
   let h = vLayer() + insLayer();
-  if (S.menu) h += `<div class="scrim" style="background:transparent" data-a="closemenu"></div><div class="menu" role="menu"><span class="mundo"><button role="menuitem" data-a="histundo" ${HIST.past.length ? '' : 'disabled'}>${icon('undo-2', 18)} Undo</button><button role="menuitem" data-a="histredo" ${HIST.fut.length ? '' : 'disabled'}>${icon('redo-2', 18)} Redo</button></span>${vMenu()}<span class="mono">Data</span><button role="menuitem" data-a="insopen">${mi('insight', 'chart-pie')} Insight</button>${bkMenu()}<span class="mono">App</span><button role="menuitem" data-a="toggleedit">${S.edit ? mi('editdone', 'check') : mi('edit', 'pencil')} ${S.edit ? 'Finish editing' : 'Edit'}</button>
-    <button role="menuitem" data-a="archopen">${mi('archive', 'archive')} Archive</button></div>`;
+  if (S.menu) h += `<div class="scrim" style="background:transparent" data-a="closemenu"></div><div class="menu" role="menu"><span class="mundo"><button role="menuitem" data-a="histundo" ${HIST.past.length ? '' : 'disabled'}>Undo</button><button role="menuitem" data-a="histredo" ${HIST.fut.length ? '' : 'disabled'}>Redo</button></span>${vMenu()}<span class="mono">Data</span><button role="menuitem" data-a="insopen">Insight</button>${bkMenu()}<span class="mono">App</span><button role="menuitem" data-a="toggleedit">${S.edit ? 'Finish editing' : 'Edit'}</button>
+    <button role="menuitem" data-a="archopen">Archive</button></div>`;
   // pop-ups stack (2026-11-06): the pop-ups underneath (S.sheet.back, ...) stay drawn but can't be touched; the top one works
   if (S.sheet) { const top = S.sheet, chain = []; for (let x = top; x; x = x.back) chain.unshift(x);
     chain.forEach((x) => { S.sheet = x; const one = sheetLayer(); h += x === top ? one : `<div class="under" inert aria-hidden="true">${one.replace(/ id="/g, ' data-oid="')}</div>`; }); S.sheet = top; }
@@ -1000,8 +985,7 @@ function sheetBody() {
       ${g.style === 'hgroup' && g.special !== 'checkins' ? `<div class="fld"><span class="mono">Asked in a check-in</span><div class="chips">${[['', 'No'], ['morning', 'Morning'], ['evening', 'Evening']].map(([k, l]) => `<button class="chip" data-a="gci" data-ref="${s.ref}" data-v="${k}" aria-pressed="${(g.ci || '') === k}">${l}</button>`).join('')}</div></div>` : ''}
       ${g.style === 'acat' ? `<div class="fld"><span class="mono">Icon</span><div><button class="btn" data-a="iconfor" data-v="${s.ref}" style="display:inline-flex;gap:8px;align-items:center">${icon(g.icon || 'circle', 18)} Change icon</button></div></div>` : ''}`; }
   if (s.kind === 'area') { const a = M.areas[s.ref];
-    return `<div class="fld"><span class="mono">Name</span><input class="inp" id="aname" value="${esc(a.name)}"></div><div class="fld"><span class="mono">Colour</span>${colorField('a:' + s.ref, a.color)}</div>
-      <div class="fld"><span class="mono">Icon</span><div><button class="btn" data-a="iconfor" data-v="a:${s.ref}" style="display:inline-flex;gap:8px;align-items:center">${icon(a.icon, 18)} Change icon</button></div></div>`; }
+    return `<div class="fld"><span class="mono">Name</span><input class="inp" id="aname" value="${esc(a.name)}"></div><div class="fld"><span class="mono">Colour</span>${colorField('a:' + s.ref, a.color)}</div>`; }
   if (s.kind === 'remove') { const pl = placements(s.ref);
     return `<p class="note" style="font-size:14px">“${inm(s.ref)}” is in ${pl.length} places: ${pl.map((p) => esc(placeName(p))).join(', ')}. It is one item, so its history is shared.</p><div class="btns"><button class="btn" data-a="rmhere">Remove from here</button><button class="btn danger" data-a="rmall">Delete everywhere</button></div>`; }
   if (s.kind === 'hyper') { const pk = hval(T0, 'pt:' + s.ref) || []; const c = hcolor(s.ref); const chip = ([h, l]) => `<button class="hchip" data-a="hpart" data-ref="${s.ref}" data-v="${esc(h)}" aria-pressed="${pk.includes(h)}" style="${pk.includes(h) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(l)}</button>`; const HB = hyperHobs(s.ref), DT = (I(s.ref).parts || []).map((w) => [w, w]); const hobOn = HB.some(([h]) => pk.includes(h));
@@ -1031,7 +1015,7 @@ function sheetBody() {
   if (s.kind === 'diary') return diarySheet();
   if (s.kind === 'mealweek') return mealWeekSheet();
   if (s.kind === 'newopt') return `<input class="inp" id="newopt" placeholder="Like energy drink or late snack" data-autofocus><div class="btns"><button class="btn dark" data-a="hoptsave">Add and tick for today</button></div>`;
-  if (s.kind === 'peek') { const it = I(s.ref); if (!it) return ''; const isA = it.type === 'appt'; const c = isA ? G(catOf(s.ref)).color : colorOf(s.ref); const d = s.d || T0; const done = isDone(s.ref, d);
+  if (s.kind === 'peek') { const it = I(s.ref); if (!it) return ''; const isA = it.type === 'appt'; const d = s.d || T0; const done = isDone(s.ref, d);
     const lines = [];
     lines.push(['Day', relDay(d) === fmtDate(d) ? fmtDate(d) : relDay(d) + ', ' + fmtDate(d)]);
     if (isA) { lines.push(['Time', apTime(it) || 'No time set']); lines.push(['Category', G(catOf(s.ref)).name]); if (it.when && it.when.mode !== 'once') lines.push(['Frequency', whenText(Object.assign({}, it, { when: Object.assign({}, it.when, { date: it.date }) }))]); else if (it.rep) lines.push(['Frequency', repText(it.rep)]); }
@@ -1039,8 +1023,7 @@ function sheetBody() {
       if (it.type === 'routine') lines.push(['Steps', rSteps(s.ref, d).map((x) => (val(d, x) ? '✓ ' : stepMissed(x, d) ? '✕ ' : '') + I(x).name + (I(x).optional ? ' (optional)' : '')).join(', ')]); }
     if (it.note) lines.push(['Note', it.note]);
     lines.push(['Status', done ? (String(val(d, s.ref)).startsWith('much') ? 'Too much' : 'Done') : d < T0 ? 'Not done' : d === T0 ? 'Not done yet' : 'Coming up']);
-    return `<div class="peekhd"><span class="aic" style="background:${pale(c)};color:${mix(c, TH.ink, 0.35)}">${icon(it.icon || defIcon(s.ref) || (isA ? G(catOf(s.ref)).icon : 'check') || 'circle', 20, 1.9)}</span></div>
-      <dl class="peek">${lines.map(([k, v]) => `<dt class="mono">${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+    return `<dl class="peek">${lines.map(([k, v]) => `<dt class="mono">${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
       <div class="btns">${d === T0 && it.type !== 'checkin' && it.type !== 'routine' ? `<button class="btn dark" data-a="peektick">${it.type === 'slot' ? 'Open ' + (it.opens === 'study' ? 'Study' : it.opens === 'training' ? 'Training' : it.opens === 'hobbies' ? 'Hobbies' : 'Chores') : done ? 'Untick' : 'Tick as done'}</button>` : ''}${d <= T0 && !done && it.type !== 'checkin' ? `<button class="btn" data-a="miss" data-ref="${s.ref}" data-d="${d}">Missed</button>` : ''}<button class="btn" data-a="peekedit">Edit</button></div>`; }
   if (s.kind === 'add') {
     // Add or log, redone (2026-11-08): compact, everything in reach. Always on top: a feeling, plan items, notebook items.
@@ -1118,7 +1101,7 @@ const blkBtn = (s) => { if ((!s.block || !G(s.block)) && !isHobAct(s)) s.block =
 function archSheet() {
   const ap = allAppts().filter((x) => { const it = I(x.id); return it.date && it.date < T0 && !it.rep && !(it.when && it.when.mode && it.when.mode !== 'once'); }).sort((a, b) => I(b.id).date.localeCompare(I(a.id).date));
   const cs = (M.conds || []).filter((x) => x.end && x.arch).sort((a, b) => b.end.localeCompare(a.end));
-  const apRow = (x) => { const it = I(x.id); const c = G(x.cat).color; return `<div class="row past"><span class="adot" style="--c:${c}">${icon(it.icon || G(x.cat).icon || 'calendar', 13, 2.2)}</span><button class="lbl" data-a="archgo" data-v="open" data-ref="${x.id}" style="text-align:left">${inm(it)}<span class="sub">${esc(fmtDate(it.date))}${it.time ? ' · ' + esc(it.time) : ''}</span></button></div>`; };
+  const apRow = (x) => { const it = I(x.id); const c = G(x.cat).color; return `<div class="row past"><span class="circ" style="--c:${c}"></span><button class="lbl" data-a="archgo" data-v="open" data-ref="${x.id}" style="text-align:left">${inm(it)}<span class="sub">${esc(fmtDate(it.date))}${it.time ? ' · ' + esc(it.time) : ''}</span></button></div>`; };
   const cRow = (x) => `<div class="tg cond arch"><button class="l" data-a="archgo" data-v="condopen" data-ref="${x.id}" style="text-align:left">${esc(x.name)}<small>${esc(fmtDate(x.start))} to ${esc(fmtDate(x.end))}</small></button><button class="soft condic" data-a="condarch" data-ref="${x.id}" aria-label="Bring back ${esc(x.name)}" title="Bring back">${icon('archive-arrow-up', 18)}</button></div>`;
   const dx = (M.trips || []).filter((t) => t.status === 'done').sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   const xRow = (t) => `<div class="row past"><span class="circ done" style="--c:${tripCol(t.kind === 'hike' ? 'hike' : 'expedition')}">✓</span><button class="lbl" data-a="archgo" data-v="trip" data-ref="${t.id}" style="text-align:left">${esc(t.name)}<span class="sub">${esc(tripWhen(t))}</span></button></div>`;
@@ -1152,7 +1135,7 @@ function itemSheet(s) {
       <div class="fld"><span class="mono">Category</span><div class="chips">${G('g-appts').kids.filter(G).map((c) => `<button class="chip" style="--c:${G(c).color}" data-a="dset" data-k="cat" data-v="${c}" aria-pressed="${s.cat === c}"><span class="d"></span>${esc(G(c).name)}</button>`).join('')}</div></div>`;
   } else if (D.type !== 'checkin' && D.type !== 'step') {
     h += schedUI(s, D);
-    if (D.brk) { h += `<div class="fld"><span class="mono">Icon</span><div><button class="btn" data-a="iconfor" data-v="draft" style="display:inline-flex;gap:8px;align-items:center">${icon(D.icon || 'coffee', 18)}Change</button></div></div>`; if (s.ref && !s.isNew) h += `<div class="btns"><button class="btn danger" data-a="ddelete">Delete</button></div>`; return h; } // a break: a name, its time and length, its days
+    if (D.brk) { if (s.ref && !s.isNew) h += `<div class="btns"><button class="btn danger" data-a="ddelete">Delete</button></div>`; return h; } // a break: a name, its time and length, its days
     if (D.type === 'task' || D.type === 'routine') h += (isTrainSheet(s) ? afterField(D) : '') + sw('optional', 'Optional', D.optional) + ((D.when || {}).mode === 'once' ? sw('persist', 'Persistent', D.persist) : '')
       + (D.type === 'task' && isChoreSheet(s) ? sw('two', 'Two parts', D.two) + (D.two ? `<div class="fld"><span class="mono">Second part after</span><div class="inrow"><input class="inp" id="dtwo" inputmode="decimal" value="${typeof D.two === 'number' ? D.two : 2}" style="width:80px"><span class="note" style="margin:0">hours</span></div></div>` : '') : '');
     // study items: everything under Estimate waits behind More settings too (2026-11-06)
@@ -1164,7 +1147,7 @@ function itemSheet(s) {
   // every item editor is the same shape (2026-11-10: clean up the editing menus): name, when, length, frequency, steps; the look, kind, tags and reminders wait behind More settings
   if (s._more == null && D.type !== 'checkin') s._more = h.length;
   if (D.type !== 'checkin') {
-    h += `<div class="fld"><span class="mono">Colour and icon</span>${colorField('draft', D.color, { inherit: true })}<div><button class="btn" data-a="iconfor" data-v="draft" style="display:inline-flex;gap:8px;align-items:center">${icon(D.icon || (D.type === 'appt' && G(s.cat) ? G(s.cat).icon : 'circle'), 18)} Change icon</button></div></div>`;
+    h += `<div class="fld"><span class="mono">Colour</span>${colorField('draft', D.color, { inherit: true })}</div>`;
     if (D.type !== 'appt') {
     h += `<div class="fld"><span class="mono">Kind</span><div class="chips">${[['', 'None'], ['behaviour', 'Behaviour'], ['experience', 'Experience'], ['circumstance', 'Circumstance']].map(([k, l]) => `<button class="chip" data-a="dset" data-k="kind" data-v="${k}" aria-pressed="${(D.kind || '') === k}">${l}</button>`).join('')}</div>${D.kind === 'behaviour' ? sw('unwanted', 'Unwanted', D.unwanted, 'Behaviour I want less of') : ''}</div>`;
     h += tagField(D, 'dtag'); h += linkField2(D);
@@ -1602,10 +1585,9 @@ let sd = null;
 // Picking up one day's piece of a joined block: it leaves the block (own rounded box, no red outline, it's not in the
 // red stretch while held); the rest of the block keeps its outline piece by piece and loses the shared label (2026-11-03)
 function liftOut(bx) {
-  bx.classList.remove('spill', 'jl', 'jr'); bx.innerHTML = bx.querySelector('svg') ? bx.innerHTML : icon(boxIcon({ id: bx.dataset.ref }), 12, 2);
+  bx.classList.remove('spill', 'jl', 'jr');
   const rk = bx.dataset.run; if (!rk) return;
-  document.querySelectorAll(`.blab[data-run="${CSS.escape(rk)}"]`).forEach((l) => { l.style.display = 'none'; });
-  document.querySelectorAll(`.box[data-run="${CSS.escape(rk)}"]`).forEach((b) => { if (b !== bx) { b.classList.add('loose'); if (!b.innerHTML.trim()) b.innerHTML = icon(boxIcon({ id: b.dataset.ref }), 12, 2); } });
+  document.querySelectorAll(`.box[data-run="${CSS.escape(rk)}"]`).forEach((b) => { if (b !== bx) b.classList.add('loose'); });
 }
 function minuteAt(px) { const { h0, h1, y, zones } = S.ymap; const z = (zones || []).find((q) => px >= q.top && px <= q.top + q.h); S.ymap.zb = z ? z.b : null; /* inside a block's overflow: the minute in the overflow, so drops there land where they're aimed (2026-11-12: items jumped when a day ran over its block) */ if (z) return z.e + Math.round((px - z.top) / Math.max(1, z.h) * z.ov); let best = h0 * 60, bd = 1e9; for (let m = h0 * 60; m <= h1 * 60; m += 5) { const dd = Math.abs(y(m) - px); if (dd < bd) { bd = dd; best = m; } } return best; }
 document.addEventListener('pointerdown', (e) => {
@@ -1837,6 +1819,9 @@ function migrate(m) {
   // 2026-11-11: snack day = the first snack logged in a week; training extras link to a training item, not a kind and distance
   snackFix(m); afterFix(m); latteGone(m); halfRoll(m); m.seen = m.seen || {}; m.seen[T0] = 1;
   // a third kind of appointment, Travel (2026-11-14); added once, so removing it in edit mode sticks
+  // Stone (2026-11-23): Notebook is called Notes, and my palette gets quiet colours that sit on the putty paper; both once
+  if (m.settings && !m.settings.stone1) { m.settings.stone1 = true; if (m.areas && m.areas.notebook && m.areas.notebook.name === 'Notebook') m.areas.notebook.name = 'Notes';
+    if (m.settings.palInit) m.settings.myColors = [...new Set(STONE_PAL.map((p) => p[1]).concat(m.settings.myColors || []))]; }
   if (m.settings && !m.settings.travel1 && m.groups['g-appts']) { m.settings.travel1 = true; if (!m.groups['c-travel']) { m.groups['c-travel'] = { name: 'Travel', style: 'acat', holds: 'appt', color: '#5FA8A0', icon: 'plane', kids: [] }; m.groups['g-appts'].kids.push('c-travel'); } }
   return m;
 }
@@ -1937,7 +1922,7 @@ function answerUI(id, d, c) {
   const it = I(id); const v = hval(d, id); const sc = it.scale;
   if (SCALES[sc]) { const n = SCALES[sc].length;
     return `<div class="scale" style="grid-template-columns:repeat(${n},minmax(0,1fr))">${SCALES[sc].map((w, i) => { const on = v === i + 1;
-      return `<button data-a="hset" data-ref="${id}" data-v="${i + 1}" aria-label="${esc(tnm(it))}: ${w}" aria-pressed="${on}" style="${on ? `background:${stepCol(c, i, n)};box-shadow:0 0 0 2px var(--page),0 0 0 3px ${deep(c)}` : ''}">${sc === 'mood5' ? `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${on ? deep(c) : '#9A9387'}" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9 9.6h.01M15 9.6h.01"/><path d="${FACES[i]}"/></svg>` : ''}</button>`; }).join('')}</div>`; }
+      return `<button data-a="hset" data-ref="${id}" data-v="${i + 1}" aria-label="${esc(tnm(it))}: ${w}" aria-pressed="${on}" style="${on ? `background:${stepCol(c, i, n)};border-color:${deep(c)}` : ''}">${sc === 'mood5' ? `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${on ? deep(c) : '#9A9387'}" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9 9.6h.01M15 9.6h.01"/><path d="${FACES[i]}"/></svg>` : ''}</button>`; }).join('')}</div>`; }
   // avoidance (2026-11-03): two wordless buttons like the scales, a SUN for showing up and a MOON for avoiding
   if (sc === 'avoid') return `<div class="scale" style="grid-template-columns:repeat(2,minmax(0,1fr))">${[['faced', 'Showed up', '#E6BC74', 'sun'], ['avoided', 'Avoided it', '#A9B4C4', 'moon']].map(([k, w, col, ic]) => { const on = v === k;
     return `<button data-a="hset" data-ref="${id}" data-v="${k}" aria-label="${esc(tnm(it))}: ${w}" aria-pressed="${on}" style="background:${on ? col : flatCol(c)};color:${on ? mix(col, TH.ink, 0.55) : '#9A9387'};${on ? `box-shadow:0 0 0 2px var(--card),0 0 0 3.5px ${deep(col)}` : ''}">${ic === 'moon' ? FULLMOON : icon(ic, 20, 2)}</button>`; }).join('')}</div>`;
@@ -2198,7 +2183,7 @@ function mealWeekSheet() {
   let h = `<div class="pgrid"><span></span>${PLANK.map((k) => `<span class="mono">${k[2]}</span>`).join('')}${WD.map((w, i) => `<span class="pd">${w}</span>${PLANK.map(([k]) => stepper('mwstep', i, k, mp.week[i][k] || 0)).join('')}`).join('')}</div>`;
   h += `<div class="fld" style="margin-top:16px"><span class="mono">Extras</span>${mp.extras.map((x) => `<div class="xrow"><div class="inrow"><span class="xdot" style="background:${xcol(x)}" aria-hidden="true"></span><input class="inp" data-xname="${x.id}" value="${esc(x.name)}" aria-label="Extra name"><button class="rm" data-a="xrm" data-v="${x.id}" aria-label="Remove ${esc(x.name)}">✕</button></div><div style="margin-top:8px">${colorField('x:' + x.id, xcol(x))}</div>${linkField(x)}
     <div class="pgrid x"><span class="mono">Meals</span><span class="mono">Bites</span><span class="mono">Either</span><span class="mono">Snacks</span>${['meal', 'snack', 'any', 'treat'].map((f) => stepper('xstep', x.id, f, x[f] || 0)).join('')}</div>
-    <button class="addbtn" data-a="xweekly" data-v="${x.id}" aria-pressed="${!!x.weekly}" style="min-height:36px;font-size:13px"><span class="circ ${x.weekly ? 'done' : ''}" style="--c:var(--quiet);width:18px;height:18px">${x.weekly ? '✓' : ''}</span>Once a week at most</button></div>`).join('')}
+    <button class="addbtn" data-a="xweekly" data-v="${x.id}" aria-pressed="${!!x.weekly}" style="min-height:36px;font-size:13px"><span class="circ ${x.weekly ? 'done' : ''}" style="--c:var(--quiet)">${x.weekly ? '✓' : ''}</span>Once a week at most</button></div>`).join('')}
     <button class="addbtn" data-a="xadd"><span class="plus">+</span>Add an extra</button></div>`;
   h += breaksUI();
   return h + `<div class="btns"><button class="btn dark" data-a="closesheet">Done</button></div>`;
@@ -2299,7 +2284,7 @@ function tabBody(tid, d, c, o = {}) {
       kind === 'arch' ? `<button class="soft condic" data-a="condarch" data-ref="${x.id}" aria-label="Bring back ${esc(x.name)}" title="Bring back">${icon('archive-arrow-up', 18)}</button>`
       : `${kind === 'ended' ? `<button class="soft condic" data-a="condarch" data-ref="${x.id}" aria-label="Archive ${esc(x.name)}" title="Archive">${icon('archive', 18)}</button>` : ''}<button class="swt" role="switch" aria-checked="${!x.end}" data-a="hcondend" data-ref="${x.id}" aria-label="${esc(x.name)} ongoing"></button>`}</div>`;
     const archOpen = S.open['condarch'] === true;
-    return `<div class="hlist">${on.map((x) => row(x, 'on')).join('') || `<p class="note" style="padding:8px 0">No ongoing conditions.</p>`}
+    return `<div class="hlist">${on.map((x) => row(x, 'on')).join('')}
       ${addOpen('hcond') ? `<div class="addrow condadd"><button class="plus" data-a="hcondadd" aria-label="Start a condition">+</button><input id="hcond" ${fit ? 'data-fit="1" ' : ''}placeholder="Start a condition, like a cold or a sore knee" enterkeyhint="done" autocomplete="off"></div>` : `<button class="addrow" data-a="openadd" data-v="hcond"><span class="plus">+</span>Condition</button>`}
       ${ended.length ? `<span class="mono condsub">Ended</span>${ended.map((x) => row(x, 'ended')).join('')}` : ''}
 </div>`;
@@ -2590,7 +2575,7 @@ document.addEventListener('pointercancel', () => { if (rd) { clearTimeout(rd.t);
 // full picker (hue / strength / lightness sliders, a code, Save to my colours). ref is what gets the colour:
 // an item or group id, 'a:area', 'p:page', 'x:extra', or 'draft' (the open editor's unsaved copy).
 // My palette starts as the starter palette, so every colour in it can be edited or removed (2026-11-02)
-function myCols(pal) { const st = M.settings; if (pal === 'board') { if (!st.boardColors) st.boardColors = BOARD_PAL.slice(); return st.boardColors; } if (!st.palInit) { st.palInit = true; st.myColors = [...new Set(PAL.map((p) => p[1]).concat(st.myColors || []))]; } return st.myColors; }
+function myCols(pal) { const st = M.settings; if (pal === 'board') { if (!st.boardColors) st.boardColors = BOARD_PAL.slice(); return st.boardColors; } if (!st.palInit) { st.palInit = true; st.myColors = [...new Set(STONE_PAL.concat(PAL).map((p) => p[1]).concat(st.myColors || []))]; } return st.myColors; }
 function hexToHsl(h) { const [r, g, b] = rgb(h).map((x) => x / 255); const mx = Math.max(r, g, b), mn = Math.min(r, g, b); let hh = 0, ss = 0; const l = (mx + mn) / 2;
   if (mx !== mn) { const d = mx - mn; ss = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); hh = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; hh *= 60; }
   return [Math.round(hh), Math.round(ss * 100), Math.round(l * 100)]; }

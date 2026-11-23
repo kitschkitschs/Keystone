@@ -18,7 +18,7 @@ const remOn = (r, d) => r.rep === 'once' ? r.date === d : (r.days || []).include
 const remDays = (r) => { const D = r.days || []; if (D.length === 7) return 'Every day'; if (D.join() === '0,1,2,3,4') return 'Weekdays'; if (D.join() === '5,6') return 'Weekends'; return D.map((i) => WD[i]).join(', ') || 'No days'; };
 const remWhen = (r) => r.rep === 'once' ? (r.date ? relDay(r.date) : 'No date') + ' · ' + (r.time || '') : remDays(r) + ' · ' + (r.time || '');
 function remRow(r) { const it = r.item && I(r.item);
-  return `<div class="row${r.on ? '' : ' past'}"><span class="adot" style="--c:var(--faint)">${icon('bell', 13, 2.2)}</span><button class="lbl" data-a="remopen" data-ref="${r.id}" style="text-align:left">${esc(r.text || 'Reminder')}<span class="sub">${esc(remWhen(r))}${it ? ' · if ' + esc(it.name) + ' isn’t done' : ''}</span></button><button class="swt" role="switch" aria-checked="${!!r.on}" data-a="remtog" data-ref="${r.id}" aria-label="${esc(r.text)} on"></button></div>`; }
+  return `<div class="row${r.on ? '' : ' past'}"><span class="circ" style="--c:var(--faint)"></span><button class="lbl" data-a="remopen" data-ref="${r.id}" style="text-align:left">${esc(r.text || 'Reminder')}<span class="sub">${esc(remWhen(r))}${it ? ' · if ' + esc(it.name) + ' isn’t done' : ''}</span></button><button class="swt" role="switch" aria-checked="${!!r.on}" data-a="remtog" data-ref="${r.id}" aria-label="${esc(r.text)} on"></button></div>`; }
 function renderRem() {
   const R = remList(); const byT = (a, b) => (a.time || '').localeCompare(b.time || '');
   const today = R.filter((r) => remOn(r, T0)).sort(byT);
