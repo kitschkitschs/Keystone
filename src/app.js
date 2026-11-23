@@ -804,7 +804,7 @@ function renderSchedule() {
       const inner = !dayV ? '' : bk ? `<span class="bkt"><span>${inm(it)}</span></span>` : `<span class="bn">${inm(it)}</span><span class="bt">${fmtHM(o.a)}</span>`;
       const fd = faded(di, o);
       const mv = it.type !== 'checkin' && d >= T0; // set-time items and appointments move too, snapping to what's around them (2026-11-13)
-      return `<button class="box ${dayV ? 'wide' : ''} ${mv ? 'mv' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && it.brk ? ' brk' : ''}" style="top:${top}px;height:${ht}px;--c:${c};--bg:${fd ? mix(pale(c), TH.page, 0.5) : pale(c)};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" data-from="${o.a}" data-to="${o.b}" aria-label="${esc(tnm(it))}, ${fmtHM(o.a)}">${inner}</button>`; }).join('') + '</div>';
+      return `<button class="box ${dayV ? 'wide' : ''} ${mv ? 'mv' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && it.brk ? ' brk' : ''}" style="top:${top}px;height:${ht}px;--c:${c};--bg:${fd ? mix(c, TH.page, 0.5) : c};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" data-from="${o.a}" data-to="${o.b}" aria-label="${esc(tnm(it))}, ${fmtHM(o.a)}">${inner}</button>`; }).join('') + '</div>';
   });
   S.ymap = { y, h0, h1, zones: blockIds().filter((b) => OV[b]).map((b) => ({ b, top: yIn(ends[b], b), h: OV[b] / 60 * PX, e: ends[b], ov: OV[b] })) };
   h += '</div>';
@@ -812,7 +812,7 @@ function renderSchedule() {
   const key = new Map(); let brk = false;
   PDs.flat().forEach((o) => { const it = I(o.id); if (!it) return; if (!o.appt && it.brk) { brk = true; return; }
     const c = o.appt ? G(catOf(o.id)).color : colorOf(o.id); if (!key.has(c)) key.set(c, keyName(o.id, o.appt)); });
-  if (key.size || brk) h += `<div class="skey">${[...key].map(([c, n]) => `<span><i style="background:${pale(c)};border-color:${c}"></i>${esc(n)}</span>`).join('')}${brk ? '<span><i class="br"></i>Break</span>' : ''}</div>`;
+  if (key.size || brk) h += `<div class="skey">${[...key].map(([c, n]) => `<span><i style="background:${c}"></i>${esc(n)}</span>`).join('')}${brk ? '<span><i class="br"></i>Break</span>' : ''}</div>`;
   return h;
 }
 

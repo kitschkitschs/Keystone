@@ -1013,10 +1013,11 @@ nav.areas button{font-size:10px;letter-spacing:.12em;padding:0}
 .cdots i{width:4px;height:4px}
 /* schedule: an hour per cell, items as tall as they last, breaks solid, a key underneath */
 .tl .col{margin:0;border-left:1px solid var(--line2)}.tl .col:last-child{border-right:1px solid var(--line2)}
-.tl .box{left:1px;right:1px;filter:saturate(.6)}
+.tl .box{left:1px;right:1px}
 .box{color:var(--ink)}
 .box.wide{justify-content:center;text-align:center}
 .box.wide .bn{flex:0 1 auto;text-align:center}
+.tl .box .bt{color:var(--ink);opacity:.6}
 /* block titles like Today's (name and time) in a band with top and bottom lines, over the day columns only; no hour lines in the hour column */
 .bl{left:22px;border:0;border-top:1px solid var(--quiet);border-bottom:1px solid var(--quiet);background:var(--page);z-index:1;align-items:center;gap:12px}
 .bl b,.bl em{font:500 10.5px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--ink);white-space:nowrap}
@@ -1025,7 +1026,7 @@ nav.areas button{font-size:10px;letter-spacing:.12em;padding:0}
 .tl .hr{left:22px}.tl .hr span{left:-22px}
 .skey{display:flex;flex-wrap:wrap;gap:6px 14px;margin:12px 0 4px 24px;font-size:11.5px;color:var(--ink2)}
 .skey span{display:inline-flex;align-items:center;gap:6px}
-.skey i{width:10px;height:10px;border:0;filter:saturate(.6)}
+.skey i{width:10px;height:10px;border:0}
 .skey i.br{background:var(--brk);border:0}
 /* colour squares to filter by type */
 .tsqs{display:flex;gap:6px;margin-left:auto}
@@ -1953,7 +1954,7 @@ function renderSchedule() {
       const inner = !dayV ? '' : bk ? `<span class="bkt"><span>${inm(it)}</span></span>` : `<span class="bn">${inm(it)}</span><span class="bt">${fmtHM(o.a)}</span>`;
       const fd = faded(di, o);
       const mv = it.type !== 'checkin' && d >= T0; // set-time items and appointments move too, snapping to what's around them (2026-11-13)
-      return `<button class="box ${dayV ? 'wide' : ''} ${mv ? 'mv' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && it.brk ? ' brk' : ''}" style="top:${top}px;height:${ht}px;--c:${c};--bg:${fd ? mix(pale(c), TH.page, 0.5) : pale(c)};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" data-from="${o.a}" data-to="${o.b}" aria-label="${esc(tnm(it))}, ${fmtHM(o.a)}">${inner}</button>`; }).join('') + '</div>';
+      return `<button class="box ${dayV ? 'wide' : ''} ${mv ? 'mv' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && it.brk ? ' brk' : ''}" style="top:${top}px;height:${ht}px;--c:${c};--bg:${fd ? mix(c, TH.page, 0.5) : c};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" data-from="${o.a}" data-to="${o.b}" aria-label="${esc(tnm(it))}, ${fmtHM(o.a)}">${inner}</button>`; }).join('') + '</div>';
   });
   S.ymap = { y, h0, h1, zones: blockIds().filter((b) => OV[b]).map((b) => ({ b, top: yIn(ends[b], b), h: OV[b] / 60 * PX, e: ends[b], ov: OV[b] })) };
   h += '</div>';
@@ -1961,7 +1962,7 @@ function renderSchedule() {
   const key = new Map(); let brk = false;
   PDs.flat().forEach((o) => { const it = I(o.id); if (!it) return; if (!o.appt && it.brk) { brk = true; return; }
     const c = o.appt ? G(catOf(o.id)).color : colorOf(o.id); if (!key.has(c)) key.set(c, keyName(o.id, o.appt)); });
-  if (key.size || brk) h += `<div class="skey">${[...key].map(([c, n]) => `<span><i style="background:${pale(c)};border-color:${c}"></i>${esc(n)}</span>`).join('')}${brk ? '<span><i class="br"></i>Break</span>' : ''}</div>`;
+  if (key.size || brk) h += `<div class="skey">${[...key].map(([c, n]) => `<span><i style="background:${c}"></i>${esc(n)}</span>`).join('')}${brk ? '<span><i class="br"></i>Break</span>' : ''}</div>`;
   return h;
 }
 
