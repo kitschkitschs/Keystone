@@ -158,7 +158,7 @@ function xCal() { const mo = S.xmonthOf || T0.slice(0, 7); const [y, m] = mo.spl
   const cell = (d) => { const on = tripsOn(d); const t = on[0];
     // a wash of colour over the trip's whole dates, like the away band on the other calendars (2026-11-06)
     return `<button class="day fday ${d === T0 ? 'today' : ''} ${d.slice(0, 7) === mo ? '' : 'out'}${awayCls(t, d)}" ${t ? `data-a="tripopen" data-ref="${t.id}"` : 'tabindex="-1"'} aria-label="${fmtDate(d)}${t ? ', ' + esc(t.name) : ''}"><span class="n">${parse(d).getDate()}</span></button>`; };
-  return `<div class="stack" style="gap:6px"><div class="calnav"><button data-a="xmonth" data-v="-1" aria-label="Previous month">‹</button><span>${MONTHS[m - 1]} ${y}</span><button data-a="xmonth" data-v="1" aria-label="Next month">›</button></div>
+  return `<div class="stack" style="gap:6px"><div class="calnav"><button data-a="xmonth" data-v="-1" aria-label="Previous month">${icon('chevron-left', 16)}</button><span>${MONTHS[m - 1]} ${y}</span><button data-a="xmonth" data-v="1" aria-label="Next month">${icon('chevron-right', 16)}</button></div>
     <div><div class="wk wkh"><span style="text-align:left">W</span>${WD.map((x) => `<span>${x.toUpperCase()}</span>`).join('')}</div>${weeks.map((w) => `<div class="wk wkr"><span class="wkn">${isoWeek(w)}</span>${[0, 1, 2, 3, 4, 5, 6].map((i) => cell(addDays(w, i))).join('')}</div>`).join('')}</div></div>`; }
 function tripSheet(s) { const D = s.draft;
   const chip = (act, v, l, on) => `<button class="chip" data-a="${act}" data-v="${v}" aria-pressed="${on}">${l}</button>`;

@@ -63,7 +63,7 @@ const stampOf = (d, at) => { const x = parse(d); return `${['Sunday', 'Monday', 
 // Notebook landing (2026-11-06): no side tabs. Two rows of post-its, then a row of journal pages, both scroll sideways;
 // each has Write new and See all, which opens the Notepad or the Journal.
 // the page's filter sits on the breadcrumb row, at the right (2026-11-08)
-const nbCrumbs = (parts, tools = '') => `<nav class="crumbs" aria-label="Where I am">${parts.map(([l, v], i) => i < parts.length - 1 ? `<button data-a="nbgo" data-v="${v}">${esc(l)}</button><span aria-hidden="true">›</span>` : `<span aria-current="page">${esc(l)}</span>`).join('')}${tools ? `<span class="crtools">${tools}</span>` : ''}</nav>`;
+const nbCrumbs = (parts, tools = '') => `<nav class="crumbs" aria-label="Where I am">${parts.map(([l, v], i) => i < parts.length - 1 ? `<button data-a="nbgo" data-v="${v}">${esc(l)}</button><span aria-hidden="true">${icon('chevron-right', 14)}</span>` : `<span aria-current="page">${esc(l)}</span>`).join('')}${tools ? `<span class="crtools">${tools}</span>` : ''}</nav>`;
 // the preview is one block of text over four ruled lines, so a sentence wraps and fills them (the owner, 2026-11-11)
 const postit = (n, i) => { const txt = (n.text || '').split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 4).join('\n');
   return `<button class="postit" data-a="nopen" data-ref="${n.id}"><span class="pt">${esc(n.title || 'Untitled')}</span><span class="pls">${esc(txt)}</span><span class="ptag mono">${esc((n.tags || []).join(' · '))}</span></button>`; };
@@ -71,7 +71,7 @@ const jSorted = () => (M.journal || []).slice().sort((a, b) => (b.d + (b.at || '
 // previews show the page itself, shrunk (2026-11-08)
 const jcard = (e, i = 0) => `<button class="jcard${e.paper === 'blank' ? ' blank' : ''}" data-a="jopen" data-ref="${e.id}"><span class="mono jcs">${e.re ? icon('corner-down-right', 12) : ''}${esc(fmtDate(e.d))}</span><span class="jmini" aria-hidden="true"><span class="jmp" data-jref="${e.id}"><span class="jflow"></span><span class="jpics"></span></span></span><span class="ptag mono">${esc((e.tags || []).join(' · '))}</span></button>`;
 // the section title opens the whole Notepad or Journal; the pen writes a new one (2026-11-06)
-const nbHead = (t, nw, all) => `<div class="nbhead"><button class="nbt" data-a="nbgo" data-v="${all}"><span class="mono">${t}</span><span class="chev" aria-hidden="true">›</span></button><button class="nbpen" data-a="${nw}" aria-label="Write new">${icon('pen-line', 20)}</button></div>`;
+const nbHead = (t, nw, all) => `<div class="nbhead"><button class="nbt" data-a="nbgo" data-v="${all}"><span class="mono">${t}</span><span class="chev" aria-hidden="true">${icon('chevron-right', 16)}</span></button><button class="nbpen" data-a="${nw}" aria-label="Write new">${icon('pen-line', 20)}</button></div>`;
 function renderNbHome() {
   const notes = (M.notes || []).slice().sort((a, b) => (b.upd || 0) - (a.upd || 0)); const J = jSorted();
   return nbHead('Notes', 'nnew', 'notepad') + (notes.length ? `<div class="hscroll postrow wprow">${notes.map(postit).join('')}</div>` : '<p class="empty">No notes yet.</p>') + wRow()

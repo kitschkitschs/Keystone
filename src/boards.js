@@ -67,7 +67,7 @@ function bMut(fn) { const b = curBoard(); if (!b) return; const before = bState(
 
 // ----- landing row and See all -----
 function bNewMenu() { return ''; }
-const bHead = () => `<div class="nbhead"><button class="nbt" data-a="nbgo" data-v="boards"><span class="mono">Boards</span><span class="chev" aria-hidden="true">›</span></button><button class="nbpen" data-a="bnew" aria-label="New board">${icon('pen-line', 20)}</button></div>`;
+const bHead = () => `<div class="nbhead"><button class="nbt" data-a="nbgo" data-v="boards"><span class="mono">Boards</span><span class="chev" aria-hidden="true">${icon('chevron-right', 16)}</span></button><button class="nbpen" data-a="bnew" aria-label="New board">${icon('pen-line', 20)}</button></div>`;
 function bCard(b, i = 0) {
   return `<button class="bcard" data-a="bdopen" data-ref="${b.id}"><span class="bprev" style="background:${bBg(b)}">${moodHtml(b, true)}</span><span class="bname">${esc(boardTitle(b))}</span></button>`; }
 const bSorted = () => boards().filter((b) => !b.proj).slice().sort((a, b) => (b.upd || 0) - (a.upd || 0));
