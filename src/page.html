@@ -1011,6 +1011,8 @@ nav.areas button{font-size:10px;letter-spacing:.12em;padding:0}
 /* block titles like Today's (name and time) in a band with top and bottom lines, over the day columns only; no hour lines in the hour column */
 .bl{left:22px;border:0;border-top:1px solid var(--line2);border-bottom:1px solid var(--line2);background:var(--page);z-index:1;align-items:center;gap:12px}
 .bl::before,.bl::after{content:"";flex:1;border-top:1px solid var(--line)}
+.bl.first{border-top:0} /* nothing over the first block title */
+.wkr{position:relative}.wkr:has(>.wkn.sel)::after{content:'';position:absolute;inset:-1px;border:1px solid var(--quiet);pointer-events:none;z-index:2} /* a picked week gets the same box as a picked day */
 .bl b,.bl em{font:500 10.5px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--ink);white-space:nowrap}
 .bl em{font:400 9.5px var(--mono);letter-spacing:.14em;font-style:normal;color:var(--quiet);margin-left:-6px}.bl em::before{content:"· "}
 .bl.over em{color:#C4503B}
@@ -1077,7 +1079,14 @@ input[type=range]::-moz-range-thumb{background:var(--ink);border-color:var(--ink
 .nbhead{margin-top:-4px}
 /* every page's groups sit as close together as Today's blocks (2026-11-23) */
 #view .stack{gap:6px}#view .card .bhead button{margin-top:0}#view .card .bhead{min-height:30px}#view .hsec .hhead,#view .sechd.vsec{margin-top:0}
-#view.ptoday .calblk+.stack>.card:first-child{margin-top:-7px} /* the first block title sits as close under the calendar as Schedule's first band */
+#view.ptoday .calblk+.stack>.card:first-child{margin-top:-7px}
+#view .hsec>.hhead{margin-top:-13px} /* Health groups: the title sits as close under what's above it as Today's first block under the calendar */
+/* plans on Today: a solid block in the category colour, like their Schedule box; time in mono, tick on the right (2026-11-24) */
+#view .appt{background:var(--c);border:0;min-height:36px;margin:2px 0;padding:0 0 0 10px;gap:8px;color:var(--ink)}
+#view .appt>button{min-height:36px!important;gap:12px!important}
+#view .appt b{order:0;font:400 10px var(--mono);letter-spacing:.08em;color:var(--ink);opacity:.7}
+#view .appt>.tickbtn{order:9;margin:0 0 0 4px}
+#view .appt .circ{border-color:var(--ink)!important;background:transparent}#view .appt .circ.done{background:var(--ink)} /* the first block title sits as close under the calendar as Schedule's first band */
 #view>.card:first-child>.bhead,#view>.card:first-child>.bhead button,#view>.hsec:first-child>.hhead{margin-top:-2px;min-height:12px!important;align-items:center}
 html.dark{--page:#1D1B19;--paper:#34312C;--rule:#433F39;--card:#2B2926;--ink:#EFEAE2;--ink2:#CFC8BC;--quiet:#A59E92;--faint:#7F786E;--faint2:#5F5952;--line:#3D3934;--line2:#35322E;--soft:#36332F;--wash:#3A3226;--washline:#5C4B33;--star:#C9A86F;--done:#8FA488;color-scheme:dark}
 html.dark .card,html.dark .lcard{background:linear-gradient(160deg,#33302C 0%,#2A2825 60%,#272522 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 1px 2px rgba(0,0,0,.3)}
@@ -1121,7 +1130,7 @@ html.dark .feelcard.empty{background:#33302C}html.dark .jcard .jct,html.dark .jc
 .day.fday .dh .cdots{position:static;flex:none;transform:none}
 /* Stone (2026-11-23): the dots are short lines beside the date, up to four, stacked from the top; week numbers centred at the top */
 .day.fday .dh{align-items:flex-start}.day.fday .dh .cdots,.day.fday .dh .cdots[class]{width:10px;height:auto;padding:0;display:flex;flex-direction:column;flex-wrap:nowrap;gap:2px;align-items:stretch;justify-content:flex-start}
-.day.fday .dh .cdots i{width:10px;height:2px;margin:0}
+.day.fday .dh .cdots,.day.fday .dh .cdots[class]{flex:1;width:auto;margin:0 2px 0 7px}.day.fday .dh .cdots i{width:auto;height:2px;margin:0}
 .wkr .wkn,button.wkn{justify-content:center}
 .skfood{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--line2);font-size:14px}.skfood .chips{flex-wrap:nowrap}
 /* a day I never opened the app: empty, with its date greyed (2026-11-20) */

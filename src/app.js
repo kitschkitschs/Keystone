@@ -784,13 +784,13 @@ function renderSchedule() {
   for (let k = h0; k < h1; k++) h += `<div class="hr ${starts.includes(k * 60) ? 'bs' : ''}" style="top:${y(k * 60)}px"><span>${pad(k)}</span></div>`;
   // block lines, like the old Daybook: a dashed line at each block's start with its name (day view: time used of its length)
   const P = placeDay(dayV ? S.sday : days.includes(T0) ? T0 : days[0]); // week view counts today's (or the week's first) day, like Today's block titles
-  blockIds().forEach((b) => { const g = G(b); const len = hm(g.end) - hm(g.start);
+  blockIds().forEach((b, bi) => { const g = G(b); const len = hm(g.end) - hm(g.start);
     const E = (m) => estHM(m / 60); let info = E(len), over = !dayV && OV[b] > 0; const overB = OV; // Stone (2026-11-23): titled like Today's blocks, name then time
     { const used = P.filter((o) => o.blk === b && !o.appt).reduce((t, o) => t + (o.b - o.a), 0); over = over || used > len; info = E(used) + ' of ' + E(len) + (over ? ' · over by ' + E(used - len) : ''); }
     const lbl = `<b>${esc(g.name)}</b><em>${info}</em>`;
     // the block's border is a band: dashed top and bottom in one colour, name in between; it sits right under the
     // previous block's last box, so there's no stray gap (2026-11-02)
-    h += `<div class="bl ${over ? 'over' : ''}" style="top:${y(hm(g.start)) - GAP}px;height:${GAP}px">${lbl}</div>`;
+    h += `<div class="bl ${over ? 'over' : ''}${bi ? '' : ' first'}" style="top:${y(hm(g.start)) - GAP}px;height:${GAP}px">${lbl}</div>`;
     if (overB[b]) h += `<div class="ovz" style="top:${yIn(ends[b], b)}px;height:${overB[b] / 60 * PX}px"></div>`; });
   h += '<span></span>';
   // Stone (2026-11-23): every day keeps its own boxes; nothing joins across days
