@@ -25,7 +25,6 @@ const noteTags = () => { const s = new Set(); (M.notes || []).forEach((n) => (n.
 // the Journal has its own tags, same system as the Notepad but not shared (2026-11-06)
 // journal tags stay once made, even when no page has them; a long press deletes one (2026-11-11)
 const jTags = () => { const s = new Set(M.jTagList || []); (M.journal || []).forEach((n) => (n.tags || []).forEach((t) => s.add(t))); return [...s].sort((a, b) => a.localeCompare(b)); };
-const TILTS = [-1.2, 0.8, 0.6, -0.9, -0.5, 1.1, 0.9, -0.7];
 function renderNotepad() {
   const F = S.nTag || 'all'; if (F !== 'all' && !noteTags().includes(F)) S.nTag = 'all';
   const notes = (M.notes || []).filter((n) => F === 'all' || (n.tags || []).includes(F)).sort((a, b) => (b.upd || 0) - (a.upd || 0));
@@ -67,10 +66,10 @@ const stampOf = (d, at) => { const x = parse(d); return `${['Sunday', 'Monday', 
 const nbCrumbs = (parts, tools = '') => `<nav class="crumbs" aria-label="Where I am">${parts.map(([l, v], i) => i < parts.length - 1 ? `<button data-a="nbgo" data-v="${v}">${esc(l)}</button><span aria-hidden="true">›</span>` : `<span aria-current="page">${esc(l)}</span>`).join('')}${tools ? `<span class="crtools">${tools}</span>` : ''}</nav>`;
 // the preview is one block of text over four ruled lines, so a sentence wraps and fills them (the owner, 2026-11-11)
 const postit = (n, i) => { const txt = (n.text || '').split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 4).join('\n');
-  return `<button class="postit" data-a="nopen" data-ref="${n.id}" style="transform:rotate(${TILTS[i % TILTS.length]}deg)"><span class="pt">${esc(n.title || 'Untitled')}</span><span class="pls">${esc(txt)}</span><span class="ptag mono">${esc((n.tags || []).join(' · '))}</span></button>`; };
+  return `<button class="postit" data-a="nopen" data-ref="${n.id}"><span class="pt">${esc(n.title || 'Untitled')}</span><span class="pls">${esc(txt)}</span><span class="ptag mono">${esc((n.tags || []).join(' · '))}</span></button>`; };
 const jSorted = () => (M.journal || []).slice().sort((a, b) => (b.d + (b.at || '')).localeCompare(a.d + (a.at || '')));
 // previews show the page itself, shrunk (2026-11-08)
-const jcard = (e, i = 0) => `<button class="jcard${e.paper === 'blank' ? ' blank' : ''}" data-a="jopen" data-ref="${e.id}" style="transform:rotate(${TILTS[(i + 3) % TILTS.length]}deg)"><span class="mono jcs">${e.re ? icon('corner-down-right', 12) : ''}${esc(fmtDate(e.d))}</span><span class="jmini" aria-hidden="true"><span class="jmp" data-jref="${e.id}"><span class="jflow"></span><span class="jpics"></span></span></span><span class="ptag mono">${esc((e.tags || []).join(' · '))}</span></button>`;
+const jcard = (e, i = 0) => `<button class="jcard${e.paper === 'blank' ? ' blank' : ''}" data-a="jopen" data-ref="${e.id}"><span class="mono jcs">${e.re ? icon('corner-down-right', 12) : ''}${esc(fmtDate(e.d))}</span><span class="jmini" aria-hidden="true"><span class="jmp" data-jref="${e.id}"><span class="jflow"></span><span class="jpics"></span></span></span><span class="ptag mono">${esc((e.tags || []).join(' · '))}</span></button>`;
 // the section title opens the whole Notepad or Journal; the pen writes a new one (2026-11-06)
 const nbHead = (t, nw, all) => `<div class="nbhead"><button class="nbt" data-a="nbgo" data-v="${all}"><span class="mono">${t}</span><span class="chev" aria-hidden="true">›</span></button><button class="nbpen" data-a="${nw}" aria-label="Write new">${icon('pen-line', 20)}</button></div>`;
 function renderNbHome() {
@@ -135,14 +134,13 @@ const JFRAMES = [['plain', 'Plain'], ['border', 'Border'], ['polaroid', 'Polaroi
 const jPcH = (p) => { const f = p.frame || 'plain', r = p.r || 1, P = JFR[f]; return f === 'circle' ? p.w : P ? p.w * (1 - 2 * P[0]) / r + p.w * (P[0] + P[1]) : p.w / r; };
 const JLH = 32, JGAP = 10, JMIN = 40;
 // pages written before this layout kept pictures as markers in the text, or stuck onto each other: give them a place
-const jTq = (p) => p.t != null ? p.t : jTilt(p.id);
+const jTq = (p) => p.t || 0; // photos lie straight unless I turn them (Stone, 2026-11-23)
 function jCorners(q, PW) { const w = q.w * PW, h = jPcH(q) * PW, cx = q.x * PW + w / 2, cy = q.y + h / 2, t = jTq(q) * Math.PI / 180, c = Math.cos(t), s = Math.sin(t); return [[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]].map(([x, y]) => [cx + x * c - y * s, cy + x * s + y * c]); }
 const jBot = (q, PW) => Math.max(...jCorners(q, PW).map((c) => c[1]));
 // how far a (tilted) picture reaches across one band of the page
 function jSpanX(q, PW, ya, yb) { const P = jCorners(q, PW); const xs = []; P.forEach(([x, y]) => { if (y >= ya && y <= yb) xs.push(x); });
   for (let i = 0; i < 4; i++) { const [x1, y1] = P[i], [x2, y2] = P[(i + 1) % 4]; [ya, yb].forEach((Y) => { if ((y1 - Y) * (y2 - Y) < 0) xs.push(x1 + (x2 - x1) * (Y - y1) / (y2 - y1)); }); }
   return xs.length ? [Math.min(...xs), Math.max(...xs)] : null; }
-const jTilt = (id) => { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) | 0; return ((Math.abs(h) % 7) - 3) * 0.55; };
 function jMig(e, PW) { if ((e.ps || []).some((q) => q && q.st)) { const R = e.rs = e.rs || []; let o = 0; (e.text || '').split('\n').forEach((t, i) => { const P = e.ps[i]; if (P && P.st) { if (t.length) R.push({ a: o, b: o + t.length, st: P.st }); delete P.st; } o += t.length + 1; }); R.sort((x, y) => x.a - y.a); save(); }
   const im = e.imgs || []; im.forEach((p) => { if (p.frame === 'round' || p.frame === 'circle' || p.frame === 'gilt') p.frame = 'plain'; }); if (!im.length && !JRX.test(e.text || '')) return; JRX.lastIndex = 0;
   const t = e.text || ''; let changed = false;

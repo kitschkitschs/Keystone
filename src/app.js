@@ -15,6 +15,7 @@ const diff = (a, b) => Math.round((parse(b) - parse(a)) / 864e5);
 const wd = (s) => (parse(s).getDay() + 6) % 7;
 const WD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const longDate = (s) => { const d = parse(s); return d.toLocaleDateString('en-GB', { weekday: 'long' }) + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()]; };
 const fmtDate = (s) => { const d = parse(s); return WD[wd(s)] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()].slice(0, 3); };
 const ord = (n) => n + (n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th');
 const relDay = (s) => { const n = diff(T0, s); return n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : n === -1 ? 'Yesterday' : fmtDate(s); };
@@ -27,7 +28,7 @@ const fmtHM = (m) => pad(Math.floor(m / 60)) + ':' + pad(m % 60);
 const PAL = [['Sage', '#7DBE9A'], ['Moss', '#6FA24A'], ['Ochre', '#EDBB3A'], ['Amber', '#F08A3E'], ['Terracotta', '#E0644E'], ['Rose', '#EC8FA8'], ['Plum', '#A877C4'], ['Slate', '#6F9BD6'], ['Teal', '#3FAFA6'], ['Sand', '#D9AE72']];
 const rgb = (h) => { h = h.replace('#', ''); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); };
 // dark mode (2026-11-08): warm near-black, cards that glow warmer as they need care; kept per device
-const THL = { card: '#FAF8F4', page: '#F2EFEA', ink: '#23211E', line: '#DDD6CA' }, THD = { card: '#2B2926', page: '#1D1B19', ink: '#EFEAE2', line: '#3D3934' };
+const THL = { card: '#E1DFDA', page: '#D8D6D0', ink: '#2E2E2C', line: '#C3C1BB' }, THD = { card: '#2B2926', page: '#1D1B19', ink: '#EFEAE2', line: '#3D3934' };
 const TH = Object.assign({}, THL); let darkOn = false; try { darkOn = localStorage.getItem('daybook3-dark') === '1'; } catch (e) { /* no storage */ }
 function applyTheme() { Object.assign(TH, darkOn ? THD : THL); document.documentElement.classList.toggle('dark', darkOn); document.documentElement.style.colorScheme = darkOn ? 'dark' : 'only light'; /* tells the browser not to darken the page by itself, and to draw its own pickers to match */ const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = TH.page; }
 applyTheme();
@@ -440,15 +441,16 @@ function render() { WKC.clear(); bkDot(); setTimeout(navTrack, 0);
   $('#phone').classList.toggle('jwrite', S.area === 'notebook' && (S.nbView === 'jpage' || S.nbView === 'board') && !S.insOn);
   if (S.area === 'notebook' && S.nbView === 'jpage' && typeof jGrow === 'function') requestAnimationFrame(jGrow);
   $('#phone').classList.toggle('bview', S.area === 'notebook' && S.nbView === 'board' && !S.insOn);
-  $('#ttl').innerHTML = pg ? (S.edit ? `<span data-nm="p:${S.page}" ${ce()}>${esc(pg.name)}</span>` : esc(pg.name)) : esc(A.name);
+  // Today's title is the day I'm looking at (Stone, 2026-11-23)
+  $('#ttl').innerHTML = pg ? (S.edit ? `<span data-nm="p:${S.page}" ${ce()}>${esc(pg.name)}</span>` : S.area === 'plan' && S.page === 'today' && !S.insOn ? longDate(S.day) : esc(pg.name)) : esc(A.name);
   $('#editbar').innerHTML = S.edit ? `<div class="editbar" role="status"><span>Editing</span></div>` : '';
   // in edit mode Done takes the place of the + (2026-11-04)
   { const db = $('#donebtn'); if (db) db.hidden = !S.edit; }
-  $('#rail').innerHTML = A.pages.length ? `<nav role="tablist" aria-label="${esc(A.name)} pages">${A.pages.map((p) => `<button role="tab" data-page="${p}" aria-selected="${p === S.page}" style="${p === S.page ? 'background:' + M.pages[p].color + '2E' : ''}"><span class="dot" style="background:${M.pages[p].color}" ${S.edit ? `data-col="p:${p}" role="button" aria-label="Change colour of ${esc(M.pages[p].name)}"` : ''}></span><span class="vl">${esc(M.pages[p].name)}</span></button>`).join('')}</nav>` : '';
+  $('#rail').innerHTML = A.pages.length ? `<nav role="tablist" aria-label="${esc(A.name)} pages">${A.pages.map((p) => `<button role="tab" data-page="${p}" aria-selected="${p === S.page}"><span class="dot" style="background:${M.pages[p].color}" ${S.edit ? `data-col="p:${p}" role="button" aria-label="Change colour of ${esc(M.pages[p].name)}"` : ''}></span><span class="vl">${esc(M.pages[p].name)}</span></button>`).join('')}</nav>` : '';
   if (S.area === 'hobbies' && !S.insOn) $('#rail').innerHTML = hobRail();
   $('#rail').hidden = (!A.pages.length && S.area !== 'hobbies') || !!S.insOn;
   $('#areas').innerHTML = M.areaOrder.map((a) => { const x = M.areas[a]; const on = a === S.area;
-    return `<button data-area="${a}" aria-label="${esc(x.name)}" ${on ? 'aria-current="page"' : ''} style="color:${on ? x.color : '#857E73'}"><span class="pill" style="background:${on ? x.color + '38' : 'transparent'}" ${S.edit && on ? `data-ic="a:${a}"` : ''}>${icon(x.icon, 24, on ? 2 : 1.6)}</span></button>`; }).join('');
+    return `<button data-area="${a}" ${on ? 'aria-current="page"' : ''}><span class="pill"${S.edit && on ? ` data-ic="a:${a}"` : ''}>${esc(x.name)}</span></button>`; }).join(''); // the bottom bar names the areas in small caps (Stone, 2026-11-23)
   const v = $('#view'); v.classList.toggle('ptoday', S.area === 'plan' && S.page === 'today'); v.classList.toggle('pplan', S.area === 'plan' && S.page === 'plan');
   if (S.studyMode) $('#areas').innerHTML = studyBar();
   $('#areas').classList.toggle('two', !!S.studyMode);
@@ -480,6 +482,11 @@ function dayStamp(d, c) { const s = M.snap[d];
   if (d > T0 || skipped(d)) return null;
   if (isBad(d)) { if (s && s.bdue > 0 && s.bdone >= s.bdue) return 'bad'; if (d === T0) return null; return M.badDays[d] !== 'skip' && s && s.bdone > 0 ? 'bpart' : 'bempty'; } // nothing logged (or a skipped day I made bad) = empty bad day
   if (!s || !(s.due > 0)) return null; if (s.done >= s.due) return 'plan'; return d < T0 ? 'part' : null; }
+// Stone (2026-11-23): Today and Schedule show one dot per day instead of a stamp. It grows and darkens as the day's list gets ticked,
+// and is full ink once all is done; bad days stay grey. Today's dot shows from the first open.
+function dayDot(d) { const s = M.snap[d]; if (d > T0) return ''; const bad = isBad(d), due = s ? (bad ? s.bdue : s.due) || 0 : 0, done = s ? (bad ? s.bdone : s.done) || 0 : 0;
+  if (!due && !bad && d !== T0) return ''; const f = due ? Math.min(1, done / due) : 0, z = f >= 1 ? 14 : 3 + Math.round(f * 7);
+  return `<i class="dd" style="width:${z}px;height:${z}px;background:${bad ? 'var(--faint)' : `color-mix(in srgb,var(--ink) ${f >= 1 ? 100 : 30 + Math.round(f * 50)}%,var(--page))`}"></i>`; }
 const STAMP_SAY = { plan: ', all done', part: ', some left', bad: ', bad day, all done', bpart: ', bad day, some left', bempty: ', bad day', train: ', all done' };
 function dayCell(d, inMonth = true, c = 't') {
   const selD = c === 's' ? (S.sview === 'day' ? S.sday : null) : c === 'f' ? (S.fday || T0) : c === 'x' ? (S.xday || T0) : S.day;
@@ -488,7 +495,7 @@ function dayCell(d, inMonth = true, c = 't') {
   const sk = (c === 't' || c === 's') && !aw && skipped(d); // a day I never opened the app (2026-11-20)
   const st = aw ? null : dayStamp(d, c);
   return `<button class="day fday ${d === selD ? 'sel' : ''} ${d === T0 ? 'today' : ''} ${inMonth ? '' : 'out'}${sk ? ' skip' : ''}${awayCls(aw, d)}" data-a="pickday" data-c="${c}" data-v="${d}" aria-label="${fmtDate(d)}${aw ? ', away: ' + esc(aw.name) : st ? STAMP_SAY[st] : sk ? ', skipped' : ''}">
-    ${aw || c === 'x' ? '' : calLines(ck, d)}<span class="dh"><span class="n">${parse(d).getDate()}</span>${aw || c === 'x' ? '' : calDotsHtml(ck, d)}</span>${st ? markSvg(st, null, 'star') : ''}</button>`;
+    ${aw || c === 'x' ? '' : calLines(ck, d)}<span class="dh"><span class="n">${parse(d).getDate()}</span>${aw || c === 'x' ? '' : calDotsHtml(ck, d)}</span>${c === 't' || c === 's' ? (aw || sk ? '' : dayDot(d)) : st ? markSvg(st, null, 'star') : ''}</button>`;
 }
 function renderCal(c = 't') {
   let weeks; const mon = c === 's' ? S.smonth : c === 'f' || c === 'x' ? S[c + 'month'] : S.month, monthOf = c === 's' ? S.smonthOf : c === 'f' || c === 'x' ? (S[c + 'monthOf'] || T0.slice(0, 7)) : S.monthOf, anchor = c === 's' ? S.sday : c === 'f' || c === 'x' ? (S[c + 'day'] || T0) : S.day;
@@ -754,6 +761,13 @@ const defKind = (id) => { const P = placements(id); return P.some((p) => G(p) &&
 const defIcon = (id) => { const it = I(id); const k = defKind(it && it.part && I(it.part) ? it.part : id); return k ? uiIc('def-' + k, DEFIC[k] || '') : ''; }; // the section's icon until I pick one (2026-11-11)
 const defBlock = (k) => { const b = ((M.settings || {}).defBlock || {})[k]; return b && G(b) && blockIds().includes(b) ? b : k === 'study' ? studyBlock0() : eveBlock(); };
 function boxIcon(o) { const it = I(o.id); return it.icon || (it.brk ? 'coffee' : '') || defIcon(o.id) || (o.appt ? G(catOf(o.id)).icon : it.type === 'checkin' ? (it.which === 'morning' ? 'sun' : 'moon') : it.type === 'routine' ? (hm(G(blockOfItem(o.id)).start) >= 18 * 60 ? 'moon' : 'sun') : 'check'); }
+// colour squares to filter Plan and Appointments by type (Stone, 2026-11-23): all show by default, picking one fades the rest
+// and shows only its items; picking it again shows everything
+const colSquares = (cols, pick, act) => `<span class="tsqs" role="group" aria-label="Show">${cols.map(([c, n, v]) => `<button class="tsq${pick && pick !== v ? ' off' : ''}" style="--c:${c}" data-a="${act}" data-v="${v}" aria-label="${esc(n)}" aria-pressed="${pick === v}"></button>`).join('')}</span>`;
+// what a colour stands for in the schedule key: an appointment's type, else the section or slot the item is planned from
+function keyName(id, appt) { if (appt) return G(catOf(id)).name; const it = I(id);
+  const pl = placements(id).find((p) => !(G(p) && (G(p).style === 'dayblock' || G(p).holds === 'slot')));
+  if (!pl || it.color) return tnm(it); if (pl.startsWith('s:')) return I(pl.slice(2)) ? tnm(I(pl.slice(2))) : tnm(it); return G(pl) ? G(pl).name : tnm(it); }
 function renderSchedule() {
   const dayV = S.sview === 'day'; const w0 = weekStart(S.sday);
   const days = dayV ? [S.sday] : [0, 1, 2, 3, 4, 5, 6].map((i) => addDays(w0, i));
@@ -813,26 +827,30 @@ function renderSchedule() {
   });
   S.ymap = { y, h0, h1, zones: blockIds().filter((b) => OV[b]).map((b) => ({ b, top: yIn(ends[b], b), h: OV[b] / 60 * PX, e: ends[b], ov: OV[b] })) };
   h += '</div>';
+  // the colour key under the schedule names each colour shown, breaks last (Stone, 2026-11-23)
+  const key = new Map(); let brk = false;
+  PDs.flat().forEach((o) => { const it = I(o.id); if (!it) return; if (!o.appt && it.brk) { brk = true; return; }
+    const c = o.appt ? G(catOf(o.id)).color : colorOf(o.id); if (!key.has(c)) key.set(c, keyName(o.id, o.appt)); });
+  if (key.size || brk) h += `<div class="skey">${[...key].map(([c, n]) => `<span><i style="background:${pale(c)};border-color:${c}"></i>${esc(n)}</span>`).join('')}${brk ? '<span><i class="br"></i>Break</span>' : ''}</div>`;
   return h;
 }
 
 // Plan: every task by its rule. Same items as Today, just sorted differently.
 function renderPlan() {
   const inPlan = (id) => placements(id).some((p) => p.startsWith('s:') || (G(p) && G(p).style === 'dayblock'));
-  const F = S.planF || 'all';
-  const tasks = Object.keys(M.items).filter((id) => ['task', 'routine'].includes(I(id).type) && !I(id).part && !placements(id).some((p) => G(p) && G(p).style === 'sgroup') /* Studies items live on Studies (2026-11-11) */ && !(typeof hobArea === 'function' && hobArea(id)) && (F === 'home' ? homeItem(id) : F === 'plan' ? inPlan(id) && !homeItem(id) : inPlan(id) || homeItem(id)));
+  const all = Object.keys(M.items).filter((id) => ['task', 'routine'].includes(I(id).type) && !I(id).part && !placements(id).some((p) => G(p) && G(p).style === 'sgroup') /* Studies items live on Studies (2026-11-11) */ && !(typeof hobArea === 'function' && hobArea(id)) && (inPlan(id) || homeItem(id)));
+  const cols = [...new Map(all.filter((id) => !I(id).brk).map((id) => [colorOf(id), keyName(id)])).entries()].map(([c, n]) => [c, n, c]);
+  if (S.planC && !cols.some((x) => x[2] === S.planC)) S.planC = null;
+  const tasks = all.filter((id) => !S.planC || I(id).brk || colorOf(id) === S.planC);
   const brks = tasks.filter((id) => I(id).brk); tasks.splice(0, tasks.length, ...tasks.filter((id) => !I(id).brk));
   const nos = tasks.filter((id) => (I(id).when || {}).mode === 'once' && !I(id).when.date && !keeps(id) && !Object.keys(M.log).some((d) => val(d, id)));
   const per = tasks.filter((id) => keeps(id) && !repeatable(I(id)));
   const sch = tasks.filter((id) => (I(id).when || {}).mode === 'once' && I(id).when.date && (I(id).when.date >= T0 || onDay(id, T0))).sort((a, b) => I(a).when.date.localeCompare(I(b).when.date));
   const rep = tasks.filter((id) => repeatable(I(id)));
   const row = (id) => { const hm0 = homeItem(id); const ed = S.edit && !hm0; const blk = placements(id).find((p) => G(p) && G(p).style === 'dayblock');
-    return `<div class="row" data-ref="${id}"><span class="circ" style="--c:${colorOf(id)}" ${ed ? `data-col="${id}" role="button" aria-label="Change colour"` : ''}></span><button class="lbl" data-a="${ed ? 'open' : 'sched'}" data-ref="${id}" style="text-align:left">${ed ? nm(id, I(id).name) : inm(id)}<span class="sub">${esc(whenText(I(id)))}</span></button>${ed ? tail(id, homeOf(id)) : ''}</div>`; };
+    return `<div class="row" data-ref="${id}">${I(id).brk ? '<span class="bsq" aria-hidden="true"></span>' : `<span class="circ" style="--c:${colorOf(id)}" ${ed ? `data-col="${id}" role="button" aria-label="Change colour"` : ''}></span>`}<button class="lbl" data-a="${ed ? 'open' : 'sched'}" data-ref="${id}" style="text-align:left">${ed ? nm(id, I(id).name) : inm(id)}<span class="sub">${esc(whenText(I(id)))}</span></button>${ed ? tail(id, homeOf(id)) : ''}</div>`; };
   const sec = (title, ids, empty) => lcard('p:' + title, title, ids.length, ids.length ? ids.map(row).join('') : `<p class="empty">${empty}</p>`);
-  const fOn = F !== 'all';
-  // filter as a dropdown beside the first heading (2026-11-04), the same menu as Study's order
-  const FO = [['all', 'All'], ['plan', 'Planner'], ['home', 'Home']];
-  const fbar = `<span class="vsortw"><button class="fbtn" data-a="planfopen" aria-label="Filter" aria-haspopup="menu" aria-expanded="${!!S.planFOpen}" aria-pressed="${fOn || !!S.planFOpen}">${icon('sliders-horizontal', 18)}</button>${S.planFOpen ? `<span class="vsortx" data-a="planfopen"></span><span class="vdrop vsortm" role="menu"><span class="mono">Show</span>${FO.map(([k, l]) => `<button role="menuitemradio" data-a="planf" data-v="${k}" aria-checked="${F === k}" aria-current="${F === k}">${l}${F === k ? icon('check', 16, 2) : ''}</button>`).join('')}</span>` : ''}</span>`;
+  const fbar = cols.length > 1 ? colSquares(cols, S.planC, 'planc') : '';
   // one row over the categories: Add (a dropdown) on the left, the filter on the right (2026-11-04)
   const AO = [['once', 'One-off task'], ['every', 'Repeat task'], ['routine', 'Routine'], ['break', 'Break']];
   // generic items (2026-11-11): they stand in on a day with nothing specific from their section, and open it to pick the real thing
@@ -849,7 +867,7 @@ function renderPlan() {
 // Appointments: categories (Social is one of them), then Today / Coming up / Past.
 function renderAppts() {
   const cats = G('g-appts').kids.filter(G);
-  const chips = `<div class="chips" data-list="g-appts" style="margin-bottom:14px">${S.edit ? '' : `<button class="chip" data-a="cat" data-v="all" aria-pressed="${S.cat === 'all'}">All</button>`}${cats.map((c) => `<span class="chip" data-ref="${c}" ${S.edit ? '' : `role="button" data-a="cat" data-v="${c}" aria-pressed="${S.cat === c}"`} style="--c:${G(c).color}">${grip()}<span class="d" ${S.edit ? `data-col="${c}" role="button" aria-label="Change colour"` : ''}></span>${nm(c, G(c).name)}${S.edit ? `<button data-a="gear" data-ref="${c}" aria-label="Settings" style="display:grid;place-items:center">${icon('settings', 14)}</button><button data-a="rm" data-ref="${c}" data-in="g-appts" aria-label="Remove category" style="display:grid;place-items:center">${icon('x', 14)}</button>` : ''}</span>`).join('')}${S.edit ? `<button class="chip" data-a="addcat">+ Category</button>` : ''}</div>`;
+  const chips = `<div class="chips" data-list="g-appts" style="margin-bottom:14px">${cats.map((c) => `<span class="chip" data-ref="${c}" style="--c:${G(c).color}">${grip()}<span class="d" ${S.edit ? `data-col="${c}" role="button" aria-label="Change colour"` : ''}></span>${nm(c, G(c).name)}${S.edit ? `<button data-a="gear" data-ref="${c}" aria-label="Settings" style="display:grid;place-items:center">${icon('settings', 14)}</button><button data-a="rm" data-ref="${c}" data-in="g-appts" aria-label="Remove category" style="display:grid;place-items:center">${icon('x', 14)}</button>` : ''}</span>`).join('')}${S.edit ? `<button class="chip" data-a="addcat">+ Category</button>` : ''}</div>`;
   const all = allAppts().filter((x) => S.edit || S.cat === 'all' || x.cat === S.cat);
   all.forEach((x) => { x.on = occurs(x.id, T0) ? T0 : (I(x.id).rep || (I(x.id).when && I(x.id).when.mode !== 'once')) ? nextOcc(x.id, addDays(T0, 1)) : I(x.id).date; });
   const by = (a, b) => ((a.on || '') + (I(a.id).time || '')).localeCompare((b.on || '') + (I(b.id).time || ''));
@@ -862,8 +880,7 @@ function renderAppts() {
   const one = (c) => esc(G(c).name.replace(/s$/, ''));
   const dm = (open, act, head, opts) => open ? `<span class="vsortx" data-a="${act}"></span><span class="vdrop vsortm ${head ? '' : 'vaddm'}" role="menu">${head ? `<span class="mono">${head}</span>` : ''}${opts}</span>` : '';
   const abar = `<span class="vsortw"><button class="fbtn" data-a="apaddopen" aria-label="Add" aria-haspopup="menu" aria-expanded="${!!S.apAddOpen}" aria-pressed="${!!S.apAddOpen}">${icon('plus', 18)}</button>${dm(S.apAddOpen, 'apaddopen', '', cats.map((c) => `<button role="menuitem" data-a="newappt" data-v="${c}">${one(c)}</button>`).join(''))}</span>`;
-  const fOn = S.cat !== 'all';
-  const fbar = `<span class="vsortw"><button class="fbtn" data-a="apfopen" aria-label="Filter" aria-haspopup="menu" aria-expanded="${!!S.apFOpen}" aria-pressed="${fOn || !!S.apFOpen}">${icon('sliders-horizontal', 18)}</button>${dm(S.apFOpen, 'apfopen', 'Show', [['all', 'All']].concat(cats.map((c) => [c, G(c).name])).map(([k, l]) => `<button role="menuitemradio" data-a="cat" data-v="${k}" aria-checked="${S.cat === k}" aria-current="${S.cat === k}">${esc(l)}${S.cat === k ? icon('check', 16, 2) : ''}</button>`).join(''))}</span>`;
+  const fbar = cats.length > 1 ? colSquares(cats.map((c) => [G(c).color, G(c).name, c]), S.cat !== 'all' && S.cat, 'catsq') : '';
   if (!S.edit) return `<div class="ptools">${abar}${fbar}</div>` + (sec('Today', today) + sec('Coming up', coming) || '<p class="empty">Nothing booked.</p>');
   return chips + (sec('Today', today) + sec('Coming up', coming) || '<p class="empty">Nothing booked.</p>') +
     `<button class="addbtn" data-a="newappt"><span class="plus">+</span>Add ${S.cat !== 'all' && G(S.cat) ? esc(G(S.cat).name.toLowerCase().replace(/s$/, '')) : 'appointment'}</button>`;
@@ -912,7 +929,8 @@ function askDelete(act, a, ref, v) {
   return null;
 }
 function sheetLayer() { let h = '';
-  if (S.sheet.kind === 'checkin') { const b = sheetBody(); const [main, foot] = b.split('\u0001'); h += `<div class="cifull" role="dialog" aria-label="${esc(S.sheet.title)}">${ciHeader(S.sheet)}<div class="sb">${main}</div>${foot || ''}</div>`; }
+  if (S.sheet.kind === 'checkin') { const b = sheetBody(); const [main, foot] = b.split('\u0001'); const st = (S.sheet.steps || [])[S.sheet.step || 0], tc = st && st.gid && G(st.gid) ? G(st.gid).color : ''; // each step wears its category's colour (Stone, 2026-11-23)
+    h += `<div class="cifull" role="dialog" aria-label="${esc(S.sheet.title)}"${tc ? ` style="--tc:${tc}"` : ''}>${ciHeader(S.sheet)}<div class="sb">${main}</div>${foot || ''}</div>`; }
   else h += `<div class="scrim" data-a="closesheet"><div class="sheet ${S.sheet.kind === 'feel' && !S.sheet.cfg ? 'feelsh' : S.sheet.kind === 'note' ? 'notesh' : ''}" role="dialog" aria-label="${esc(S.sheet.title)}"><header><h2>${esc(S.sheet.title)}</h2>${S.sheet.kind === 'hyper' ? hyperDetHead(S.sheet.ref, T0, hcolor(S.sheet.ref)) || (() => { const DT = (I(S.sheet.ref).parts || []).map((w) => [w, w]); const pk = hval(T0, 'pt:' + S.sheet.ref) || []; return DT.length ? `<div class="chips hdet">${DT.map((x) => pchip(S.sheet.ref, pk, hcolor(S.sheet.ref), x)).join('')}</div>` : ''; })() : ''}${(() => { const k = { item: 'dsave', group: 'savegroup', area: 'savearea', tracker: 'tsave', trip: 'tripsave', cond: 'condsave', insc: 'inscsave', word: 'wsave', rem: 'remsave' }[S.sheet.kind]; return k ? `<button class="hsave" data-a="${k}">${S.sheet.isNew ? 'Add' : 'Save'}</button>` : ''; })()}<button class="hb" data-a="closesheet" aria-label="Close">${icon('x', 22)}</button></header><div class="sb">${sheetBody()}</div></div></div>`;
   return h; }
 function renderLayer() { setTimeout(navTrack, 0);
@@ -993,9 +1011,17 @@ function sheetBody() {
     // started on an earlier day: I can say which day I did part two
     if (days.length) return `<p class="note" style="font-size:14px">When did I finish it?</p><div class="chips" style="margin-top:6px">${days.reverse().map((x) => `<button class="chip" data-a="twoon" data-ref="${s.ref}" data-v="${x}">${esc(relDay(x))}</button>`).join('')}</div><div class="btns"><button class="btn dark" data-a="twoyes" data-ref="${s.ref}">Today</button><button class="btn" data-a="closesheet">Not yet</button></div>`;
     return `<p class="note" style="font-size:14px">Did I finish it?</p><div class="btns"><button class="btn dark" data-a="twoyes" data-ref="${s.ref}">Yes, done</button><button class="btn" data-a="closesheet">Not yet</button></div>`; }
-  if (s.kind === 'skipped') { const B = skipList(); const D = [...new Set(foodPend().concat(B))].sort(); const P = s.pick || []; // I pick which days were bad days; the rest stay just skipped (2026-11-20)
-    return `${B.length ? `<p class="note" style="font-size:14px">I didn't open Almanac on ${B.length === 1 ? 'one day' : B.length + ' days'}. Which ${B.length === 1 ? 'was a bad day' : 'were bad days'}?</p>` : ''}<div class="chips" style="margin-top:6px">${B.map((x) => `<button class="chip" data-a="skippick" data-v="${x}" aria-pressed="${P.includes(x)}">${esc(fmtDate(x))}</button>`).join('')}</div><p class="note" style="font-size:14px;margin-top:${B.length ? 18 : 0}px">Did I follow my meal plan?</p>${D.map((x) => { const f = (s.food || {})[x] || ''; return `<div class="skfood"><span>${esc(fmtDate(x))}</span><div class="chips">${[['ok', 'Followed'], ['fail', 'Failed'], ['skip', 'Skip']].map(([v, l]) => `<button class="chip" data-a="skipfood" data-ref="${x}" data-v="${v}" aria-pressed="${f === v}">${l}</button>`).join('')}</div></div>`; }).join('')}
-      <div class="btns"><button class="btn dark" data-a="skipbad">Done</button></div>`; } // and whether I followed the meal plan on each (2026-11-20)
+  if (s.kind === 'skipped') { const B = skipList(); const D = [...new Set(foodPend().concat(B))].sort(); const P = s.pick || [], F = s.food || {};
+    // Welcome back as a calendar (Stone, 2026-11-23): a table per week with the days I missed; I tick which were bad days
+    // and tap each meal plan cell through followed, failed and skipped
+    const ML = { ok: '✓', fail: '✗', skip: '–' }, ML_SAY = { ok: 'followed', fail: 'failed', skip: 'skipped' };
+    const weeks = [...new Set(D.map(weekStart))];
+    const cell = (x, on, h) => on ? `<td class="away">${h}</td>` : `<td class="${x > T0 ? 'off' : ''}"></td>`;
+    return weeks.map((w) => { const days = [0, 1, 2, 3, 4, 5, 6].map((i) => addDays(w, i));
+      return `<table class="wbt"><tr><th class="lab">Week<br>${isoWeek(w)}</th>${days.map((x) => `<th class="${x > T0 ? 'off' : B.includes(x) || D.includes(x) ? 'away' : ''}"><small>${WD[wd(x)]}</small>${x === T0 ? `<u>${parse(x).getDate()}</u>` : parse(x).getDate()}</th>`).join('')}</tr>
+        ${B.length ? `<tr><td class="lab">Bad day</td>${days.map((x) => cell(x, B.includes(x), `<button class="bd" data-a="skippick" data-v="${x}" aria-pressed="${P.includes(x)}" aria-label="${esc(fmtDate(x))} was a bad day"></button>`)).join('')}</tr>` : ''}
+        <tr><td class="lab">Meal plan</td>${days.map((x) => cell(x, D.includes(x), `<button class="ml" data-a="skipfood" data-ref="${x}" aria-label="Meal plan on ${esc(fmtDate(x))}${F[x] ? ': ' + ML_SAY[F[x]] : ''}">${ML[F[x]] || ''}</button>`)).join('')}</tr></table>`; }).join('') +
+      '<div class="btns"><button class="btn dark" data-a="skipbad">Done</button></div>'; }
   if (s.kind === 'much') return `<p class="note" style="font-size:14px">Too much “${esc((I(s.ref) || G(s.ref) || {}).name || '')}”. What kind?</p><div class="btns"><button class="btn dark" data-a="much" data-v="hyper">Hyperfixation</button><button class="btn dark" data-a="much" data-v="inert">Inertia</button><button class="btn" data-a="much" data-v="">Skip</button></div>`;
   if (s.kind === 'checkin') return checkinSheet(s);
   if (s.kind === 'feel') return feelSheet();
@@ -1070,8 +1096,8 @@ const starSvg = (k, sz = 18) => `<svg width="${sz}" height="${sz}" viewBox="0 0 
 // Training marks a fully done day with a flower instead of a star (2026-11-05)
 const flowerSvg = (col, sz, cls = '') => `<svg class="${cls}" width="${sz}" height="${sz}" viewBox="0 0 24 24" aria-hidden="true"><g fill="${col}"><ellipse cx="12" cy="6.3" rx="2.9" ry="5" transform="rotate(0 12 12)"/><ellipse cx="12" cy="6.3" rx="2.9" ry="5" transform="rotate(72 12 12)"/><ellipse cx="12" cy="6.3" rx="2.9" ry="5" transform="rotate(144 12 12)"/><ellipse cx="12" cy="6.3" rx="2.9" ry="5" transform="rotate(216 12 12)"/><ellipse cx="12" cy="6.3" rx="2.9" ry="5" transform="rotate(288 12 12)"/></g></svg>`;
 const starEdit = (k) => markEdit(k); // the completed-day mark pop-up (marks.js)
-function getProp(ref, k) { if (ref.startsWith('wh:')) return k === 'color' ? whCol(ref.slice(3)) : undefined; if (ref.startsWith('pdc:')) return k === 'color' ? pdGetCol(ref.slice(4)) : undefined; if (ref.startsWith('ic:')) return k === 'color' ? insColOf(ref.slice(3)) : undefined; if (ref.startsWith('ui:')) return k === 'icon' ? uiIc(ref.slice(3), 'circle') : undefined; if (ref.startsWith('fc:')) return k === 'color' ? feelCol(ref.slice(3), '#9A9387') : undefined; if (ref.startsWith('ctag:')) return k === 'color' ? ctagCol(ref.slice(5)) : undefined; if (ref.startsWith('star:')) return k === 'color' ? starCol(ref.slice(5)) : undefined; if (ref.startsWith('tk:')) return k === 'color' ? tripCol(ref.slice(3)) : undefined; if (ref === 'cc:fit') return k === 'color' ? condCol() : undefined; if (ref.startsWith('x:')) return (mealPlan().extras.find((x) => x.id === ref.slice(2)) || {})[k] || (k === 'color' ? xcol({ id: ref.slice(2) }) : k === 'icon' ? xicon({ id: ref.slice(2) }) : undefined); if (ref.startsWith('a:')) return M.areas[ref.slice(2)][k]; if (ref.startsWith('p:')) return M.pages[ref.slice(2)][k]; if (ref === 'draft') return S.sheet && S.sheet.back && S.sheet.back.draft && S.sheet.back.draft[k]; return (I(ref) || G(ref) || {})[k]; }
-function setProp(ref, k, v) { if (ref.startsWith('wh:')) { if (k === 'color') { const W = M.settings.wheelCols = M.settings.wheelCols || {}; if (v) W[ref.slice(3)] = v; else delete W[ref.slice(3)]; } return; } if (ref.startsWith('pdc:')) { if (k === 'color' && v) pdSetCol(ref.slice(4), v); return; } if (ref.startsWith('ic:')) { if (k === 'color') insSetCol(ref.slice(3), v); return; } if (ref.startsWith('ui:')) { if (k === 'icon') (M.settings.uiIcons = M.settings.uiIcons || {})[ref.slice(3)] = v; return; } if (ref.startsWith('fc:')) { const x = (M.settings.feelings || []).find((y) => y[0] === ref.slice(3)); if (x && k === 'color' && v) x[1] = v; return; } if (ref.startsWith('ctag:')) { const t = ctag(ref.slice(5)); if (t && k === 'color' && v) t.color = v; return; } if (ref === 'cc:fit') { if (k === 'color') { if (v) M.settings.fitCondCol = v; else delete M.settings.fitCondCol; } return; } if (ref.startsWith('tk:')) { if (k === 'color') { M.settings.tripCols = M.settings.tripCols || {}; if (v) M.settings.tripCols[ref.slice(3)] = v; else delete M.settings.tripCols[ref.slice(3)]; } return; } if (ref.startsWith('star:')) { if (k === 'color') { M.settings.starCols = M.settings.starCols || {}; if (v) M.settings.starCols[ref.slice(5)] = v; else delete M.settings.starCols[ref.slice(5)]; } return; } if (ref.startsWith('x:')) { const x = mealPlan().extras.find((e) => e.id === ref.slice(2)); if (x) x[k] = v; return; } if (ref.startsWith('a:')) M.areas[ref.slice(2)][k] = v; else if (ref.startsWith('p:')) M.pages[ref.slice(2)][k] = v; else { const o = I(ref) || G(ref); if (!o) return; if (v === '' || v == null) delete o[k]; else o[k] = v; } }
+function getProp(ref, k) { if (ref.startsWith('pdc:')) return k === 'color' ? pdGetCol(ref.slice(4)) : undefined; if (ref.startsWith('ic:')) return k === 'color' ? insColOf(ref.slice(3)) : undefined; if (ref.startsWith('ui:')) return k === 'icon' ? uiIc(ref.slice(3), 'circle') : undefined; if (ref.startsWith('fc:')) return k === 'color' ? feelCol(ref.slice(3), '#9A9387') : undefined; if (ref.startsWith('ctag:')) return k === 'color' ? ctagCol(ref.slice(5)) : undefined; if (ref.startsWith('star:')) return k === 'color' ? starCol(ref.slice(5)) : undefined; if (ref.startsWith('tk:')) return k === 'color' ? tripCol(ref.slice(3)) : undefined; if (ref === 'cc:fit') return k === 'color' ? condCol() : undefined; if (ref.startsWith('x:')) return (mealPlan().extras.find((x) => x.id === ref.slice(2)) || {})[k] || (k === 'color' ? xcol({ id: ref.slice(2) }) : k === 'icon' ? xicon({ id: ref.slice(2) }) : undefined); if (ref.startsWith('a:')) return M.areas[ref.slice(2)][k]; if (ref.startsWith('p:')) return M.pages[ref.slice(2)][k]; if (ref === 'draft') return S.sheet && S.sheet.back && S.sheet.back.draft && S.sheet.back.draft[k]; return (I(ref) || G(ref) || {})[k]; }
+function setProp(ref, k, v) { if (ref.startsWith('pdc:')) { if (k === 'color' && v) pdSetCol(ref.slice(4), v); return; } if (ref.startsWith('ic:')) { if (k === 'color') insSetCol(ref.slice(3), v); return; } if (ref.startsWith('ui:')) { if (k === 'icon') (M.settings.uiIcons = M.settings.uiIcons || {})[ref.slice(3)] = v; return; } if (ref.startsWith('fc:')) { const x = (M.settings.feelings || []).find((y) => y[0] === ref.slice(3)); if (x && k === 'color' && v) x[1] = v; return; } if (ref.startsWith('ctag:')) { const t = ctag(ref.slice(5)); if (t && k === 'color' && v) t.color = v; return; } if (ref === 'cc:fit') { if (k === 'color') { if (v) M.settings.fitCondCol = v; else delete M.settings.fitCondCol; } return; } if (ref.startsWith('tk:')) { if (k === 'color') { M.settings.tripCols = M.settings.tripCols || {}; if (v) M.settings.tripCols[ref.slice(3)] = v; else delete M.settings.tripCols[ref.slice(3)]; } return; } if (ref.startsWith('star:')) { if (k === 'color') { M.settings.starCols = M.settings.starCols || {}; if (v) M.settings.starCols[ref.slice(5)] = v; else delete M.settings.starCols[ref.slice(5)]; } return; } if (ref.startsWith('x:')) { const x = mealPlan().extras.find((e) => e.id === ref.slice(2)); if (x) x[k] = v; return; } if (ref.startsWith('a:')) M.areas[ref.slice(2)][k] = v; else if (ref.startsWith('p:')) M.pages[ref.slice(2)][k] = v; else { const o = I(ref) || G(ref); if (!o) return; if (v === '' || v == null) delete o[k]; else o[k] = v; } }
 
 // The item sheet edits a draft; Save writes it back (and places a new item).
 // STUDY SESSIONS (2026-11-06): a study task's estimate can be split into dated sessions (2 h = 1 h Monday, 30 min twice).
@@ -1330,8 +1356,7 @@ document.addEventListener('click', (e) => {
     case 'peekedit': { const s = S.sheet; S.sheet = null; openItem(s.ref); break; }
     case 'drep': capture(); if (v) S.sheet.draft.rep = { n: (S.sheet.draft.rep || {}).n || 1, unit: v }; else delete S.sheet.draft.rep; renderLayer(); break;
     case 'week': S.day = addDays(S.day, +v); render(); break;
-    case 'planfopen': S.planFOpen = !S.planFOpen; render(); break;
-    case 'planf': S.planF = v; S.planFOpen = false; render(); break;
+    case 'planc': S.planC = S.planC === v ? null : v; render(); break;
     case 'planaddopen': S.planAddOpen = !S.planAddOpen; render(); break;
     case 'gotoday': S.day = v; S.page = 'today'; render(); break;
     case 'bopen': S.open['b:' + ref] = S.open['b:' + ref] === false; render(); break;
@@ -1345,7 +1370,7 @@ document.addEventListener('click', (e) => {
     case 'twoyes': S.sheet = null; twoFinish(ref); break;
     case 'twoon': S.sheet = null; twoFinishOn(ref, v); break;
     case 'skippick': { const P = S.sheet.pick = S.sheet.pick || []; const i = P.indexOf(v); if (i >= 0) P.splice(i, 1); else P.push(v); renderLayer(); return true; }
-    case 'skipfood': { const F = S.sheet.food = S.sheet.food || {}; if (F[ref] === v) delete F[ref]; else F[ref] = v; renderLayer(); return true; }
+    case 'skipfood': { const F = S.sheet.food = S.sheet.food || {}; const nx = { '': 'ok', ok: 'fail', fail: 'skip' }[F[ref] || '']; if (nx) F[ref] = nx; else delete F[ref]; renderLayer(); return true; }
     case 'skipbad': { const P = (S.sheet && S.sheet.pick) || []; const F = (S.sheet && S.sheet.food) || {}; const Dq = [...new Set(foodPend().concat(skipList()))]; S.sheet = null; change(() => { M.settings.foodPend = Dq.filter((x) => !F[x]); M.badDays = M.badDays || {}; P.forEach((x) => { M.badDays[x] = 'skip'; }); M.foodMark = M.foodMark || {}; Object.keys(F).forEach((x) => { M.foodMark[x] = F[x]; }); M.settings.skipAsk = addDays(T0, -1); P.forEach((x) => snapDay(x)); }, P.length ? (P.length === 1 ? 'Made it a bad day' : 'Made them bad days') : null); break; }
     case 'step': { const it = I(ref); const was = val(T0, ref); change(() => { if (was) delete L(T0)[ref]; else { L(T0)[ref] = 'done'; if (M.missed && M.missed[T0]) delete M.missed[T0][ref]; } }, was ? 'Unticked ' + it.name : null); break; }
     case 'checkin': openSheet({ kind: 'checkin', ref, title: I(ref).name }); break;
@@ -1362,11 +1387,10 @@ document.addEventListener('click', (e) => {
     case 'addstep': { const id = uid('s'); change(() => { M.items[id] = { name: 'New step', type: 'step', kind: 'behaviour', tags: [], insight: true }; I(ref).steps.push(id); }); focusName(id); break; }
     case 'addblock': { const id = uid('b'); const last = G(blockIds()[blockIds().length - 1]); change(() => { M.groups[id] = { name: 'New block', style: 'dayblock', holds: 'task', start: last.end, end: last.end < '23:00' ? '23:00' : last.end, color: '#7DBE9A', icon: 'clock', kids: [] }; G('g-blocks').kids.push(id); }); focusName(id); break; }
     case 'addcat': { const id = uid('c'); change(() => { M.groups[id] = { name: 'New category', style: 'acat', holds: 'appt', color: '#A877C4', icon: 'calendar', kids: [] }; G('g-appts').kids.push(id); }); focusName(id); break; }
-    case 'cat': S.cat = v; S.apFOpen = false; render(); break;
+    case 'catsq': S.cat = S.cat === v ? 'all' : v; render(); break;
     case 'new': S.sheet = null; if (S.planAddOpen) { S.planAddOpen = false; render(); } newItem(v); break;
     case 'newappt': S.sheet = null; if (S.apAddOpen) { S.apAddOpen = false; render(); } newAppt(v); break;
     case 'apaddopen': S.apAddOpen = !S.apAddOpen; render(); break;
-    case 'apfopen': S.apFOpen = !S.apFOpen; render(); break;
     case 'iconfor': capture(); openSheet({ kind: 'icon', ref: v, title: 'Choose an icon', back: S.sheet }); break;
     case 'iconcat': S.sheet.cat = v; renderLayer(); { const g = $('#layer .icg'); if (g) g.scrollTop = 0; } break;
     case 'pickicon': { const s = S.sheet; if (s.ref === 'draft') { s.back.draft.icon = v; S.sheet = s.back; renderLayer(); break; } change(() => setProp(s.ref, 'icon', v)); S.sheet = s.back || null; render(); break; }
@@ -1913,7 +1937,7 @@ function answerUI(id, d, c) {
   const it = I(id); const v = hval(d, id); const sc = it.scale;
   if (SCALES[sc]) { const n = SCALES[sc].length;
     return `<div class="scale" style="grid-template-columns:repeat(${n},minmax(0,1fr))">${SCALES[sc].map((w, i) => { const on = v === i + 1;
-      return `<button data-a="hset" data-ref="${id}" data-v="${i + 1}" aria-label="${esc(tnm(it))}: ${w}" aria-pressed="${on}" style="background:${on ? stepCol(c, i, n) : flatCol(c)};${on ? `box-shadow:0 0 0 2px var(--card),0 0 0 3.5px ${deep(c)}` : ''}">${sc === 'mood5' ? `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${on ? deep(c) : '#9A9387'}" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9 9.6h.01M15 9.6h.01"/><path d="${FACES[i]}"/></svg>` : ''}</button>`; }).join('')}</div>`; }
+      return `<button data-a="hset" data-ref="${id}" data-v="${i + 1}" aria-label="${esc(tnm(it))}: ${w}" aria-pressed="${on}" style="${on ? `background:${stepCol(c, i, n)};box-shadow:0 0 0 2px var(--page),0 0 0 3px ${deep(c)}` : ''}">${sc === 'mood5' ? `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${on ? deep(c) : '#9A9387'}" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9 9.6h.01M15 9.6h.01"/><path d="${FACES[i]}"/></svg>` : ''}</button>`; }).join('')}</div>`; }
   // avoidance (2026-11-03): two wordless buttons like the scales, a SUN for showing up and a MOON for avoiding
   if (sc === 'avoid') return `<div class="scale" style="grid-template-columns:repeat(2,minmax(0,1fr))">${[['faced', 'Showed up', '#E6BC74', 'sun'], ['avoided', 'Avoided it', '#A9B4C4', 'moon']].map(([k, w, col, ic]) => { const on = v === k;
     return `<button data-a="hset" data-ref="${id}" data-v="${k}" aria-label="${esc(tnm(it))}: ${w}" aria-pressed="${on}" style="background:${on ? col : flatCol(c)};color:${on ? mix(col, TH.ink, 0.55) : '#9A9387'};${on ? `box-shadow:0 0 0 2px var(--card),0 0 0 3.5px ${deep(col)}` : ''}">${ic === 'moon' ? FULLMOON : icon(ic, 20, 2)}</button>`; }).join('')}</div>`;
@@ -2326,7 +2350,7 @@ function groupParts(gid) {
 function ciSteps(which) {
   const d = T0; const steps = []; const own = ciQs(which);
   const cats = G('g-health').kids.filter((g) => G(g) && G(g).style === 'hgroup' && G(g).special !== 'checkins' && G(g).ci === which);
-  const catStep = (g) => ({ name: G(g).name, parts: groupParts(g) });
+  const catStep = (g) => ({ name: G(g).name, gid: g, parts: groupParts(g) });
   if (which === 'morning') {
     cats.forEach((g) => steps.push(catStep(g)));
     const mood = own.filter((k) => I(k).scale === 'mood5');

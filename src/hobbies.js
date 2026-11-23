@@ -2,7 +2,7 @@
 // g-hobbies > hobby groups (style 'hobby', shown as folder tabs down the right edge) > kids: activities (items I just tick)
 // and projects (groups, style 'project') > project tasks (one-off tasks that can be scheduled like any other task).
 // A project can be on hold (its own folding row, closed by default) or finished (p.done = date): finished ones live in
-// the ⋯ menu's Archive. Surprise me is the dice tab at the top of the folders.
+// the ⋯ menu's Archive. Surprise me is the wheel tab at the top of the folders.
 // every hobby item can be overdone by default (2026-11-11): swipe it to the left in Hobbies for Too much
 function hobOverFix(m) { if (m.settings.hobOver1 || !m.groups || !m.groups['g-hobbies']) return; m.settings.hobOver1 = true;
   const G0 = (k) => m.groups[k]; m.groups['g-hobbies'].kids.filter(G0).forEach((h) => G0(h).kids.forEach((k) => { if (m.items[k] && m.items[k].overdo === undefined) m.items[k].overdo = true; if (G0(k) && G0(k).style === 'project') G0(k).kids.forEach((t) => { if (m.items[t] && m.items[t].overdo === undefined) m.items[t].overdo = true; }); })); }
@@ -49,9 +49,9 @@ function hobArea(id) { const h = hobIds().find((k) => G(k).kids.includes(id)); i
 
 function hobRail() {
   const H = hobIds(); if (!S.hob || (S.hob !== 'surprise' && !G(S.hob))) S.hob = H[0] || 'surprise';
-  const tab = (h) => { const g = G(h); const on = S.hob === h && !S.proj;
-    return `<button role="tab" data-a="hobpick" data-v="${h}" aria-selected="${S.hob === h}" style="${S.hob === h ? 'background:' + g.color + '2E' : ''}"><span class="dot" style="background:${g.color}" ${S.edit ? `data-col="${h}" role="button" aria-label="Change colour of ${esc(g.name)}"` : ''}></span><span class="vl">${esc(g.name)}</span></button>`; };
-  return `<nav role="tablist" aria-label="Hobbies"><button role="tab" class="dice" data-a="hobpick" data-v="surprise" aria-selected="${S.hob === 'surprise'}" aria-label="Surprise me">${icon('dice-5', 18)}</button>${H.map(tab).join('')}${S.edit ? `<button class="dice" data-a="hobadd" aria-label="Add hobby">${icon('plus', 18)}</button>` : ''}</nav>`;
+  const tab = (h) => { const g = G(h);
+    return `<button role="tab" data-a="hobpick" data-v="${h}" aria-selected="${S.hob === h}"><span class="dot" style="background:${g.color}" ${S.edit ? `data-col="${h}" role="button" aria-label="Change colour of ${esc(g.name)}"` : ''}></span><span class="vl">${esc(g.name)}</span></button>`; };
+  return `<nav role="tablist" aria-label="Hobbies"><button role="tab" class="dice" data-a="hobpick" data-v="surprise" aria-selected="${S.hob === 'surprise'}" aria-label="Surprise me"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4"/><path d="M12 1.5v3" stroke-width="2"/></svg></button>${H.map(tab).join('')}${S.edit ? `<button class="dice" data-a="hobadd" aria-label="Add hobby">${icon('plus', 18)}</button>` : ''}</nav>`;
 }
 // edit mode: the tabs as a list, to rename them and drag them into another order (the owner, 2026-11-11)
 function hobTabsCard() { return lcard(null, 'Hobby tabs', '', `<div class="list" data-list="g-hobbies">${hobIds().map((h) => `<div class="row" data-ref="${h}">${grip()}<span class="hdot" data-col="${h}" role="button" aria-label="Change the ${esc(G(h).name)} colour" style="background:${G(h).color};width:16px;height:16px;flex:none;border-radius:8px;outline:1.5px dashed var(--faint);outline-offset:2px"></span><span class="lbl">${nm(h, G(h).name)}</span></div>`).join('')}</div>`); }
@@ -94,31 +94,25 @@ function projPage(p) { const x = G(p); const h = hobOf(p); const c = G(h).color;
 function dieFace() { const n = S.dieN || 5; const P = { 1: [[2, 2]], 2: [[1, 1], [3, 3]], 3: [[1, 1], [2, 2], [3, 3]], 4: [[1, 1], [3, 1], [1, 3], [3, 3]], 5: [[1, 1], [3, 1], [2, 2], [1, 3], [3, 3]], 6: [[1, 1], [3, 1], [1, 2], [3, 2], [1, 3], [3, 3]] }[n];
   return `<span class="dief" aria-hidden="true">${P.map(([x, y]) => `<i style="left:${x * 25}%;top:${y * 25}%"></i>`).join('')}</span>`; }
 // the wheel's own colours, editable in edit mode (2026-11-09): rim, pin and lights
-const WH_DEF = { rim: '#E58F7B', pin: '#F2C14E', bulb: '#FBE3A6' };
-const whCol = (k) => (M.settings.wheelCols || {})[k] || WH_DEF[k];
 function surprisePage() {
   const pool = M.settings.hobPool || {};
-  const dot = (k, l) => `<div class="tg"><span class="l"><span class="hdot" data-col="wh:${k}" role="button" aria-label="Change the ${l.toLowerCase()} colour" style="background:${whCol(k)};width:16px;height:16px;display:inline-block;border-radius:8px;margin-right:10px;vertical-align:-3px;outline:1.5px dashed var(--faint);outline-offset:2px"></span>${l}</span></div>`;
-  if (S.edit) return `<div class="card rollcard">${hobWheel()}</div>` + lcard(null, 'Wheel', '', dot('rim', 'Rim') + dot('pin', 'Pin') + dot('bulb', 'Lights')) + hobTabsCard() + lcard(null, 'Surprise me picks from', '', hobIds().map((h) => `<div class="tg"><span class="l"><span class="hdot" data-col="${h}" role="button" aria-label="Change the ${esc(G(h).name)} colour" style="background:${G(h).color};width:16px;height:16px;display:inline-block;border-radius:8px;margin-right:10px;vertical-align:-3px;outline:1.5px dashed var(--faint);outline-offset:2px"></span>${esc(G(h).name)}</span><button class="fbtn hicb" data-ic="${h}" aria-label="Change the icon for ${esc(G(h).name)}" style="color:${mix(G(h).color || '#9A9387', TH.ink, 0.45)}">${icon(G(h).icon || 'star', 18)}</button><button class="swt" role="switch" aria-checked="${pool[h] !== false}" data-a="hobpool" data-v="${h}" aria-label="${esc(G(h).name)}"></button></div>`).join(''));
+  if (S.edit) return `<div class="card rollcard">${hobWheel()}</div>` + hobTabsCard() + lcard(null, 'Surprise me picks from', '', hobIds().map((h) => `<div class="tg"><span class="l"><span class="hdot" data-col="${h}" role="button" aria-label="Change the ${esc(G(h).name)} colour" style="background:${G(h).color};width:16px;height:16px;display:inline-block;border-radius:8px;margin-right:10px;vertical-align:-3px;outline:1.5px dashed var(--faint);outline-offset:2px"></span>${esc(G(h).name)}</span><button class="fbtn hicb" data-ic="${h}" aria-label="Change the icon for ${esc(G(h).name)}" style="color:${mix(G(h).color || '#9A9387', TH.ink, 0.45)}">${icon(G(h).icon || 'star', 18)}</button><button class="swt" role="switch" aria-checked="${pool[h] !== false}" data-a="hobpool" data-v="${h}" aria-label="${esc(G(h).name)}"></button></div>`).join(''));
   const r = S.roll && !S.spinning && suggestion(S.roll);
   return `<div class="card rollcard">${hobWheel()}${r ? `<div class="rollin"><span class="mono" style="color:${r.color}">${esc(r.hobby)}</span><p class="rollt">${esc(r.text)}</p><p class="rolls">${esc(r.sub)}</p><div class="pjbtns" style="justify-content:center"><button class="btn" data-a="hobrollgo">Open</button>${r.go ? `<button class="btn" data-a="projwork" data-ref="${r.go}" aria-pressed="${(G(r.go).worked || []).includes(T0)}">${(G(r.go).worked || []).includes(T0) ? 'Done today' : 'Worked on it'}</button>` : ''}</div></div>` : ''}</div>`;
 }
-// the spinning wheel (2026-11-08): a slice per hobby in the pool, in its colour with its icon; a tap spins it and it lands on the roll
+// the spinning wheel (Stone, 2026-11-23): a flat slice per hobby in the pool, its name running out from the hub, an ink pointer on top;
+// a tap spins it and it lands on the roll. Names are flipped on the left half so they never read upside down.
 const wheelHobs = () => { const pool = M.settings.hobPool || {}; return hobIds().filter((h) => pool[h] !== false); };
-function hobWheel() { const H = wheelHobs(); if (!H.length) return ''; const n = H.length, A = 360 / n, R = 89, C = 100;
+function hobWheel() { const H = wheelHobs(); if (!H.length) return ''; const n = H.length, A = 360 / n, R = 90, C = 100, rot = S.hwRot || 0;
   const pt = (deg, r) => { const t = (deg - 90) * Math.PI / 180; return [C + r * Math.cos(t), C + r * Math.sin(t)]; };
-  const win = !S.spinning && S.roll && H.includes(S.roll) ? S.roll : null; // after a spin the winning slice glows and the rest go quiet
-  const slices = H.map((h, i) => { const g = G(h), c = g.color || '#B3AC9F'; const dim = win && win !== h; const [x1, y1] = pt(i * A, R), [x2, y2] = pt((i + 1) * A, R); const [ix, iy] = pt(i * A + A / 2, R * 0.64);
-    const ic = icon(g.icon || 'star', 22, 1.8).replace('<svg ', `<svg x="${ix - 11}" y="${iy - 11}" `).replace(/stroke="currentColor"/, `stroke="${mix(c, TH.ink, 0.55)}"`);
-    const path = n === 1 ? `<circle cx="${C}" cy="${C}" r="${R}" fill="${c}"/>` : `<path d="M${C} ${C}L${x1} ${y1}A${R} ${R} 0 ${A > 180 ? 1 : 0} 1 ${x2} ${y2}Z" fill="${dim ? mix(c, TH.card, 0.64) : c}" stroke="${TH.card}" stroke-width="2.5" stroke-linejoin="round"/>`;
-    return `${path}<g transform="rotate(${i * A + A / 2} ${ix} ${iy})"${dim ? ' opacity=".45"' : ''}>${ic}</g>`; }).join('');
-  const pinC = whCol('pin'), rimC = whCol('rim'), bulbC = whCol('bulb');
-  // the lights sit on a ring that stays still while the wheel inside turns (2026-11-08)
-  const nb = 36, RR = 95; const bulbs = Array.from({ length: nb }, (_, i) => { const t = (i * 360 / nb - 90) * Math.PI / 180; return `<circle class="whb${i % 2}" cx="${C + RR * Math.cos(t)}" cy="${C + RR * Math.sin(t)}" r="2.5" fill="${i % 2 ? mix(bulbC, '#FFFFFF', 0.7) : bulbC}"/>`; }).join('');
-  return `<div class="whl"><div class="whbtn" role="img" aria-label="Wheel of hobbies, drag it round to spin"><svg class="whsv" viewBox="0 0 200 200" style="transform:rotate(${S.hwRot || 0}deg)">${slices}</svg></div>
-    <svg class="whrim" viewBox="0 0 200 200" aria-hidden="true"><circle cx="${C}" cy="${C}" r="${RR}" fill="none" stroke="${mix(rimC, TH.card, 0.12)}" stroke-width="9"/>${bulbs}</svg>
-    <span class="whhub" aria-hidden="true" style="background:${pinC};border:2.5px solid ${TH.card}"></span>
-    <svg class="whpin" viewBox="0 0 28 44" aria-hidden="true"><path d="M14 40.5C12.2 35 6 21.5 6 10a8 8 0 0 1 16 0c0 11.5-6.2 25-8 30.5z" fill="${pinC}" stroke="${TH.card}" stroke-width="2.2" stroke-linejoin="round"/><circle cx="14" cy="10" r="2.8" fill="${TH.card}"/></svg></div>`; }
+  const win = !S.spinning && S.roll && H.includes(S.roll) ? S.roll : null; // after a spin the rest go quiet
+  const slices = H.map((h, i) => { const g = G(h), dim = win && win !== h, fill = mix(g.color || '#9A9387', TH.page, dim ? 0.78 : 0.42);
+    const [x1, y1] = pt(i * A, R), [x2, y2] = pt((i + 1) * A, R), m = i * A + A / 2, [tx, ty] = pt(m, R * 0.58);
+    const flip = ((m + rot) % 360 + 360) % 360 > 180 ? 180 : 0;
+    const path = n === 1 ? `<circle cx="${C}" cy="${C}" r="${R}" fill="${fill}"/>` : `<path d="M${C} ${C}L${x1} ${y1}A${R} ${R} 0 ${A > 180 ? 1 : 0} 1 ${x2} ${y2}Z" fill="${fill}" stroke="${TH.page}" stroke-width="1.4"/>`;
+    return `${path}<text x="${tx}" y="${ty}" transform="rotate(${m - 90 + flip} ${tx} ${ty})" text-anchor="middle" dominant-baseline="central"${dim ? ' opacity=".35"' : ''}>${esc(g.name.toUpperCase())}</text>`; }).join('');
+  return `<div class="whl"><div class="whbtn" role="img" aria-label="Wheel of hobbies, drag it round to spin"><svg class="whsv" viewBox="0 0 200 200" style="transform:rotate(${rot}deg)"><circle class="rim" cx="${C}" cy="${C}" r="96"/>${slices}</svg></div>
+    <span class="whhub" aria-hidden="true"></span><svg class="whpin" viewBox="0 0 12 12" aria-hidden="true"><path d="M0 0H12L6 12Z"/></svg></div>`; }
 // the pin is a flapper: each slice edge that passes flicks it aside, then it springs back; as the wheel slows the flicks get further apart
 function pinRun(n) { if (pinRun.on) return; pinRun.on = true; const A = 360 / n; let a = 0, v = 0, last = null, prev = null, t0 = performance.now();
   const ang = (el) => { const m = getComputedStyle(el).transform; if (!m || m === 'none') return 0; const [ma, mb] = m.slice(7, -1).split(',').map(Number); return Math.atan2(mb, ma) * 180 / Math.PI; };
