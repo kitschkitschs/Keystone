@@ -867,11 +867,11 @@ nav.areas.two{justify-content:space-evenly} /* study mode: its two icons spaced 
 .ihz-top{top:0}
 .ihz i{position:absolute;border-radius:50%}
 .ihz b{position:absolute;left:4%;right:4%;height:1px;background:#B3AC9F}
-.ihzm{position:relative;width:22px;height:14px;flex:none;display:block}
-.ihzm .t,.ihzm .b{position:absolute;left:0;right:0;height:7px;overflow:hidden}
-.ihzm .t{top:0}.ihzm .b{top:7px}
+.ihzm{position:relative;width:22px;height:26px;flex:none;display:block}
+.ihzm .t,.ihzm .b{position:absolute;left:0;right:0;height:13px;overflow:hidden}
+.ihzm .t{top:0}.ihzm .b{top:13px}
 .ihzm i{position:absolute;left:5px;width:12px;height:12px;border-radius:50%}
-.ihzm b{position:absolute;left:0;right:0;top:7px;height:1px;background:#B3AC9F}
+.ihzm b{position:absolute;left:0;right:0;top:13px;height:1px;background:#B3AC9F}
 .ibig{display:flex;align-items:baseline;gap:8px}
 .ibig b{font-family:var(--serif);font-weight:400;font-size:34px;line-height:1}
 .ibig span{font-size:13px;color:var(--quiet)}
@@ -945,7 +945,7 @@ nav.areas.two{justify-content:space-evenly} /* study mode: its two icons spaced 
 
 /* dark mode (2026-11-08, from the cleaning-system reference): warm near-black page, soft charcoal cards with a faint light edge */
 /* ===== Stone (2026-11-23): the look over the whole app. Square corners, hairlines, small spaced caps, one ink. ===== */
-#phone *:not(.dot,.fdd,.cfmark,.hdot,.ovdot,.badot,.xdot,.dd,.d,.xdots i,.ci-ic,.whl *,.ihz i,.ihzm i){border-radius:0!important} /* every corner square; dots and the wheel stay round */
+#phone *:not(.dot,.fdd,.cfmark,.hdot,.ovdot,.badot,.xdot,.dd,.d,.xdots i,.ci-ic,.whl *,.ihz i,.ihzm i,.isuns i){border-radius:0!important} /* every corner square; dots and the wheel stay round */
 .card,.lcard,.hsec{background:transparent;box-shadow:none;border:0}
 .btn,.chip,.fbtn,.scale button,.tag,.hchip,.pick,.menu{box-shadow:none}
 header.top{padding-right:16px}#plusbtn,#menubtn{width:22px}#menubtn{margin:0 0 0 18px}#donebtn{margin-left:12px} /* the top bar icons keep the same 16px from the edge as the title (2026-11-23) */
@@ -1129,6 +1129,24 @@ input[type=range]::-moz-range-thumb{background:var(--ink);border-color:var(--ink
 #view .istats span{font:400 9px var(--mono);letter-spacing:.12em;text-transform:uppercase}
 /* ring names stay readable on top of darker colours: a halo in the page colour (2026-11-24) */
 .irl{text-shadow:0 0 2px var(--page),0 0 2px var(--page),0 0 3px var(--page),1px 0 0 var(--page),-1px 0 0 var(--page),0 1px 0 var(--page),0 -1px 0 var(--page);font-weight:500}
+/* edit menus like the Stone mock-up (2026-11-24): fields are an underline, mono SAVE, plain quick-day buttons, no leftover icons */
+.sheet .hsave{height:30px;padding:0 12px;border:1px solid var(--line);background:none;box-shadow:none;font:400 9.5px var(--mono);letter-spacing:.14em;text-transform:uppercase}
+.sheet .inp{border:0;border-bottom:1px solid var(--line);background:transparent;padding:10px 0}
+.sheet .inp:focus{outline:none;border-bottom-color:var(--quiet)}
+.sheet select.inp{padding-right:20px}
+.sheet .qd{gap:6px}.sheet .qd button{background:none;border:1px solid var(--line);box-shadow:none;padding:9px 0 8px;font-size:13px;gap:1px}
+.sheet .qd button small{font:400 8.5px var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.sheet .qd button[aria-pressed="true"]{border-color:var(--quiet);box-shadow:none}
+.sheet .inrow .blkbtn{width:auto;height:auto;min-height:40px;padding:0 12px;border:1px solid var(--line);background:none;font-size:14px;color:var(--ink);white-space:nowrap;max-width:40%;overflow:hidden;text-overflow:ellipsis;display:block}
+.sheet .inrow .blkbtn.off{color:var(--quiet)}
+.sheet .inrow .btn{white-space:nowrap;flex:none}
+.sheet .chip>svg:first-child{display:none}
+.blkpick button{gap:12px}
+/* the pop-up calendar is a plain grid of dates like the mock-up: no cell lines (2026-11-24) */
+.sheet .mcal .day{border:0}.sheet .mcal .calnav{border:0}
+/* the + sheet: word tiles, the feelings bar says what it is when empty (2026-11-24) */
+.addtile{font-size:13px;color:var(--ink2);text-align:center;padding:0 4px;line-height:1.2}
+.addfeel{display:flex;align-items:center;justify-content:center}.addfeel:not([style*=background]){background:none!important;border:1px solid var(--line)!important;box-shadow:none!important}.addfeel span{font:400 15px var(--sans);color:var(--quiet)}
 html.dark{--page:#1D1B19;--paper:#34312C;--rule:#433F39;--card:#2B2926;--ink:#EFEAE2;--ink2:#CFC8BC;--quiet:#A59E92;--faint:#7F786E;--faint2:#5F5952;--line:#3D3934;--line2:#35322E;--soft:#36332F;--wash:#3A3226;--washline:#5C4B33;--star:#C9A86F;--done:#8FA488;color-scheme:dark}
 html.dark .card,html.dark .lcard{background:linear-gradient(160deg,#33302C 0%,#2A2825 60%,#272522 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 1px 2px rgba(0,0,0,.3)}
 html.dark .vcard{box-shadow:none}

@@ -380,35 +380,51 @@ const focusLen = () => { const o = tmr(); return (o.mode === 'pomo' ? o.work : o
 // the line under the clock's progress: the break, or how long until the next one
 function pomoText() { const o = tmr(), t = M.timer; if (!t) return ''; const p = tPz();
   if (p.brkEnd) return 'Back to it in ' + mss(brkLeft());
+  if (p.wait) return 'Break over';
   if (o.mode === 'pomo') return p.done ? 'All ' + o.rounds + ' rounds done' : 'Round ' + Math.min(o.rounds, (p.n || 0) + 1) + ' of ' + o.rounds + ' · ' + mss(focusLen() - (tElapsed() - (p.at || 0))) + ' left';
   return o.rem ? 'Break in ' + mss(focusLen() - (tElapsed() - (p.at || 0))) : ''; }
-function startBreak(now) { const t = M.timer, o = tmr(), p = tPz(); if (t.start) { t.acc = (t.acc || 0) + now - t.start; t.start = null; } p.brkEnd = now + o.brk * 60000; ding(); flash('Time for a break'); }
+function startBreak(now) { const t = M.timer, o = tmr(), p = tPz(); if (t.start) { t.acc = (t.acc || 0) + now - t.start; t.start = null; } p.brkAt = now; p.brkEnd = now + o.brk * 60000; ding(); flash('Time for a break'); }
 function tmrTick() { const t = M.timer; if (!t) return; const o = tmr(); const now = Date.now(); const p = tPz();
   // the ring fills: confetti from the clock and a ding, once a day
   if (t.start && tPct() >= 100 && t.fxDay !== T0 && minOn(null, T0) + supMin(T0) < sessLen()) { t.fxDay = T0; ding(); const r = document.querySelector('#main .vring'), ph = $('#phone'); if (r && ph) { const R = r.getBoundingClientRect(), P = ph.getBoundingClientRect(); confetti(R.left + R.width / 2 - P.left, R.top + R.height / 2 - P.top); } save(); }
-  if (p.brkEnd) { if (now >= p.brkEnd) { p.brkEnd = null; p.at = tElapsed(); ding(); flash('Break over'); save(); render(); } return; }
+  if (p.brkEnd) { if (now >= p.brkEnd) { p.brkEnd = null; p.wait = true; ding(); flash('Break over'); save(); render(); } return; } // the break ends and waits for Resume (2026-11-24)
+  if (p.wait) return;
   if (!t.start || !focusLen() || p.done) return;
   if (tElapsed() - (p.at || 0) >= focusLen()) { if (o.mode === 'pomo') { p.n = (p.n || 0) + 1; if (p.n >= o.rounds) { t.acc = (t.acc || 0) + now - t.start; t.start = null; p.done = true; ding(); flash('All rounds done'); save(); render(); return; } }
     startBreak(now); save(); render(); } }
 setInterval(tmrTick, 1000);
-const tmrLine = () => { const o = tmr(); return o.mode === 'pomo' ? 'Pomodoro · ' + o.work + ' min, ' + o.brk + ' min break, ' + o.rounds + ' rounds' : o.rem ? 'Break every ' + dur(o.rem) + ' for ' + dur(o.brk) : 'No breaks'; };
+const tmrLine = () => { const o = tmr(); return o.mode === 'pomo' ? 'Pomodoro · ' + o.rounds + '×' + o.work + '/' + o.brk : o.rem ? 'Break · ' + o.rem + '/' + o.brk : 'No breaks'; }; // compact (2026-11-24)
 function tmrSheet() { const o = tmr(); const step = (k, l, unit, d) => `<div class="tg"><span class="l">${l}</span><span class="inrow" style="gap:10px;margin:0"><button class="btn" data-a="vtm" data-ref="${k}" data-v="-${d}" aria-label="Less">−</button><b class="tmv">${o[k] ? o[k] + unit : 'Off'}</b><button class="btn" data-a="vtm" data-ref="${k}" data-v="${d}" aria-label="More">+</button></span></div>`;
   return `<div class="fld"><span class="mono">Mode</span><div class="chips">${[['free', 'Breaks'], ['pomo', 'Pomodoro']].map(([k, l]) => `<button class="chip" data-a="vtmode" data-v="${k}" aria-pressed="${o.mode === k}">${l}</button>`).join('')}</div></div>
     <div class="fld calset">${o.mode === 'pomo' ? step('work', 'Focus', ' min', 5) + step('brk', 'Break', ' min', 1) + step('rounds', 'Rounds', '', 1) : step('rem', 'Break every', ' min', 5) + (o.rem ? step('brk', 'Break', ' min', 1) : '')}
     <div class="tg"><span class="l">Ding</span><button class="swt" role="switch" aria-checked="${o.sound}" data-a="vtsound" aria-label="Ding"></button></div></div>`; }
 // what the ring and clock show: a break counts down in a quiet colour, otherwise the day's study
-const ringPct = () => brkOn() ? brkLeft() / (tmr().brk * 60000) * 100 : tPct();
-const clockMs = () => brkOn() ? brkLeft() : tShown();
-const ruleText = () => brkOn() ? 'Break' : tRule();
+// the ring (2026-11-24): with breaks or pomodoro set it is the plan, focus stretches with each break left as a gap in the
+// background colour; the break fills in quietly while it counts down. Without breaks it fills up to the day's study session.
+function ringPlan() { const o = tmr(); const F = focusLen(), B = o.brk * 60000; if (!F) return null; const t = M.timer || {}, p = t.pz || {}, now = Date.now();
+  const n = o.mode === 'pomo' ? o.rounds : 1; const segs = []; let a = 0; for (let i = 0; i < n; i++) { segs.push({ a, len: F, k: 'f' }); a += F; if (o.mode !== 'pomo' || i < n - 1) { segs.push({ a, len: B, k: 'b' }); a += B; } }
+  const fEl = Math.max(0, Math.min(F, tElapsed() - (p.at || 0))); const cyc = F + B; const k = o.mode === 'pomo' ? Math.min(p.n || 0, n) : 0;
+  let pos = p.done ? a : p.brkEnd ? (o.mode === 'pomo' ? (k - 1) * cyc : 0) + F + Math.min(B, now - (p.brkAt || now)) : p.wait ? (o.mode === 'pomo' ? (k - 1) * cyc : 0) + F + B : k * cyc + fEl;
+  return { segs, total: a, pos: Math.max(0, Math.min(a, pos)) }; }
+const RW = 4; // a thin square-ended ring (Stone)
+function ringSvg() { const col = M.areas.study.color; const P = ringPlan(); const arc = (from, len, stroke, id) => `<circle ${id ? `id="${id}" ` : ''}cx="112" cy="112" r="104" fill="none" stroke="${stroke}" stroke-width="${RW}" stroke-dasharray="${(len * T_C).toFixed(2)} ${T_C}" stroke-dashoffset="${(-from * T_C).toFixed(2)}" transform="rotate(-90 112 112)"/>`;
+  if (!P) return arc(0, 1, 'var(--line)') + arc(0, tPct() / 100, col, 'tring');
+  return P.segs.map((g, i) => (g.k === 'f' ? arc(g.a / P.total, g.len / P.total, 'var(--line)') : '') + arc(g.a / P.total, 0, g.k === 'f' ? col : 'var(--faint)', 'tseg' + i)).join(''); }
+function ringUpdate() { const P = ringPlan(); if (!P) { const b = document.getElementById('tring'); if (b) b.setAttribute('stroke-dasharray', (tPct() / 100 * T_C).toFixed(2) + ' ' + T_C); return; }
+  P.segs.forEach((g, i) => { const e = document.getElementById('tseg' + i); if (e) e.setAttribute('stroke-dasharray', (Math.max(0, Math.min(g.len, P.pos - g.a)) / P.total * T_C).toFixed(2) + ' ' + T_C); }); }
+// smooth: the ring moves every frame while the timer page is open
+(function ringLoop() { try { if (document.getElementById('tclock') && M.timer) ringUpdate(); } catch (e) {} requestAnimationFrame(ringLoop); })();
+const clockMs = () => brkOn() ? brkLeft() : (M.timer && tPz().wait) ? 0 : tShown();
+const ruleText = () => brkOn() || (M.timer && tPz().wait) ? 'Break' : tRule();
 // the timer (polished, 2026-11-10): what I'm working on, the clock inside a ring that fills up to one study session, one line of progress, the buttons
 function timerPage() {
   const t = M.timer || {}; const id = t.id && I(t.id) ? t.id : null; const run = !!t.start, any = tElapsed() > 0; const col = M.areas.study.color;
   const sub = id ? (() => { const s = subjIds().find((x) => sIds(x).includes(id)); return s ? G(s).name : ''; })() : '';
   return (S.studyMode ? '' : crumbs([[studyName(), ''], ['Timer']])) + `<div class="vtimer">
     <button class="vtt" data-a="vtpick" aria-label="Change what I'm working on">${esc(id ? I(id).name : 'Study session')} <span class="chev" aria-hidden="true">${icon('chevron-down', 14)}</span></button><span class="mono vtsub">${esc(sub)}</span>
-    <div class="vring"><svg viewBox="0 0 224 224" aria-hidden="true"><circle cx="112" cy="112" r="104" fill="none" stroke="var(--soft)" stroke-width="8"/><circle id="tring" cx="112" cy="112" r="104" fill="none" stroke="${brkOn() ? 'var(--faint)' : col}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${T_C}" stroke-dashoffset="${T_C * (1 - ringPct() / 100)}" transform="rotate(-90 112 112)"/></svg><div class="vclock ${run || brkOn() ? '' : 'idle'}" id="tclock" role="timer">${fmtClock(clockMs())}</div></div>
+    <div class="vring"><svg viewBox="0 0 224 224" aria-hidden="true">${ringSvg()}</svg><div class="vclock ${run || brkOn() ? '' : 'idle'}" id="tclock" role="timer">${fmtClock(clockMs())}</div></div>
     <span class="mono${brkOn() ? ' tbrk' : ''}" id="trule">${esc(ruleText())}</span><span class="mono tpomo" id="tpomo">${esc(pomoText())}</span>
-    <div class="btns" style="justify-content:center"><button class="btn dark vtgo" data-a="${run ? 'tpause' : 'tstart'}">${run ? 'Pause' : any ? 'Carry on' : 'Start'}</button>${run || any ? '<button class="btn" data-a="tstop">Stop and save</button>' : ''}</div>
+    <div class="btns" style="justify-content:center"><button class="btn dark vtgo" data-a="${run ? 'tpause' : 'tstart'}">${run ? 'Pause' : M.timer && (tPz().brkEnd || tPz().wait) ? 'Resume' : any ? 'Carry on' : 'Start'}</button>${run || any ? '<button class="btn" data-a="tstop">Stop and save</button>' : ''}</div>
     <button class="btn tmrset" data-a="vtmr">${esc(tmrLine())}</button></div>`;
 }
 // Study support is a normal journal page with the tag 'Study support' (2026-11-10): today's one opens, or a new one starts
@@ -426,7 +442,7 @@ function saveTimer(msg) { const t = M.timer; if (!t) return; const min = Math.ro
   change(() => { M.study = M.study || {}; (M.study[T0] = M.study[T0] || []).push({ id, min }); L(T0); }, msg || ('Saved ' + dur(min) + (before < sessLen() && before + min >= sessLen() ? ' · study session done' : '')), false); }
 let supT = 0;
 setInterval(() => {
-  const c = document.getElementById('tclock'); if (c && M.timer && (M.timer.start || brkOn())) { c.textContent = fmtClock(clockMs()); const b = document.getElementById('tring'); if (b) b.setAttribute('stroke-dashoffset', T_C * (1 - ringPct() / 100)); const r = document.getElementById('trule'); if (r) r.textContent = ruleText(); }
+  const c = document.getElementById('tclock'); if (c && M.timer) { c.textContent = fmtClock(clockMs());  const r = document.getElementById('trule'); if (r) r.textContent = ruleText(); }
   { const pe = document.getElementById('tpomo'); if (pe) pe.textContent = pomoText(); }
   // Study support time runs only while writing (typed in the last 20 seconds), and pauses when you stop
   if (supOn() && S.supLast && Date.now() - S.supLast < 20000) {
@@ -541,7 +557,7 @@ function verdictAction(act, a, ref, v) {
     case 'vtpick': openSheet({ kind: 'vtpick', title: 'Working on' }); return true;
     case 'vtset': { const t = M.timer; if (t && tElapsed() > 0 && (t.id || '') !== v) saveTimer(); M.timer = Object.assign(M.timer || { start: null, acc: 0 }, { id: v || null }); S.sheet = null; save(); render(); return true; }
     case 'tstart': { try { dingCtx = dingCtx || new (window.AudioContext || window.webkitAudioContext)(); dingCtx.resume(); } catch (e) {} // sound needs a tap first on phones
-      M.timer = Object.assign(M.timer || { id: null, acc: 0 }, { start: Date.now() }); const p = tPz(); if (p.brkEnd || p.done) { if (p.done) p.n = 0; p.brkEnd = null; p.done = false; p.at = tElapsed(); } save(); render(); return true; }
+      M.timer = Object.assign(M.timer || { id: null, acc: 0 }, { start: Date.now() }); const p = tPz(); if (p.brkEnd || p.done || p.wait) { if (p.done) p.n = 0; p.brkEnd = null; p.done = false; p.wait = false; p.at = tElapsed(); } save(); render(); return true; }
     case 'vtmr': openSheet({ kind: 'vtmr', title: 'Timer' }); return true;
     case 'vtmode': M.settings.timer = Object.assign(tmr(), { mode: v }); if (M.timer) M.timer.pz = { n: 0, at: tElapsed() }; save(); renderLayer(); render(); return true;
     case 'vtm': { const o = tmr(); const lim = { work: [5, 90], brk: [1, 30], rounds: [1, 12], rem: [0, 120] }[ref]; o[ref] = Math.max(lim[0], Math.min(lim[1], (o[ref] || 0) + (+v))); M.settings.timer = o; save(); renderLayer(); render(); return true; }
