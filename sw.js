@@ -86,6 +86,23 @@ async function showDueReminders() {
   if (due.length) await DBK.set('remshown', shown);
 }
 
+// The browser can renew the phone's push sign-up on its own. When it does, sign up again and tell the sender the new
+// address, using the last times the app sent, so reminders keep coming even before the app is opened again.
+const REM_SENDER = 'https://keystone-reminders.lilworkerguy.workers.dev';
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil((async () => {
+    let sub = event.newSubscription;
+    if (!sub) {
+      const r = await fetch(REM_SENDER + '/public-key'); const { publicKey } = await r.json();
+      const key = Uint8Array.from(atob(publicKey.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
+      sub = await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    }
+    const body = await DBK.get('remBody'); if (!body) return;
+    body.endpoint = sub.endpoint;
+    await fetch(REM_SENDER + '/schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  })());
+});
+
 // Tapping a reminder opens Almanac.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();

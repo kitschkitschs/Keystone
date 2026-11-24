@@ -18,7 +18,7 @@ async function hostBoot() {
   // The first day's hosted build started with leftover example categories. A phone that still has them and nothing logged starts clean instead.
   try { if (!M.settings.clean1) { const used = Object.values(M.log || {}).some((d) => Object.keys(d).length) || [M.journal, M.notes, M.shop, M.words, M.reminders, M.trips, M.conds, M.events].some((a) => (a || []).length) || Object.keys(M.photos || {}).length || Object.keys(M.feel || {}).length;
       if (!used && M.items['tr-anx'] && M.groups['rm-kitchen'] && M.groups['h-knit']) M = blank(); M.settings.clean1 = true; } } catch (e) {}
-  freezePast(); save(); render();
+  freezePast(); save(); render(); setTimeout(remAuto, 3000); // each open makes sure the sender has this phone and its times
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {} // ask the browser not to clear my data when space runs low
   try { if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {}
 }
@@ -75,7 +75,11 @@ const remSlots = () => remDigest().map((r) => { const o = { time: r.time }; if (
 const remCan = () => HOSTED && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 const remKey = () => { let k = localStorage.getItem('daybook3-device'); if (!k) { k = (crypto.randomUUID ? crypto.randomUUID() : uid('dev') + uid('ice') + uid('key')); localStorage.setItem('daybook3-device', k); } return k; };
 async function remSend(path, body) { const r = await fetch(REM_SENDER + path, body && { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json(); if (!r.ok) throw new Error(j.error || 'The sender answered ' + r.status); return j; }
-async function remSub() { if (!remCan() || Notification.permission !== 'granted') return null; const reg = await navigator.serviceWorker.ready; return reg.pushManager.getSubscription(); }
+// the browser can drop or renew the phone's push sign-up on its own; with notifications still allowed, it signs up again
+// by itself, so reminders keep coming without me turning them on again (2026-11-24)
+async function remSub() { if (!remCan() || Notification.permission !== 'granted') return null; const reg = await navigator.serviceWorker.ready; let sub = await reg.pushManager.getSubscription();
+  if (!sub) { try { const { publicKey } = await remSend('/public-key'); sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: Uint8Array.from(atob(publicKey.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)) }); REM.last = null; } catch (e) { sub = null; } }
+  return sub; }
 // asks for permission and signs this phone up; has to start from a tap
 async function remTurnOn() {
   if (!remCan()) { flash('Notifications aren’t available here'); return; }
@@ -89,7 +93,7 @@ const REM = { sub: false, last: null };
 // sends the times to the sender; quietly does nothing when this phone isn't signed up
 async function remSync(force) { let ok = false, sent = false;
   try { const sub = await remSub(); REM.sub = !!sub; if (!sub) { if (S.area === 'plan' && S.page === 'rem') render(); return; }
-    const body = { deviceKey: remKey(), endpoint: sub.endpoint, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, slots: remSlots() }; const sig = JSON.stringify(body);
+    const body = { deviceKey: remKey(), endpoint: sub.endpoint, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, slots: remSlots() }; const sig = JSON.stringify(body); DBK.set('remBody', body).catch(() => {}); /* the service worker signs up again with it if the browser renews the sign-up */
     if (!force && sig === REM.last) return; sent = true; await remSend('/schedule', body); REM.last = sig; ok = true;
   } catch (e) { ok = false; }
   if (sent) { M.settings.remSync = { at: iso(new Date()) + 'T' + nowHM(), ok }; try { localStorage.setItem('daybook3', JSON.stringify(M)); } catch (e) {} if (HOSTED) DBK.set('model', JSON.stringify(M)).catch(() => {}); if (S.area === 'plan' && S.page === 'rem') render(); }
