@@ -4359,7 +4359,8 @@ const fmtClock = (ms) => { const s = Math.floor(ms / 1000); return pad(Math.floo
 const tPct = () => Math.min(100, Math.round((minOn(null, T0) + supMin(T0) + tElapsed() / 60000) / sessLen() * 100));
 const T_C = 2 * Math.PI * 104;
 // the generic Study session's clock shows the whole day's study time, Study support writing included (the owner, 2026-11-13)
-const tShown = () => { const id = M.timer && M.timer.id && I(M.timer.id) ? M.timer.id : null; return tElapsed() + (id ? 0 : minOn(null, T0) * 60000 + supMs()); };
+// Study support writing counts up on the clock whatever I'm working on (the owner, 2026-11-24)
+const tShown = () => { const id = M.timer && M.timer.id && I(M.timer.id) ? M.timer.id : null; return tElapsed() + supMs() + (id ? 0 : minOn(null, T0) * 60000); };
 const tRule = () => { const m = Math.floor(minOn(null, T0) + supMin(T0) + tElapsed() / 60000); return m >= sessLen() ? dur(m) + ' today · session done' : m + ' of ' + sessLen() + ' min today'; };
 // ---------- timer extras (Patch 2, the owner, 2026-11-24): confetti when the session fills, a ding, break reminders, pomodoro ----------
 const TMR_DEF = { mode: 'free', rem: 0, brk: 5, work: 25, rounds: 4, sound: true };
@@ -4444,7 +4445,7 @@ function saveTimer(msg) { const t = M.timer; if (!t) return; const ms = tElapsed
   change(() => { M.study = M.study || {}; (M.study[T0] = M.study[T0] || []).push({ id, min }); L(T0); }, msg || ('Saved ' + dur(min) + (before < sessLen() && before + min >= sessLen() ? ' · study session done' : '')), false); }
 let supT = 0;
 setInterval(() => {
-  const c = document.getElementById('tclock'); if (c && M.timer) { c.textContent = fmtClock(clockMs());  const r = document.getElementById('trule'); if (r) r.textContent = ruleText(); }
+  const c = document.getElementById('tclock'); if (c) { c.textContent = fmtClock(clockMs());  const r = document.getElementById('trule'); if (r) r.textContent = ruleText(); }
   { const pe = document.getElementById('tpomo'); if (pe) pe.textContent = pomoText(); }
   // Study support time runs only while writing (typed in the last 20 seconds), and pauses when you stop
   if (supOn() && S.supLast && Date.now() - S.supLast < 20000) {
