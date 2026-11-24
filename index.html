@@ -5555,7 +5555,10 @@ const exOf = (x) => exList().find((e) => e.id === x);
 const wlog = () => (M.wlog = M.wlog || []);
 const woItems = () => trainCats().flatMap(kidsOf).filter((k) => I(k).wo);
 const woCol = () => secCol('training');
-const woSets = (w) => w.ex.reduce((a, e) => a + e.sets, 0);
+// a workout runs set by set, so its length in sets is the most sets any one exercise has (the owner, 2026-11-24)
+const woSets = (w) => Math.max(0, ...w.ex.filter((e) => exOf(e.x)).map((e) => e.sets));
+// the sets (rounds) finished: every exercise in that round is done
+const woRounds = (w, R) => { const m = woSets(w); let n = 0; for (let s = 0; s < m; s++) if (w.ex.every((e, i) => !exOf(e.x) || s >= e.sets || R.done[woK(i, s)])) n++; return n; };
 const woUnit = (x, n) => { const e = exOf(x) || {}; return e.timed ? n + ' s' : n + (n === 1 ? ' rep' : ' reps'); };
 const woSide = (x) => ((exOf(x) || {}).side ? ' each side' : '');
 const acheItems = () => kidsOf('hg-aches').filter((k) => I(k).type === 'tracker');
@@ -5664,7 +5667,7 @@ function woLayer() { const R = M.wrun; if (!R || !I(R.item)) return ''; const it
   let h = '';
   if (R.phase === 'start') {
     const last = wlog().filter((e) => e.item === R.item && e.note).pop();
-    h = head('Workout · ' + F.length + ' sets') + `<div class="sb">
+    h = head('Workout · ' + woSets(w) + ' sets') + `<div class="sb">
       <div class="wsh"><b>Before I start</b></div>
       <div class="row"><span class="lbl">Start Strength on my watch</span><button class="wtk ${R.watch ? 'on' : ''}" data-a="wwatch" data-v="watch" aria-label="Done" aria-pressed="${!!R.watch}"></button></div>
       <div class="wsh"><b>Today</b></div>
@@ -5692,7 +5695,7 @@ function woAmt(R, e, k) { const x = exOf(e.x); const n = R.act[k] != null ? R.ac
   if (R.edit === k) return `<span class="stp wstp"><button data-a="wst" data-v="-1" aria-label="Less">−</button><b>${n}</b><button data-a="wst" data-v="1" aria-label="More">+</button></span>`;
   return `<button class="wamt" data-a="wamt" data-ref="${k}">${woUnit(e.x, n)}${woSide(e.x)}</button>`; }
 function woList(R, w, F, head, dc) { const nx = woNext(R); const m = Math.max(...w.ex.map((e) => e.sets));
-  let h = head(dc + ' of ' + F.length + ' sets') + `<div class="wprog"><i style="width:${F.length ? dc / F.length * 100 : 0}%"></i></div><div class="sb">`;
+  let h = head(woRounds(w, R) + ' of ' + woSets(w) + ' sets') + `<div class="wprog"><i style="width:${F.length ? dc / F.length * 100 : 0}%"></i></div><div class="sb">`;
   for (let s = 0; s < m; s++) { const here = w.ex.map((e, i) => [e, i]).filter(([e]) => s < e.sets && exOf(e.x)); if (!here.length) continue;
     h += `<div class="wsh"><b>Set ${s + 1}</b><span>· ${here.length}</span></div>`;
     here.forEach(([e, i]) => { const k = woK(i, s), d = R.done[k], x = exOf(e.x);
@@ -5703,7 +5706,7 @@ function woOne(R, w, F, head, dc) { if (!F.length) return head('') + '<div class
   const [i, s] = F[j], e = w.ex[i], x = exOf(e.x), k = woK(i, s), tm = R.tm && R.tm.k === k ? R.tm : null; const n = tm && tm.state === 'run' ? tLeft(R) : (R.act[k] != null ? R.act[k] : e.n);
   const nxt = F.slice(j + 1).find(([a, b]) => !R.done[woK(a, b)]); const hf = R.half[k];
   const unit = !x.timed ? 'reps' + woSide(e.x) + (x.side ? ' · ' + (hf ? 'right' : 'left') : '') : !tm ? 'seconds' + woSide(e.x) : tm.state === 'run' ? 'seconds · ' + (x.side ? (tm.side ? 'right side' : 'left side') : 'holding') : tm.state === 'gap' ? 'left side done · the right when I’m ready' : 'time’s up · Done when I’m ready';
-  return head(dc + ' of ' + F.length + ' sets') + `<div class="wsegs">${F.map(([a, b], q) => `<i class="${R.done[woK(a, b)] ? 'on' : ''} ${q === j ? 'cur' : ''}"></i>`).join('')}</div>
+  return head(woRounds(w, R) + ' of ' + woSets(w) + ' sets') + `<div class="wsegs">${F.map(([a, b], q) => `<i class="${R.done[woK(a, b)] ? 'on' : ''} ${q === j ? 'cur' : ''}"></i>`).join('')}</div>
     <div class="sb wone"><span class="mono">Set ${s + 1} of ${e.sets}</span><h3>${xnm(x)}</h3>
       <div class="wnum"><button data-a="wbig" data-ref="${k}" data-v="-1" aria-label="Less">−</button><span class="${tm && tm.state === 'run' ? 'wcd' : ''}">${n}</span><button data-a="wbig" data-ref="${k}" data-v="1" aria-label="More">+</button></div>
       <p class="wunit">${unit}</p>${x.cue ? `<p class="wcue1">${esc(x.cue)}</p>` : ''}
@@ -5716,7 +5719,7 @@ function woFinish(R, head, dc, all) { const it = I(R.item), w = it.wo; const lab
     return `<div class="row"><span class="lbl">${esc(I(k).name)}</span><span class="wsc">${sc.map((l, q) => `<button data-a="wache" data-ref="${k}" data-v="${q + 1}" aria-pressed="${cur === q + 1}">${esc(l)}</button>`).join('')}</span></div>`; };
   const sug = w.ex.map((e, i) => { if (!exOf(e.x)) return ''; const g = woSuggest(e, R); const can = g.kind === 'up' || g.kind === 'down';
     return `<div class="row wsug"><span class="lbl">${xnm(exOf(e.x))} <span class="mono wsm">${lab[g.kind]} · ${esc(g.to)}</span><span class="sub">${esc(g.why)}</span></span>${woBars(e.x, R)}${can ? `<button class="wtk ${R.f.acc[i] ? 'on' : ''}" data-a="wacc" data-ref="${i}" aria-label="Use next time" aria-pressed="${!!R.f.acc[i]}"></button>` : '<span class="wtkgap"></span>'}</div>`; }).join('');
-  return head('Done · ' + dc + ' of ' + all + ' sets') + `<div class="sb">
+  return head('Done · ' + woRounds(w, R) + ' of ' + woSets(w) + ' sets') + `<div class="sb">
     <div class="wsh"><b>Before I save</b></div>
     <div class="row"><span class="lbl">Stop and save Strength on my watch</span><button class="wtk ${R.stop ? 'on' : ''}" data-a="wwatch" data-v="stop" aria-label="Done" aria-pressed="${!!R.stop}"></button></div>
     <div class="wsh"><b>Aches and pains</b></div>${ac.map(acheRow).join('') || '<p class="empty">No aches and pains items.</p>'}
