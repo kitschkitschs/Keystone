@@ -1951,7 +1951,7 @@ function snapDay(d, DL) { DL = DL || slotDrop(dayList(d), d); const opt = (id) =
   return M.snap[d]; }
 function renderToday() {
   const d = S.edit ? T0 : S.day; const live = d === T0;
-  const DL = slotDrop(dayList(d), d); // generic slots give way to real work on Today only; Schedule keeps them (2026-11-14)
+  const DL = lateTwo(slotDrop(dayList(d), d), d); // generic slots give way to real work on Today only; Schedule keeps them (2026-11-14)
   if (live) { snapDay(T0, DL);
     // the day just got completed by a tick: confetti from that row, and the day's mark flies up to the calendar (2026-11-09)
     { const s0 = M.snap[T0]; const comp = s0.bad ? s0.bdue > 0 && s0.bdone >= s0.bdue : s0.due > 0 && s0.done >= s0.due; if (comp && S.dayComp === false && lastTick && Date.now() - lastTick.t < 2000) requestAnimationFrame(() => celebrate(s0.bad ? 'bad' : 'plan')); S.dayComp = comp; } }
@@ -2012,6 +2012,11 @@ const frozenOf = (d) => d < T0 && M.frozen && M.frozen[d] ? M.frozen[d].filter((
 function schedChore(id, d) { if (!isDone(id, d)) return true; const w = (I(id) || {}).when || {}; if (w.mode === 'once') return w.date === d || (w.date && w.date < d);
   if (w.mode === 'every') { if (w.date && w.date === d) return true; const last = lastDoneBefore(id, d); return !last || diff(last, d) >= Math.max(1, w.n || 1); }
   const L0 = M.log[d]; const v = L0[id]; delete L0[id]; try { return onDay0(id, d); } finally { L0[id] = v; } }
+// a part two due too late for the last block sits last in the last block on Today, like it runs past its end on the Schedule (the owner, 2026-11-24)
+function lateTwo(out, d) { if (d !== T0 || !out.length) return out; const lb = out[out.length - 1], g = G(lb.b); let end = hm(g.end); if (end <= hm(G(blockIds()[0]).start)) end += 1440;
+  Object.keys(M.half || {}).forEach((id) => { const it = I(id); if (!it || halfOld(id) || isDone(id, d)) return; const due = new Date(M.half[id].at + (+it.two || 2) * 3600000);
+    const m = due.getHours() * 60 + due.getMinutes() + (iso(due) !== d ? 1440 : 0); if (m + (it.dur || 30) <= end) return;
+    out.forEach((x) => { x.items = x.items.filter((k) => k !== id); }); lb.items.push(id); }); return out; }
 function slotDrop(out, d = T0) {
   const all = out.flatMap((x) => x.items); const sids = typeof subjIds === 'function' ? new Set(subjIds().flatMap(sIds)) : new Set(); const cids = typeof choreIds === 'function' ? new Set(choreIds()) : new Set();
     const tids = typeof trainCats === 'function' ? new Set(trainCats().flatMap(kidsOf)) : new Set(); const hobOn = typeof hobArea === 'function' && all.some((id) => hobArea(id));
@@ -2107,7 +2112,7 @@ function placeDay(d) {
   /* counted from the moment part one was ticked (the owner, 2026-11-24) */
   Object.keys(twoAt).sort((p, q) => twoAt[p] - twoAt[q]).forEach((id) => { const len = I(id).dur || 30; let a0 = twoAt[id], moved = true;
     while (moved) { moved = false; out.forEach((f) => { if (I(f.id) && I(f.id).type === 'checkin') return; if (a0 < f.b && a0 + len > f.a) { a0 = f.b; moved = true; } }); }
-    const B = blockIds(); let lastEnd = hm(G(B[B.length - 1]).end); if (lastEnd <= hm(G(B[0]).start)) lastEnd += 1440; if (a0 + len > lastEnd && !TWO_LATE(d)) return; /* no room left today: the next day takes it */
+    const B = blockIds(); /* due too late for the last block: it stays on its own day, running past the block's end in red, not first thing the next morning (the owner, 2026-11-24) */
     const blk = B.find((b) => hm(G(b).start) <= a0 && a0 < hm(G(b).end)) || B.filter((b) => hm(G(b).start) <= a0).pop() || B[0];
     out.push({ id, a: a0, b: a0 + len, blk, two: true }); });
   return out;
