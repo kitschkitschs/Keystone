@@ -24,7 +24,8 @@ function woSection() {
   const R = M.wrun;
   const rows = woItems().map((k) => { const w = I(k).wo; const n = w.ex.filter((e) => exOf(e.x)).length; const live = R && R.item === k;
     return `<div class="row wrow"><button class="lbl" data-a="woedit" data-ref="${k}" style="text-align:left">${esc(I(k).name)}<span class="sub">${n} ${n === 1 ? 'exercise' : 'exercises'} · ${woSets(w)} sets${isDone(k, T0) ? ' · done today' : ''}</span></button><button class="wgo" data-a="wostart" data-ref="${k}" ${n ? '' : 'disabled'}>${live ? 'Resume' : 'Start'}</button></div>`; }).join('');
-  const bare = trainCats().flatMap(kidsOf).filter((k) => !I(k).wo && I(k).type === 'task');
+  if (woHome()) save();
+  const bare = (woCat() ? kidsOf(woCat()) : []).filter((k) => I(k) && !I(k).wo && I(k).type === 'task');
   const pick = bare.length ? `<select class="inp wsel" data-wogive="1" aria-label="Give one of my sessions exercises"><option value="">+ Give one of my sessions exercises</option>${bare.map((k) => `<option value="${k}">${esc(I(k).name)}</option>`).join('')}</select>` : '';
   const ex = exList().slice().sort((a, b) => a.name.localeCompare(b.name));
   const exRows = ex.map((e) => { const a = acheOf(e.id).map((k) => I(k).name.toLowerCase()); const bits = [e.side ? 'two sides' : '', e.timed ? 'timed' : '', a.length ? 'touches ' + a.join(', ') : ''].filter(Boolean);
@@ -182,7 +183,14 @@ setInterval(() => { const R = M && M.wrun; if (!R || !R.tm || R.tm.state !== 'ru
   document.querySelectorAll('#layer .wcd').forEach((el) => { el.textContent = tLeft(R); }); }, 250);
 
 // ---------- actions ----------
-function woNewItem(name) { const cat = trainCats().includes('tc-work') ? 'tc-work' : trainCats()[0]; if (!cat) return null; const id = uid('wo');
+// workouts live only in the Workouts category, never in my other training categories (the owner, 2026-11-24)
+function woCat(make) { const tc = trainCats(); let c = tc.includes('tc-work') ? 'tc-work' : tcatNamed(/workout|strength/i); if (c || !make || !G('g-train')) return c || null;
+  c = G('tc-work') ? uid('tc') : 'tc-work'; M.groups[c] = { name: 'Workouts', style: 'tcat', holds: 'task', color: '#3FAFA6', icon: 'dumbbell', kids: [] }; G('g-train').kids.push(c); return c; }
+// a workout found in another training category moves to Workouts
+function woHome() { const c = woCat(woItems().length > 0); if (!c) return false; let moved = false;
+  woItems().forEach((k) => trainCats().forEach((t) => { if (t === c || !kidsOf(t).includes(k)) return; G(t).kids = G(t).kids.filter((x) => x !== k); if (!G(c).kids.includes(k)) G(c).kids.push(k); moved = true; }));
+  return moved; }
+function woNewItem(name) { const cat = woCat(true); if (!cat) return null; const id = uid('wo');
   M.items[id] = { name, type: 'task', kind: 'behaviour', tags: [], made: T0, dur: 45, insight: true, when: { mode: 'once', date: null }, persist: true, wo: { follow: 'list', ex: [] } }; G(cat).kids.push(id); return id; }
 function woRemoveEx(x) { Object.values(M.items).forEach((it) => { if (it.wo) it.wo.ex = it.wo.ex.filter((e) => e.x !== x); if (it.exs) it.exs = it.exs.filter((k) => k !== x); }); M.exercises = exList().filter((e) => e.id !== x); }
 function workoutAction(act, a, ref, v) {
