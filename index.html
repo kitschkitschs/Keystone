@@ -2006,17 +2006,17 @@ function slotDrop(out, d = T0) {
   const all = out.flatMap((x) => x.items); const sids = typeof subjIds === 'function' ? new Set(subjIds().flatMap(sIds)) : new Set(); const cids = typeof choreIds === 'function' ? new Set(choreIds()) : new Set();
     const tids = typeof trainCats === 'function' ? new Set(trainCats().flatMap(kidsOf)) : new Set(); const hobOn = typeof hobArea === 'function' && all.some((id) => hobArea(id));
     const studyOn = all.some((id) => sids.has(id) || (I(id) && I(id).part && sids.has(I(id).part))), choreOn = all.some((id) => cids.has(id) && ((M.half || {})[id] || schedChore(id, d))), moveOn = all.some((id) => tids.has(id));
-    if (studyOn || choreOn || moveOn || hobOn) out.forEach((x) => { x.items = x.items.filter((id) => !(I(id) && I(id).type === 'slot' && ((I(id).opens === 'study' && studyOn) || (I(id).opens === 'chores' && choreOn) || (I(id).opens === 'training' && moveOn) || (I(id).opens === 'hobbies' && hobOn)))); });
+    if (studyOn || choreOn || moveOn || hobOn) out.forEach((x) => { x.items = x.items.filter((id) => !(I(id) && I(id).type === 'slot' && ((I(id).opens === 'study' && studyOn) || (I(id).opens === 'chores' && choreOn) || (I(id).opens === 'training' && all.some((k) => slotTrainIds(id).has(k))) || (I(id).opens === 'hobbies' && hobOn)))); });
   return out; }
 // Schedule: a day with a real chore drops the generic chore item, and the chores without a set time take its place in
 // the day (its block and spot), unless I moved them myself that day (the owner, 2026-11-24)
 function choreSwap(DL, d) {
   DL = genSwap(DL, d, 'chores', new Set(choreIds()), (id) => !!(M.half || {})[id] || schedChore(id, d)); // a started two-parter counts too (2026-11-24)
   // scheduled training does the same to the generic movement item (the owner, 2026-11-24)
-  DL = typeof trainCats === 'function' ? genSwap(DL, d, 'training', new Set(trainCats().flatMap(kidsOf)), () => true) : DL;
+  if (typeof trainCats === 'function') [...new Set(DL.flatMap((x) => x.items).filter((id) => I(id) && I(id).type === 'slot' && I(id).opens === 'training'))].forEach((sid) => { DL = genSwap(DL, d, (id) => id === sid, slotTrainIds(sid), () => true); });
   // a workout that took the generic item's place takes its followers (a shower) along, so they stay right behind it (the owner, 2026-11-24)
   afterWork(DL, d); return DL; }
-function genSwap(DL, d, opens, ids, ok) { const isSlot = (id) => I(id) && I(id).type === 'slot' && I(id).opens === opens;
+function genSwap(DL, d, opens, ids, ok) { const isSlot = typeof opens === 'function' ? opens : (id) => I(id) && I(id).type === 'slot' && I(id).opens === opens;
   const real = DL.flatMap((x) => x.items).filter((id) => ids.has(id) && ok(id)); if (!real.length) return DL;
   const sx = DL.find((x) => x.items.some(isSlot));
   if (sx) { const mv = (M.dayMove || {})[d] || {}, dT = (M.dayTime || {})[d] || {}; const od = ((M.dayOrder || {})[d] || {})[sx.b] || []; const go = real.filter((id) => !I(id).time && !dT[id] && !mv[id] && !od.includes(id)); /* already placed by hand that day: it stays where I put it (2026-11-24) */
@@ -2179,10 +2179,10 @@ function renderPlan() {
   // one row over the categories: Add (a dropdown) on the left, the filter on the right (2026-11-04)
   const AO = [['task', 'Task'], ['once', 'One-off task'], ['every', 'Repeat task'], ['routine', 'Routine'], ['break', 'Break']];
   // generic items (2026-11-11): they stand in on a day with nothing specific from their section, and open it to pick the real thing
-  const GO = [['study', 'Studies'], ['chores', 'Chores'], ['hobbies', 'Hobbies'], ['training', 'Training']];
+  const GO = [['study', 'Studies'], ['chores', 'Chores'], ['hobbies', 'Hobbies'], ['training', 'Movement'], ['workouts', 'Workouts'], ['mobility', 'Mobility']];
   const slots = Object.keys(M.items).filter((id) => I(id).type === 'slot' && placements(id).some((p) => G(p) && G(p).style === 'dayblock'));
   const slotRow = (id) => { const blk = placements(id).find((p) => G(p) && G(p).style === 'dayblock');
-    return `<div class="row" data-ref="${id}"><span class="circ" style="--c:${colorOf(id)}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : ''}></span><span class="lbl">${nm(id, I(id).name)}<span class="sub">${esc(blk ? G(blk).name : '')}</span></span><span class="mono" style="font-size:10px;color:var(--quiet)">Optional</span><button class="swt" role="switch" aria-checked="${!!I(id).optional}" data-a="slotopt" data-ref="${id}" aria-label="${esc(tnm(id))} is optional"></button>${S.edit ? `<button class="rm" data-a="slotrm" data-ref="${id}" aria-label="Remove ${esc(tnm(id))}">${icon('x', 14)}</button>` : ''}</div>`; };
+    return `<div class="row" data-ref="${id}"><span class="circ" style="--c:${colorOf(id)}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : ''}></span><button class="lbl" data-a="open" data-ref="${id}" style="text-align:left">${esc(I(id).name)}<span class="sub">${esc([blk ? G(blk).name : '', whenText(I(id))].filter(Boolean).join(' · '))}</span></button><span class="mono" style="font-size:10px;color:var(--quiet)">Optional</span><button class="swt" role="switch" aria-checked="${!!I(id).optional}" data-a="slotopt" data-ref="${id}" aria-label="${esc(tnm(id))} is optional"></button>${S.edit ? `<button class="rm" data-a="slotrm" data-ref="${id}" aria-label="Remove ${esc(tnm(id))}">${icon('x', 14)}</button>` : ''}</div>`; };
   const abar = `<span class="vsortw"><button class="fbtn" data-a="planaddopen" aria-label="Add" aria-haspopup="menu" aria-expanded="${!!S.planAddOpen}" aria-pressed="${!!S.planAddOpen}">${icon('plus', 18)}</button>${S.planAddOpen ? `<span class="vsortx" data-a="planaddopen"></span><span class="vdrop vsortm vaddm" role="menu">${AO.map(([k, l]) => `<button role="menuitem" data-a="new" data-v="${k}">${l}</button>`).join('')}<span class="mono">Generic</span>${GO.map(([k, l]) => `<button role="menuitem" data-a="slotadd" data-v="${k}">${l}</button>`).join('')}</span>` : ''}</span>`;
   if (S.open['p:Repeat'] === undefined) S.open['p:Repeat'] = false; // Repeat starts folded
   // an add icon on the left balances the filter icon (2026-11-08)
@@ -4021,12 +4021,16 @@ document.addEventListener('input', (e) => {
 
 // Generic items (2026-11-11): Daily chore, Movement and Study session. They sit on Today when nothing specific from their
 // section is planned that day, and open that section to pick the real thing.
-function slotAdd(k) { const DEF = { study: ['sl-study', 'Study session', 'graduation-cap', '#3FAFA6', 60], chores: ['sl-chore', 'Daily chore', 'spray-can', '#EDBB3A', 20], hobbies: ['sl-hobby', 'Hobby time', 'palette', '#EC8FA8', 30], training: ['sl-move', 'Movement', 'footprints', '#6FA24A', 30] }[k]; if (!DEF) return;
+// Workouts and Mobility (2026-11-24) are generic training items for one training category each; Movement covers the rest
+const tcatNamed = (re) => (typeof trainCats === 'function' ? trainCats() : []).find((c) => re.test(G(c).name));
+function slotAdd(k) { const DEF = { study: ['sl-study', 'Study session', 'graduation-cap', '#3FAFA6', 60], chores: ['sl-chore', 'Daily chore', 'spray-can', '#EDBB3A', 20], hobbies: ['sl-hobby', 'Hobby time', 'palette', '#EC8FA8', 30], training: ['sl-move', 'Movement', 'footprints', '#6FA24A', 30], workouts: ['sl-work', 'Workout', 'dumbbell', '', 45], mobility: ['sl-mob', 'Mobility', 'activity', '', 20] }[k]; if (!DEF) return;
   const [id, name, ic, color, dur] = DEF; const blk = k === 'study' ? studyBlock() : k === 'chores' ? defBlock('chores') : k === 'hobbies' ? eveBlock() : blockIds()[0];
+  let tcat = null; if (k === 'workouts' || k === 'mobility') { tcat = k === 'workouts' ? (G('tc-work') ? 'tc-work' : tcatNamed(/workout|strength/i)) : tcatNamed(/mobility|stretch/i); }
   const placed = I(id) && placements(id).some((p) => G(p) && G(p).style === 'dayblock');
   S.sheet = null; S.planAddOpen = false;
   if (placed) { render(); flash(I(id).name + ' is already on my days'); return; }
-  change(() => { if (!M.items[id]) M.items[id] = { name, type: 'slot', opens: k, when: { mode: 'every', n: 1 }, icon: ic, dur, made: T0 };
+  change(() => { if ((k === 'workouts' || k === 'mobility') && !tcat && M.groups['g-train']) { tcat = k === 'workouts' ? 'tc-work' : 'tc-mob'; if (!M.groups[tcat]) { M.groups[tcat] = { name: k === 'workouts' ? 'Workouts' : 'Mobility', style: 'tcat', holds: 'task', color: '#3FAFA6', icon: ic, kids: [] }; M.groups['g-train'].kids.push(tcat); } } // a category to hold the real ones
+    if (!M.items[id]) M.items[id] = Object.assign({ name, type: 'slot', opens: tcat || k === 'training' ? 'training' : k, when: { mode: 'every', n: 1 }, icon: ic, dur, made: T0 }, tcat ? { tcat } : {});
     const gs = M.groups['g-slots'] = M.groups['g-slots'] || { name: 'Slots', holds: 'slot', kids: [] }; if (!gs.kids.includes(id)) gs.kids.push(id);
     if (blk && G(blk) && !G(blk).kids.includes(id)) G(blk).kids.push(id); }, 'Added ' + name); }
 function slotRm(id) { const n = (I(id) || {}).name; change(() => { Object.values(M.groups).forEach((g) => { if (g && g.kids && (g.style === 'dayblock' || g.holds === 'slot')) g.kids = g.kids.filter((x) => x !== id); }); delete M.items[id]; }, 'Removed ' + n); }
@@ -4212,10 +4216,16 @@ function studyVerdict() {
 const subjRank = (s) => { const v = subjVerdict(s); return v.lvl * 1000 + Math.max(0, ...v.tasks.map((t) => t.due !== undefined ? 100 - t.due : t.since)); };
 
 // slots: done when their area was used that day
+// the training items a generic training item stands for: its own category (Workout, Mobility), or for Movement every
+// category that no other generic on my days covers (2026-11-24)
+function slotTrainIds(sid) { const it = typeof sid === 'string' ? I(sid) : sid; if (!it || typeof trainCats !== 'function') return new Set();
+  if (it.tcat) return new Set(kidsOf(it.tcat));
+  const own = new Set(Object.keys(M.items).filter((k) => I(k).type === 'slot' && I(k).tcat && placements(k).some((p) => G(p) && G(p).style === 'dayblock')).map((k) => I(k).tcat));
+  return new Set(trainCats().filter((c) => !own.has(c)).flatMap(kidsOf)); }
 function slotDone(it, d) {
   if (it.opens === 'study') return minOn(null, d) + supMin(d) >= sessLen(); // Study support minutes count toward the day's study minutes (the owner, 2026-11-12)
   if (it.opens === 'chores') return choreIds().some((k) => val(d, k));
-  if (it.opens === 'training') return typeof trainedOn === 'function' && trainedOn(d).length > 0;
+  if (it.opens === 'training') return typeof trainCats === 'function' && [...slotTrainIds(it)].some((k) => isDone(k, d));
   if (it.opens === 'hobbies') return typeof hobIds === 'function' && hobIds().some((h) => hobActs(h).some((k) => val(d, k)) || hobProjs(h).some((p) => (G(p).worked || []).includes(d) || projTasks(p).some((k) => val(d, k))));
   return false; }
 function slotSub(it) { if (it.opens === 'study') { const m = minOn(null, T0), s = supMin(T0); return s >= sessLen() ? 'Study support done' : ''; } // no 'Opens …', the arrow says it (2026-11-04)
