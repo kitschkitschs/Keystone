@@ -2041,6 +2041,8 @@ function placeDay(d) {
       out.push({ id, a: cur, b: cur + len, blk: b }); cur += len; });
   });
   // second parts go in last, into the first free spot from when they're due, so nothing else moves for them
+  /* counted from the end of part one's spot on the schedule when that comes before the tick (the owner, 2026-11-24: a 3 hour laundry ticked late) */
+  Object.keys(twoAt).forEach((id) => { const p1 = out.find((o) => o.id === id && !o.two); if (p1) twoAt[id] = Math.min(twoAt[id], p1.b + Math.round((+I(id).two || 2) * 60)); });
   Object.keys(twoAt).sort((p, q) => twoAt[p] - twoAt[q]).forEach((id) => { const len = I(id).dur || 30; let a0 = twoAt[id], moved = true;
     while (moved) { moved = false; out.forEach((f) => { if (I(f.id) && I(f.id).type === 'checkin') return; if (a0 < f.b && a0 + len > f.a) { a0 = f.b; moved = true; } }); }
     const B = blockIds(); let lastEnd = hm(G(B[B.length - 1]).end); if (lastEnd <= hm(G(B[0]).start)) lastEnd += 1440; if (a0 + len > lastEnd && !TWO_LATE(d)) return; /* no room left today: the next day takes it */
