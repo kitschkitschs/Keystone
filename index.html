@@ -955,7 +955,7 @@ nav.areas.two{justify-content:space-evenly} /* study mode: its two icons spaced 
 
 /* dark mode (2026-11-08, from the cleaning-system reference): warm near-black page, soft charcoal cards with a faint light edge */
 /* ===== Stone (2026-11-23): the look over the whole app. Square corners, hairlines, small spaced caps, one ink. ===== */
-#phone *:not(.dot,.fdd,.cfmark,.hdot,.ovdot,.badot,.xdot,.dd,.d,.xdots i,.ci-ic,.whl *){border-radius:0!important} /* every corner square; dots and the wheel stay round */
+#phone *:not(.dot,.fdd,.cfmark,.hdot,.ovdot,.badot,.xdot,.dd,.d,.xdots i,.ci-ic,.whl *,.ihz i,.ihzm i){border-radius:0!important} /* every corner square; dots and the wheel stay round */
 .card,.lcard,.hsec{background:transparent;box-shadow:none;border:0}
 .btn,.chip,.fbtn,.scale button,.tag,.hchip,.pick,.menu{box-shadow:none}
 header.top{padding-right:16px}#plusbtn,#menubtn{width:22px}#menubtn{margin:0 0 0 18px}#donebtn{margin-left:12px} /* the top bar icons keep the same 16px from the edge as the title (2026-11-23) */
@@ -1119,13 +1119,26 @@ input[type=range]::-moz-range-thumb{background:var(--ink);border-color:var(--ink
 #view .htabs button[aria-selected="true"]{border-color:var(--quiet);color:var(--ink);font-weight:400}
 #view .htabs button[aria-selected="true"]::after{display:none}
 /* breaks on Today: no side lines, left aligned with the list, only how long they take (2026-11-24) */
-#view .brkt{justify-content:flex-start}#view .brkt::before,#view .brkt::after{display:none}
+#view .brkt{justify-content:flex-start;margin:0;min-height:36px} /* same height as a task row (2026-11-24) */#view .brkt::before,#view .brkt::after{display:none}
 /* study timer extras (2026-11-24): pomodoro line, the settings line under the buttons, the steppers in its sheet */
-.vtimer .tpomo{margin-top:6px;color:var(--ink)}
-.tmrset{display:inline-flex;align-items:center;gap:6px;margin:18px auto 0;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--quiet);min-height:32px}
+.vtimer .tpomo{margin-top:6px;color:var(--quiet)}.vtimer .tpomo:empty{display:none}.vtimer .tbrk{color:var(--ink)}
+.vtimer .tmrset{margin:16px auto 0;font-size:14px;color:var(--ink2)} /* the breaks setting is a plain button saying what's set (2026-11-24) */
 .tmv{font-weight:400;font-size:14px;min-width:64px;text-align:center}
 /* Studies and Home items: no tick box or timer, the whole card is the button (2026-11-24) */
 #view button.vjob{display:block;width:100%}
+/* the opened calendar's month sits in a square box on top of the grid, in the small spaced caps of the block titles (2026-11-24) */
+.calnav{border:1px solid var(--line);margin-top:0;height:40px}
+.calnav span{font:500 10.5px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--ink)}
+/* Insight in Stone (2026-11-24): headings like Today's block titles, square ring ends, serif numbers; the flowers and the avoidance sun stay round */
+#view .ilab{justify-content:center;align-items:center;gap:12px;margin-top:18px;min-height:20px}
+#view .ilab::before,#view .ilab::after{content:"";flex:1;border-top:1px solid var(--line)}#view .ilab::before{order:-1}#view .ilab::after{order:9}
+#view .ilab>.mono{font:500 10.5px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--ink)}
+#view .ilab>span:last-child:not(.mono){font:400 9.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--quiet);text-align:left}
+#view .ilab>span:last-child:not(.mono)::before{content:"· "}
+#view .istats b{font-family:var(--serif);font-weight:400;font-size:22px}
+#view .istats span{font:400 9px var(--mono);letter-spacing:.12em;text-transform:uppercase}
+/* ring names stay readable on top of darker colours: a halo in the page colour (2026-11-24) */
+.irl{text-shadow:0 0 2px var(--page),0 0 2px var(--page),0 0 3px var(--page),1px 0 0 var(--page),-1px 0 0 var(--page),0 1px 0 var(--page),0 -1px 0 var(--page);font-weight:500}
 html.dark{--page:#1D1B19;--paper:#34312C;--rule:#433F39;--card:#2B2926;--ink:#EFEAE2;--ink2:#CFC8BC;--quiet:#A59E92;--faint:#7F786E;--faint2:#5F5952;--line:#3D3934;--line2:#35322E;--soft:#36332F;--wash:#3A3226;--washline:#5C4B33;--star:#C9A86F;--done:#8FA488;color-scheme:dark}
 html.dark .card,html.dark .lcard{background:linear-gradient(160deg,#33302C 0%,#2A2825 60%,#272522 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 1px 2px rgba(0,0,0,.3)}
 html.dark .vcard{box-shadow:none}
@@ -1344,12 +1357,18 @@ function homeOf(ref) { return placements(ref)[0]; }
 // lives in a day block alone takes the block's colour (2026-11-11: circles changed colour when a chore went into a block)
 // a generic item without its own colour wears its section's (2026-11-11)
 const slotCol = (it) => { const o = it.opens; const A = M.areas || {}, P = M.pages || {}; return o === 'study' ? (A.study || {}).color : o === 'chores' ? (P.chores || A.home || {}).color : o === 'hobbies' ? (A.hobbies || {}).color : o === 'training' || o === 'move' ? (P.training || {}).color : null; };
-function colorOf(id) { const it = I(id); if (!it && G(id)) return grpCol(id); if (it && it.color) return it.color; if (it && it.type === 'slot' && slotCol(it)) return slotCol(it); const P = placements(id); const pl = P.find((p) => !(G(p) && (G(p).style === 'dayblock' || G(p).holds === 'slot'))) || P[0]; if (!pl) return '#9A9387'; if (pl.startsWith('s:')) return colorOf(pl.slice(2)); return grpCol(pl); }
+// Patch 3 (the owner, 2026-11-24): Studies, Chores, Homemaking and Cooking each have ONE colour; their items, rooms, subjects and
+// task groups wear it everywhere (Today, Schedule, calendars) and can't have their own
+const SEC_ROOT = { 'g-subjects': 'study', 'g-rooms': 'chores', 'g-oneoff': 'chores', 'g-tend': 'homemaking', 'g-prep': 'cooking' };
+function secRootOf(k, n = 0) { if (!k || n > 8) return null; if (SEC_ROOT[k]) return SEC_ROOT[k]; const g = G(k); if (!g || g.style === 'dayblock') return null; return secRootOf(parentGrp(k), n + 1); }
+const secCol = (sec) => { const A = M.areas || {}, P = M.pages || {}; return (sec === 'study' ? (A.study || {}).color : sec === 'chores' ? (P.chores || {}).color || (A.home || {}).color : ((P[sec] || {}).color || (A.home || {}).color)) || '#9A9387'; };
+const itemSec = (id) => { for (const p of placements(id)) { const r = secRootOf(p); if (r) return r; } return null; };
+function colorOf(id) { const it = I(id); if (!it && G(id)) return grpCol(id); if (it && it.type !== 'slot') { const sc = itemSec(id); if (sc) return secCol(sc); } if (it && it.color) return it.color; if (it && it.type === 'slot' && slotCol(it)) return slotCol(it); const P = placements(id); const pl = P.find((p) => !(G(p) && (G(p).style === 'dayblock' || G(p).holds === 'slot'))) || P[0]; if (!pl) return '#9A9387'; if (pl.startsWith('s:')) return colorOf(pl.slice(2)); return grpCol(pl); }
 // a group without its own colour wears its parent's, up to the page or area it sits in (2026-11-11: items take their parent colour everywhere)
 // Home's sections keep their colour on their tab (2026-11-11): Homemaking, Cooking, Chores; a room without its own colour wears Chores'
 const ROOTCOL = { 'g-tend': ['pages', 'homemaking'], 'g-prep': ['pages', 'cooking'], 'g-oneoff': ['pages', 'chores'], 'g-rooms': ['pages', 'chores'], 'g-subjects': ['areas', 'study'], 'g-hobbies': ['areas', 'hobbies'], 'g-train': ['pages', 'training'], 'g-appts': ['pages', 'appts'], 'g-health': ['areas', 'health'], 'g-blocks': ['areas', 'plan'], 'g-slots': ['areas', 'plan'] };
 function parentGrp(k) { return Object.keys(M.groups).find((p) => (M.groups[p].kids || []).includes(k)) || null; }
-function grpCol(k, n) { const g = G(k); if (!g || (n || 0) > 8) return '#9A9387'; const R = ROOTCOL[k]; const rc = R && ((M[R[0]] || {})[R[1]] || {}).color;
+function grpCol(k, n) { const g = G(k); if (!g || (n || 0) > 8) return '#9A9387'; { const sr = secRootOf(k); if (sr && !ROOTCOL[k]) return secCol(sr); } const R = ROOTCOL[k]; const rc = R && ((M[R[0]] || {})[R[1]] || {}).color;
   if (R && R[0] === 'pages' && rc) return rc; if (g.color) return g.color; if (rc) return rc;
   if (g.style === 'sgroup' || g.style === 'subject') { const p = parentGrp(k); return p && p !== 'g-subjects' && G(p).color ? G(p).color : ((M.areas || {}).study || {}).color || '#9A9387'; }
   if (g.style === 'project' && typeof hobOf === 'function' && G(hobOf(k))) return grpCol(hobOf(k), (n || 0) + 1);
@@ -1706,7 +1725,7 @@ function renderCal(c = 't') {
   const selW = c === 's' && S.sview === 'week' ? weekStart(S.sday) : null;
   return `<div class="stack calblk" style="gap:6px">
     ${mon ? `<div class="calnav"><button data-a="month" data-c="${c}" data-v="-1" aria-label="Previous month">${icon('chevron-left', 16)}</button><span>${MONTHS[+monthOf.slice(5) - 1]} ${monthOf.slice(0, 4)}</span><button data-a="month" data-c="${c}" data-v="1" aria-label="Next month">${icon('chevron-right', 16)}</button></div>` : ''}
-    <div><div class="wk wkh"><span style="text-align:left">W</span>${WD.map((x) => `<span>${x.toUpperCase()}</span>`).join('')}</div>
+    <div><div class="wk wkh"><span style="text-align:center">W</span>${WD.map((x) => `<span>${x.toUpperCase()}</span>`).join('')}</div>
     ${weeks.map((w) => `<div class="wk wkr">${c === 's' ? `<button class="wkn ${w === selW ? 'sel' : ''}" data-a="pickweek" data-v="${w}" aria-label="Show week ${isoWeek(w)}" aria-pressed="${w === selW}">${isoWeek(w)}</button>` : `<span class="wkn">${isoWeek(w)}</span>`}${[0, 1, 2, 3, 4, 5, 6].map((i) => dayCell(addDays(w, i), !mon || addDays(w, i).slice(0, 7) === monthOf, c)).join('')}</div>`).join('')}</div>
     <button class="toggle-cal" data-a="calmode" data-c="${c}" aria-label="${mon ? 'Show one week' : 'Show the month'}" aria-expanded="${mon}"><span style="display:inline-flex;transform:rotate(${mon ? 180 : 0}deg)">${icon('chevron-down', 18)}</span></button></div>`;
 }
@@ -2189,7 +2208,7 @@ function sheetBody() {
       ${g.style === 'sgroup' ? `<div class="fld"><span class="mono">Deadline</span><div class="inrow"><input class="inp" type="date" id="gdl" value="${g.deadline || ''}"><span class="note">optional</span></div></div>` : ''}
       ${g.style === 'project' && typeof hobOf === 'function' && hobOf(s.ref) && hobActs(hobOf(s.ref)).length ? `<div class="fld"><span class="mono">Activity it covers</span><div class="chips">${[['', 'None']].concat(hobActs(hobOf(s.ref)).map((k) => [k, inm(k)])).map(([k, l]) => `<button class="chip" data-a="projact" data-ref="${s.ref}" data-v="${k}" aria-pressed="${(g.act || '') === k}">${l}</button>`).join('')}</div></div>` : ''}
       ${g.style === 'dayblock' ? `<div class="fld"><span class="mono">Time</span><div class="inrow"><input class="inp" type="time" id="gstart" value="${g.start}"><span>to</span><input class="inp" type="time" id="gend" value="${g.end}"></div></div>` : ''}
-      <div class="fld"><span class="mono">Colour</span>${colorField(s.ref, g.color)}</div>
+      ${secRootOf(s.ref) && !ROOTCOL[s.ref] ? '' : `<div class="fld"><span class="mono">Colour</span>${colorField(s.ref, g.color)}</div>`}
       ${g.style === 'hgroup' && g.special !== 'checkins' ? `<div class="fld"><span class="mono">Asked in a check-in</span><div class="chips">${[['', 'No'], ['morning', 'Morning'], ['evening', 'Evening']].map(([k, l]) => `<button class="chip" data-a="gci" data-ref="${s.ref}" data-v="${k}" aria-pressed="${(g.ci || '') === k}">${l}</button>`).join('')}</div></div>` : ''}
       ${g.style === 'acat' ? `<div class="fld"><span class="mono">Icon</span><div><button class="btn" data-a="iconfor" data-v="${s.ref}" style="display:inline-flex;gap:8px;align-items:center">${icon(g.icon || 'circle', 18)} Change icon</button></div></div>` : ''}`; }
   if (s.kind === 'area') { const a = M.areas[s.ref];
@@ -2350,7 +2369,7 @@ function itemSheet(s) {
   // every item editor is the same shape (2026-11-10: clean up the editing menus): name, when, length, frequency, steps; the look, kind, tags and reminders wait behind More settings
   if (s._more == null && D.type !== 'checkin') s._more = h.length;
   if (D.type !== 'checkin') {
-    h += `<div class="fld"><span class="mono">Colour</span>${colorField('draft', D.color, { inherit: true })}</div>`;
+    if (!(s.ref ? itemSec(s.ref) : secRootOf(s.home))) h += `<div class="fld"><span class="mono">Colour</span>${colorField('draft', D.color, { inherit: true })}</div>`; // section items wear their section's colour (2026-11-24)
     if (D.type !== 'appt') {
     h += `<div class="fld"><span class="mono">Kind</span><div class="chips">${[['', 'None'], ['behaviour', 'Behaviour'], ['experience', 'Experience'], ['circumstance', 'Circumstance']].map(([k, l]) => `<button class="chip" data-a="dset" data-k="kind" data-v="${k}" aria-pressed="${(D.kind || '') === k}">${l}</button>`).join('')}</div>${D.kind === 'behaviour' ? sw('unwanted', 'Unwanted', D.unwanted, 'Behaviour I want less of') : ''}</div>`;
     h += tagField(D, 'dtag'); h += linkField2(D);
@@ -3356,7 +3375,7 @@ function foodCal0() {
   const cell = (d) => { const star = followed(d); const inM = !F.month || d.slice(0, 7) === F.monthOf; const ex = dayExtras(d).length; const ov = overOn(d);
     return `<button class="day fday ${d === F.day && (!F.month || F.sel === 'day') ? 'sel' : ''} ${d === T0 ? 'today' : ''} ${inM ? '' : 'out'}${awayCls(awayOf('food', d), d)}" data-a="fdday" data-v="${d}" aria-label="${fmtDate(d)}${star ? ', meal plan followed' : dayBroke(d) ? ', day broken' : ''}${ex ? ', with extras' : ''}${ov ? ', overeating: ' + SCALES.symptom3[ov - 1] : ''}">${awayOf('food', d) ? '' : calLines('food', d)}<span class="dh"><span class="n">${parse(d).getDate()}</span>${awayOf('food', d) ? '' : calDotsHtml('food', d)}</span>${awayOf('food', d) ? '' : star ? dayDotHtml('fed', true) : dayBroke(d) ? dayDotHtml('broke', true) : ''}</button>`; };
   return `<div class="stack calblk" style="gap:6px">${F.month ? `<div class="calnav"><button data-a="fdmonth" data-v="-1" aria-label="Previous month">${icon('chevron-left', 16)}</button><span>${MONTHS[+F.monthOf.slice(5) - 1]} ${F.monthOf.slice(0, 4)}</span><button data-a="fdmonth" data-v="1" aria-label="Next month">${icon('chevron-right', 16)}</button></div>` : ''}
-    <div><div class="wk wkh"><span style="text-align:left">W</span>${WD.map((x) => `<span>${x.toUpperCase()}</span>`).join('')}</div>
+    <div><div class="wk wkh"><span style="text-align:center">W</span>${WD.map((x) => `<span>${x.toUpperCase()}</span>`).join('')}</div>
     ${weeks.map((w) => `<div class="wk wkr">${F.month ? `<button class="wkn ${F.sel === 'week' && F.week === w ? 'sel' : ''}" data-a="fdweek" data-v="${w}" aria-label="Show week ${isoWeek(w)}" aria-pressed="${F.sel === 'week' && F.week === w}">${isoWeek(w)}</button>` : `<span class="wkn">${isoWeek(w)}</span>`}${[0, 1, 2, 3, 4, 5, 6].map((i) => cell(addDays(w, i))).join('')}</div>`).join('')}</div>
     <button class="toggle-cal" data-a="fdmode" aria-label="${F.month ? 'Show one week' : 'Show the month'}" aria-expanded="${F.month}"><span style="display:inline-flex;transform:rotate(${F.month ? 180 : 0}deg)">${icon('chevron-down', 18)}</span></button></div>`;
 }
@@ -4220,40 +4239,52 @@ const T_C = 2 * Math.PI * 104;
 const tShown = () => { const id = M.timer && M.timer.id && I(M.timer.id) ? M.timer.id : null; return tElapsed() + (id ? 0 : minOn(null, T0) * 60000 + supMs()); };
 const tRule = () => { const m = Math.floor(minOn(null, T0) + supMin(T0) + tElapsed() / 60000); return m >= sessLen() ? dur(m) + ' today · session done' : m + ' of ' + sessLen() + ' min today'; };
 // ---------- timer extras (Patch 2, the owner, 2026-11-24): confetti when the session fills, a ding, break reminders, pomodoro ----------
-const TMR_DEF = { mode: 'free', rem: 0, work: 25, short: 5, long: 15, every: 4, sound: true };
-const tmr = () => Object.assign({}, TMR_DEF, (M.settings || {}).timer || {});
+const TMR_DEF = { mode: 'free', rem: 0, brk: 5, work: 25, rounds: 4, sound: true };
+// Patch 3 (the owner, 2026-11-24): pomodoro is only focus, break and rounds; a break shows in the ring for both modes
+const tmr = () => { const o = Object.assign({}, TMR_DEF, (M.settings || {}).timer || {}); if (o.short && !((M.settings.timer || {}).brk)) o.brk = o.short; delete o.short; delete o.long; delete o.every; return o; };
 let dingCtx = null;
 function ding() { if (!tmr().sound) return; try { dingCtx = dingCtx || new (window.AudioContext || window.webkitAudioContext)(); const c = dingCtx; if (c.state === 'suspended') c.resume(); const t = c.currentTime;
   [[1318.5, 0.32, 1.8], [2637, 0.08, 0.9], [3956, 0.03, 0.5]].forEach(([f, g, len]) => { const o = c.createOscillator(), v = c.createGain(); o.type = 'sine'; o.frequency.value = f;
     v.gain.setValueAtTime(0.0001, t); v.gain.exponentialRampToValueAtTime(g, t + 0.008); v.gain.exponentialRampToValueAtTime(0.0001, t + len); o.connect(v).connect(c.destination); o.start(t); o.stop(t + len + 0.05); }); } catch (e) {} }
 const mss = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ':' + pad(s % 60); };
-// what the pomodoro line says: focus time left and which round, or the break counting down
-function pomoText() { const o = tmr(), t = M.timer; if (o.mode !== 'pomo' || !t) return ''; const p = t.pomo || {};
-  if (p.brkEnd) return (p.long ? 'Long break' : 'Break') + ' · ' + mss(p.brkEnd - Date.now()) + ' left';
-  return 'Focus ' + ((p.n || 0) % o.every + 1) + ' of ' + o.every + ' · ' + mss(o.work * 60000 - (tElapsed() - (p.at || 0))) + ' left'; }
-function tmrTick() { const t = M.timer; if (!t) return; const o = tmr(); const now = Date.now();
+const tPz = () => { const t = M.timer; if (!t) return {}; return (t.pz = t.pz || { n: 0, at: 0 }); };
+const brkOn = () => !!(M.timer && tPz().brkEnd);
+const brkLeft = () => Math.max(0, (tPz().brkEnd || 0) - Date.now());
+// focus length for this stretch: the pomodoro's focus, or the time between break reminders; 0 = no breaks
+const focusLen = () => { const o = tmr(); return (o.mode === 'pomo' ? o.work : o.rem) * 60000; };
+// the line under the clock's progress: the break, or how long until the next one
+function pomoText() { const o = tmr(), t = M.timer; if (!t) return ''; const p = tPz();
+  if (p.brkEnd) return 'Back to it in ' + mss(brkLeft());
+  if (o.mode === 'pomo') return p.done ? 'All ' + o.rounds + ' rounds done' : 'Round ' + Math.min(o.rounds, (p.n || 0) + 1) + ' of ' + o.rounds + ' · ' + mss(focusLen() - (tElapsed() - (p.at || 0))) + ' left';
+  return o.rem ? 'Break in ' + mss(focusLen() - (tElapsed() - (p.at || 0))) : ''; }
+function startBreak(now) { const t = M.timer, o = tmr(), p = tPz(); if (t.start) { t.acc = (t.acc || 0) + now - t.start; t.start = null; } p.brkEnd = now + o.brk * 60000; ding(); flash('Time for a break'); }
+function tmrTick() { const t = M.timer; if (!t) return; const o = tmr(); const now = Date.now(); const p = tPz();
   // the ring fills: confetti from the clock and a ding, once a day
   if (t.start && tPct() >= 100 && t.fxDay !== T0 && minOn(null, T0) + supMin(T0) < sessLen()) { t.fxDay = T0; ding(); const r = document.querySelector('#main .vring'), ph = $('#phone'); if (r && ph) { const R = r.getBoundingClientRect(), P = ph.getBoundingClientRect(); confetti(R.left + R.width / 2 - P.left, R.top + R.height / 2 - P.top); } save(); }
-  if (o.mode === 'pomo') { const p = t.pomo = t.pomo || { n: 0, at: 0 };
-    if (p.brkEnd && now >= p.brkEnd) { p.brkEnd = null; p.long = false; p.at = tElapsed(); ding(); flash('Break over'); save(); render(); }
-    else if (!p.brkEnd && t.start && tElapsed() - (p.at || 0) >= o.work * 60000) { t.acc = (t.acc || 0) + now - t.start; t.start = null; p.n = (p.n || 0) + 1; p.long = p.n % o.every === 0; p.brkEnd = now + (p.long ? o.long : o.short) * 60000; ding(); flash(p.long ? 'Time for a long break' : 'Time for a break'); save(); render(); } }
-  else if (o.rem > 0 && t.start) { if (!t.remAt) t.remAt = tElapsed() + o.rem * 60000; else if (tElapsed() >= t.remAt) { t.remAt = tElapsed() + o.rem * 60000; ding(); flash('Time for a break'); save(); } } }
+  if (p.brkEnd) { if (now >= p.brkEnd) { p.brkEnd = null; p.at = tElapsed(); ding(); flash('Break over'); save(); render(); } return; }
+  if (!t.start || !focusLen() || p.done) return;
+  if (tElapsed() - (p.at || 0) >= focusLen()) { if (o.mode === 'pomo') { p.n = (p.n || 0) + 1; if (p.n >= o.rounds) { t.acc = (t.acc || 0) + now - t.start; t.start = null; p.done = true; ding(); flash('All rounds done'); save(); render(); return; } }
+    startBreak(now); save(); render(); } }
 setInterval(tmrTick, 1000);
-const tmrLine = () => { const o = tmr(); return o.mode === 'pomo' ? 'Pomodoro ' + o.work + '/' + o.short : o.rem ? 'Break every ' + dur(o.rem) : 'No break reminders'; };
+const tmrLine = () => { const o = tmr(); return o.mode === 'pomo' ? 'Pomodoro · ' + o.work + ' min, ' + o.brk + ' min break, ' + o.rounds + ' rounds' : o.rem ? 'Break every ' + dur(o.rem) + ' for ' + dur(o.brk) : 'No breaks'; };
 function tmrSheet() { const o = tmr(); const step = (k, l, unit, d) => `<div class="tg"><span class="l">${l}</span><span class="inrow" style="gap:10px;margin:0"><button class="btn" data-a="vtm" data-ref="${k}" data-v="-${d}" aria-label="Less">−</button><b class="tmv">${o[k] ? o[k] + unit : 'Off'}</b><button class="btn" data-a="vtm" data-ref="${k}" data-v="${d}" aria-label="More">+</button></span></div>`;
-  return `<div class="fld"><span class="mono">Mode</span><div class="chips">${[['free', 'Free'], ['pomo', 'Pomodoro']].map(([k, l]) => `<button class="chip" data-a="vtmode" data-v="${k}" aria-pressed="${o.mode === k}">${l}</button>`).join('')}</div></div>
-    <div class="fld calset">${o.mode === 'pomo' ? step('work', 'Focus', ' min', 5) + step('short', 'Short break', ' min', 1) + step('long', 'Long break', ' min', 5) + step('every', 'Long break after', ' rounds', 1) : step('rem', 'Break reminder every', ' min', 5)}
+  return `<div class="fld"><span class="mono">Mode</span><div class="chips">${[['free', 'Breaks'], ['pomo', 'Pomodoro']].map(([k, l]) => `<button class="chip" data-a="vtmode" data-v="${k}" aria-pressed="${o.mode === k}">${l}</button>`).join('')}</div></div>
+    <div class="fld calset">${o.mode === 'pomo' ? step('work', 'Focus', ' min', 5) + step('brk', 'Break', ' min', 1) + step('rounds', 'Rounds', '', 1) : step('rem', 'Break every', ' min', 5) + (o.rem ? step('brk', 'Break', ' min', 1) : '')}
     <div class="tg"><span class="l">Ding</span><button class="swt" role="switch" aria-checked="${o.sound}" data-a="vtsound" aria-label="Ding"></button></div></div>`; }
+// what the ring and clock show: a break counts down in a quiet colour, otherwise the day's study
+const ringPct = () => brkOn() ? brkLeft() / (tmr().brk * 60000) * 100 : tPct();
+const clockMs = () => brkOn() ? brkLeft() : tShown();
+const ruleText = () => brkOn() ? 'Break' : tRule();
 // the timer (polished, 2026-11-10): what I'm working on, the clock inside a ring that fills up to one study session, one line of progress, the buttons
 function timerPage() {
   const t = M.timer || {}; const id = t.id && I(t.id) ? t.id : null; const run = !!t.start, any = tElapsed() > 0; const col = M.areas.study.color;
   const sub = id ? (() => { const s = subjIds().find((x) => sIds(x).includes(id)); return s ? G(s).name : ''; })() : '';
   return (S.studyMode ? '' : crumbs([[studyName(), ''], ['Timer']])) + `<div class="vtimer">
     <button class="vtt" data-a="vtpick" aria-label="Change what I'm working on">${esc(id ? I(id).name : 'Study session')} <span class="chev" aria-hidden="true">${icon('chevron-down', 14)}</span></button><span class="mono vtsub">${esc(sub)}</span>
-    <div class="vring"><svg viewBox="0 0 224 224" aria-hidden="true"><circle cx="112" cy="112" r="104" fill="none" stroke="var(--soft)" stroke-width="8"/><circle id="tring" cx="112" cy="112" r="104" fill="none" stroke="${col}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${T_C}" stroke-dashoffset="${T_C * (1 - tPct() / 100)}" transform="rotate(-90 112 112)"/></svg><div class="vclock ${run ? '' : 'idle'}" id="tclock" role="timer">${fmtClock(tShown())}</div></div>
-    <span class="mono" id="trule">${tRule()}</span>${tmr().mode === 'pomo' ? `<span class="mono tpomo" id="tpomo">${esc(pomoText())}</span>` : ''}
+    <div class="vring"><svg viewBox="0 0 224 224" aria-hidden="true"><circle cx="112" cy="112" r="104" fill="none" stroke="var(--soft)" stroke-width="8"/><circle id="tring" cx="112" cy="112" r="104" fill="none" stroke="${brkOn() ? 'var(--faint)' : col}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${T_C}" stroke-dashoffset="${T_C * (1 - ringPct() / 100)}" transform="rotate(-90 112 112)"/></svg><div class="vclock ${run || brkOn() ? '' : 'idle'}" id="tclock" role="timer">${fmtClock(clockMs())}</div></div>
+    <span class="mono${brkOn() ? ' tbrk' : ''}" id="trule">${esc(ruleText())}</span><span class="mono tpomo" id="tpomo">${esc(pomoText())}</span>
     <div class="btns" style="justify-content:center"><button class="btn dark vtgo" data-a="${run ? 'tpause' : 'tstart'}">${run ? 'Pause' : any ? 'Carry on' : 'Start'}</button>${run || any ? '<button class="btn" data-a="tstop">Stop and save</button>' : ''}</div>
-    <button class="tmrset mono" data-a="vtmr">${icon('sliders-horizontal', 14)}<span>${esc(tmrLine())}</span></button></div>`;
+    <button class="btn tmrset" data-a="vtmr">${esc(tmrLine())}</button></div>`;
 }
 // Study support is a normal journal page with the tag 'Study support' (2026-11-10): today's one opens, or a new one starts
 const SUP_TAG = 'Study support'; // its pages also carry 'Studies' (the owner, 2026-11-12)
@@ -4270,7 +4301,7 @@ function saveTimer(msg) { const t = M.timer; if (!t) return; const min = Math.ro
   change(() => { M.study = M.study || {}; (M.study[T0] = M.study[T0] || []).push({ id, min }); L(T0); }, msg || ('Saved ' + dur(min) + (before < sessLen() && before + min >= sessLen() ? ' · study session done' : '')), false); }
 let supT = 0;
 setInterval(() => {
-  const c = document.getElementById('tclock'); if (c && M.timer && M.timer.start) { c.textContent = fmtClock(tShown()); const b = document.getElementById('tring'); if (b) b.setAttribute('stroke-dashoffset', T_C * (1 - tPct() / 100)); const r = document.getElementById('trule'); if (r) r.textContent = tRule(); }
+  const c = document.getElementById('tclock'); if (c && M.timer && (M.timer.start || brkOn())) { c.textContent = fmtClock(clockMs()); const b = document.getElementById('tring'); if (b) b.setAttribute('stroke-dashoffset', T_C * (1 - ringPct() / 100)); const r = document.getElementById('trule'); if (r) r.textContent = ruleText(); }
   { const pe = document.getElementById('tpomo'); if (pe) pe.textContent = pomoText(); }
   // Study support time runs only while writing (typed in the last 20 seconds), and pauses when you stop
   if (supOn() && S.supLast && Date.now() - S.supLast < 20000) {
@@ -4304,7 +4335,7 @@ function vLayer() {
 }
 // the two study mode buttons; in edit mode a tap changes the icon (2026-11-10)
 const studyBar = () => [['timer', 'Timer', 'timer'], ['support', 'Study support', 'heart-handshake']].map(([v, l, ic]) => { const on = v === 'timer' ? S.stv === 'timer' && S.area === 'study' : supOn();
-  return `<button ${S.edit ? `data-a="iconfor" data-v="ui:sm-${v}"` : `data-a="vstv" data-v="${v}"`} aria-label="${S.edit ? 'Change the icon for ' + l : l}" ${on ? 'aria-current="page"' : ''} style="color:${on ? M.areas.study.color : '#857E73'}"><span class="pill" style="background:${on ? M.areas.study.color + '38' : 'transparent'};${S.edit ? 'outline:1.5px dashed var(--faint);outline-offset:2px' : ''}">${icon(uiIc('sm-' + v, ic), 24, on ? 2 : 1.6)}</span></button>`; }).join('');
+  return `<button ${S.edit ? `data-a="iconfor" data-v="ui:sm-${v}"` : `data-a="vstv" data-v="${v}"`} aria-label="${S.edit ? 'Change the icon for ' + l : l}" ${on ? 'aria-current="page"' : ''} style="color:${on ? 'var(--ink)' : 'var(--faint)'}"><span class="pill" style="background:transparent;${S.edit ? 'outline:1.5px dashed var(--faint);outline-offset:2px' : ''}">${icon(uiIc('sm-' + v, ic), 24, on ? 2 : 1.6)}</span></button>`; }).join('');
 function vMenu() {
   let h = '';
   // no 'This page' group in the menu any more (2026-11-06), except a project's On hold / Finished (2026-11-08)
@@ -4385,10 +4416,10 @@ function verdictAction(act, a, ref, v) {
     case 'vtpick': openSheet({ kind: 'vtpick', title: 'Working on' }); return true;
     case 'vtset': { const t = M.timer; if (t && tElapsed() > 0 && (t.id || '') !== v) saveTimer(); M.timer = Object.assign(M.timer || { start: null, acc: 0 }, { id: v || null }); S.sheet = null; save(); render(); return true; }
     case 'tstart': { try { dingCtx = dingCtx || new (window.AudioContext || window.webkitAudioContext)(); dingCtx.resume(); } catch (e) {} // sound needs a tap first on phones
-      M.timer = Object.assign(M.timer || { id: null, acc: 0 }, { start: Date.now() }); const p = M.timer.pomo; if (p && p.brkEnd) { p.brkEnd = null; p.long = false; p.at = tElapsed(); } save(); render(); return true; }
+      M.timer = Object.assign(M.timer || { id: null, acc: 0 }, { start: Date.now() }); const p = tPz(); if (p.brkEnd || p.done) { if (p.done) p.n = 0; p.brkEnd = null; p.done = false; p.at = tElapsed(); } save(); render(); return true; }
     case 'vtmr': openSheet({ kind: 'vtmr', title: 'Timer' }); return true;
-    case 'vtmode': M.settings.timer = Object.assign(tmr(), { mode: v }); if (M.timer) { M.timer.pomo = { n: 0, at: tElapsed() }; M.timer.remAt = 0; } save(); renderLayer(); render(); return true;
-    case 'vtm': { const o = tmr(); const lim = { work: [5, 90], short: [1, 30], long: [5, 60], every: [2, 8], rem: [0, 120] }[ref]; o[ref] = Math.max(lim[0], Math.min(lim[1], (o[ref] || 0) + (+v))); M.settings.timer = o; if (M.timer) M.timer.remAt = 0; save(); renderLayer(); render(); return true; }
+    case 'vtmode': M.settings.timer = Object.assign(tmr(), { mode: v }); if (M.timer) M.timer.pz = { n: 0, at: tElapsed() }; save(); renderLayer(); render(); return true;
+    case 'vtm': { const o = tmr(); const lim = { work: [5, 90], brk: [1, 30], rounds: [1, 12], rem: [0, 120] }[ref]; o[ref] = Math.max(lim[0], Math.min(lim[1], (o[ref] || 0) + (+v))); M.settings.timer = o; save(); renderLayer(); render(); return true; }
     case 'vtsound': M.settings.timer = Object.assign(tmr(), { sound: !tmr().sound }); save(); renderLayer(); if (tmr().sound) ding(); return true;
     case 'tpause': { const t = M.timer; if (t && t.start) { t.acc = (t.acc || 0) + Date.now() - t.start; t.start = null; } save(); render(); return true; }
     case 'tstop': saveTimer(); return true;
@@ -4581,7 +4612,7 @@ function insightData() {
     let hs = det.map((k) => D.habits[k]);
     // Studies: one ring per subject, any of its tasks studied or ticked counts (aim: once a week)
     if (c.subjects) { hs = c.subjects.map((sj) => { const ids = sIds(sj); const st = days.map((d, k) => k < Math.max(0, first) || first < 0 || d > T0 ? 'skip' : ids.some((r) => insDone(D, r, d)) ? 'done' : 'miss');
-      const hb = habit(ids[0], st); hb.name = G(sj).name; hb.id = ''; hb.color = G(sj).color; hb.subj = true;
+      const hb = habit(ids[0], st); hb.name = G(sj).name; hb.id = ''; hb.color = grpCol(sj); hb.subj = true;
       // its strength: how on time its open tasks are, reviews on their own rhythm and deadlines by their date
       const open = sgroupsOf(sj).flatMap((g) => kidsOf(g).filter((k) => I(k) && !sFinished(k)).map((k) => { const dl = I(k).due || G(g).deadline || null; return smooth(dl ? byDeadline(k, dl) : onTime(k, period(I(k)) || SDEF)); }));
       if (open.length) hb.strength = days.map((_, k) => iavg(open.map((o) => o[k]))); return hb; }); rest.length = 0; }
@@ -4723,11 +4754,11 @@ const arcD = (v, r) => { const C = 2 * Math.PI * r; return (clamp01(v) * C).toFi
 function iringSet(rings, big, small, size = 230, w = 9, gap = 14, lab = 10) {
   const c = size / 2; const room = c * 0.62; if (rings.length * gap > room) { gap = room / rings.length; w = Math.max(2.5, Math.min(w, gap - 2)); lab = Math.max(8, Math.min(lab, gap + 1)); }
   return `<div class="irings" style="width:${size}px;height:${size}px"><svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true"><g transform="rotate(-90 ${c} ${c})">${rings.map((r, k) => { const rad = c - k * gap - w / 2;
-    return r.v > 0.002 ? `<circle cx="${c}" cy="${c}" r="${rad.toFixed(1)}" fill="none" stroke="${r.c}" stroke-width="${w}" stroke-linecap="round" stroke-dasharray="${arcD(r.v, rad)}"/>` : ''; }).join('')}</g></svg>
+    return r.v > 0.002 ? `<circle cx="${c}" cy="${c}" r="${rad.toFixed(1)}" fill="none" stroke="${r.c}" stroke-width="${w}" stroke-linecap="butt" stroke-dasharray="${arcD(r.v, rad)}"/>` : ''; }).join('')}</g></svg>
     ${rings.map((r, k) => r.label ? `<span class="irl" style="top:${k * gap - 1}px;font-size:${lab}px;line-height:${lab + 1}px">${esc(r.label)}</span>` : '').join('')}
     <div class="irc"><b>${esc(big)}</b><span>${esc(small)}</span></div></div>`;
 }
-const imini = (v, c) => `<svg class="imini" width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><g transform="rotate(-90 11 11)"><circle cx="11" cy="11" r="9" fill="none" stroke="${c}" stroke-width="3" stroke-linecap="round" stroke-dasharray="${arcD(Math.max(0.03, v), 9)}"/></g></svg>`;
+const imini = (v, c) => `<svg class="imini" width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><g transform="rotate(-90 11 11)"><circle cx="11" cy="11" r="9" fill="none" stroke="${c}" stroke-width="3" stroke-linecap="butt" stroke-dasharray="${arcD(Math.max(0.03, v), 9)}"/></g></svg>`;
 // beads: done = a dot that grows with how much; not done = small grey; skipped = tiny; nothing = empty
 const ibead = (st, t, c) => { const [s, col] = st === 'done' ? [4 + 7 * (t == null ? 1 : t), c] : st === 'avoid' ? [11, SHADOW] : st === 'miss' ? [4, '#CEC6B8'] : st === 'skip' ? [2, '#9A9387'] : [0, 'transparent'];
   return `<i style="width:${s.toFixed(1)}px;height:${s.toFixed(1)}px;background:${col}"></i>`; };
@@ -5085,7 +5116,7 @@ function insSection() { const p = S.ins || 'home'; const k = p.split(':')[0];
   if (p === 'links:f' || k === 'feel') return 'feel'; if (p === 'links:m' || k === 'much') return 'much'; if (['health', 'item', 'symptoms', 'links'].includes(k)) return 'health'; if (k === 'avoid' || k === 'area') return 'avoid'; if (k === 'exp' || k === 'expNew') return 'exp';
   if (k === 'cat') return p; if (k === 'habit') { const D = insightData(); const c = D.circles.find((x) => x.ids.includes(p.slice(6))); return c ? 'cat:' + c.key : 'home'; } return 'home'; }
 function insTitle() { const sec = insSection(); if (sec === 'home') return 'Insight'; const row = insSections().find((r) => r[0] === sec);
-  return `<button class="vttl" data-a="insdrop" aria-haspopup="menu" aria-expanded="${!!S.insDrop}">${esc(row ? row[1] : 'Insight')} <span aria-hidden="true">▾</span></button>`; }
+  return `<button class="vttl" data-a="insdrop" aria-haspopup="menu" aria-expanded="${!!S.insDrop}">${esc(row ? row[1] : 'Insight')} <span aria-hidden="true">${icon('chevron-down', 14)}</span></button>`; }
 function insLayer() { if (!S.insDrop || !(S.insOn || S.page === 'insight')) return ''; const sec = insSection();
   return `<div class="scrim" style="background:transparent" data-a="insdrop"></div><div class="vdrop idrop" role="menu">${insSections().map(([k, n, v, lead]) => `<button role="menuitem" data-a="ins" data-v="${k}" aria-current="${k === sec}">${lead}<b>${esc(n)}</b>${v != null ? `<span>${ipct(v)}</span>` : ''}</button>`).join('')}</div>`; }
 
@@ -5250,7 +5281,7 @@ function xCal() { const mo = S.xmonthOf || T0.slice(0, 7); const [y, m] = mo.spl
     // a wash of colour over the trip's whole dates, like the away band on the other calendars (2026-11-06)
     return `<button class="day fday ${d === T0 ? 'today' : ''} ${d.slice(0, 7) === mo ? '' : 'out'}${awayCls(t, d)}" ${t ? `data-a="tripopen" data-ref="${t.id}"` : 'tabindex="-1"'} aria-label="${fmtDate(d)}${t ? ', ' + esc(t.name) : ''}"><span class="n">${parse(d).getDate()}</span></button>`; };
   return `<div class="stack" style="gap:6px"><div class="calnav"><button data-a="xmonth" data-v="-1" aria-label="Previous month">${icon('chevron-left', 16)}</button><span>${MONTHS[m - 1]} ${y}</span><button data-a="xmonth" data-v="1" aria-label="Next month">${icon('chevron-right', 16)}</button></div>
-    <div><div class="wk wkh"><span style="text-align:left">W</span>${WD.map((x) => `<span>${x.toUpperCase()}</span>`).join('')}</div>${weeks.map((w) => `<div class="wk wkr"><span class="wkn">${isoWeek(w)}</span>${[0, 1, 2, 3, 4, 5, 6].map((i) => cell(addDays(w, i))).join('')}</div>`).join('')}</div></div>`; }
+    <div><div class="wk wkh"><span style="text-align:center">W</span>${WD.map((x) => `<span>${x.toUpperCase()}</span>`).join('')}</div>${weeks.map((w) => `<div class="wk wkr"><span class="wkn">${isoWeek(w)}</span>${[0, 1, 2, 3, 4, 5, 6].map((i) => cell(addDays(w, i))).join('')}</div>`).join('')}</div></div>`; }
 function tripSheet(s) { const D = s.draft;
   const chip = (act, v, l, on) => `<button class="chip" data-a="${act}" data-v="${v}" aria-pressed="${on}">${l}</button>`;
   return `<div class="fld"><span class="mono">Name</span><input class="inp" id="tname" value="${esc(D.name)}" placeholder="e.g. Sarek traverse" data-autofocus></div>
@@ -5295,7 +5326,7 @@ const calOn = (k, f) => { const o = ((M.settings || {}).calShow || {})[k] || {};
 function calDots(k, d) { const out = [];
   if (calOn(k, 'appts') && d > T0) [...new Set(apptsOn(d).map((id) => catOf(id)))].forEach((c) => G(c) && out.push(G(c).color));
   if (calOn(k, 'dl') && d >= T0 && typeof deadlinesOn === 'function') deadlinesOn(d).forEach((x) => out.push(x.color));
-  if (calOn(k, 'study') && d <= T0) subjIds().forEach((sj) => { const ks = new Set(sgroupsOf(sj).flatMap(kidsOf)); if (((M.study || {})[d] || []).some((e) => ks.has(e.id)) || [...ks].some((x) => isDone(x, d))) out.push(G(sj).color || M.areas.study.color); });
+  if (calOn(k, 'study') && d <= T0) subjIds().forEach((sj) => { const ks = new Set(sgroupsOf(sj).flatMap(kidsOf)); if (((M.study || {})[d] || []).some((e) => ks.has(e.id)) || [...ks].some((x) => isDone(x, d))) out.push(grpCol(sj)); });
   if (calOn(k, 'home')) { const hc = (M.areas.home || {}).color || '#EDBB3A'; const sec = [[roomIds().flatMap(kidsOf).concat(kidsOf('g-oneoff')), hc], [kidsOf('g-tend'), (G('g-tend') || {}).color || hc], [kidsOf('g-prep'), (G('g-prep') || {}).color || hc]];
     sec.forEach(([ks, col]) => { if (d <= T0 ? ks.some((x) => isDone(x, d)) : ks.some((x) => ((I(x) || {}).when || {}).mode === 'once' && I(x).when.date === d && !everDone(x))) out.push(col); }); }
   // training lines only show what's planned and not done yet (the owner, 2026-11-24)

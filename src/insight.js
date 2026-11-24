@@ -119,7 +119,7 @@ function insightData() {
     let hs = det.map((k) => D.habits[k]);
     // Studies: one ring per subject, any of its tasks studied or ticked counts (aim: once a week)
     if (c.subjects) { hs = c.subjects.map((sj) => { const ids = sIds(sj); const st = days.map((d, k) => k < Math.max(0, first) || first < 0 || d > T0 ? 'skip' : ids.some((r) => insDone(D, r, d)) ? 'done' : 'miss');
-      const hb = habit(ids[0], st); hb.name = G(sj).name; hb.id = ''; hb.color = G(sj).color; hb.subj = true;
+      const hb = habit(ids[0], st); hb.name = G(sj).name; hb.id = ''; hb.color = grpCol(sj); hb.subj = true;
       // its strength: how on time its open tasks are, reviews on their own rhythm and deadlines by their date
       const open = sgroupsOf(sj).flatMap((g) => kidsOf(g).filter((k) => I(k) && !sFinished(k)).map((k) => { const dl = I(k).due || G(g).deadline || null; return smooth(dl ? byDeadline(k, dl) : onTime(k, period(I(k)) || SDEF)); }));
       if (open.length) hb.strength = days.map((_, k) => iavg(open.map((o) => o[k]))); return hb; }); rest.length = 0; }
@@ -261,11 +261,11 @@ const arcD = (v, r) => { const C = 2 * Math.PI * r; return (clamp01(v) * C).toFi
 function iringSet(rings, big, small, size = 230, w = 9, gap = 14, lab = 10) {
   const c = size / 2; const room = c * 0.62; if (rings.length * gap > room) { gap = room / rings.length; w = Math.max(2.5, Math.min(w, gap - 2)); lab = Math.max(8, Math.min(lab, gap + 1)); }
   return `<div class="irings" style="width:${size}px;height:${size}px"><svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true"><g transform="rotate(-90 ${c} ${c})">${rings.map((r, k) => { const rad = c - k * gap - w / 2;
-    return r.v > 0.002 ? `<circle cx="${c}" cy="${c}" r="${rad.toFixed(1)}" fill="none" stroke="${r.c}" stroke-width="${w}" stroke-linecap="round" stroke-dasharray="${arcD(r.v, rad)}"/>` : ''; }).join('')}</g></svg>
+    return r.v > 0.002 ? `<circle cx="${c}" cy="${c}" r="${rad.toFixed(1)}" fill="none" stroke="${r.c}" stroke-width="${w}" stroke-linecap="butt" stroke-dasharray="${arcD(r.v, rad)}"/>` : ''; }).join('')}</g></svg>
     ${rings.map((r, k) => r.label ? `<span class="irl" style="top:${k * gap - 1}px;font-size:${lab}px;line-height:${lab + 1}px">${esc(r.label)}</span>` : '').join('')}
     <div class="irc"><b>${esc(big)}</b><span>${esc(small)}</span></div></div>`;
 }
-const imini = (v, c) => `<svg class="imini" width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><g transform="rotate(-90 11 11)"><circle cx="11" cy="11" r="9" fill="none" stroke="${c}" stroke-width="3" stroke-linecap="round" stroke-dasharray="${arcD(Math.max(0.03, v), 9)}"/></g></svg>`;
+const imini = (v, c) => `<svg class="imini" width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><g transform="rotate(-90 11 11)"><circle cx="11" cy="11" r="9" fill="none" stroke="${c}" stroke-width="3" stroke-linecap="butt" stroke-dasharray="${arcD(Math.max(0.03, v), 9)}"/></g></svg>`;
 // beads: done = a dot that grows with how much; not done = small grey; skipped = tiny; nothing = empty
 const ibead = (st, t, c) => { const [s, col] = st === 'done' ? [4 + 7 * (t == null ? 1 : t), c] : st === 'avoid' ? [11, SHADOW] : st === 'miss' ? [4, '#CEC6B8'] : st === 'skip' ? [2, '#9A9387'] : [0, 'transparent'];
   return `<i style="width:${s.toFixed(1)}px;height:${s.toFixed(1)}px;background:${col}"></i>`; };
@@ -623,6 +623,6 @@ function insSection() { const p = S.ins || 'home'; const k = p.split(':')[0];
   if (p === 'links:f' || k === 'feel') return 'feel'; if (p === 'links:m' || k === 'much') return 'much'; if (['health', 'item', 'symptoms', 'links'].includes(k)) return 'health'; if (k === 'avoid' || k === 'area') return 'avoid'; if (k === 'exp' || k === 'expNew') return 'exp';
   if (k === 'cat') return p; if (k === 'habit') { const D = insightData(); const c = D.circles.find((x) => x.ids.includes(p.slice(6))); return c ? 'cat:' + c.key : 'home'; } return 'home'; }
 function insTitle() { const sec = insSection(); if (sec === 'home') return 'Insight'; const row = insSections().find((r) => r[0] === sec);
-  return `<button class="vttl" data-a="insdrop" aria-haspopup="menu" aria-expanded="${!!S.insDrop}">${esc(row ? row[1] : 'Insight')} <span aria-hidden="true">▾</span></button>`; }
+  return `<button class="vttl" data-a="insdrop" aria-haspopup="menu" aria-expanded="${!!S.insDrop}">${esc(row ? row[1] : 'Insight')} <span aria-hidden="true">${icon('chevron-down', 14)}</span></button>`; }
 function insLayer() { if (!S.insDrop || !(S.insOn || S.page === 'insight')) return ''; const sec = insSection();
   return `<div class="scrim" style="background:transparent" data-a="insdrop"></div><div class="vdrop idrop" role="menu">${insSections().map(([k, n, v, lead]) => `<button role="menuitem" data-a="ins" data-v="${k}" aria-current="${k === sec}">${lead}<b>${esc(n)}</b>${v != null ? `<span>${ipct(v)}</span>` : ''}</button>`).join('')}</div>`; }

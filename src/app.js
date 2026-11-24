@@ -147,12 +147,18 @@ function homeOf(ref) { return placements(ref)[0]; }
 // lives in a day block alone takes the block's colour (2026-11-11: circles changed colour when a chore went into a block)
 // a generic item without its own colour wears its section's (2026-11-11)
 const slotCol = (it) => { const o = it.opens; const A = M.areas || {}, P = M.pages || {}; return o === 'study' ? (A.study || {}).color : o === 'chores' ? (P.chores || A.home || {}).color : o === 'hobbies' ? (A.hobbies || {}).color : o === 'training' || o === 'move' ? (P.training || {}).color : null; };
-function colorOf(id) { const it = I(id); if (!it && G(id)) return grpCol(id); if (it && it.color) return it.color; if (it && it.type === 'slot' && slotCol(it)) return slotCol(it); const P = placements(id); const pl = P.find((p) => !(G(p) && (G(p).style === 'dayblock' || G(p).holds === 'slot'))) || P[0]; if (!pl) return '#9A9387'; if (pl.startsWith('s:')) return colorOf(pl.slice(2)); return grpCol(pl); }
+// Patch 3 (the owner, 2026-11-24): Studies, Chores, Homemaking and Cooking each have ONE colour; their items, rooms, subjects and
+// task groups wear it everywhere (Today, Schedule, calendars) and can't have their own
+const SEC_ROOT = { 'g-subjects': 'study', 'g-rooms': 'chores', 'g-oneoff': 'chores', 'g-tend': 'homemaking', 'g-prep': 'cooking' };
+function secRootOf(k, n = 0) { if (!k || n > 8) return null; if (SEC_ROOT[k]) return SEC_ROOT[k]; const g = G(k); if (!g || g.style === 'dayblock') return null; return secRootOf(parentGrp(k), n + 1); }
+const secCol = (sec) => { const A = M.areas || {}, P = M.pages || {}; return (sec === 'study' ? (A.study || {}).color : sec === 'chores' ? (P.chores || {}).color || (A.home || {}).color : ((P[sec] || {}).color || (A.home || {}).color)) || '#9A9387'; };
+const itemSec = (id) => { for (const p of placements(id)) { const r = secRootOf(p); if (r) return r; } return null; };
+function colorOf(id) { const it = I(id); if (!it && G(id)) return grpCol(id); if (it && it.type !== 'slot') { const sc = itemSec(id); if (sc) return secCol(sc); } if (it && it.color) return it.color; if (it && it.type === 'slot' && slotCol(it)) return slotCol(it); const P = placements(id); const pl = P.find((p) => !(G(p) && (G(p).style === 'dayblock' || G(p).holds === 'slot'))) || P[0]; if (!pl) return '#9A9387'; if (pl.startsWith('s:')) return colorOf(pl.slice(2)); return grpCol(pl); }
 // a group without its own colour wears its parent's, up to the page or area it sits in (2026-11-11: items take their parent colour everywhere)
 // Home's sections keep their colour on their tab (2026-11-11): Homemaking, Cooking, Chores; a room without its own colour wears Chores'
 const ROOTCOL = { 'g-tend': ['pages', 'homemaking'], 'g-prep': ['pages', 'cooking'], 'g-oneoff': ['pages', 'chores'], 'g-rooms': ['pages', 'chores'], 'g-subjects': ['areas', 'study'], 'g-hobbies': ['areas', 'hobbies'], 'g-train': ['pages', 'training'], 'g-appts': ['pages', 'appts'], 'g-health': ['areas', 'health'], 'g-blocks': ['areas', 'plan'], 'g-slots': ['areas', 'plan'] };
 function parentGrp(k) { return Object.keys(M.groups).find((p) => (M.groups[p].kids || []).includes(k)) || null; }
-function grpCol(k, n) { const g = G(k); if (!g || (n || 0) > 8) return '#9A9387'; const R = ROOTCOL[k]; const rc = R && ((M[R[0]] || {})[R[1]] || {}).color;
+function grpCol(k, n) { const g = G(k); if (!g || (n || 0) > 8) return '#9A9387'; { const sr = secRootOf(k); if (sr && !ROOTCOL[k]) return secCol(sr); } const R = ROOTCOL[k]; const rc = R && ((M[R[0]] || {})[R[1]] || {}).color;
   if (R && R[0] === 'pages' && rc) return rc; if (g.color) return g.color; if (rc) return rc;
   if (g.style === 'sgroup' || g.style === 'subject') { const p = parentGrp(k); return p && p !== 'g-subjects' && G(p).color ? G(p).color : ((M.areas || {}).study || {}).color || '#9A9387'; }
   if (g.style === 'project' && typeof hobOf === 'function' && G(hobOf(k))) return grpCol(hobOf(k), (n || 0) + 1);
@@ -509,7 +515,7 @@ function renderCal(c = 't') {
   const selW = c === 's' && S.sview === 'week' ? weekStart(S.sday) : null;
   return `<div class="stack calblk" style="gap:6px">
     ${mon ? `<div class="calnav"><button data-a="month" data-c="${c}" data-v="-1" aria-label="Previous month">${icon('chevron-left', 16)}</button><span>${MONTHS[+monthOf.slice(5) - 1]} ${monthOf.slice(0, 4)}</span><button data-a="month" data-c="${c}" data-v="1" aria-label="Next month">${icon('chevron-right', 16)}</button></div>` : ''}
-    <div><div class="wk wkh"><span style="text-align:left">W</span>${WD.map((x) => `<span>${x.toUpperCase()}</span>`).join('')}</div>
+    <div><div class="wk wkh"><span style="text-align:center">W</span>${WD.map((x) => `<span>${x.toUpperCase()}</span>`).join('')}</div>
     ${weeks.map((w) => `<div class="wk wkr">${c === 's' ? `<button class="wkn ${w === selW ? 'sel' : ''}" data-a="pickweek" data-v="${w}" aria-label="Show week ${isoWeek(w)}" aria-pressed="${w === selW}">${isoWeek(w)}</button>` : `<span class="wkn">${isoWeek(w)}</span>`}${[0, 1, 2, 3, 4, 5, 6].map((i) => dayCell(addDays(w, i), !mon || addDays(w, i).slice(0, 7) === monthOf, c)).join('')}</div>`).join('')}</div>
     <button class="toggle-cal" data-a="calmode" data-c="${c}" aria-label="${mon ? 'Show one week' : 'Show the month'}" aria-expanded="${mon}"><span style="display:inline-flex;transform:rotate(${mon ? 180 : 0}deg)">${icon('chevron-down', 18)}</span></button></div>`;
 }
@@ -992,7 +998,7 @@ function sheetBody() {
       ${g.style === 'sgroup' ? `<div class="fld"><span class="mono">Deadline</span><div class="inrow"><input class="inp" type="date" id="gdl" value="${g.deadline || ''}"><span class="note">optional</span></div></div>` : ''}
       ${g.style === 'project' && typeof hobOf === 'function' && hobOf(s.ref) && hobActs(hobOf(s.ref)).length ? `<div class="fld"><span class="mono">Activity it covers</span><div class="chips">${[['', 'None']].concat(hobActs(hobOf(s.ref)).map((k) => [k, inm(k)])).map(([k, l]) => `<button class="chip" data-a="projact" data-ref="${s.ref}" data-v="${k}" aria-pressed="${(g.act || '') === k}">${l}</button>`).join('')}</div></div>` : ''}
       ${g.style === 'dayblock' ? `<div class="fld"><span class="mono">Time</span><div class="inrow"><input class="inp" type="time" id="gstart" value="${g.start}"><span>to</span><input class="inp" type="time" id="gend" value="${g.end}"></div></div>` : ''}
-      <div class="fld"><span class="mono">Colour</span>${colorField(s.ref, g.color)}</div>
+      ${secRootOf(s.ref) && !ROOTCOL[s.ref] ? '' : `<div class="fld"><span class="mono">Colour</span>${colorField(s.ref, g.color)}</div>`}
       ${g.style === 'hgroup' && g.special !== 'checkins' ? `<div class="fld"><span class="mono">Asked in a check-in</span><div class="chips">${[['', 'No'], ['morning', 'Morning'], ['evening', 'Evening']].map(([k, l]) => `<button class="chip" data-a="gci" data-ref="${s.ref}" data-v="${k}" aria-pressed="${(g.ci || '') === k}">${l}</button>`).join('')}</div></div>` : ''}
       ${g.style === 'acat' ? `<div class="fld"><span class="mono">Icon</span><div><button class="btn" data-a="iconfor" data-v="${s.ref}" style="display:inline-flex;gap:8px;align-items:center">${icon(g.icon || 'circle', 18)} Change icon</button></div></div>` : ''}`; }
   if (s.kind === 'area') { const a = M.areas[s.ref];
@@ -1153,7 +1159,7 @@ function itemSheet(s) {
   // every item editor is the same shape (2026-11-10: clean up the editing menus): name, when, length, frequency, steps; the look, kind, tags and reminders wait behind More settings
   if (s._more == null && D.type !== 'checkin') s._more = h.length;
   if (D.type !== 'checkin') {
-    h += `<div class="fld"><span class="mono">Colour</span>${colorField('draft', D.color, { inherit: true })}</div>`;
+    if (!(s.ref ? itemSec(s.ref) : secRootOf(s.home))) h += `<div class="fld"><span class="mono">Colour</span>${colorField('draft', D.color, { inherit: true })}</div>`; // section items wear their section's colour (2026-11-24)
     if (D.type !== 'appt') {
     h += `<div class="fld"><span class="mono">Kind</span><div class="chips">${[['', 'None'], ['behaviour', 'Behaviour'], ['experience', 'Experience'], ['circumstance', 'Circumstance']].map(([k, l]) => `<button class="chip" data-a="dset" data-k="kind" data-v="${k}" aria-pressed="${(D.kind || '') === k}">${l}</button>`).join('')}</div>${D.kind === 'behaviour' ? sw('unwanted', 'Unwanted', D.unwanted, 'Behaviour I want less of') : ''}</div>`;
     h += tagField(D, 'dtag'); h += linkField2(D);
@@ -2159,7 +2165,7 @@ function foodCal0() {
   const cell = (d) => { const star = followed(d); const inM = !F.month || d.slice(0, 7) === F.monthOf; const ex = dayExtras(d).length; const ov = overOn(d);
     return `<button class="day fday ${d === F.day && (!F.month || F.sel === 'day') ? 'sel' : ''} ${d === T0 ? 'today' : ''} ${inM ? '' : 'out'}${awayCls(awayOf('food', d), d)}" data-a="fdday" data-v="${d}" aria-label="${fmtDate(d)}${star ? ', meal plan followed' : dayBroke(d) ? ', day broken' : ''}${ex ? ', with extras' : ''}${ov ? ', overeating: ' + SCALES.symptom3[ov - 1] : ''}">${awayOf('food', d) ? '' : calLines('food', d)}<span class="dh"><span class="n">${parse(d).getDate()}</span>${awayOf('food', d) ? '' : calDotsHtml('food', d)}</span>${awayOf('food', d) ? '' : star ? dayDotHtml('fed', true) : dayBroke(d) ? dayDotHtml('broke', true) : ''}</button>`; };
   return `<div class="stack calblk" style="gap:6px">${F.month ? `<div class="calnav"><button data-a="fdmonth" data-v="-1" aria-label="Previous month">${icon('chevron-left', 16)}</button><span>${MONTHS[+F.monthOf.slice(5) - 1]} ${F.monthOf.slice(0, 4)}</span><button data-a="fdmonth" data-v="1" aria-label="Next month">${icon('chevron-right', 16)}</button></div>` : ''}
-    <div><div class="wk wkh"><span style="text-align:left">W</span>${WD.map((x) => `<span>${x.toUpperCase()}</span>`).join('')}</div>
+    <div><div class="wk wkh"><span style="text-align:center">W</span>${WD.map((x) => `<span>${x.toUpperCase()}</span>`).join('')}</div>
     ${weeks.map((w) => `<div class="wk wkr">${F.month ? `<button class="wkn ${F.sel === 'week' && F.week === w ? 'sel' : ''}" data-a="fdweek" data-v="${w}" aria-label="Show week ${isoWeek(w)}" aria-pressed="${F.sel === 'week' && F.week === w}">${isoWeek(w)}</button>` : `<span class="wkn">${isoWeek(w)}</span>`}${[0, 1, 2, 3, 4, 5, 6].map((i) => cell(addDays(w, i))).join('')}</div>`).join('')}</div>
     <button class="toggle-cal" data-a="fdmode" aria-label="${F.month ? 'Show one week' : 'Show the month'}" aria-expanded="${F.month}"><span style="display:inline-flex;transform:rotate(${F.month ? 180 : 0}deg)">${icon('chevron-down', 18)}</span></button></div>`;
 }
