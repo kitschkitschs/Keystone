@@ -750,7 +750,8 @@ function genSwap(DL, d, opens, ids, ok) { const isSlot = typeof opens === 'funct
   const sx = DL.find((x) => x.items.some(isSlot));
   if (sx) { const mv = (M.dayMove || {})[d] || {}, dT = (M.dayTime || {})[d] || {}; const od = ((M.dayOrder || {})[d] || {})[sx.b] || []; const go = real.filter((id) => !I(id).time && !dT[id] && !mv[id] && !od.includes(id)); /* already placed by hand that day: it stays where I put it (2026-11-24) */
     DL.forEach((x) => { if (x !== sx) x.items = x.items.filter((id) => !go.includes(id)); });
-    const rest = sx.items.filter((id) => !go.includes(id)); const k = rest.findIndex(isSlot); rest.splice(k, 0, ...go); sx.items = rest; }
+    const rest = sx.items.filter((id) => !go.includes(id)); const k = rest.findIndex(isSlot); const sl = rest[k]; rest.splice(k, 0, ...go); sx.items = rest;
+    /* a generic item with a time hands it to the first one standing in for it (2026-11-24) */ if (go.length && sl && I(sl) && I(sl).time) { DL.swapT = DL.swapT || {}; DL.swapT[go[0]] = I(sl).time; } }
   DL.forEach((x) => { x.items = x.items.filter((id) => !isSlot(id)); });
   return DL; }
 // a set-time item dragged on the Schedule for one day keeps that day's time in M.dayTime (2026-11-13)
@@ -786,7 +787,8 @@ function placeDay(d) {
   // repeats keep the order they always have unless I move them (2026-11-20); only an unfinished two-part chore goes to the top
   const topped = new Set([...carried].filter((id) => (M.half || {})[id]));
   if (topped.size) DL.forEach((x) => { const c = x.items.filter((id) => topped.has(id)); x.items = c.concat(x.items.filter((id) => !topped.has(id))); });
-  const fixedT = (id) => (I(id).time || dT[id]) && !carried.has(id); /* moved to a time on this day (2026-11-24) */
+  const SW = DL.swapT || {}; const tAt = (id, dd) => ((M.dayTime || {})[dd] || {})[id] || SW[id] || I(id).time; /* a stand-in takes its generic item's time */
+  const fixedT = (id) => !!(dT[id] || SW[id]) || (!!I(id).time && !carried.has(id)); /* moved to a time on this day (2026-11-24) */
   const allFixed = []; DL.forEach(({ b, items, appts }) => { const g = G(b);
     items.filter(fixedT).forEach((id) => { const t = hm(tAt(id, d)); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), blk: b }); });
     (appts || []).forEach((id) => { const t = hm(tAt(id, d) || g.start); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), appt: true, blk: b }); }); });
@@ -800,13 +802,15 @@ function placeDay(d) {
     const o = ((M.dayOrder || {})[d] || {})[b] || []; const after = {};
     fixed.forEach((f) => { const k = o.indexOf(f.id); if (k < 0) return; o.slice(k + 1).forEach((id) => { after[id] = Math.max(after[id] || 0, f.b); }); });
     // moved behind a set-time item for every day: it.behind names that item (a day's own order wins)
+    const folAt = {}; { const src = afterSrc(); items.forEach((id) => (src[id] || []).forEach((w) => { const f = fixed.find((q) => q.id === w); if (f) folAt[id] = Math.max(folAt[id] || 0, f.b); })); } /* a task that always follows a workout with a time goes right behind it, and the rest keep their places (2026-11-24) */
     items.forEach((id) => { const bh = I(id).behind; if (!bh || o.includes(id)) return; const f = fixed.find((q) => q.id === bh); if (f) after[id] = Math.max(after[id] || 0, f.b); });
     // tacked in front of a set-time item (2026-11-11): it ends right where that item starts, several in a row stack up
     // backwards; a day's own choice wins over the every-day one (it.before)
     const dt = (M.dayTack || {})[d] || {}; const tackOf = (id) => { const t = (id in dt ? dt[id] : I(id).before) || null; return t && I(t) ? t : null; }; // breaks too (2026-11-12), but only when dropped right at them (see the drop)
     const tacked = new Set(); const busy = fixed.slice();
     fixed.forEach((f) => { let end = f.a; items.filter((id) => !fixedT(id) && !carried.has(id) && tackOf(id) === f.id).reverse().forEach((id) => { const len = I(id).dur || 30; if (end - len < hm(g.start)) return; /* no room before the block starts: it flows as usual */ if (busy.some((q) => end - len < q.b && end > q.a)) return; /* something else is there (an appointment): it finds a free spot instead (2026-11-14) */ const q = { id, a: end - len, b: end, blk: b }; out.push(q); busy.push(q); tacked.add(id); end -= len; }); });
-    items.filter((id) => !fixedT(id) && !tacked.has(id)).forEach((id) => { const len = I(id).dur || 30; let moved = true; if (after[id]) cur = Math.max(cur, after[id]);
+    items.filter((id) => !fixedT(id) && !tacked.has(id) && folAt[id] != null).forEach((id) => { const len = I(id).dur || 30; let a0 = folAt[id], mv2 = true; while (mv2) { mv2 = false; busy.forEach((f) => { if (a0 < f.b && a0 + len > f.a) { a0 = f.b; mv2 = true; } }); } const q = { id, a: a0, b: a0 + len, blk: b }; out.push(q); busy.push(q); });
+    items.filter((id) => !fixedT(id) && !tacked.has(id) && folAt[id] == null).forEach((id) => { const len = I(id).dur || 30; let moved = true; if (after[id]) cur = Math.max(cur, after[id]);
       while (moved) { moved = false; busy.forEach((f) => { if (cur < f.b && cur + len > f.a) { cur = f.b; moved = true; } }); }
       out.push({ id, a: cur, b: cur + len, blk: b }); cur += len; });
   });
@@ -1679,6 +1683,23 @@ document.addEventListener('pointerup', () => {
   }, d.to === d.from ? 'Moved' : 'Moved to ' + (G(d.to) ? G(d.to).name : 'the routine'));
 });
 
+// a real chore or workout standing in for its generic item: moving it in edit mode moves the generic item (2026-11-24)
+function standIn(id) { if (!I(id) || I(id).time) return id; const tr = typeof trainCats === 'function' ? new Set(trainCats().flatMap(kidsOf)) : new Set(); const ch = new Set(choreIds());
+  const op = ch.has(id) ? ['chores'] : tr.has(id) ? ['training', 'move'] : []; if (!op.length) return id; for (const k of blockIds()) { const sl = G(k).kids.find((q) => I(q) && I(q).type === 'slot' && op.includes(I(q).opens)); if (sl) return sl; } return id; }
+// edit mode moves the same way as a one-day move, but for every day from now on (the owner, 2026-11-24): the item (or the
+// generic item it stands in for) gets that time; what follows it stays behind it; items with a time in the way move back
+function editMove(id, day, t, len, nb, chain, PDd, hard) { const xid = standIn(id); const it = I(xid); const T = fmtHM(t);
+  const clearOwn = (k) => { ['dayTime', 'dayMove', 'dayTack', 'dayAfter'].forEach((key) => Object.entries(M[key] || {}).forEach(([d, q]) => { if (d >= T0 && q) delete q[k]; }));
+    Object.entries(M.dayOrder || {}).forEach(([d, o]) => { if (d >= T0) Object.values(o).forEach((l) => { const i = l.indexOf(k); if (i >= 0) l.splice(i, 1); }); }); };
+  change(() => {
+    it.time = T; delete it.before; delete it.behind; clearOwn(xid); if (xid !== id) clearOwn(id);
+    const dTd = (M.dayTime = M.dayTime || {})[day] = M.dayTime[day] || {}; if (xid === id) dTd[id] = T; /* this day shows it there too, even when it's running late */
+    const home = blockIds().find((k) => G(k).kids.includes(xid)); if (G(nb) && home !== nb) { if (home) G(home).kids.splice(G(home).kids.indexOf(xid), 1); G(nb).kids.push(xid); }
+    const src = afterSrc(); chain.forEach((o) => { const fid = standIn(o.id); clearOwn(fid); if (!(src[o.id] || []).includes(id) && I(fid) && !I(fid).time) I(fid).behind = xid; });
+    let cur = t + len + chain.reduce((n, o) => n + (o.b - o.a), 0);
+    PDd.filter((o) => !hard(o) && o.blk === nb && o.a >= t && I(standIn(o.id)) && I(standIn(o.id)).time).sort((p, q) => p.a - q.a).forEach((o) => { const l = o.b - o.a; if (o.a >= cur) { cur = o.b; return; } let a = cur;
+      for (let k = 0; k < 8; k++) { const h = PDd.find((q) => hard(q) && a < q.b && a + l > q.a); if (!h) break; a = h.b; } I(standIn(o.id)).time = fmtHM(a); clearOwn(standIn(o.id)); clearOwn(o.id); if (standIn(o.id) === o.id) dTd[o.id] = fmtHM(a); cur = a + l; });
+  }, 'Moved ' + it.name + ' to ' + T + ' on every day'); }
 // Schedule edit mode: hold a box without a set time, then drag it to another place, block or (one-off tasks) day.
 let sd = null;
 // a picked-up box loses its red overflow outline while held
@@ -1710,7 +1731,7 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
   const o0 = placeDay(x.from).find((o) => o.id === x.id) || {};
   // moving on one day (the owner, 2026-11-24): it lands on the nearest quarter hour, or snaps right behind or in front of an
   // item when dropped close to its edge; dropped onto other items, it takes that spot and they make room behind it
-  if (!S.edit && day === x.from && !o0.appt && it.type !== 'checkin') {
+  if (day === x.from && !o0.appt && it.type !== 'checkin') {
     const len = (o0.b - o0.a) || it.dur || 30; const tm = minuteAt((top - cr.top) / x.sc);
     const P0 = placeDay(day).filter((o) => o.id !== x.id && I(o.id).type !== 'checkin');
     /* what follows it (the owner, 2026-11-24): items snapped right behind it on this day, and tasks set to always come after it,
@@ -1727,6 +1748,7 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
     /* breaks and appointments don't move: it goes in front of or behind them, whichever side it was dropped nearer */
     for (let k = 0; k < 6; k++) { const h = PDd.find((o) => hard(o) && ov(o, t)); if (!h) break; const fr = tm + len / 2 < (h.a + h.b) / 2 && h.a - tot >= 0; t = fr ? h.a - tot : h.b; lead = fr ? null : h.id; }
     const nb = blockAtTime(fmtHM(t)) || b; const idx = PDd.filter((o) => o.blk === nb && o.a < t).length;
+    if (S.edit) { editMove(x.id, day, t, len, nb, chain, PDd, hard); return; }
     change(() => {
       const dT = (M.dayTime = M.dayTime || {})[day] = M.dayTime[day] || {}; dT[x.id] = fmtHM(t);
       const TK0 = (M.dayTack = M.dayTack || {})[day] = M.dayTack[day] || {}; TK0[x.id] = null;
