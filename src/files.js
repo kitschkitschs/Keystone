@@ -18,17 +18,23 @@ function filesCard(p) { const L = projFiles(p), x = G(p); const kn = { note: 'No
   // the + sits in the header and drops down Note, Board or PDF (2026-11-08)
   const menu = S.pjAdd === p ? `<div class="pjaddm"><button data-a="pnnew" data-v="${p}">${icon('sticky-note', 18)}Note</button><button data-a="pjbnew" data-v="${p}">${icon('layout-dashboard', 18)}Board</button><label>${icon('file-text', 18)}PDF<input type="file" accept="application/pdf" id="projpdf" data-ref="${p}" hidden></label></div>` : '';
   const plus = '';
-  if ((x.files || []).some((f) => !f.noThumb && (!f.thumb || (f.thumbPg || 1) !== thumbPgOf(f)))) setTimeout(() => pdfThumbs(p), 0);
+  if ((x.files || []).some((f) => !f.noThumb && (!f.thumb || (f.thumbPg || 1) !== thumbPgOf(f) || (f.thumbSig || '') !== thumbSig(f)))) setTimeout(() => pdfThumbs(p), 0);
   return lcardPlus('pjn:' + p, 'Files', L.length || '', L.length ? `<div class="pjfiles">${L.map(tile).join('')}</div>` : '', plus); }
 // the first page of each PDF becomes its preview, made once and kept with the file
 let thumbBusy = false;
 // the preview shows the page my bookmark is on, or the first page without one (the owner, 2026-11-24)
 const thumbPgOf = (f) => (f.mark && f.mark.pg) || 1;
+// the preview also shows the bookmark band and the highlights on that page, and redraws when they change (the owner, 2026-11-24)
+const thumbSig = (f) => { const n = thumbPgOf(f); const hl = (f.hl || []).filter((h) => h.pg === n); if (!f.mark && !hl.length) return ''; return JSON.stringify([f.mark || 0, hl.map((h) => [h.r || [h.x, h.y, h.w, h.h], hlCol(h)]), f.mark ? pdMarkCol() : 0]); };
+function thumbMarks(f, n, cx, W, H) { cx.save(); cx.globalCompositeOperation = 'multiply';
+  (f.hl || []).filter((h) => h.pg === n).forEach((h) => { cx.globalAlpha = 0.55; cx.fillStyle = hlCol(h); (h.r || [[h.x, h.y, h.w, h.h]]).forEach((q) => cx.fillRect(q[0] * W, q[1] * H, q[2] * W, q[3] * H)); });
+  if (f.mark && f.mark.pg === n) { const y = f.mark.y * H, h = Math.max(3, (f.mark.h || 0.024) * H); cx.globalAlpha = 0.38; cx.fillStyle = pdMarkCol(); cx.fillRect(0, y, W, h); cx.globalAlpha = 0.8; cx.fillStyle = mix(pdMarkCol(), '#000000', 0.25); cx.fillRect(0, y, 3, h); }
+  cx.restore(); }
 async function pdfThumbs(p) { if (thumbBusy) return; thumbBusy = true; let done = 0;
-  try { const lib = await pdfJs(); for (const f of (G(p).files || []).filter((q) => !q.noThumb && (!q.thumb || (q.thumbPg || 1) !== thumbPgOf(q)))) {
+  try { const lib = await pdfJs(); for (const f of (G(p).files || []).filter((q) => !q.noThumb && (!q.thumb || (q.thumbPg || 1) !== thumbPgOf(q) || (q.thumbSig || '') !== thumbSig(q)))) {
       try { const doc = await lib.getDocument({ data: await pdfBytes(f) }).promise; const want = Math.min(thumbPgOf(f), doc.numPages); const pg = await doc.getPage(want); const v1 = pg.getViewport({ scale: 1 }); const vp = pg.getViewport({ scale: 320 / v1.width });
         const cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height; const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height);
-        await pg.render({ canvasContext: cx, viewport: vp }).promise; f.thumb = cv.toDataURL('image/jpeg', 0.7); f.thumbPg = thumbPgOf(f); done++; } catch (e) { f.noThumb = true; } } }
+        await pg.render({ canvasContext: cx, viewport: vp }).promise; thumbMarks(f, want, cx, cv.width, cv.height); f.thumb = cv.toDataURL('image/jpeg', 0.7); f.thumbPg = thumbPgOf(f); f.thumbSig = thumbSig(f); done++; } catch (e) { f.noThumb = true; } } }
   catch (e) { /* pdf.js could not load: try again next time */ }
   thumbBusy = false; if (done) { save(); render(); } }
 async function pdfBytes(f) { return f.asset ? new Uint8Array(await (await fetch(blobUrl(f.asset))).arrayBuffer()) : Uint8Array.from(atob(f.src.split(',')[1]), (c) => c.charCodeAt(0)); }
