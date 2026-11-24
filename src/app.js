@@ -745,6 +745,7 @@ function genSwap(DL, d, opens, ids, ok) { const isSlot = (id) => I(id) && I(id).
   return DL; }
 // a set-time item dragged on the Schedule for one day keeps that day's time in M.dayTime (2026-11-13)
 const tAt = (id, d) => ((M.dayTime || {})[d] || {})[id] || I(id).time;
+let TWO_IN = false; const TWO_LATE = (d) => d < T0; /* a past day keeps it where it was */
 function placeDay(d) {
   const fz = frozenOf(d); if (fz) { return fz.filter((o) => !isMissed(o.id, d) && !halfWait(o.id, d)).map((o) => Object.assign({}, o)); }
   const out = []; const DL = choreSwap(dayList(d), d);
@@ -753,7 +754,10 @@ function placeDay(d) {
   // a started two-part chore's second part sits on Schedule at the time its timer goes off (the owner, 2026-11-13);
   // if something with a set time is there, it falls into the first free spot behind it
   const twoAt = {}; Object.keys(M.half || {}).forEach((id) => { const it = I(id); if (!it || !it.two || isDone(id, d) || isMissed(id, d)) return; const due = new Date(M.half[id].at + (+it.two || 2) * 3600000);
-    const sh = new Date(due); sh.setHours(sh.getHours() - DAY_H); if (iso(sh) !== d || halfDay(M.half[id]) > d) return; /* due on a later day: it shows on that day (2026-11-24) */ twoAt[id] = due.getHours() * 60 + due.getMinutes() + (iso(due) !== d ? 1440 : 0); });
+    const sh = new Date(due); sh.setHours(sh.getHours() - DAY_H); const pd = addDays(d, -1);
+    /* due too late in the evening to fit in before the day ends: it goes first thing the next day (2026-11-24) */
+    if (iso(sh) === pd && pd >= T0 && !TWO_IN && halfDay(M.half[id]) <= pd) { TWO_IN = true; let fit = true; try { fit = placeDay(pd).some((o) => o.id === id && o.two); } finally { TWO_IN = false; } if (!fit) twoAt[id] = hm(G(blockIds()[0]).start); return; }
+    if (iso(sh) !== d || halfDay(M.half[id]) > d) return; /* due on a later day: it shows on that day (2026-11-24) */ twoAt[id] = due.getHours() * 60 + due.getMinutes() + (iso(due) !== d ? 1440 : 0); });
   // the first part stays where it was; the second part fits itself in after it's due (the owner, 2026-11-24)
   // missed items that come back on their own (an overdue repeat, a task past its date, one moved on from a bad day, an unfinished
   // two-part chore) don't keep their set time: they take the first free spot at the top of their block (2026-11-14)
@@ -790,7 +794,8 @@ function placeDay(d) {
   // second parts go in last, into the first free spot from when they're due, so nothing else moves for them
   Object.keys(twoAt).sort((p, q) => twoAt[p] - twoAt[q]).forEach((id) => { const len = I(id).dur || 30; let a0 = twoAt[id], moved = true;
     while (moved) { moved = false; out.forEach((f) => { if (I(f.id) && I(f.id).type === 'checkin') return; if (a0 < f.b && a0 + len > f.a) { a0 = f.b; moved = true; } }); }
-    const B = blockIds(); const blk = B.find((b) => hm(G(b).start) <= a0 && a0 < hm(G(b).end)) || B.filter((b) => hm(G(b).start) <= a0).pop() || B[0];
+    const B = blockIds(); let lastEnd = hm(G(B[B.length - 1]).end); if (lastEnd <= hm(G(B[0]).start)) lastEnd += 1440; if (a0 + len > lastEnd && !TWO_LATE(d)) return; /* no room left today: the next day takes it */
+    const blk = B.find((b) => hm(G(b).start) <= a0 && a0 < hm(G(b).end)) || B.filter((b) => hm(G(b).start) <= a0).pop() || B[0];
     out.push({ id, a: a0, b: a0 + len, blk, two: true }); });
   return out;
 }
