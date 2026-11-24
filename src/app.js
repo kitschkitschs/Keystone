@@ -830,7 +830,9 @@ function placeDay(d) {
   /* counted from the moment part one was ticked (the owner, 2026-11-24) */
   Object.keys(twoAt).sort((p, q) => twoAt[p] - twoAt[q]).forEach((id) => { const len = I(id).dur || 30; let a0 = twoAt[id], moved = true;
     while (moved) { moved = false; out.forEach((f) => { if (I(f.id) && I(f.id).type === 'checkin') return; if (a0 < f.b && a0 + len > f.a) { a0 = f.b; moved = true; } }); }
-    const B = blockIds(); /* due too late for the last block: it stays on its own day, running past the block's end in red, not first thing the next morning (the owner, 2026-11-24) */
+    const B = blockIds(); /* due too late for the last block: it stays on its own day, slotted in right under the last block with a red frame, not first thing the next morning (the owner, 2026-11-24) */
+    const lb = B[B.length - 1]; let lastEnd = hm(G(lb).end); if (lastEnd <= hm(G(B[0]).start)) lastEnd += 1440;
+    if (a0 + len > lastEnd) { a0 = lastEnd; out.forEach((f) => { if (f.late) a0 = Math.max(a0, f.b); }); out.push({ id, a: a0, b: a0 + len, blk: lb, two: true, late: true }); return; }
     const blk = B.find((b) => hm(G(b).start) <= a0 && a0 < hm(G(b).end)) || B.filter((b) => hm(G(b).start) <= a0).pop() || B[0];
     out.push({ id, a: a0, b: a0 + len, blk, two: true }); });
   return out;
@@ -856,11 +858,11 @@ function renderSchedule() {
   const base = (m) => (m - h0 * 60) / 60 * PX + GAP * starts.filter((t) => t <= m).length;
   // overfull blocks stretch the timeline: each gets a red stretch after its end as tall as its biggest spill that week
   const PDs = days.map(placeDay); const ends = {}; blockIds().forEach((b) => { ends[b] = hm(G(b).end); });
-  const OV = {}; blockIds().forEach((b) => { OV[b] = Math.max(0, ...PDs.flat().filter((o) => o.blk === b && !o.appt).map((o) => o.b - ends[b])); });
+  const OV = {}; blockIds().forEach((b) => { OV[b] = Math.max(0, ...PDs.flat().filter((o) => o.blk === b && !o.appt && !o.late).map((o) => o.b - ends[b])); }); /* a late part two isn't the block running over: no red stretch for it */
   const shiftBefore = (m, skip) => blockIds().filter((b) => b !== skip && ends[b] <= m).reduce((t, b) => t + OV[b] / 60 * PX, 0);
   const y = (m) => base(m) + shiftBefore(m);
   const yIn = (m, b) => b && m >= ends[b] ? base(ends[b] - 0.001) + shiftBefore(ends[b], b) + (m - ends[b]) / 60 * PX : base(m) + shiftBefore(m, b);
-  const H = y(h1 * 60);
+  const LATE = Math.max(0, ...PDs.flat().filter((o) => o.late).map((o) => o.b - ends[o.blk])); const H = y(h1 * 60) + Math.max(0, LATE / 60 * PX - (y(h1 * 60) - yIn(ends[blockIds()[blockIds().length - 1]], blockIds()[blockIds().length - 1]))) + (LATE ? 4 : 0); // room under the last block for a late part two
   const cols = `grid-template-columns:22px repeat(${days.length},minmax(0,1fr))`;
   let h = renderCal('s') + calEdit();
   h += `<div class="tl" style="height:${H}px;margin-top:4px;${cols}">`;
@@ -869,7 +871,7 @@ function renderSchedule() {
   const P = placeDay(dayV ? S.sday : days.includes(T0) ? T0 : days[0]); // week view counts today's (or the week's first) day, like Today's block titles
   blockIds().forEach((b, bi) => { const g = G(b); const len = hm(g.end) - hm(g.start);
     const E = (m) => estHM(m / 60); let info = E(len), over = !dayV && OV[b] > 0; const overB = OV; // Stone (2026-11-23): titled like Today's blocks, name then time
-    { const used = P.filter((o) => o.blk === b && !o.appt).reduce((t, o) => t + (o.b - o.a), 0); over = over || used > len; info = E(used) + ' of ' + E(len) + (over ? ' · over by ' + E(used - len) : ''); }
+    { const used = P.filter((o) => o.blk === b && !o.appt && !o.late).reduce((t, o) => t + (o.b - o.a), 0); over = over || used > len; info = E(used) + ' of ' + E(len) + (over ? ' · over by ' + E(used - len) : ''); }
     const lbl = `<b>${esc(g.name)}</b><em>${info}</em>`;
     // the block's border is a band: dashed top and bottom in one colour, name in between; it sits right under the
     // previous block's last box, so there's no stray gap (2026-11-02)
