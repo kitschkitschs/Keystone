@@ -5464,14 +5464,14 @@ function renderTraining() {
   if (d !== T0 && !S.edit) return h;
   // no verdict card on Training (2026-11-04)
   // Sessions as Planner rows, one card per category like Today's blocks; adding only in edit mode (2026-11-04)
-  h += `<div class="stack" ${S.edit ? 'data-list="g-train"' : ''} style="margin-top:14px">` + trainCats().map((c) => { const g = G(c); const ks = kidsOf(c); const open = S.edit || S.open['b:' + c] !== false;
+  h += `<div class="stack" ${S.edit ? 'data-list="g-train"' : ''} style="margin-top:14px">` + trainCats().filter((c) => c !== woCat()).map((c) => { const g = G(c); const ks = kidsOf(c); const open = S.edit || S.open['b:' + c] !== false;
     const left = ks.filter((k) => onDay(k, T0) && !isDone(k, T0)).length;
     return `<section class="card" data-ref="${c}"><div class="bhead">${grip()}${S.edit ? `<span class="nm mono" style="font-size:11px;flex:1">${nm(c, g.name)}</span>${tail(c, 'g-train')}`
       : `<button data-a="bopen" data-ref="${c}" aria-expanded="${open}" style="display:flex;align-items:center;gap:8px;width:100%;min-height:44px"><span class="nm mono" style="flex:1">${esc(g.name)}</span><span class="cnt">${left ? left + ' today' : ''}</span>${fold(open)}</button>`}</div>
       ${open ? `<div class="list" data-list="${c}">${ks.map((k) => itemRow(k, c, T0)).join('') || (S.edit ? '' : '<p class="empty">No sessions yet.</p>')}${S.edit ? `<button class="addrow" data-a="vadd" data-v="${c}"><span class="plus">+</span>Add session</button>` : ''}</div>` : ''}</section>`; }).join('') + '</div>';
   if (S.edit) h += `<div style="margin-top:10px"><button class="addcard" data-a="taddcat">+ Add category</button></div>`;
   // my workouts (sets and reps I follow in the app) and the one list of exercises they're made from (2026-11-24)
-  if (!S.edit) h += woSection();
+  h += woSection(); // the Workouts category shows here, with Start, instead of as a card above (the owner, 2026-11-24)
   // Training's own colour (the generic movement item and the Training tab wear it), set here in edit mode like the other sections (2026-11-24)
   if (S.edit) h += `<div style="margin-top:16px">${lcard(null, 'Colour', '', `<div class="vdef">${colorField('p:training', ((M.pages || {}).training || {}).color || '#3FAFA6')}</div>`)}</div>`;
   if (G('hg-aches')) h += `<div style="margin-top:14px">${hGroup('hg-aches', T0)}</div>`;
@@ -5565,18 +5565,21 @@ function woFlat(w) { const out = []; const m = Math.max(0, ...w.ex.map((e) => e.
 const woK = (i, s) => i + '-' + s;
 
 // ---------- Training page: Workouts and Exercises ----------
+// one Workouts list: the Workouts category's sessions, with Start (2026-11-24). Outside edit mode a tap schedules it;
+// in edit mode a tap opens the workout (its exercises) and exercises can be made and changed (the owner, 2026-11-24)
 function woSection() {
-  const R = M.wrun;
-  const rows = woItems().map((k) => { const w = I(k).wo; const n = w.ex.filter((e) => exOf(e.x)).length; const live = R && R.item === k;
-    return `<div class="row wrow"><button class="lbl" data-a="woedit" data-ref="${k}" style="text-align:left">${esc(I(k).name)}<span class="sub">${n} ${n === 1 ? 'exercise' : 'exercises'} · ${woSets(w)} sets${isDone(k, T0) ? ' · done today' : ''}</span></button><button class="wgo" data-a="wostart" data-ref="${k}" ${n ? '' : 'disabled'}>${live ? 'Resume' : 'Start'}</button></div>`; }).join('');
+  const R = M.wrun; const ed = S.edit;
   if (woHome()) save();
-  const bare = (woCat() ? kidsOf(woCat()) : []).filter((k) => I(k) && !I(k).wo && I(k).type === 'task');
-  const pick = bare.length ? `<select class="inp wsel" data-wogive="1" aria-label="Give one of my sessions exercises"><option value="">+ Give one of my sessions exercises</option>${bare.map((k) => `<option value="${k}">${esc(I(k).name)}</option>`).join('')}</select>` : '';
+  const ks = (woCat() ? kidsOf(woCat()) : []).filter((k) => I(k).type === 'task' || I(k).type === 'routine');
+  const rows = ks.map((k) => { const w = I(k).wo || { ex: [] }; const n = w.ex.filter((e) => exOf(e.x)).length; const live = R && R.item === k; const wt = whenText(I(k));
+    const sub = [n ? n + (n === 1 ? ' exercise' : ' exercises') + ' · ' + woSets(w) + ' sets' : 'No exercises yet', ed ? '' : wt, isDone(k, T0) ? 'done today' : ''].filter(Boolean).join(' · ');
+    return `<div class="row wrow" data-ref="${k}"><button class="lbl" data-a="${ed ? 'woedit' : 'sched'}" data-ref="${k}" style="text-align:left">${inm(k)}<span class="sub">${esc(sub)}</span></button>${ed ? tail(k, woCat()) : `<button class="wgo" data-a="wostart" data-ref="${k}" ${n ? '' : 'disabled'}>${live ? 'Resume' : 'Start'}</button>`}</div>`; }).join('');
   const ex = exList().slice().sort((a, b) => a.name.localeCompare(b.name));
   const exRows = ex.map((e) => { const a = acheOf(e.id).map((k) => I(k).name.toLowerCase()); const bits = [e.side ? 'two sides' : '', e.timed ? 'timed' : '', a.length ? 'touches ' + a.join(', ') : ''].filter(Boolean);
-    return `<button class="row" data-a="wxedit" data-ref="${e.id}" style="width:100%;text-align:left"><span class="lbl">${xnm(e)}${bits.length ? `<span class="sub">${esc(bits.join(' · '))}</span>` : ''}</span></button>`; }).join('');
-  return `<div style="margin-top:14px">${lcard('t:wo', 'Workouts', woItems().length || '', (rows || '<p class="empty">No workouts yet.</p>') + `<button class="addrow" data-a="wonew"><span class="plus">+</span>New workout</button>` + pick)}</div>
-    <div style="margin-top:14px">${lcard('t:wx', 'Exercises', ex.length || '', (exRows || '<p class="empty">No exercises yet. Each one is made once and used in any workout.</p>') + `<button class="addrow" data-a="wxnew"><span class="plus">+</span>New exercise</button>`)}</div>`;
+    const inner = `<span class="lbl">${xnm(e)}${bits.length ? `<span class="sub">${esc(bits.join(' · '))}</span>` : ''}</span>`;
+    return ed ? `<button class="row" data-a="wxedit" data-ref="${e.id}" style="width:100%;text-align:left">${inner}</button>` : `<div class="row">${inner}</div>`; }).join('');
+  return `<div style="margin-top:14px">${lcard('t:wo', woCat() ? G(woCat()).name : 'Workouts', ks.length || '', (rows || '<p class="empty">No workouts yet.</p>') + (ed ? `<button class="addrow" data-a="wonew"><span class="plus">+</span>New workout</button>` : ''))}</div>
+    <div style="margin-top:14px">${lcard('t:wx', 'Exercises', ex.length || '', (exRows || `<p class="empty">No exercises yet.${ed ? ' Each one is made once and used in any workout.' : ''}</p>`) + (ed ? `<button class="addrow" data-a="wxnew"><span class="plus">+</span>New exercise</button>` : ''))}</div>`;
 }
 
 // ---------- the workout pop-up: name, how I follow it, its exercises ----------
@@ -5592,7 +5595,7 @@ function woSheet(s) { const it = I(s.ref); if (!it || !it.wo) return ''; const w
     <div class="tg"><span class="l">Stands in for generic items<span class="sub" style="display:block;font-size:12.5px;color:var(--quiet)">Off for an extra one, like a recovery workout: Movement and Workout stay on my day beside it</span></span><button class="swt" role="switch" aria-checked="${!it.nogen}" data-a="wonogen" data-ref="${s.ref}" aria-label="Stands in for generic items"></button></div>
     <div class="fld"><span class="mono">Exercises · done set by set</span>${rows || '<p class="empty" style="padding:4px 0">No exercises yet.</p>'}
       <select class="inp" data-woadd="${s.ref}" aria-label="Add an exercise"><option value="">+ Add an exercise</option>${left.map((x) => `<option value="${x.id}">${esc(xtn(x))}</option>`).join('')}<option value="__new">New exercise…</option></select></div>
-    <div class="btns" style="margin-top:14px"><button class="btn danger" data-a="wodel" data-ref="${s.ref}">Take the exercises off this session</button></div>`; }
+    <div class="btns" style="margin-top:14px"><button class="btn" data-a="open" data-ref="${s.ref}">Schedule, block and more</button><button class="btn danger" data-a="wodel" data-ref="${s.ref}">Take the exercises off this session</button></div>`; }
 
 // an exercise's details sit beside its name everywhere, like a hobby activity's (the owner, 2026-11-24)
 const xtn = (x) => (x.name || '') + (x.extra ? ' · ' + x.extra : ''); const xnm = (x) => esc(x.name || '') + (x.extra ? `<span class="mono hxt">${esc(x.extra)}</span>` : '');
@@ -5734,16 +5737,18 @@ function woCat(make) { const tc = trainCats(); let c = tc.includes('tc-work') ? 
   c = G('tc-work') ? uid('tc') : 'tc-work'; M.groups[c] = { name: 'Workouts', style: 'tcat', holds: 'task', color: '#3FAFA6', icon: 'dumbbell', kids: [] }; G('g-train').kids.push(c); return c; }
 // a workout found in another training category moves to Workouts
 function woHome() { const c = woCat(woItems().length > 0); if (!c) return false; let moved = false;
-  woItems().forEach((k) => trainCats().forEach((t) => { if (t === c || !kidsOf(t).includes(k)) return; G(t).kids = G(t).kids.filter((x) => x !== k); if (!G(c).kids.includes(k)) G(c).kids.push(k); moved = true; }));
+  woItems().forEach((k) => { if (woBlock(k)) moved = true; }); woItems().forEach((k) => trainCats().forEach((t) => { if (t === c || !kidsOf(t).includes(k)) return; G(t).kids = G(t).kids.filter((x) => x !== k); if (!G(c).kids.includes(k)) G(c).kids.push(k); moved = true; }));
   return moved; }
 function woNewItem(name) { const cat = woCat(true); if (!cat) return null; const id = uid('wo');
-  M.items[id] = { name, type: 'task', kind: 'behaviour', tags: [], made: T0, dur: 45, insight: true, when: { mode: 'once', date: null }, persist: true, wo: { follow: 'list', ex: [] } }; G(cat).kids.push(id); return id; }
+  M.items[id] = { name, type: 'task', kind: 'behaviour', tags: [], made: T0, dur: 45, insight: true, when: { mode: 'once', date: null }, persist: true, wo: { follow: 'list', ex: [] } }; G(cat).kids.push(id); woBlock(id); return id; }
+// a workout sits in a day block like any session, so once it has a day it shows on Today, the Schedule and the calendars (2026-11-24)
+function woBlock(k) { if (placements(k).some((p) => G(p) && G(p).style === 'dayblock')) return false; const b = defBlock('training'); if (!b || !G(b)) return false; G(b).kids.push(k); return true; }
 function woRemoveEx(x) { Object.values(M.items).forEach((it) => { if (it.wo) it.wo.ex = it.wo.ex.filter((e) => e.x !== x); if (it.exs) it.exs = it.exs.filter((k) => k !== x); }); M.exercises = exList().filter((e) => e.id !== x); }
 function workoutAction(act, a, ref, v) {
   const R = M.wrun;
   switch (act) {
     case 'wonew': { let id; change(() => { id = woNewItem('New workout'); }); if (id) openSheet({ kind: 'wo', ref: id, title: 'Workout' }); else flash('Make a training category first'); return true; }
-    case 'woedit': openSheet({ kind: 'wo', ref, title: 'Workout' }); return true;
+    case 'woedit': if (I(ref) && !I(ref).wo) change(() => { I(ref).wo = { follow: 'list', ex: [] }; }); openSheet({ kind: 'wo', ref, title: 'Workout' }); return true;
     case 'wonogen': change(() => { const it = I(ref); if (it.nogen) delete it.nogen; else it.nogen = true; }); return true; // an extra workout leaves the generic items alone (the owner, 2026-11-24)
     case 'wofollow': change(() => { I(ref).wo.follow = v; }); return true;
     case 'wostep': { const [f, d] = v.split('|'); const e = I(S.sheet.ref).wo.ex[+ref]; const x = exOf(e.x) || {}; const step = f === 'n' && x.timed ? 5 : 1;
