@@ -421,5 +421,5 @@ function notebookAction(act, a, ref, v) {
 }
 
 async function noteCopy(t, what = 'Note') { const w = what.toLowerCase(); if (!t) { flash('Nothing in the ' + w + ' to copy'); return; }
-  try { await navigator.clipboard.writeText(t); flash(what + ' copied'); return; } catch (e) {}
-  try { const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); flash(ok ? what + ' copied' : 'Could not copy the ' + w); } catch (e) { flash('Could not copy the ' + w); } }
+  try { await navigator.clipboard.writeText(t); return; /* no copied note, the phone shows its own (the owner, 2026-11-24) */ } catch (e) {}
+  try { const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); if (!ok) flash('Could not copy the ' + w); } catch (e) { flash('Could not copy the ' + w); } }

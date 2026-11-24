@@ -47,8 +47,8 @@ function shopAdd(fid) { const f = document.getElementById(fid); const name = f &
   const g = document.getElementById(fid); if (g) g.focus(); }
 // copy as text: the clipboard where allowed, the old way if not, and as a last resort the text in a box to copy by hand
 async function shopCopy() { const t = shopText(); if (!t) { flash('Nothing on the list to copy'); return; }
-  try { await navigator.clipboard.writeText(t); flash('List copied'); return; } catch (e) {}
-  try { const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); if (ok) { flash('List copied'); return; } } catch (e) {}
+  try { await navigator.clipboard.writeText(t); return; /* no copied note, the phone shows its own (2026-11-24) */ } catch (e) {}
+  try { const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); if (ok) return; } catch (e) {}
   openSheet({ kind: 'shoptext', title: 'Copy the list' }); const ta = document.getElementById('shoptxt'); if (ta) { ta.focus(); ta.select(); } }
 function shopAction(act, a, ref, v) {
   switch (act) {

@@ -7,9 +7,9 @@ const DOT_SM = 5, DOT_LG = 14;
 const dayDotHtml = (k, big) => `<i class="dd" style="width:${big ? DOT_LG : DOT_SM}px;height:${big ? DOT_LG : DOT_SM}px;background:${dotCol(k)}"></i>`;
 
 // ---------- calendar settings (2026-11-06): one menu in edit mode for every calendar ----------
-// Each calendar picks which dots and condition lines it shows.
+// Each calendar picks which lines and condition lines it shows.
 const CAL_LIST = [['plan', 'Today'], ['sched', 'Schedule'], ['train', 'Training'], ['food', 'Meal plan']];
-const CAL_DOTS = [['appts', 'Plans', 'Coming days, in the category colour'], ['dl', 'Study deadlines', 'Coming days'], ['study', 'Studies', 'Days I studied, one dot per subject'], ['home', 'Home', 'Chores, homemaking and cooking done, or one-offs planned'], ['train', 'Training', 'Done, or planned on coming days'], ['extras', 'Meal-plan extras', 'Days with an extra switched on']];
+const CAL_DOTS = [['appts', 'Plans', 'Coming days, in the category colour'], ['dl', 'Study deadlines', 'Coming days'], ['study', 'Studies', 'Days I studied, one line per subject'], ['home', 'Home', 'Chores, homemaking and cooking done, or one-offs planned'], ['train', 'Training', 'Planned, not yet done'], ['extras', 'Meal-plan extras', 'Days with an extra switched on']];
 const CAL_DEF = { plan: { appts: 1, dl: 1, gen: 1, fit: 1, away: 1 }, sched: { appts: 1, dl: 1, away: 1 }, train: { train: 1, fit: 1, away: 1 }, food: { extras: 1, away: 1 } };
 const calOn = (k, f) => { const o = ((M.settings || {}).calShow || {})[k] || {}; return f in o ? !!o[f] : !!(CAL_DEF[k] || {})[f]; };
 function calDots(k, d) { const out = [];
@@ -18,7 +18,8 @@ function calDots(k, d) { const out = [];
   if (calOn(k, 'study') && d <= T0) subjIds().forEach((sj) => { const ks = new Set(sgroupsOf(sj).flatMap(kidsOf)); if (((M.study || {})[d] || []).some((e) => ks.has(e.id)) || [...ks].some((x) => isDone(x, d))) out.push(G(sj).color || M.areas.study.color); });
   if (calOn(k, 'home')) { const hc = (M.areas.home || {}).color || '#EDBB3A'; const sec = [[roomIds().flatMap(kidsOf).concat(kidsOf('g-oneoff')), hc], [kidsOf('g-tend'), (G('g-tend') || {}).color || hc], [kidsOf('g-prep'), (G('g-prep') || {}).color || hc]];
     sec.forEach(([ks, col]) => { if (d <= T0 ? ks.some((x) => isDone(x, d)) : ks.some((x) => ((I(x) || {}).when || {}).mode === 'once' && I(x).when.date === d && !everDone(x))) out.push(col); }); }
-  if (calOn(k, 'train')) trainDots(d).forEach((g) => out.push(g.color));
+  // training lines only show what's planned and not done yet (the owner, 2026-11-24)
+  if (calOn(k, 'train') && d >= T0) trainCats().filter((c) => G(c) && kidsOf(c).some((x) => onDay(x, d) && !isDone(x, d))).forEach((c) => out.push(G(c).color));
   if (calOn(k, 'extras')) dayExtras(d).forEach((x) => out.push(xcol(x)));
   return out.slice(0, 4); } // up to four short lines beside the date, stacked from the top (2026-11-23)
 const calDotsHtml = (k, d) => { const c = calDots(k, d); return c.length ? `<span class="cdots" aria-hidden="true">${c.map((x) => `<i style="background:${x}"></i>`).join('')}</span>` : ''; };
@@ -27,7 +28,7 @@ function calsSheet() {
   const row = (k, f, l, sub) => `<div class="tg"><span class="l">${l}<small>${sub}</small></span><button class="swt" role="switch" aria-checked="${calOn(k, f)}" data-a="caltog" data-ref="${k}" data-v="${f}" aria-label="${l} on ${k}"></button></div>`;
   return `<div class="fld calset"><span class="mono">Day dots</span>${DOT_COLS.map(col).join('')}</div>` + CAL_LIST.map(([k, name]) => {
     return `<div class="fld calset"><span class="mono">${name}</span>
-      <span class="calsub">Dots</span>${CAL_DOTS.map(([f, l, s]) => row(k, f, l, s)).join('')}
+      <span class="calsub">Lines</span>${CAL_DOTS.map(([f, l, s]) => row(k, f, l, s)).join('')}
       ${expOn() ? `<span class="calsub">Expeditions</span>${row(k, 'away', 'Away days', 'Covers the days I am away')}${k === 'train' ? row(k, 'count', 'Countdown', 'Days to the next expedition, under the calendar') : ''}` : ''}
       <span class="calsub">Condition lines</span>${condTags().map((t) => `<div class="tg"><span class="l"><i class="ctl" style="background:${t.color}"></i>${esc(t.name)}</span><button class="swt" role="switch" aria-checked="${ctOn(k, t.id)}" data-a="caltog" data-ref="${k}" data-v="ct:${t.id}" aria-label="${esc(t.name)} lines on ${name}"></button></div>`).join('')}
       <div class="tg"><span class="l"><i class="ctl" style="background:${CT_NONE}"></i>No tag</span><button class="swt" role="switch" aria-checked="${ctOn(k, 'none')}" data-a="caltog" data-ref="${k}" data-v="ct:none" aria-label="Untagged lines on ${name}"></button></div></div>`; }).join('') + ctagRows();

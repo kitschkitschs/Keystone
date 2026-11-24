@@ -8,10 +8,8 @@ const wLang = (w) => (w && w.lang === 'no' ? 'no' : 'en');
 const wLangName = (k) => (WLANGS.find((x) => x[0] === k) || WLANGS[0])[1];
 const wFL = () => (S.wLang === 'en' || S.wLang === 'no' ? S.wLang : 'all');
 // minimal flags with no colour, drawn in the text colour (2026-11-10)
-function flagSvg(k, h = 12) { const w = Math.round(h * 1.4);
-  const box = '<rect x=".6" y=".6" width="12.8" height="8.8" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.1"/>';
-  if (k === 'no') return `<svg class="flag" width="${w}" height="${h}" viewBox="0 0 14 10" aria-hidden="true">${box}<path d="M5 .6v8.8M.6 5h12.8" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>`;
-  return `<svg class="flag" width="${w}" height="${h}" viewBox="0 0 14 10" aria-hidden="true">${box}<path d="M1.4 1.2L12.6 8.8M12.6 1.2L1.4 8.8" fill="none" stroke="currentColor" stroke-width=".7"/><path d="M7 .6v8.8M.6 5h12.8" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>`; }
+// languages show as short letters, NOR and ENG, instead of flags (the owner, 2026-11-24)
+function flagSvg(k) { return `<span class="flag lcode">${k === 'no' ? 'NOR' : 'ENG'}</span>`; }
 const wFlag = (w, h) => `<span class="wflag" title="${wLangName(wLang(w))}">${flagSvg(wLang(w), h)}</span>`;
 const wSorted = () => wList().slice().sort((a, b) => (b.upd || 0) - (a.upd || 0));
 // the deck's order: newest first, or shuffled until I leave the page
