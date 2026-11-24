@@ -304,8 +304,8 @@ html.dark .jmp{background-image:repeating-linear-gradient(to bottom,transparent 
 .wpicked{display:flex;flex-wrap:wrap;gap:6px;min-height:36px}
 .wpicked .note{margin:0}
 .condbar{position:absolute;left:-3px;right:-3px;bottom:8px;height:2px;background:color-mix(in srgb,var(--cc) 55%,var(--page));pointer-events:none;z-index:1}
-.day.fday .condbar{bottom:4px}
-.condlines{position:absolute;left:-3px;right:-3px;bottom:8px;display:flex;flex-direction:column;gap:2px;pointer-events:none;z-index:1}.day.fday .condlines{bottom:4px}
+.day.fday .condbar{bottom:5px}
+.condlines{position:absolute;left:-3px;right:-3px;bottom:8px;display:flex;flex-direction:column;gap:2px;pointer-events:none;z-index:1}.day.fday .condlines{bottom:5px}
 .condlines i{display:block;height:2px;flex:0 0 auto;background:color-mix(in srgb,var(--cc) 55%,var(--page))}.condlines i.no{background:none}
 .condlines i.st{margin-left:11px;border-top-left-radius:2px;border-bottom-left-radius:2px}.condlines i.en{margin-right:11px;border-top-right-radius:2px;border-bottom-right-radius:2px}
 .day.fday .condbar.gen{bottom:8px}
@@ -5520,7 +5520,8 @@ function calLines(k, d) { const w = weekStart(d); const inWeek = new Set(); for 
   // one stack per day: every row of the week keeps its place (an empty row when this day hasn't that tag), so the lines
   // stay level across the week and evenly spaced; snapBars sizes them in whole device pixels (2026-11-06)
   // three fixed slots: the first line sits in the middle, the second under it, the third over it (2026-11-06)
-  const slots = [rows[2], rows[0], rows[1]];
+  // only as many slots as the week has lines, the first at the bottom, so it sits as far from the bottom as the plan marks from the top (the owner, 2026-11-24)
+  const slots = rows.slice().reverse();
   return `<span class="condlines">` + slots.map((id) => { if (!id || !today.has(id)) return '<i class="no"></i>'; const prev = lineTagsOn(k, addDays(d, -1)).has(id), next = d < T0 && lineTagsOn(k, addDays(d, 1)).has(id);
     const names = condsDay(d).filter((x) => (ctagsOf(x).length ? ctagsOf(x) : ['none']).includes(id)).map((x) => x.name).join(', ');
     return `<i class="${prev ? '' : 'st'} ${next ? '' : 'en'}" style="--cc:${id === 'none' ? CT_NONE : ctagCol(id)}" title="${esc(names)}"></i>`; }).join('') + `</span>`; }
