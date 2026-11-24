@@ -259,7 +259,10 @@ function homeLanding() {
 // the daily study minimum, set in Studies edit mode (2026-11-11)
 function vMinCard() { return lcard(null, 'Study minimum', '', `<div class="inrow" style="justify-content:center;gap:18px;padding:4px 0 2px"><button class="btn" data-a="vsesslen" data-v="-5" aria-label="5 minutes less">−</button><b style="font-size:22px;font-family:var(--serif);font-weight:400">${sessLen()} min</b><button class="btn" data-a="vsesslen" data-v="5" aria-label="5 minutes more">+</button></div>`); }
 function vDefaults(k, what) { const cur = defBlock(k);
-  return lcard(null, 'New ' + what, '', `<div class="vdef"><span class="mono">Day block</span><div class="chips">${blockIds().map((b) => `<button class="chip" data-a="vdefblk" data-ref="${k}" data-v="${b}" aria-pressed="${cur === b}">${esc(G(b).name)}</button>`).join('')}</div></div>`); }
+  return lcard(null, 'New ' + what, '', `<div class="vdef"><span class="mono">Day block</span><div class="chips">${blockIds().map((b) => `<button class="chip" data-a="vdefblk" data-ref="${k}" data-v="${b}" aria-pressed="${cur === b}">${esc(G(b).name)}</button>`).join('')}</div></div>`) + secColCard(k); }
+// the section's own colour, which all its items wear (the owner, 2026-11-24)
+const SEC_REF = { study: ['a:study', 'study'], chores: ['p:chores', 'chores'], tend: ['p:homemaking', 'homemaking'], prep: ['p:cooking', 'cooking'] };
+function secColCard(k) { const r = SEC_REF[k]; if (!r) return ''; return lcard(null, 'Colour', '', `<div class="vdef">${colorField(r[0], secCol(r[1]))}</div>`); }
 function choresPage() {
   const J = allJobs(); let h = crumbs([['Home', ''], ['Chores']]) + choreCard('Chores', J, CHORE_W, S.edit ? '' : 'data-a="vunpick" aria-label="Show what needs care in every room"', true);
   if (S.edit) h += vlab('Rooms') + eList('g-rooms', roomIds(), 'Add room', 'vaddroom', (r) => kidsOf(r).length + (kidsOf(r).length === 1 ? ' job' : ' jobs'));
@@ -401,17 +404,18 @@ function tmrSheet() { const o = tmr(); const step = (k, l, unit, d) => `<div cla
 // what the ring and clock show: a break counts down in a quiet colour, otherwise the day's study
 // the ring (2026-11-24): with breaks or pomodoro set it is the plan, focus stretches with each break left as a gap in the
 // background colour; the break fills in quietly while it counts down. Without breaks it fills up to the day's study session.
-function ringPlan() { const o = tmr(); const F = focusLen(), B = o.brk * 60000; if (!F) return null; const t = M.timer || {}, p = t.pz || {}, now = Date.now();
-  const n = o.mode === 'pomo' ? o.rounds : 1; const segs = []; let a = 0; for (let i = 0; i < n; i++) { segs.push({ a, len: F, k: 'f' }); a += F; if (o.mode !== 'pomo' || i < n - 1) { segs.push({ a, len: B, k: 'b' }); a += B; } }
-  const fEl = Math.max(0, Math.min(F, tElapsed() - (p.at || 0))); const cyc = F + B; const k = o.mode === 'pomo' ? Math.min(p.n || 0, n) : 0;
-  let pos = p.done ? a : p.brkEnd ? (o.mode === 'pomo' ? (k - 1) * cyc : 0) + F + Math.min(B, now - (p.brkAt || now)) : p.wait ? (o.mode === 'pomo' ? (k - 1) * cyc : 0) + F + B : k * cyc + fEl;
-  return { segs, total: a, pos: Math.max(0, Math.min(a, pos)) }; }
-const RW = 4; // a thin square-ended ring (Stone)
+// the ring when breaks are set: one arc per focus stretch, with the same small gap after each one, the top included (the owner, 2026-11-24)
+function ringPlan() { const o = tmr(); const F = focusLen(); if (!F) return null; const t = M.timer || {}, p = t.pz || {};
+  const n = o.mode === 'pomo' ? Math.max(1, o.rounds) : 1; const fEl = Math.max(0, Math.min(F, tElapsed() - (p.at || 0))); const k = o.mode === 'pomo' ? Math.min(p.n || 0, n) : 0;
+  const fd = o.mode === 'pomo' ? (p.done ? n * F : (p.brkEnd || p.wait) ? k * F : k * F + fEl) : ((p.brkEnd || p.wait) ? F : fEl);
+  const g = RGAP; const segs = []; for (let i = 0; i < n; i++) segs.push({ a: i / n + g / 2, len: 1 / n - g, f: Math.max(0, Math.min(1, (fd - i * F) / F)) });
+  return { segs }; }
+const RW = 4, RGAP = 0.018; // a thin square-ended ring (Stone); the gaps between focus stretches are small
 function ringSvg() { const col = M.areas.study.color; const P = ringPlan(); const arc = (from, len, stroke, id) => `<circle ${id ? `id="${id}" ` : ''}cx="112" cy="112" r="104" fill="none" stroke="${stroke}" stroke-width="${RW}" stroke-dasharray="${(len * T_C).toFixed(2)} ${T_C}" stroke-dashoffset="${(-from * T_C).toFixed(2)}" transform="rotate(-90 112 112)"/>`;
   if (!P) return arc(0, 1, 'var(--line)') + arc(0, tPct() / 100, col, 'tring');
-  return P.segs.map((g, i) => (g.k === 'f' ? arc(g.a / P.total, g.len / P.total, 'var(--line)') : '') + arc(g.a / P.total, 0, g.k === 'f' ? col : 'var(--faint)', 'tseg' + i)).join(''); }
+  return P.segs.map((g, i) => arc(g.a, g.len, 'var(--line)') + arc(g.a, g.len * g.f, col, 'tseg' + i)).join(''); }
 function ringUpdate() { const P = ringPlan(); if (!P) { const b = document.getElementById('tring'); if (b) b.setAttribute('stroke-dasharray', (tPct() / 100 * T_C).toFixed(2) + ' ' + T_C); return; }
-  P.segs.forEach((g, i) => { const e = document.getElementById('tseg' + i); if (e) e.setAttribute('stroke-dasharray', (Math.max(0, Math.min(g.len, P.pos - g.a)) / P.total * T_C).toFixed(2) + ' ' + T_C); }); }
+  P.segs.forEach((g, i) => { const e = document.getElementById('tseg' + i); if (e) e.setAttribute('stroke-dasharray', (g.len * g.f * T_C).toFixed(2) + ' ' + T_C); }); }
 // smooth: the ring moves every frame while the timer page is open
 (function ringLoop() { try { if (document.getElementById('tclock') && M.timer) ringUpdate(); } catch (e) {} requestAnimationFrame(ringLoop); })();
 const clockMs = () => brkOn() ? brkLeft() : (M.timer && tPz().wait) ? 0 : tShown();
@@ -424,7 +428,7 @@ function timerPage() {
     <button class="vtt" data-a="vtpick" aria-label="Change what I'm working on">${esc(id ? I(id).name : 'Study session')} <span class="chev" aria-hidden="true">${icon('chevron-down', 14)}</span></button><span class="mono vtsub">${esc(sub)}</span>
     <div class="vring"><svg viewBox="0 0 224 224" aria-hidden="true">${ringSvg()}</svg><div class="vclock ${run || brkOn() ? '' : 'idle'}" id="tclock" role="timer">${fmtClock(clockMs())}</div></div>
     <span class="mono${brkOn() ? ' tbrk' : ''}" id="trule">${esc(ruleText())}</span><span class="mono tpomo" id="tpomo">${esc(pomoText())}</span>
-    <div class="btns" style="justify-content:center"><button class="btn dark vtgo" data-a="${run ? 'tpause' : 'tstart'}">${run ? 'Pause' : M.timer && (tPz().brkEnd || tPz().wait) ? 'Resume' : any ? 'Carry on' : 'Start'}</button>${run || any ? '<button class="btn" data-a="tstop">Stop and save</button>' : ''}</div>
+    <div class="btns" style="justify-content:center"><button class="btn dark vtgo" data-a="${run ? 'tpause' : 'tstart'}">${run ? 'Pause' : M.timer && (tPz().brkEnd || tPz().wait) ? 'Resume' : any ? 'Carry on' : 'Start'}</button>${run || any ? '<button class="btn" data-a="tstop">End</button>' : ''}</div>
     <button class="btn tmrset" data-a="vtmr">${esc(tmrLine())}</button></div>`;
 }
 // Study support is a normal journal page with the tag 'Study support' (2026-11-10): today's one opens, or a new one starts
