@@ -916,7 +916,7 @@ function renderAppts() {
 
 // ---------- layer: menu, sheets, toast ----------
 // clear everything logged before today, keeping every item, note and setting (the owner, 2026-11-24)
-const LOG_KEYS = ['log', 'snap', 'frozen', 'feel', 'photos', 'study', 'support', 'missed', 'badDays', 'dayMove', 'dayOrder', 'dayTime', 'dayTack', 'foodMark', 'rOpen', 'training', 'multi'];
+const LOG_KEYS = ['log', 'snap', 'frozen', 'feel', 'photos', 'study', 'support', 'missed', 'badDays', 'dayMove', 'dayOrder', 'dayTime', 'dayTack', 'dayAfter', 'foodMark', 'rOpen', 'training', 'multi'];
 function clearOldLogs() { LOG_KEYS.forEach((k) => { const o = M[k]; if (!o || typeof o !== 'object' || Array.isArray(o)) return; Object.keys(o).forEach((d) => { if (/^\d{4}-\d\d-\d\d$/.test(d) && d < T0) delete o[d]; }); });
   if (Array.isArray(M.events)) M.events = M.events.filter((e) => !e.day || e.day >= T0); }
 // Every delete asks first (2026-11-02). Returns the question, or null when the action needs none.
@@ -1670,21 +1670,29 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
   // item when dropped close to its edge; dropped onto other items, it takes that spot and they make room behind it
   if (!S.edit && day === x.from && !o0.appt && it.type !== 'checkin') {
     const len = (o0.b - o0.a) || it.dur || 30; const tm = minuteAt((top - cr.top) / x.sc);
-    const PDd = placeDay(day).filter((o) => o.id !== x.id && I(o.id).type !== 'checkin');
-    const hard = (o) => o.appt || I(o.id).brk; const ov = (o, a) => a < o.b && a + len > o.a;
-    let t = Math.round(tm / 15) * 15, bd = 7.5;
-    PDd.forEach((o) => [o.b, o.a - len].forEach((c) => { const dd = Math.abs(c - tm); if (dd < bd) { bd = dd; t = c; } }));
+    const P0 = placeDay(day).filter((o) => o.id !== x.id && I(o.id).type !== 'checkin');
+    /* what follows it (the owner, 2026-11-24): items snapped right behind it on this day, and tasks set to always come after it,
+       move along with it, in a row behind it */
+    const DA = (M.dayAfter || {})[day] || {}; const src = afterSrc(); const chain = [];
+    const folOf = (id) => P0.filter((o) => !chain.includes(o) && (DA[o.id] === id || (src[o.id] || []).includes(id)) && !(o.appt || I(o.id).brk)).sort((p, q) => p.a - q.a);
+    for (let q = [x.id], k = 0; q.length && k < 20; k++) { const nx = []; q.forEach((id) => folOf(id).forEach((o) => { chain.push(o); nx.push(o.id); })); q = nx; }
+    const PDd = P0.filter((o) => !chain.includes(o)); const tot = len + chain.reduce((n, o) => n + (o.b - o.a), 0);
+    const hard = (o) => o.appt || I(o.id).brk; const ov = (o, a, l = tot) => a < o.b && a + l > o.a;
+    let t = Math.round(tm / 15) * 15, bd = 7.5, lead = null;
+    PDd.forEach((o) => [[o.b, o.id], [o.a - tot, null]].forEach(([c, ld]) => { const dd = Math.abs(c - tm); if (dd < bd) { bd = dd; t = c; lead = ld; } }));
     /* landing in the middle of an earlier item: it goes right behind that item */
-    const inMid = PDd.find((o) => !hard(o) && o.a < t && ov(o, t)); if (inMid) t = inMid.b;
+    const inMid = PDd.find((o) => !hard(o) && o.a < t && ov(o, t)); if (inMid) { t = inMid.b; lead = inMid.id; }
     /* breaks and appointments don't move: it goes in front of or behind them, whichever side it was dropped nearer */
-    for (let k = 0; k < 6; k++) { const h = PDd.find((o) => hard(o) && ov(o, t)); if (!h) break; t = tm + len / 2 < (h.a + h.b) / 2 && h.a - len >= 0 ? h.a - len : h.b; }
+    for (let k = 0; k < 6; k++) { const h = PDd.find((o) => hard(o) && ov(o, t)); if (!h) break; const fr = tm + len / 2 < (h.a + h.b) / 2 && h.a - tot >= 0; t = fr ? h.a - tot : h.b; lead = fr ? null : h.id; }
     const nb = blockAtTime(fmtHM(t)) || b; const idx = PDd.filter((o) => o.blk === nb && o.a < t).length;
     change(() => {
       const dT = (M.dayTime = M.dayTime || {})[day] = M.dayTime[day] || {}; dT[x.id] = fmtHM(t);
       const TK0 = (M.dayTack = M.dayTack || {})[day] = M.dayTack[day] || {}; TK0[x.id] = null;
+      const DA1 = (M.dayAfter = M.dayAfter || {})[day] = M.dayAfter[day] || {}; if (lead) DA1[x.id] = lead; else delete DA1[x.id];
       moveOnDay(x.id, day, nb, idx);
+      let cur = t + len; chain.forEach((o, i) => { dT[o.id] = fmtHM(cur); TK0[o.id] = null; moveOnDay(o.id, day, nb, idx + 1 + i); cur += o.b - o.a; });
       /* everything after it in its block keeps its order: what's in the way moves back to make room, the rest stays put */
-      let cur = t + len; PDd.filter((o) => !hard(o) && o.blk === nb && o.a >= t).sort((p, q) => p.a - q.a).forEach((o) => {
+      PDd.filter((o) => !hard(o) && o.blk === nb && o.a >= t).sort((p, q) => p.a - q.a).forEach((o) => {
         const l = o.b - o.a; let a = Math.max(o.a, cur);
         for (let k = 0; k < 6; k++) { const h = PDd.find((q) => hard(q) && a < q.b && a + l > q.a); if (!h) break; a = h.b; }
         dT[o.id] = fmtHM(a); cur = a + l; });
