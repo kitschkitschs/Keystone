@@ -118,6 +118,8 @@ function renderTraining() {
       : `<button data-a="bopen" data-ref="${c}" aria-expanded="${open}" style="display:flex;align-items:center;gap:8px;width:100%;min-height:44px"><span class="nm mono" style="flex:1">${esc(g.name)}</span><span class="cnt">${left ? left + ' today' : ''}</span>${fold(open)}</button>`}</div>
       ${open ? `<div class="list" data-list="${c}">${ks.map((k) => itemRow(k, c, T0)).join('') || (S.edit ? '' : '<p class="empty">No sessions yet.</p>')}${S.edit ? `<button class="addrow" data-a="vadd" data-v="${c}"><span class="plus">+</span>Add session</button>` : ''}</div>` : ''}</section>`; }).join('') + '</div>';
   if (S.edit) h += `<div style="margin-top:10px"><button class="addcard" data-a="taddcat">+ Add category</button></div>`;
+  // Training's own colour (the generic movement item and the Training tab wear it), set here in edit mode like the other sections (2026-11-24)
+  if (S.edit) h += `<div style="margin-top:16px">${lcard(null, 'Colour', '', `<div class="vdef">${colorField('p:training', ((M.pages || {}).training || {}).color || '#3FAFA6')}</div>`)}</div>`;
   if (G('hg-aches')) h += `<div style="margin-top:14px">${hGroup('hg-aches', T0)}</div>`;
   // Conditions: the same component as Health › Other › Conditions, same data (M.conds), so entries show in both places
   { const c = condCol(); const open = S.edit || S.open['h:t-conds'] === true; // closed by default on Training (2026-11-06)

@@ -1172,7 +1172,7 @@ input[type=range]::-moz-range-thumb{background:var(--ink);border-color:var(--ink
 .nbpager .btn[disabled]{opacity:.35}
 /* short boxes on the Schedule: the name shrinks to fit (the owner, 2026-11-24) */
 .box.sm .bn{font-size:11.5px;line-height:1.1}.box.sm .bt{font-size:9px}
-.box.xs{padding-top:0;padding-bottom:0;overflow:hidden}.box.xs .bn{font-size:9.5px;line-height:1}.box.xs .bt{font-size:8px;line-height:1}.box.xs .bkt{font-size:7.5px}
+.box.xs{padding-top:0;padding-bottom:0;overflow:hidden;align-items:center;gap:.5em}.box.xs .bn{font-size:var(--fs);line-height:1}.box.xs .bt{font-size:calc(var(--fs)*.85);line-height:1}.box.xs .bkt{font-size:calc(var(--fs)*.8);line-height:1}
 .donebox{border-top:0}
 .swmiss{width:76px;margin-left:8px;top:2px;bottom:2px;background:none;border:1px solid var(--line);color:var(--ink);font:400 13px var(--sans);gap:0;white-space:nowrap}
 html.dark{--page:#1E1E1C;--paper:#2A2927;--rule:#3B3A37;--card:#262624;--ink:#E6E3DD;--ink2:#A9A6A0;--quiet:#A9A6A0;--faint:#73716C;--faint2:#5A5854;--line:#3B3A37;--line2:#33322F;--soft:#2D2C2A;--wash:#2D2C2A;--washline:#464440;--star:#8A8984;--done:#8FA488;--brk:color-mix(in srgb,var(--ink) 9%,var(--page));color-scheme:dark}
@@ -1774,13 +1774,20 @@ function renderCal(c = 't') {
     ${weeks.map((w) => `<div class="wk wkr">${c === 's' ? `<button class="wkn ${w === selW ? 'sel' : ''}" data-a="pickweek" data-v="${w}" aria-label="Show week ${isoWeek(w)}" aria-pressed="${w === selW}">${isoWeek(w)}</button>` : `<span class="wkn">${isoWeek(w)}</span>`}${[0, 1, 2, 3, 4, 5, 6].map((i) => dayCell(addDays(w, i), !mon || addDays(w, i).slice(0, 7) === monthOf, c)).join('')}</div>`).join('')}</div>
     <button class="toggle-cal" data-a="calmode" data-c="${c}" aria-label="${mon ? 'Show one week' : 'Show the month'}" aria-expanded="${mon}"><span style="display:inline-flex;transform:rotate(${mon ? 180 : 0}deg)">${icon('chevron-down', 18)}</span></button></div>`;
 }
-function tickCircle(id, d, live) {
-  const st = val(d, id); const done = isDone(id, d); const much = typeof st === 'string' && st.startsWith('much');
+// tick in each block (2026-11-24): an item set to it sits in more than one day block and is ticked once in each;
+// M.multi[day][id] keeps how many are ticked until all are, then it's done for the day like any other item
+const isMulti = (id) => { const it = I(id); return !!(it && it.multi && it.type === 'task'); };
+const multiN = (id) => Math.max(1, blockIds().filter((b) => G(b).kids.includes(id)).length);
+const mcount = (id, d) => val(d, id) ? multiN(id) : (((M.multi || {})[d] || {})[id] || 0);
+const instDone = (id, d, k) => isMulti(id) && k != null ? mcount(id, d) > k : isDone(id, d);
+let TK = null; // the block instance being drawn
+function tickCircle(id, d, live) { const k = isMulti(id) ? TK : null;
+  const st = val(d, id); const done = instDone(id, d, k); const much = typeof st === 'string' && st.startsWith('much');
   const c = colorOf(id);
   const inner = ''; // a done task is just a dot filled with its colour (2026-11-20)
   const circ = `<span class="circ ${much ? 'much' : done ? 'done' : d === T0 && halfOf(id) ? 'half' : ''}${I(id) && I(id).optional ? ' opt' : ''}" style="--c:${c}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : 'aria-hidden="true"'}>${inner}</span>`;
   if (!live || S.edit) return S.edit ? circ : `<span class="tickbtn">${circ}</span>`;
-  return `<button class="tickbtn" data-a="tick" data-ref="${id}" aria-label="Tick ${esc(tnm(id))}">${circ}</button>`;
+  return `<button class="tickbtn" data-a="tick" data-ref="${id}"${k != null ? ` data-k="${k}"` : ''} aria-label="Tick ${esc(tnm(id))}">${circ}</button>`;
 }
 // A check-in is a step of its routine (2026-11-02): morning check-in in Morning routine, evening in Evening routine.
 // Its circle shows if it's done; tapping the row opens the check-in.
@@ -1894,7 +1901,7 @@ const uiIc = (key, def) => ((M.settings || {}).uiIcons || {})[key] || def;
 // (a chore page, the + sheet, Studies), not only while Today is on screen, so yesterday's mark is always right (2026-11-10)
 // a started two-part chore stands in for the generic chore on Today (not on Schedule, which is for planning)
 function halfDrop(DL) { return DL; } // a started two-part chore no longer stands in for the day's chore (2026-11-14: unfinished doesn't count)
-function snapDay(d, DL) { DL = DL || slotDrop(dayList(d), d); const opt = (id) => !!(I(id) && I(id).optional); let due = missedOn(d).filter((id) => !opt(id)).length, done = 0; DL.forEach((x) => x.items.concat(x.appts || []).forEach((id) => { if (I(id) && I(id).brk) return; const dn = I(id) && I(id).type === 'routine' ? isDone(id, d) && rComplete(id, d) : isDone(id, d); if (opt(id) && !dn) return; due++; if (dn) done++; })); /* an optional item only counts once it's done */ M.snap[d] = { due, done };
+function snapDay(d, DL) { DL = DL || slotDrop(dayList(d), d); const opt = (id) => !!(I(id) && I(id).optional); let due = missedOn(d).filter((id) => !opt(id)).length, done = 0; const seenK = {}; DL.forEach((x) => x.items.concat(x.appts || []).forEach((id) => { if (I(id) && I(id).brk) return; const kk = isMulti(id) && !(x.appts || []).includes(id) ? (seenK[id] = (seenK[id] ?? -1) + 1) : null; const dn = I(id) && I(id).type === 'routine' ? isDone(id, d) && rComplete(id, d) : instDone(id, d, kk); if (opt(id) && !dn) return; due++; if (dn) done++; })); /* an optional item only counts once it's done */ M.snap[d] = { due, done };
   // a bad day is finished when its own list and the day's appointments are done (2026-11-10: an empty Bad day list never finished)
   if (isBad(d)) { const bl = badList().concat(DL.flatMap((x) => x.appts || [])).filter((id, i, A) => A.indexOf(id) === i); Object.assign(M.snap[d], { bad: 1, bdue: bl.length, bdone: bl.filter((id) => isDone(id, d)).length }); }
   return M.snap[d]; }
@@ -1913,19 +1920,20 @@ function renderToday() {
   if (d > T0) h += `<div class="mono" style="margin:8px 2px">Coming up on ${fmtDate(d)}</div>`; // past days: the calendar shows the date (2026-11-08)
   if (d < T0 && !S.edit) return h + pastDay(d);
   const PD = placeDay(d); const at = {}; PD.forEach((o) => { at[o.id] = o.a; });
+  const instK = (b, id) => DL.slice(0, DL.findIndex((x) => x.b === b)).filter((x) => x.items.includes(id)).length;
   const blocksH = DL.map(({ b, items, appts }) => {
-    const g = G(b); const shown = live ? items.filter((id) => S.edit || !isDone(id, d)) : items;
+    const g = G(b); const shown = live ? items.filter((id) => S.edit || !instDone(id, d, instK(b, id))) : items;
     const apShown = live && !S.edit ? (appts || []).filter((id) => !isDone(id, d)) : (appts || []);
     if (!S.edit && !shown.length && !apShown.length) return '';
     if (live && !S.edit && !apShown.length && shown.every((id) => I(id) && I(id).brk)) return ''; // only breaks left once the rest is ticked: the block falls away (the owner, 2026-11-13)
     const open = S.edit || S.open['b:' + b] !== false;
-    const ap = appts || []; const total = items.length + ap.length, left = items.concat(ap).filter((id) => !isDone(id, d)).length;
+    const ap = appts || []; const total = items.length + ap.length, left = items.concat(ap).filter((id) => !instDone(id, d, instK(b, id))).length;
     const apRow = (id) => `<div class="appt" data-appt="${id}" style="--c:${G(catOf(id)).color}">${tickCircle(id, d, live)}<button data-a="peek" data-ref="${id}" data-d="${d}" class="apb"><span class="apn">${inm(id)}${tdur(I(id))}</span><span class="sub where">${esc(apTime(I(id)))}</span><span class="cnt">${live && I(id).time ? inTime(I(id).time) : ''}</span></button></div>`; // name first, the time after it like other details; a long name is cut short, the time stays (2026-11-24)
     const seq = apShown.map((id) => ({ id, ap: true })).concat(shown.map((id) => ({ id }))).map((x, k) => Object.assign(x, { k })).sort((p, q) => ((at[p.id] ?? 9999) - (at[q.id] ?? 9999)) || p.k - q.k);
     return `<section class="card" data-ref="${b}">
       <div class="bhead">${grip()}${S.edit ? `<span class="circ" style="--c:${g.color};width:14px;height:14px;background:${g.color}" data-col="${b}" role="button" aria-label="Change colour"></span><span class="nm mono" style="font-size:11px">${nm(b, g.name)}</span><span class="cnt">${g.start}–${g.end}</span>${tail(b, 'g-blocks')}`
         : `<button data-a="bopen" data-ref="${b}" aria-expanded="${open}" style="display:flex;align-items:center;gap:8px;width:100%"><span class="nm mono" style="flex:1">${esc(g.name)}</span><span class="cnt">${estHM(PD.filter((o) => o.blk === b).reduce((t, o) => t + (o.b - o.a), 0) / 60)} of ${estHM((hm(g.end) - hm(g.start)) / 60)}</span>${fold(open)}</button>`}</div>
-      ${open ? `<div class="list ${d < T0 ? 'pastday' : ''}" ${d < T0 ? '' : `data-list="${b}"`}>${seq.map((x) => x.ap ? apRow(x.id) : itemRow(x.id, b, d)).join('')}${S.edit ? `<button class="addrow" data-a="addtask" data-in="${b}"><span class="plus">+</span>Add to ${esc(g.name)}</button>` : ''}</div>` : ''}
+      ${open ? `<div class="list ${d < T0 ? 'pastday' : ''}" ${d < T0 ? '' : `data-list="${b}"`}>${seq.map((x) => x.ap ? apRow(x.id) : (TK = instK(b, x.id), itemRow(x.id, b, d))).join('')}${(TK = null, '')}${S.edit ? `<button class="addrow" data-a="addtask" data-in="${b}"><span class="plus">+</span>Add to ${esc(g.name)}</button>` : ''}</div>` : ''}
     </section>`;
   }).join('');
   if (bad && !S.edit) h += `<div style="margin-top:6px">${badCard()}</div>`;
@@ -1936,9 +1944,9 @@ function renderToday() {
       ${S.showMoved ? `<div class="list">${mv.map((o) => itemRow(o.id, o.b, d)).join('')}</div>` : ''}</div>`; }
   if (S.edit) h += `<div style="margin-top:10px"><button class="addcard" data-a="addblock">+ Add day block</button></div>`;
   if (live && !S.edit) {
-    const doneIds = DL.flatMap((x) => x.items.concat(x.appts || []).filter((id) => isDone(id, d)).map((id) => ({ id, b: x.b }))).concat(bad ? badList().filter((id) => isDone(id, d)).map((id) => ({ id, b: 'g-bad' })) : []);
+    const doneIds = DL.flatMap((x) => x.items.concat(x.appts || []).filter((id) => instDone(id, d, (x.appts || []).includes(id) ? null : instK(x.b, id))).map((id) => ({ id, b: x.b, k: isMulti(id) ? instK(x.b, id) : null }))).concat(bad ? badList().filter((id) => isDone(id, d)).map((id) => ({ id, b: 'g-bad' })) : []);
     if (doneIds.length) h += `<div class="donebox"><button class="donebtn" data-a="showdone">${fold(S.showDone)} Done today · ${doneIds.length}</button>
-      ${S.showDone ? doneIds.map(({ id }) => `<button class="drow" data-a="tick" data-ref="${id}" aria-label="${esc(tnm(id))}, done. Tap to change"><span class="circ ${String(val(d, id) || '').startsWith('much') ? 'much' : 'done'}" style="--c:${colorOf(id)}"></span><span>${inm(id)}${String(val(d, id) || '').startsWith('much') ? ' · too much' : ''}</span></button>`).join('') : ''}</div>`;
+      ${S.showDone ? doneIds.map(({ id, k }) => `<button class="drow" data-a="tick" data-ref="${id}"${k != null ? ` data-k="${k}"` : ''} aria-label="${esc(tnm(id))}, done. Tap to change"><span class="circ ${String(val(d, id) || '').startsWith('much') ? 'much' : 'done'}" style="--c:${colorOf(id)}"></span><span>${inm(id)}${String(val(d, id) || '').startsWith('much') ? ' · too much' : ''}</span></button>`).join('') : ''}</div>`;
     const mis = missedOn(d);
     if (mis.length) h += `<div class="donebox"><button class="donebtn" data-a="showmissed">${fold(S.showMissed)} Missed · ${mis.length}</button>
       ${S.showMissed ? mis.map((id) => `<button class="drow" data-a="unmiss" data-ref="${id}" data-d="${d}" aria-label="${esc(tnm(id))}, missed. Tap to put it back"><span class="circ missed" aria-hidden="true">–</span><span style="flex:1">${inm(id)}</span><span class="cnt">Put back</span></button>`).join('') : ''}</div>`;
@@ -1971,7 +1979,9 @@ function slotDrop(out, d = T0) {
 function choreSwap(DL, d) {
   DL = genSwap(DL, d, 'chores', new Set(choreIds()), (id) => !!(M.half || {})[id] || schedChore(id, d)); // a started two-parter counts too (2026-11-24)
   // scheduled training does the same to the generic movement item (the owner, 2026-11-24)
-  return typeof trainCats === 'function' ? genSwap(DL, d, 'training', new Set(trainCats().flatMap(kidsOf)), () => true) : DL; }
+  DL = typeof trainCats === 'function' ? genSwap(DL, d, 'training', new Set(trainCats().flatMap(kidsOf)), () => true) : DL;
+  // a workout that took the generic item's place takes its followers (a shower) along, so they stay right behind it (the owner, 2026-11-24)
+  afterWork(DL, d); return DL; }
 function genSwap(DL, d, opens, ids, ok) { const isSlot = (id) => I(id) && I(id).type === 'slot' && I(id).opens === opens;
   const real = DL.flatMap((x) => x.items).filter((id) => ids.has(id) && ok(id)); if (!real.length) return DL;
   const sx = DL.find((x) => x.items.some(isSlot));
@@ -2037,7 +2047,11 @@ const defBlock = (k) => { const b = ((M.settings || {}).defBlock || {})[k]; retu
 // and shows only its items; picking it again shows everything
 const colSquares = (cols, pick, act) => `<span class="tsqs" role="group" aria-label="Show">${cols.map(([c, n, v]) => `<button class="tsq${pick && pick !== v ? ' off' : ''}" style="--c:${c}" data-a="${act}" data-v="${v}" aria-label="${esc(n)}" aria-pressed="${pick === v}"></button>`).join('')}</span>`;
 // what a colour stands for in the schedule key: an appointment's type, else the section or slot the item is planned from
+// the colour key names the generic owner of a colour: the section (Studies, Chores, Homemaking, Cooking, Training,
+// Hobbies) or group it belongs to, and every one that shares the colour (the owner, 2026-11-24)
+const SEC_NM = (k) => { const A = M.areas || {}, P = M.pages || {}; const x = k === 'study' ? A.study : k === 'hobbies' ? A.hobbies : P[k === 'move' ? 'training' : k]; return (x && x.name) || ''; };
 function keyName(id, appt) { if (appt) return G(catOf(id)).name; const it = I(id);
+  if (it && it.type === 'slot' && it.opens && SEC_NM(it.opens)) return SEC_NM(it.opens); { const sc = it && it.type !== 'slot' ? itemSec(id) : null; if (sc && SEC_NM(sc)) return SEC_NM(sc); }
   const pl = placements(id).find((p) => !(G(p) && (G(p).style === 'dayblock' || G(p).holds === 'slot')));
   if (!pl || it.color) return tnm(it); if (pl.startsWith('s:')) return I(pl.slice(2)) ? tnm(I(pl.slice(2))) : tnm(it); return G(pl) ? G(pl).name : tnm(it); }
 function renderSchedule() {
@@ -2074,21 +2088,21 @@ function renderSchedule() {
   // past days don't fade (2026-11-04); only done items do
   const faded = () => false; // nothing on the Schedule fades, not past days and not done items (2026-11-12)
   days.forEach((d, di) => {
-    h += `<div class="col" data-day="${d}" style="height:${H}px">` + PD[di].map((o) => { const it = I(o.id); const c = o.appt ? G(catOf(o.id)).color : colorOf(o.id); const top0 = yIn(o.a, o.blk), flush = !o.appt && (OV[o.blk] ? o.b >= ends[o.blk] + OV[o.blk] : o.b >= ends[o.blk]); const top = top0 + 1, ht = Math.max(14, yIn(o.b - 0.01, o.blk) - top0 - (flush ? 1 : 2)); // 1px in from the lines above and below, so boxes sit evenly on the hour lines (2026-11-11) // the last box of a block (or of its red stretch) sits flush on the next block's border (2026-11-03/04)
+    h += `<div class="col" data-day="${d}" style="height:${H}px">` + PD[di].map((o) => { const it = I(o.id); const c = o.appt ? G(catOf(o.id)).color : colorOf(o.id); const top0 = yIn(o.a, o.blk), flush = !o.appt && (OV[o.blk] ? o.b >= ends[o.blk] + OV[o.blk] : o.b >= ends[o.blk]); const top = top0 + 1, ht = Math.max(5, yIn(o.b - 0.01, o.blk) - top0 - (flush ? 1 : 2)); /* true height, so a short box never covers the next one (2026-11-24) */ // 1px in from the lines above and below, so boxes sit evenly on the hour lines (2026-11-11) // the last box of a block (or of its red stretch) sits flush on the next block's border (2026-11-03/04)
       // Stone (2026-11-23): the week shows plain coloured boxes, no names or icons; the day view names each box and its start
       const bk = !o.appt && it.brk;
       const inner = !dayV ? '' : bk ? `<span class="bkt"><span>${inm(it)}</span></span>` : `<span class="bn">${inm(it)}</span><span class="bt">${estHM((o.b - o.a) / 60)}</span>`; // the time it takes, not when it starts (2026-11-23)
       const fd = faded(di, o);
       const mv = it.type !== 'checkin' && d >= T0; // set-time items and appointments move too, snapping to what's around them (2026-11-13)
-      return `<button class="box ${dayV ? 'wide' : ''} ${ht < 20 ? 'xs' : ht < 30 ? 'sm' : ''} ${mv ? 'mv' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && it.brk ? ' brk' : ''}" style="top:${top}px;height:${ht}px;--c:${c};--bg:${fd ? mix(c, TH.page, 0.5) : c};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" data-from="${o.a}" data-to="${o.b}" aria-label="${esc(tnm(it))}, ${fmtHM(o.a)}">${inner}</button>`; }).join('') + '</div>';
+      return `<button class="box ${dayV ? 'wide' : ''} ${ht < 20 ? 'xs' : ht < 30 ? 'sm' : ''} ${mv ? 'mv' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && it.brk ? ' brk' : ''}" style="top:${top}px;height:${ht}px;--fs:${Math.max(5, Math.min(9.5, ht - 1.5)).toFixed(1)}px;--c:${c};--bg:${fd ? mix(c, TH.page, 0.5) : c};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" data-from="${o.a}" data-to="${o.b}" aria-label="${esc(tnm(it))}, ${fmtHM(o.a)}">${inner}</button>`; }).join('') + '</div>';
   });
   S.ymap = { y, h0, h1, zones: blockIds().filter((b) => OV[b]).map((b) => ({ b, top: yIn(ends[b], b), h: OV[b] / 60 * PX, e: ends[b], ov: OV[b] })) };
   h += '</div>';
   // the colour key under the schedule names each colour shown, breaks last (Stone, 2026-11-23)
   const key = new Map(); let brk = false;
   PDs.flat().forEach((o) => { const it = I(o.id); if (!it) return; if (!o.appt && it.brk) { brk = true; return; }
-    const c = o.appt ? G(catOf(o.id)).color : colorOf(o.id); if (!key.has(c)) key.set(c, keyName(o.id, o.appt)); });
-  if (key.size || brk) h += `<div class="skey">${[...key].map(([c, n]) => `<span><i style="background:${c}"></i>${esc(n)}</span>`).join('')}${brk ? '<span><i class="br"></i>Break</span>' : ''}</div>`;
+    const c = o.appt ? G(catOf(o.id)).color : colorOf(o.id); if (!key.has(c)) key.set(c, new Set()); key.get(c).add(keyName(o.id, o.appt)); });
+  if (key.size || brk) h += `<div class="skey">${[...key].map(([c, n]) => `<span><i style="background:${c}"></i>${esc([...n].join(' · '))}</span>`).join('')}${brk ? '<span><i class="br"></i>Break</span>' : ''}</div>`;
   return h;
 }
 
@@ -2149,7 +2163,7 @@ function renderAppts() {
 
 // ---------- layer: menu, sheets, toast ----------
 // clear everything logged before today, keeping every item, note and setting (the owner, 2026-11-24)
-const LOG_KEYS = ['log', 'snap', 'frozen', 'feel', 'photos', 'study', 'support', 'missed', 'badDays', 'dayMove', 'dayOrder', 'dayTime', 'dayTack', 'foodMark', 'rOpen', 'training'];
+const LOG_KEYS = ['log', 'snap', 'frozen', 'feel', 'photos', 'study', 'support', 'missed', 'badDays', 'dayMove', 'dayOrder', 'dayTime', 'dayTack', 'foodMark', 'rOpen', 'training', 'multi'];
 function clearOldLogs() { LOG_KEYS.forEach((k) => { const o = M[k]; if (!o || typeof o !== 'object' || Array.isArray(o)) return; Object.keys(o).forEach((d) => { if (/^\d{4}-\d\d-\d\d$/.test(d) && d < T0) delete o[d]; }); });
   if (Array.isArray(M.events)) M.events = M.events.filter((e) => !e.day || e.day >= T0); }
 // Every delete asks first (2026-11-02). Returns the question, or null when the action needs none.
@@ -2450,6 +2464,9 @@ function schedUI(s, D) {
       ${weeks.map((wk0) => `<div class="wk"><span class="wkn">${isoWeek(wk0)}</span>${[0, 1, 2, 3, 4, 5, 6].map((k) => { const d = addDays(wk0, k); return `<button class="day ${d === picked ? 'sel' : ''} ${d === T0 ? 'today' : ''} ${d.slice(0, 7) === cm ? '' : 'out'}" data-a="dq" data-v="${d}" ${d < T0 ? 'disabled' : ''}><span class="n">${parse(d).getDate()}</span></button>`; }).join('')}</div>`).join('')}</div>
 </div>`;
   if (D.type !== 'appt') h += `<div class="fld"><span class="mono">Time and length</span><div class="inrow"><input class="inp" type="time" id="dtime" value="${D.time || ''}" aria-label="Time (optional)">${durIn(D)}${blkBtn(s)}${isStudyItem(s, D) ? `<button class="plusic" data-a="dpart-add" aria-label="Add this day as a session">${icon('plus', 20)}</button>` : ''}</div>${isStudyItem(s, D) ? sessList(s, D) : ''}</div>`;
+  // ticked once a day, or once in each day block it's in, like brushing my teeth morning and evening (the owner, 2026-11-24)
+  if (D.type === 'task' && !D.brk && !isStudyItem(s, D) && s.block && G(s.block)) { if (!s.also) { s.also = s.ref ? blockIds().filter((b) => b !== s.block && G(b).kids.includes(s.ref)) : []; s.multiWas = !!(s.ref && I(s.ref) && I(s.ref).multi); }
+    h += `<div class="fld"><span class="mono">Ticked</span><div class="chips">${[['', 'Once a day'], ['1', 'In each of its blocks']].map(([k, l]) => `<button class="chip" data-a="dmulti" data-v="${k}" aria-pressed="${!!D.multi === !!k}">${l}</button>`).join('')}</div>${D.multi ? `<div class="chips" style="margin-top:8px">${blockIds().filter((b) => b !== s.block).map((b) => `<button class="chip" data-a="dalso" data-v="${b}" aria-pressed="${s.also.includes(b)}">Also in ${esc(G(b).name)}</button>`).join('')}</div>` : ''}</div>`; }
   const R0 = w.mode === 'once' ? 'none' : w.mode === 'days' && (w.days || []).length === 7 && (w.n || 1) === 1 ? 'daily' : w.mode === 'days' ? 'weekly' : w.mode;
   // Repeat (2026-11-03): just Never and Repeat; Repeat opens the kinds of repeat underneath
   const ropen = rep || s.repOpen;
@@ -2521,6 +2538,8 @@ function saveDraft() {
       keep.forEach((p) => { M.items[p].color = colorOf(id); }); }
     if (D.type === 'appt') { const cur = catOf(id); if (cur !== s.cat) { if (cur) G(cur).kids = G(cur).kids.filter((k) => k !== id); G(s.cat).kids.push(id); } }
     else if (D.type !== 'checkin' && D.type !== 'step') { const cur = placements(id).find((p) => G(p) && G(p).style === 'dayblock'); if (cur !== s.block) { if (cur) G(cur).kids = G(cur).kids.filter((k) => k !== id); if (s.block && G(s.block)) G(s.block).kids.push(id); } }
+    // the other blocks a tick-in-each-block task sits in (2026-11-24)
+    if (D.type === 'task' && s.also && (D.multi || s.multiWas)) { const want = D.multi ? s.also.filter((b) => b !== s.block && G(b)) : []; blockIds().forEach((b) => { if (b === s.block) return; const g = G(b); const has = g.kids.includes(id); if (want.includes(b) && !has) g.kids.push(id); else if (!want.includes(b) && has) g.kids = g.kids.filter((k) => k !== id); }); if (!want.length) delete M.items[id].multi; }
   }, (s.isNew ? 'Added ' : 'Saved ') + D.name, !s.isNew);
   S.sheet = null; render();
 }
@@ -2624,7 +2643,7 @@ document.addEventListener('click', (e) => {
     case 'showmissed': S.showMissed = !S.showMissed; render(); break;
     case 'miss': { const d = a.dataset.d || T0; S.sheet = null; change(() => { M.missed = M.missed || {}; (M.missed[d] = M.missed[d] || {})[ref] = true; }, 'Missed: ' + I(ref).name); break; }
     case 'unmiss': { const d = a.dataset.d || T0; change(() => { delete M.missed[d][ref]; }, 'Put back ' + I(ref).name); break; }
-    case 'tick': tick(ref); break;
+    case 'tick': if (isMulti(ref) && a.dataset.k != null && multiN(ref) > 1) { tickMulti(ref, +a.dataset.k); break; } tick(ref); break;
     case 'twoyes': S.sheet = null; twoFinish(ref); break;
     case 'twoon': S.sheet = null; twoFinishOn(ref, v); break;
     case 'skippick': { const P = S.sheet.pick = S.sheet.pick || []; const i = P.indexOf(v); if (i >= 0) P.splice(i, 1); else P.push(v); renderLayer(); return true; }
@@ -2664,6 +2683,8 @@ document.addEventListener('click', (e) => {
     case 'archgo': { const ar = S.sheet; if (v === 'proj') { S.sheet = null; S.area = 'hobbies'; S.insOn = false; S.hob = hobOf(ref); S.proj = null; render(); break; } if (v === 'open') openItem(ref); else if (v === 'trip') trainingAction('tripopen', a, ref); else condAction('condopen', a, ref); if (S.sheet && S.sheet !== ar) { S.sheet.back = ar; renderLayer(); } break; }
     case 'archopen': S.menu = false; openSheet({ kind: 'archive', title: 'Archive' }); break;
     case 'dblkpick': if (S.sheet.back) S.sheet.back.block = v; closeSheet(); break;
+    case 'dmulti': capture(); if (v) S.sheet.draft.multi = true; else delete S.sheet.draft.multi; renderLayer(); break;
+    case 'dalso': { capture(); const A = S.sheet.also = S.sheet.also || []; const i = A.indexOf(v); if (i >= 0) A.splice(i, 1); else A.push(v); renderLayer(); break; }
     case 'dset': capture(); if (a.dataset.k === 'block' || a.dataset.k === 'cat') S.sheet[a.dataset.k] = v; else S.sheet.draft[a.dataset.k] = v; renderLayer(); break;
     case 'dwhen': { capture(); const D = S.sheet.draft; D.when = v === 'once' ? { mode: 'once', date: T0 } : v === 'every' ? { mode: 'every', n: 1 } : { mode: 'days', days: [wd(T0)] }; if (v !== 'once') D.insight = D.insight !== false; renderLayer(); break; }
     case 'drepopen': capture(); S.sheet.repOpen = true; renderLayer(); break;
@@ -2732,6 +2753,8 @@ function celebrate(kind) { const ph = $('#phone'); if (!ph || !lastTick) return;
     f.style.opacity = String(Math.min(1, pop * 1.5)); f.style.transform = `translate(${x - 24}px,${y - 24}px) scale(${sc}) rotate(${(1 - e) * -25}deg)`;
     if (t < 1) requestAnimationFrame(step); else { f.remove(); mk.style.opacity = ''; if (!calm) mk.animate([{ transform: 'translate(-50%,-50%) scale(1.25)' }, { transform: 'translate(-50%,-50%) scale(1)' }], { duration: 260, easing: 'ease-out' }); /* keeps its own centring */ } };
   requestAnimationFrame(step); }
+function tickMulti(id, k) { const n = multiN(id); const c0 = mcount(id, T0), on = !(k < c0); let c = on ? c0 + 1 : c0 - 1; c = Math.max(0, Math.min(n, c));
+  change(() => { const mm = M.multi = M.multi || {}; const md = mm[T0] = mm[T0] || {}; if (c >= n) { L(T0)[id] = 'done'; delete md[id]; } else { delete L(T0)[id]; if (c) md[id] = c; else delete md[id]; } if (!Object.keys(md).length) delete mm[T0]; }, (on ? 'Ticked ' : 'Unticked ') + I(id).name); }
 function tick(id) {
   const it = I(id); const cur = val(T0, id) || null;
   if (it.type === 'slot') { slotGo(id); return; }
@@ -2910,7 +2933,7 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
   // dropped in front of an item with a set time (a routine at 22:00): it's tacked on, ending right where that item starts
   const nxt = inB.filter((o) => mid(o) >= m).sort((p, q) => p.a - q.a)[0]; const tk0 = (id) => { const T = (M.dayTack || {})[day] || {}; return (id in T ? T[id] : I(id).before) || null; }; /* in front of something already tacked on: it joins that row */ /* a break is never something to tack onto, and the drop has to be nearer the set-time item than the item before it (2026-11-11) */ const pv0 = inB.filter((o) => mid(o) < m).sort((p, q) => p.b - q.b).pop(); const b0 = g && g.start ? hm(g.start) : 0; const near = (q) => (q.a - m) < (m - (pv0 ? pv0.b : b0)); /* with nothing before it, the block's start under its title is the other anchor (the owner, 2026-11-13) */
   // a break takes it only when the drop is right at it, within 20 minutes of its start (2026-11-12: in front of or behind everything, breaks included)
-  const tack = !nxt ? null : nxt.appt || I(nxt.id).time ? (near(nxt) && (!I(nxt.id).brk || nxt.a - m <= 20) ? nxt.id : null) : tk0(nxt.id);
+  const tack = !nxt ? null : nxt.appt || I(nxt.id).time ? (near(nxt) && (!I(nxt.id).brk || nxt.a - m <= 20) ? nxt.id : null) : near(nxt) ? tk0(nxt.id) : null; /* joining a tacked-on row needs the drop to be near it too, so a dragged item can leave the row again (2026-11-24) */
   const setTack = () => { const T = (M.dayTack = M.dayTack || {})[day] = (M.dayTack[day] || {}); T[x.id] = tack; };
   if (Array.isArray(window.__dbg)) window.__dbg.push({ top, crt: cr.top, oh: x.el.offsetHeight, sc: x.sc, off: x.off, ey: e.clientY, m, idx, b, day, tack, prev: prev && prev.id, nxt: nxt && nxt.id, inB: inB.map((o) => o.id + '@' + o.a + '-' + o.b) });
   if (!S.edit && day === x.from) { change(() => { moveOnDay(x.id, day, b, idx); setTack(); }, 'Moved ' + it.name + ' on ' + fmtDate(day)); return; }
@@ -5321,6 +5344,8 @@ function renderTraining() {
       : `<button data-a="bopen" data-ref="${c}" aria-expanded="${open}" style="display:flex;align-items:center;gap:8px;width:100%;min-height:44px"><span class="nm mono" style="flex:1">${esc(g.name)}</span><span class="cnt">${left ? left + ' today' : ''}</span>${fold(open)}</button>`}</div>
       ${open ? `<div class="list" data-list="${c}">${ks.map((k) => itemRow(k, c, T0)).join('') || (S.edit ? '' : '<p class="empty">No sessions yet.</p>')}${S.edit ? `<button class="addrow" data-a="vadd" data-v="${c}"><span class="plus">+</span>Add session</button>` : ''}</div>` : ''}</section>`; }).join('') + '</div>';
   if (S.edit) h += `<div style="margin-top:10px"><button class="addcard" data-a="taddcat">+ Add category</button></div>`;
+  // Training's own colour (the generic movement item and the Training tab wear it), set here in edit mode like the other sections (2026-11-24)
+  if (S.edit) h += `<div style="margin-top:16px">${lcard(null, 'Colour', '', `<div class="vdef">${colorField('p:training', ((M.pages || {}).training || {}).color || '#3FAFA6')}</div>`)}</div>`;
   if (G('hg-aches')) h += `<div style="margin-top:14px">${hGroup('hg-aches', T0)}</div>`;
   // Conditions: the same component as Health › Other › Conditions, same data (M.conds), so entries show in both places
   { const c = condCol(); const open = S.edit || S.open['h:t-conds'] === true; // closed by default on Training (2026-11-06)
