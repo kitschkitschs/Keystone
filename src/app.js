@@ -754,7 +754,7 @@ function placeDay(d) {
   // if something with a set time is there, it falls into the first free spot behind it
   const twoAt = {}; Object.keys(M.half || {}).forEach((id) => { const it = I(id); if (!it || !it.two || isDone(id, d) || isMissed(id, d)) return; const due = new Date(M.half[id].at + (+it.two || 2) * 3600000);
     const sh = new Date(due); sh.setHours(sh.getHours() - DAY_H); if (iso(sh) !== d || halfDay(M.half[id]) !== d) return; twoAt[id] = due.getHours() * 60 + due.getMinutes() + (iso(due) !== d ? 1440 : 0); });
-  DL.forEach((x) => { x.items = x.items.filter((id) => !(id in twoAt)); });
+  // the first part stays where it was; the second part fits itself in after it's due (the owner, 2026-11-24)
   // missed items that come back on their own (an overdue repeat, a task past its date, one moved on from a bad day, an unfinished
   // two-part chore) don't keep their set time: they take the first free spot at the top of their block (2026-11-14)
   const dT = (M.dayTime || {})[d] || {}; const carried = new Set(d < T0 ? [] : DL.flatMap((x) => x.items).filter((id) => { const it = I(id); if (!it || it.type === 'checkin' || it.brk || dT[id]) return false;
@@ -767,11 +767,6 @@ function placeDay(d) {
   const allFixed = []; DL.forEach(({ b, items, appts }) => { const g = G(b);
     items.filter(fixedT).forEach((id) => { const t = hm(tAt(id, d)); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), blk: b }); });
     (appts || []).forEach((id) => { const t = hm(tAt(id, d) || g.start); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), appt: true, blk: b }); }); });
-  const twos = Object.keys(twoAt).sort((p, q) => twoAt[p] - twoAt[q]).map((id) => { const len = I(id).dur || 30; let a0 = twoAt[id], moved = true;
-    while (moved) { moved = false; allFixed.forEach((f) => { if (a0 < f.b && a0 + len > f.a) { a0 = f.b; moved = true; } }); }
-    const B = blockIds(); const blk = B.find((b) => hm(G(b).start) <= a0 && a0 < hm(G(b).end)) || B.filter((b) => hm(G(b).start) <= a0).pop() || B[0];
-    const f = { id, a: a0, b: a0 + len, blk, two: true }; allFixed.push(f); return f; });
-  twos.forEach((f) => out.push(f));
   // a block that runs over keeps its extra items: they spill past its end into a red stretch on Schedule (2026-11-02)
   DL.forEach(({ b, items, appts }) => {
     const g = G(b); let cur = hm(g.start);
@@ -792,6 +787,11 @@ function placeDay(d) {
       while (moved) { moved = false; busy.forEach((f) => { if (cur < f.b && cur + len > f.a) { cur = f.b; moved = true; } }); }
       out.push({ id, a: cur, b: cur + len, blk: b }); cur += len; });
   });
+  // second parts go in last, into the first free spot from when they're due, so nothing else moves for them
+  Object.keys(twoAt).sort((p, q) => twoAt[p] - twoAt[q]).forEach((id) => { const len = I(id).dur || 30; let a0 = twoAt[id], moved = true;
+    while (moved) { moved = false; out.forEach((f) => { if (I(f.id) && I(f.id).type === 'checkin') return; if (a0 < f.b && a0 + len > f.a) { a0 = f.b; moved = true; } }); }
+    const B = blockIds(); const blk = B.find((b) => hm(G(b).start) <= a0 && a0 < hm(G(b).end)) || B.filter((b) => hm(G(b).start) <= a0).pop() || B[0];
+    out.push({ id, a: a0, b: a0 + len, blk, two: true }); });
   return out;
 }
 const dur = (m) => m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) : '');
@@ -846,7 +846,7 @@ function renderSchedule() {
       const bk = !o.appt && it.brk;
       const inner = !dayV ? '' : bk ? `<span class="bkt"><span>${inm(it)}</span></span>` : `<span class="bn">${inm(it)}</span><span class="bt">${estHM((o.b - o.a) / 60)}</span>`; // the time it takes, not when it starts (2026-11-23)
       const fd = faded(di, o);
-      const mv = it.type !== 'checkin' && d >= T0; // set-time items and appointments move too, snapping to what's around them (2026-11-13)
+      const mv = it.type !== 'checkin' && d >= T0 && !o.two; // set-time items and appointments move too, snapping to what's around them (2026-11-13)
       return `<button class="box ${dayV ? 'wide' : ''} ${ht < 20 ? 'xs' : ht < 30 ? 'sm' : ''} ${mv ? 'mv' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && it.brk ? ' brk' : ''}" style="top:${top}px;height:${ht}px;--fs:${Math.max(5, Math.min(9.5, ht - 1.5)).toFixed(1)}px;--c:${c};--bg:${fd ? mix(c, TH.page, 0.5) : c};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" data-from="${o.a}" data-to="${o.b}" aria-label="${esc(tnm(it))}, ${fmtHM(o.a)}">${inner}</button>`; }).join('') + '</div>';
   });
   S.ymap = { y, h0, h1, zones: blockIds().filter((b) => OV[b]).map((b) => ({ b, top: yIn(ends[b], b), h: OV[b] / 60 * PX, e: ends[b], ov: OV[b] })) };
