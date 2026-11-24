@@ -1509,7 +1509,7 @@ function whenOn(it, d) {
   if (w.mode !== 'once' && w.date && it.made && it.made < '2026-11-04' && it.made < w.date && !(it.past || []).length) return Object.assign({}, w, { date: null });
   return w;
 }
-// Always after (2026-11-11): a workout item names the tasks that always follow it (a shower after a hike). A task named
+// Always after (2026-11-11; generic items too since 2026-11-24): a workout item names the tasks that always follow it (a shower after a hike). A task named
 // this way shows on every day one of its workouts is on, right after it, and its own rhythm counts on from there.
 const WKC = new Map();
 function afterSrc() { if (WKC.has('_src')) return WKC.get('_src'); const m = {};
@@ -1597,11 +1597,20 @@ function dayList(d) { const out = dayListRaw(d); if (frozenOf(d)) return out;
   return out; }
 // A task set to follow every workout (a shower) goes right after the workout, in the same block when there's room for it, otherwise
 // first thing in the next block (2026-11-11). Room = the block's length against the minutes already in it.
+// the real work that takes a generic item's place: its training, study tasks, chores or hobbies
+function slotReal(sid, k) { const it = I(sid), r = I(k); if (!it || it.type !== 'slot' || !r || r.type === 'slot') return false;
+  if (it.opens === 'training') return slotTrainIds(sid).has(k);
+  if (it.opens === 'study') { const ids = typeof subjIds === 'function' ? new Set(subjIds().flatMap(sIds)) : new Set(); return ids.has(k) || !!(r.part && ids.has(r.part)); }
+  if (it.opens === 'chores') return typeof choreIds === 'function' && choreIds().includes(k);
+  if (it.opens === 'hobbies') return typeof hobArea === 'function' && !!hobArea(k);
+  return false; }
 function afterWork(out, d) { const src = afterSrc();
   const after = out.flatMap((x) => x.items).filter((id) => I(id) && src[id] && workoutOn(d, id)); if (!after.length) return;
   out.forEach((x) => { x.items = x.items.filter((id) => !after.includes(id)); });
   // each workout takes its own followers along; a task that follows two workouts that day goes after the first one
-  const byW = new Map(); after.forEach((id) => { let at = null; out.some((x, bi) => x.items.some((k, i) => { if (src[id].includes(k)) { at = [bi, k]; return true; } return false; })); if (!at) { out[out.length - 1].items.push(id); return; } const key = at[1]; byW.set(key, (byW.get(key) || { bi: at[0], ids: [] })); byW.get(key).ids.push(id); });
+  // a generic item that gave way to real work that day hands its followers to that work (the owner, 2026-11-24)
+  const on = new Set(out.flatMap((x) => x.items)); const hit = (id, k) => src[id].includes(k) || src[id].some((s) => !on.has(s) && slotReal(s, k));
+  const byW = new Map(); after.forEach((id) => { let at = null; out.some((x, bi) => x.items.some((k, i) => { if (hit(id, k)) { at = [bi, k]; return true; } return false; })); if (!at) { out[out.length - 1].items.push(id); return; } const key = at[1]; byW.set(key, (byW.get(key) || { bi: at[0], ids: [] })); byW.get(key).ids.push(id); });
   byW.forEach(({ bi, ids }, wk) => { const x = out[bi]; const g = G(x.b); const len = g && g.start && g.end ? hm(g.end) - hm(g.start) : 1e9;
     const used = x.items.filter((id) => !I(id).time).reduce((t, id) => t + (I(id).dur || 30), 0) + ids.reduce((t, id) => t + (I(id).dur || 30), 0);
     const wi = x.items.indexOf(wk);
@@ -2007,6 +2016,7 @@ function slotDrop(out, d = T0) {
     const tids = typeof trainCats === 'function' ? new Set(trainCats().flatMap(kidsOf)) : new Set(); const hobOn = typeof hobArea === 'function' && all.some((id) => hobArea(id));
     const studyOn = all.some((id) => sids.has(id) || (I(id) && I(id).part && sids.has(I(id).part))), choreOn = all.some((id) => cids.has(id) && ((M.half || {})[id] || schedChore(id, d))), moveOn = all.some((id) => tids.has(id));
     if (studyOn || choreOn || moveOn || hobOn) out.forEach((x) => { x.items = x.items.filter((id) => !(I(id) && I(id).type === 'slot' && ((I(id).opens === 'study' && studyOn) || (I(id).opens === 'chores' && choreOn) || (I(id).opens === 'training' && all.some((k) => slotTrainIds(id).has(k))) || (I(id).opens === 'hobbies' && hobOn)))); });
+  afterWork(out, d); // followers of a generic item stay behind the work that replaced it
   return out; }
 // Schedule: a day with a real chore drops the generic chore item, and the chores without a set time take its place in
 // the day (its block and spot), unless I moved them myself that day (the owner, 2026-11-24)
@@ -2480,6 +2490,7 @@ function itemSheet(s) {
   } else if (D.type !== 'checkin' && D.type !== 'step') {
     h += schedUI(s, D);
     if (D.brk) { if (s.ref && !s.isNew) h += `<div class="btns"><button class="btn danger" data-a="ddelete">Delete</button></div>`; return h; } // a break: a name, its time and length, its days
+    if (D.type === 'slot') h += afterField(D); // generic items take followers too: a shower after the Workout generic (the owner, 2026-11-24)
     if (D.type === 'task' || D.type === 'routine') h += ((D.when || {}).mode === 'once' ? `<div class="fld"><span class="mono">Type</span><div class="chips">${[['1', 'Task', 'stays after a tick'], ['0', 'One-off', 'gone once ticked']].map(([v, l, sub]) => `<button class="chip" data-a="dpersist" data-v="${v}" aria-pressed="${!!D.persist === (v === '1')}">${l}<span class="sub" style="font-size:11.5px;color:var(--quiet)">· ${sub}</span></button>`).join('')}</div></div>` : '') // Task or One-off replaces the Persistent switch; a repeat is always a task (2026-11-24)
       + (isTrainSheet(s) ? afterField(D) : '') + sw('optional', 'Optional', D.optional)
       + (D.type === 'task' && isChoreSheet(s) ? sw('two', 'Two parts', D.two) + (D.two ? `<div class="fld"><span class="mono">Second part after</span><div class="inrow"><input class="inp" id="dtwo" inputmode="decimal" value="${typeof D.two === 'number' ? D.two : 2}" style="width:80px"><span class="note" style="margin:0">hours</span></div></div>` : '') : '');
