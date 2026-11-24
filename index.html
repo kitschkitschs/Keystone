@@ -1118,6 +1118,8 @@ input[type=range]::-moz-range-thumb{background:var(--ink);border-color:var(--ink
 #view .htabs button{min-height:36px;border:1px solid var(--line);font-size:14px}
 #view .htabs button[aria-selected="true"]{border-color:var(--quiet);color:var(--ink);font-weight:400}
 #view .htabs button[aria-selected="true"]::after{display:none}
+/* the Health tab buttons carry a faint tint so they don't read as tags (the owner, 2026-11-24) */
+#view .htabs button{background:color-mix(in srgb,var(--ink) 5%,transparent)}#view .htabs button[aria-selected="true"]{background:color-mix(in srgb,var(--ink) 9%,transparent)}
 /* breaks on Today: no side lines, left aligned with the list, only how long they take (2026-11-24) */
 #view .brkt{justify-content:flex-start;margin:0;min-height:36px} /* same height as a task row (2026-11-24) */#view .brkt::before,#view .brkt::after{display:none}
 /* study timer extras (2026-11-24): pomodoro line, the settings line under the buttons, the steppers in its sheet */
