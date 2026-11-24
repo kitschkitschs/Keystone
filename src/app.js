@@ -793,9 +793,13 @@ function placeDay(d) {
     items.filter(fixedT).forEach((id) => { const t = hm(tAt(id, d)); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), blk: b }); });
     (appts || []).forEach((id) => { const t = hm(tAt(id, d) || g.start); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), appt: true, blk: b }); }); });
   // a block that runs over keeps its extra items: they spill past its end into a red stretch on Schedule (2026-11-02)
+  // an item set to run into the next block (it.flow) is cut at its block's end and carries on at the start of the next one,
+  // where the untimed items wait until it's done (the owner, 2026-11-24)
+  const carry = {}; const BI = blockIds();
   DL.forEach(({ b, items, appts }) => {
     const g = G(b); let cur = hm(g.start);
     const fixed = allFixed.filter((f) => f.blk === b);
+    if (carry[b]) { out.push(carry[b]); fixed.push(carry[b]); cur = carry[b].b; }
     allFixed.filter((f) => f.blk === b && !f.two).forEach((f) => out.push(f));
     // a day's own order may say an item comes after an appointment: then it starts after that appointment ends
     // ... and the same after an item with a set time (2026-11-11), even when that leaves room in front of it
@@ -812,6 +816,8 @@ function placeDay(d) {
     items.filter((id) => !fixedT(id) && !tacked.has(id) && folAt[id] != null).forEach((id) => { const len = I(id).dur || 30; let a0 = folAt[id], mv2 = true; while (mv2) { mv2 = false; busy.forEach((f) => { if (a0 < f.b && a0 + len > f.a) { a0 = f.b; mv2 = true; } }); } const q = { id, a: a0, b: a0 + len, blk: b }; out.push(q); busy.push(q); });
     items.filter((id) => !fixedT(id) && !tacked.has(id) && folAt[id] == null).forEach((id) => { const len = I(id).dur || 30; let moved = true; if (after[id]) cur = Math.max(cur, after[id]);
       while (moved) { moved = false; busy.forEach((f) => { if (cur < f.b && cur + len > f.a) { cur = f.b; moved = true; } }); }
+      const endB = hm(g.end), nb = BI[BI.indexOf(b) + 1];
+      if (I(id).flow && nb && G(nb) && cur < endB && cur + len > endB && !carry[nb]) { const s0 = hm(G(nb).start); carry[nb] = { id, a: s0, b: s0 + cur + len - endB, blk: nb, cont: true }; out.push({ id, a: cur, b: endB, blk: b, flows: true }); cur = endB; return; }
       out.push({ id, a: cur, b: cur + len, blk: b }); cur += len; });
   });
   mShift(out, d);
@@ -876,7 +882,7 @@ function renderSchedule() {
       const bk = !o.appt && it.brk;
       const inner = !dayV ? '' : bk ? `<span class="bkt"><span>${inm(it)}</span></span>` : `<span class="bn">${inm(it)}</span><span class="bt">${estHM((o.b - o.a) / 60)}</span>`; // the time it takes, not when it starts (2026-11-23)
       const fd = faded(di, o);
-      const mv = it.type !== 'checkin' && d >= T0 && !o.two; // set-time items and appointments move too, snapping to what's around them (2026-11-13)
+      const mv = it.type !== 'checkin' && d >= T0 && !o.two && !o.cont; // set-time items and appointments move too, snapping to what's around them (2026-11-13)
       return `<button class="box ${dayV ? 'wide' : ''} ${ht < 20 ? 'xs' : ht < 30 ? 'sm' : ''} ${mv ? 'mv' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && it.brk ? ' brk' : ''}" style="top:${top}px;height:${ht}px;--fs:${Math.max(5, Math.min(9.5, ht - 1.5)).toFixed(1)}px;--c:${c};--bg:${fd ? mix(c, TH.page, 0.5) : c};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" data-from="${o.a}" data-to="${o.b}" aria-label="${esc(tnm(it))}, ${fmtHM(o.a)}">${inner}</button>`; }).join('') + '</div>';
   });
   S.ymap = { y, h0, h1, zones: blockIds().filter((b) => OV[b]).map((b) => ({ b, top: yIn(ends[b], b), h: OV[b] / 60 * PX, e: ends[b], ov: OV[b] })) };
@@ -1218,7 +1224,7 @@ function itemSheet(s) {
     if (D.brk) { if (s.ref && !s.isNew) h += `<div class="btns"><button class="btn danger" data-a="ddelete">Delete</button></div>`; return h; } // a break: a name, its time and length, its days
     if (D.type === 'slot') h += afterField(D); // generic items take followers too: a shower after the Workout generic (the owner, 2026-11-24)
     if (D.type === 'task' || D.type === 'routine') h += ((D.when || {}).mode === 'once' ? `<div class="fld"><span class="mono">Type</span><div class="chips">${[['1', 'Task', 'stays after a tick'], ['0', 'One-off', 'gone once ticked']].map(([v, l, sub]) => `<button class="chip" data-a="dpersist" data-v="${v}" aria-pressed="${!!D.persist === (v === '1')}">${l}<span class="sub" style="font-size:11.5px;color:var(--quiet)">· ${sub}</span></button>`).join('')}</div></div>` : '') // Task or One-off replaces the Persistent switch; a repeat is always a task (2026-11-24)
-      + (isTrainSheet(s) ? afterField(D) : '') + sw('optional', 'Optional', D.optional)
+      + (isTrainSheet(s) ? afterField(D) : '') + sw('optional', 'Optional', D.optional) + sw('flow', 'Can run into the next block', D.flow) // a slow weekend morning routine carries on into the next block instead of spilling over (the owner, 2026-11-24)
       + (D.type === 'task' && isChoreSheet(s) ? sw('two', 'Two parts', D.two) + (D.two ? `<div class="fld"><span class="mono">Second part after</span><div class="inrow"><input class="inp" id="dtwo" inputmode="decimal" value="${typeof D.two === 'number' ? D.two : 2}" style="width:80px"><span class="note" style="margin:0">hours</span></div></div>` : '') : '');
     // study items: everything under Estimate waits behind More settings too (2026-11-06)
     if (isStudyItem(s, D)) s._more = h.length;
