@@ -963,6 +963,9 @@ function askDelete(act, a, ref, v) {
     case 'conddel': { const x = (M.conds || []).find((c) => c.id === ref); return { q: 'Delete ' + nm(x && x.name) + '?', yes: 'Delete' }; }
     case 'ctagdel': { const t = ctag(ref); return { q: 'Delete the tag ' + nm(t && t.name) + '? Conditions keep everything else.', yes: 'Delete' }; }
     case 'tripdel': { const t = (M.trips || []).find((x) => x.id === ref); return { q: 'Delete ' + nm(t && t.name) + '?', yes: 'Delete' }; }
+    case 'wdrop': return { q: 'Throw this workout away? Nothing from it gets saved.', yes: 'Throw away' };
+    case 'wodel': return { q: 'Take the exercises off ' + nm(I(ref) && I(ref).name) + '? The session itself stays.', yes: 'Take off' };
+    case 'wxdel': { const x = (M.exercises || []).find((e) => e.id === ref); return { q: 'Delete ' + nm(x && x.name) + '? It comes out of every workout too.', yes: 'Delete' }; }
     case 'projphrm': return { q: 'Delete this photo?', yes: 'Delete' };
     case 'pdfdel': { const f = ((G(ref) || {}).files || []).find((x) => x.id === v); return { q: 'Delete the PDF ' + nm(f && f.name) + '?', yes: 'Delete' }; }
     case 'pdhlrm': return VW && VW.hl ? { q: 'Remove this highlight?', yes: 'Remove' } : null;
@@ -977,9 +980,10 @@ function askDelete(act, a, ref, v) {
   return null;
 }
 function sheetLayer() { let h = '';
+  if (S.sheet.kind === 'wrun') return woLayer(); // workout mode: full screen like a check-in (2026-11-24)
   if (S.sheet.kind === 'checkin') { const b = sheetBody(); const [main, foot] = b.split('\u0001'); const st = (S.sheet.steps || [])[S.sheet.step || 0], tc = st && st.gid && G(st.gid) ? G(st.gid).color : ''; // each step wears its category's colour (Stone, 2026-11-23)
     h += `<div class="cifull" role="dialog" aria-label="${esc(S.sheet.title)}"${tc ? ` style="--tc:${tc}"` : ''}>${ciHeader(S.sheet)}<div class="sb">${main}</div>${foot || ''}</div>`; }
-  else h += `<div class="scrim" data-a="closesheet"><div class="sheet ${S.sheet.kind === 'feel' && !S.sheet.cfg ? 'feelsh' : S.sheet.kind === 'note' ? 'notesh' : ''}" role="dialog" aria-label="${esc(S.sheet.title)}"><header><h2>${esc(S.sheet.title)}</h2>${S.sheet.kind === 'hyper' ? hyperDetHead(S.sheet.ref, T0, hcolor(S.sheet.ref)) || (() => { const DT = (I(S.sheet.ref).parts || []).map((w) => [w, w]); const pk = hval(T0, 'pt:' + S.sheet.ref) || []; return DT.length ? `<div class="chips hdet">${DT.map((x) => pchip(S.sheet.ref, pk, hcolor(S.sheet.ref), x)).join('')}</div>` : ''; })() : ''}${(() => { const k = { item: 'dsave', group: 'savegroup', area: 'savearea', tracker: 'tsave', trip: 'tripsave', cond: 'condsave', insc: 'inscsave', word: 'wsave', rem: 'remsave' }[S.sheet.kind]; return k ? `<button class="hsave" data-a="${k}">${S.sheet.isNew ? 'Add' : 'Save'}</button>` : ''; })()}<button class="hb" data-a="closesheet" aria-label="Close">${icon('x', 22)}</button></header><div class="sb">${sheetBody()}</div></div></div>`;
+  else h += `<div class="scrim" data-a="closesheet"><div class="sheet ${S.sheet.kind === 'feel' && !S.sheet.cfg ? 'feelsh' : S.sheet.kind === 'note' ? 'notesh' : ''}" role="dialog" aria-label="${esc(S.sheet.title)}"><header><h2>${esc(S.sheet.title)}</h2>${S.sheet.kind === 'hyper' ? hyperDetHead(S.sheet.ref, T0, hcolor(S.sheet.ref)) || (() => { const DT = (I(S.sheet.ref).parts || []).map((w) => [w, w]); const pk = hval(T0, 'pt:' + S.sheet.ref) || []; return DT.length ? `<div class="chips hdet">${DT.map((x) => pchip(S.sheet.ref, pk, hcolor(S.sheet.ref), x)).join('')}</div>` : ''; })() : ''}${(() => { const k = { item: 'dsave', group: 'savegroup', area: 'savearea', tracker: 'tsave', trip: 'tripsave', wx: 'wxsave', cond: 'condsave', insc: 'inscsave', word: 'wsave', rem: 'remsave' }[S.sheet.kind]; return k ? `<button class="hsave" data-a="${k}">${S.sheet.isNew ? 'Add' : 'Save'}</button>` : ''; })()}<button class="hb" data-a="closesheet" aria-label="Close">${icon('x', 22)}</button></header><div class="sb">${sheetBody()}</div></div></div>`;
   return h; }
 function renderLayer() { setTimeout(navTrack, 0);
   let h = vLayer() + insLayer();
@@ -1019,6 +1023,8 @@ function sheetBody() {
   const s = S.sheet;
   if (s.kind[0] === 'v') return vSheet(s);
   if (s.kind === 'trip') return tripSheet(s);
+  if (s.kind === 'wo') return woSheet(s);
+  if (s.kind === 'wx') return wxSheet(s);
   if (s.kind === 'word') return wordSheet(s);
   if (s.kind === 'rem') return remSheet(s);
   if (s.kind === 'cals') return calsSheet();
@@ -1358,6 +1364,7 @@ document.addEventListener('click', (e) => {
   if (remAction(act, a, ref, v)) return;
   if (insightAction(act, a, ref, v)) return;
   if (trainingAction(act, a, ref, v)) return;
+  if (workoutAction(act, a, ref, v)) return;
     if (calAction(act, a, ref, v)) return;
     if (condAction(act, a, ref, v)) return;
   switch (act) {
@@ -2492,6 +2499,7 @@ function trackerSheet(s) {
     ${D.scale === 'choices' ? `<div class="stack" style="gap:6px">${(D.options || []).map((o, i) => `<div class="inrow"><input class="inp" data-opt="${i}" value="${esc(o)}"><button class="rm" data-a="toptrm" data-v="${i}" aria-label="Remove option">${icon('x', 14)}</button></div>`).join('')}<button class="addbtn" data-a="toptadd"><span class="plus">+</span>Add option</button></div>` : ''}</div>`;
   h += `<div class="fld"><span class="mono">Colour</span>${colorField('draft', D.color, { inherit: true })}</div>`;
   h += `<div class="fld"><span class="mono">Kind</span><div class="chips">${[['', 'None'], ['behaviour', 'Behaviour'], ['experience', 'Experience'], ['circumstance', 'Circumstance']].map(([k, l]) => `<button class="chip" data-a="tset" data-k="kind" data-v="${k}" aria-pressed="${(D.kind || '') === k}">${l}</button>`).join('')}</div></div>`;
+  if (G('hg-aches') && (G('hg-aches').kids.includes(s.ref) || s.in === 'hg-aches')) h += acheExField(D); // which exercises touch it (2026-11-24)
   h += tagField(D, 'ttag'); if (D.scale === 'yesno' || D.scale === 'avoid' || SCALES[D.scale] || D.scale === 'choices') h += linkField2(D);
   if (D.scale === 'symptom3' || SCALES[D.scale]) h += `<div class="fld"><span class="mono">Details to pick</span><div class="stack" style="gap:6px">${(D.parts || []).map((o, i) => `<div class="inrow"><input class="inp" data-part="${i}" value="${esc(o)}" placeholder="Like jaw"><button class="rm" data-a="tpartrm" data-v="${i}" aria-label="Remove detail">${icon('x', 14)}</button></div>`).join('')}<button class="addbtn" data-a="tpartadd"><span class="plus">+</span>Add a detail</button></div></div>`;
   { const pg = Object.keys(M.groups).find((k) => M.groups[k].kids.includes(s.ref)); const lead = pg ? G(pg).kids.filter((k) => I(k))[0] : null;
