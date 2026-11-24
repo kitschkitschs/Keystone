@@ -718,8 +718,11 @@ function slotDrop(out, d = T0) {
 // Schedule: a day with a real chore drops the generic chore item, and the chores without a set time take its place in
 // the day (its block and spot), unless I moved them myself that day (the owner, 2026-11-24)
 function choreSwap(DL, d) {
-  const cids = new Set(choreIds()); const isSlot = (id) => I(id) && I(id).type === 'slot' && I(id).opens === 'chores';
-  const real = DL.flatMap((x) => x.items).filter((id) => cids.has(id) && !(M.half || {})[id] && schedChore(id, d)); if (!real.length) return DL;
+  DL = genSwap(DL, d, 'chores', new Set(choreIds()), (id) => !(M.half || {})[id] && schedChore(id, d));
+  // scheduled training does the same to the generic movement item (the owner, 2026-11-24)
+  return typeof trainCats === 'function' ? genSwap(DL, d, 'training', new Set(trainCats().flatMap(kidsOf)), () => true) : DL; }
+function genSwap(DL, d, opens, ids, ok) { const isSlot = (id) => I(id) && I(id).type === 'slot' && I(id).opens === opens;
+  const real = DL.flatMap((x) => x.items).filter((id) => ids.has(id) && ok(id)); if (!real.length) return DL;
   const sx = DL.find((x) => x.items.some(isSlot));
   if (sx) { const mv = (M.dayMove || {})[d] || {}, dT = (M.dayTime || {})[d] || {}; const go = real.filter((id) => !I(id).time && !dT[id] && !mv[id]);
     DL.forEach((x) => { if (x !== sx) x.items = x.items.filter((id) => !go.includes(id)); });
@@ -1002,7 +1005,7 @@ function sheetBody() {
       ${g.style === 'sgroup' ? `<div class="fld"><span class="mono">Deadline</span><div class="inrow"><input class="inp" type="date" id="gdl" value="${g.deadline || ''}"><span class="note">optional</span></div></div>` : ''}
       ${g.style === 'project' && typeof hobOf === 'function' && hobOf(s.ref) && hobActs(hobOf(s.ref)).length ? `<div class="fld"><span class="mono">Activity it covers</span><div class="chips">${[['', 'None']].concat(hobActs(hobOf(s.ref)).map((k) => [k, inm(k)])).map(([k, l]) => `<button class="chip" data-a="projact" data-ref="${s.ref}" data-v="${k}" aria-pressed="${(g.act || '') === k}">${l}</button>`).join('')}</div></div>` : ''}
       ${g.style === 'dayblock' ? `<div class="fld"><span class="mono">Time</span><div class="inrow"><input class="inp" type="time" id="gstart" value="${g.start}"><span>to</span><input class="inp" type="time" id="gend" value="${g.end}"></div></div>` : ''}
-      ${secRootOf(s.ref) && !ROOTCOL[s.ref] ? '' : `<div class="fld"><span class="mono">Colour</span>${colorField(s.ref, g.color)}</div>`}
+      ${secRootOf(s.ref) ? '' : ROOTCOL[s.ref] && ROOTCOL[s.ref][0] === 'pages' ? `<div class="fld"><span class="mono">Colour</span>${colorField('p:' + ROOTCOL[s.ref][1], grpCol(s.ref))}</div>` : `<div class="fld"><span class="mono">Colour</span>${colorField(s.ref, g.color)}</div>`}
       ${g.style === 'hgroup' && g.special !== 'checkins' ? `<div class="fld"><span class="mono">Asked in a check-in</span><div class="chips">${[['', 'No'], ['morning', 'Morning'], ['evening', 'Evening']].map(([k, l]) => `<button class="chip" data-a="gci" data-ref="${s.ref}" data-v="${k}" aria-pressed="${(g.ci || '') === k}">${l}</button>`).join('')}</div></div>` : ''}
       ${g.style === 'acat' ? `<div class="fld"><span class="mono">Icon</span><div><button class="btn" data-a="iconfor" data-v="${s.ref}" style="display:inline-flex;gap:8px;align-items:center">${icon(g.icon || 'circle', 18)} Change icon</button></div></div>` : ''}`; }
   if (s.kind === 'area') { const a = M.areas[s.ref];
@@ -2590,13 +2593,15 @@ document.addEventListener('pointercancel', () => { if (rd) { clearTimeout(rd.t);
 // full picker (hue / strength / lightness sliders, a code, Save to my colours). ref is what gets the colour:
 // an item or group id, 'a:area', 'p:page', 'x:extra', or 'draft' (the open editor's unsaved copy).
 // My palette starts as the starter palette, so every colour in it can be edited or removed (2026-11-02)
-function myCols(pal) { const st = M.settings; if (pal === 'board') { if (!st.boardColors) st.boardColors = BOARD_PAL.slice(); return st.boardColors; } if (!st.palInit) { st.palInit = true; st.myColors = [...new Set(STONE_PAL.concat(PAL).map((p) => p[1]).concat(st.myColors || []))]; } return st.myColors; }
+function myCols(pal) { const st = M.settings; if (pal === 'paper') { if (!st.paperColors) st.paperColors = PAPER_PAL.slice(); return st.paperColors; } if (pal === 'board') { if (!st.boardColors) st.boardColors = BOARD_PAL.slice(); return st.boardColors; } if (!st.palInit) { st.palInit = true; st.myColors = [...new Set(STONE_PAL.concat(PAL).map((p) => p[1]).concat(st.myColors || []))]; } return st.myColors; }
 function hexToHsl(h) { const [r, g, b] = rgb(h).map((x) => x / 255); const mx = Math.max(r, g, b), mn = Math.min(r, g, b); let hh = 0, ss = 0; const l = (mx + mn) / 2;
   if (mx !== mn) { const d = mx - mn; ss = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); hh = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; hh *= 60; }
   return [Math.round(hh), Math.round(ss * 100), Math.round(l * 100)]; }
 function hslToHex(h, s, l) { s /= 100; l /= 100; const k = (n) => (n + h / 30) % 12; const a = s * Math.min(l, 1 - l); const f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
   return '#' + [f(0), f(8), f(4)].map((x) => pad(Math.round(x * 255).toString(16))).join('').toUpperCase(); }
-function colorField(ref, cur, opts = {}) { const pal = String(ref).startsWith('bd:') ? 'board' : undefined; const inh = opts.inhLabel || 'Same as its group';
+// board backgrounds pick from shades of paper; other board colours from the board palette (the owner, 2026-11-24)
+const colPal = (ref) => ref === 'bd:bg' ? 'paper' : String(ref).startsWith('bd:') ? 'board' : undefined;
+function colorField(ref, cur, opts = {}) { const pal = colPal(ref); const inh = opts.inhLabel || 'Same as its group';
   const sw = (c, n) => `<button style="--c:${c}" data-a="setcol" data-ref="${ref}" data-v="${c}" aria-label="${esc(n)}" title="${esc(n)}" aria-pressed="${(cur || '').toLowerCase() === c.toLowerCase()}"></button>`;
   return `<div class="sw cf">${opts.inherit ? `<button class="inh" style="--c:var(--card)" data-a="setcol" data-ref="${ref}" data-v="" aria-label="${inh}" title="${inh}" aria-pressed="${!cur}"></button>` : ''}${myCols(pal).map((c) => sw(c, (PAL.find((p) => p[1] === c) || [c])[0])).join('')}<button class="more" data-a="colopen" data-ref="${ref}" data-v="${opts.inherit ? inh : ''}" aria-label="More colours">+</button></div>`;
 }
@@ -2615,10 +2620,10 @@ function colorPickSheet(s) {
   return `<div class="cprev"><span id="cprev" style="background:${hex}"></span><input class="inp" id="chex" value="${hex}" aria-label="Colour code"></div>
     ${sl('h', 'Hue', 360)}${sl('s', 'Strength', 100)}${sl('l', 'Lightness', 92, 15)}
     <div class="btns"><button class="btn dark" data-a="coluse">Use this colour</button>${s.sel != null && myCols(s.pal)[s.sel] ? `<button class="btn" data-a="colupd">Update in my palette</button>` : ''}</div>
-    <div class="fld" style="margin-top:14px"><span class="mono">${s.pal === 'board' ? 'Board palette' : 'My palette'}</span><div class="sw mine">${myCols(s.pal).map((c, i) => `<span class="mc"><button style="--c:${c}" data-a="colpick" data-v="${i}" aria-label="Edit ${c}" aria-pressed="${s.sel === i}"></button>${s.sel === i ? `<button class="x" data-a="colrm" data-v="${i}" aria-label="Remove ${c} from my palette">${icon('x', 14)}</button>` : ''}</span>`).join('')}<button class="more" data-a="colsave" aria-label="Save this colour to my palette">+</button></div></div>
+    <div class="fld" style="margin-top:14px"><span class="mono">${s.pal === 'paper' ? 'Paper colours' : s.pal === 'board' ? 'Board palette' : 'My palette'}</span><div class="sw mine">${myCols(s.pal).map((c, i) => `<span class="mc"><button style="--c:${c}" data-a="colpick" data-v="${i}" aria-label="Edit ${c}" aria-pressed="${s.sel === i}"></button>${s.sel === i ? `<button class="x" data-a="colrm" data-v="${i}" aria-label="Remove ${c} from my palette">${icon('x', 14)}</button>` : ''}</span>`).join('')}<button class="more" data-a="colsave" aria-label="Save this colour to my palette">+</button></div></div>
     ${s.inherit ? `<button class="addbtn" data-a="setcol" data-ref="${s.ref}" data-v="">${icon('rotate-ccw', 18)} ${typeof s.inherit === 'string' ? esc(s.inherit) : 'Same as its group'}</button>` : ''}`;
 }
-function openColorPick(ref, inherit) { const cur = getCol(ref) || '#7DBE9A'; const [h, sat, l] = hexToHsl(/^#[0-9a-f]{6}$/i.test(cur) ? cur : '#7DBE9A'); openSheet({ kind: 'colorpick', title: 'Colour', ref, inherit, pal: String(ref).startsWith('bd:') ? 'board' : undefined, h, s: sat, l: Math.max(15, Math.min(92, l)), back: S.sheet }); }
+function openColorPick(ref, inherit) { const cur = getCol(ref) || '#7DBE9A'; const [h, sat, l] = hexToHsl(/^#[0-9a-f]{6}$/i.test(cur) ? cur : '#7DBE9A'); openSheet({ kind: 'colorpick', title: 'Colour', ref, inherit, pal: colPal(ref), h, s: sat, l: Math.max(15, Math.min(92, l)), back: S.sheet }); }
 function colorAction(act, a, v) {
   switch (act) {
     case 'setcol': capture(); tcapture(); xcapture(); applyColor(a.dataset.ref, v); return true;

@@ -406,11 +406,14 @@ function tmrSheet() { const o = tmr(); const step = (k, l, unit, d) => `<div cla
 // background colour; the break fills in quietly while it counts down. Without breaks it fills up to the day's study session.
 // the ring when breaks are set: one arc per focus stretch, with the same small gap after each one, the top included (the owner, 2026-11-24)
 function ringPlan() { const o = tmr(); const F = focusLen(); if (!F) return null; const t = M.timer || {}, p = t.pz || {};
+  // free breaks: the ring is the whole day's study time, with a gap at each break (the owner, 2026-11-24)
+  if (o.mode !== 'pomo') { const tot = sessLen(), R = o.rem; const done = minOn(null, T0) + supMin(T0) + tElapsed() / 60000; const cuts = [0]; for (let m = R; m < tot - 0.5; m += R) cuts.push(m); cuts.push(tot);
+    return { segs: cuts.slice(0, -1).map((c, i) => { const e = cuts[i + 1]; return { a: c / tot + RGAP / 2, len: (e - c) / tot - RGAP, f: Math.max(0, Math.min(1, (done - c) / (e - c))) }; }) }; }
   const n = o.mode === 'pomo' ? Math.max(1, o.rounds) : 1; const fEl = Math.max(0, Math.min(F, tElapsed() - (p.at || 0))); const k = o.mode === 'pomo' ? Math.min(p.n || 0, n) : 0;
   const fd = o.mode === 'pomo' ? (p.done ? n * F : (p.brkEnd || p.wait) ? k * F : k * F + fEl) : ((p.brkEnd || p.wait) ? F : fEl);
   const g = RGAP; const segs = []; for (let i = 0; i < n; i++) segs.push({ a: i / n + g / 2, len: 1 / n - g, f: Math.max(0, Math.min(1, (fd - i * F) / F)) });
   return { segs }; }
-const RW = 4, RGAP = 0.018; // a thin square-ended ring (Stone); the gaps between focus stretches are small
+const RW = 4, RGAP = 0.008; // a thin square-ended ring (Stone); the gaps between focus stretches are small
 function ringSvg() { const col = M.areas.study.color; const P = ringPlan(); const arc = (from, len, stroke, id) => `<circle ${id ? `id="${id}" ` : ''}cx="112" cy="112" r="104" fill="none" stroke="${stroke}" stroke-width="${RW}" stroke-dasharray="${(len * T_C).toFixed(2)} ${T_C}" stroke-dashoffset="${(-from * T_C).toFixed(2)}" transform="rotate(-90 112 112)"/>`;
   if (!P) return arc(0, 1, 'var(--line)') + arc(0, tPct() / 100, col, 'tring');
   return P.segs.map((g, i) => arc(g.a, g.len, 'var(--line)') + arc(g.a, g.len * g.f, col, 'tseg' + i)).join(''); }

@@ -284,7 +284,7 @@ const ihbars = (rows, acc) => `<div class="ihbars">${rows.map((r) => `<${r.go ? 
 // Keystone's flower: one rounded petal per thing, longer, fatter and deeper for more; names around it
 function iflower(vals, names, acc, size = 190, w = 350) { names = names || WD; const cx = w / 2, c = size / 2, L = size / 2 - 52, R = size / 2 - 22, n = vals.length;
   return `<div class="iflower" style="height:${size}px"><svg width="100%" height="${size}" viewBox="0 0 ${w} ${size}" aria-hidden="true">${vals.map((v, k) => { const a = (k / n) * 360, len = 12 + L * v;
-    return `<ellipse cx="${cx}" cy="${(c - len / 2 - 5).toFixed(2)}" rx="${(6 + 4 * v).toFixed(2)}" ry="${(len / 2).toFixed(2)}" transform="rotate(${a.toFixed(1)} ${cx} ${c})" fill="${tint(acc, (1 - v) * 0.62)}"/>`; }).join('')}<circle cx="${cx}" cy="${c}" r="11" fill="${acc}"/></svg>
+    return `<ellipse cx="${cx}" cy="${(c - len / 2 - 5).toFixed(2)}" rx="${(6 + 4 * v).toFixed(2)}" ry="${(len / 2).toFixed(2)}" transform="rotate(${a.toFixed(1)} ${cx} ${c})" fill="${acc}"/>`; }).join('')}<circle cx="${cx}" cy="${c}" r="11" fill="${acc}"/></svg>
     ${vals.map((v, k) => { const rad = ((k / n) * 360 - 90) * Math.PI / 180, x = R * Math.cos(rad); const tx = Math.abs(x) < 12 ? 'translateX(-50%)' : x < 0 ? 'translateX(-100%)' : 'none';
       return `<span style="left:calc(50% + ${x.toFixed(1)}px);top:${(c + R * Math.sin(rad) - 7).toFixed(1)}px;transform:${tx}">${esc(names[k])}</span>`; }).join('')}</div>`; }
 function ihorizon(share, h, R, none) { const hy = h / 2, cy = hy + R - share * 2 * R; if (none) return `<div class="ihz" style="height:${h}px"><b style="top:${hy}px"></b></div>`; // nothing answered yet: only the horizon

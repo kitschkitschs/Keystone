@@ -1088,7 +1088,7 @@ input[type=range]::-moz-range-thumb{background:var(--ink);border-color:var(--ink
 #view .appt .apn{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15.5px}
 #view .appt .sub.where{flex:none;margin-left:10px;font:400 9.5px var(--mono);letter-spacing:.14em;color:var(--quiet);line-height:1}
 #view .appt .cnt{margin-left:auto;padding-left:8px;flex:none}
-#view .appt>.tickbtn{order:9;margin:0 0 0 4px} /* the first block title sits as close under the calendar as Schedule's first band */
+#view .appt>.tickbtn{order:9;margin:0 0 0 -2px} /* the first block title sits as close under the calendar as Schedule's first band */
 #view>.card:first-child>.bhead,#view>.card:first-child>.bhead button,#view>.hsec:first-child>.hhead{margin-top:-2px;min-height:12px!important;align-items:center}
 /* languages as short letters instead of flags (2026-11-24) */
 .flag.lcode{font-family:var(--mono);font-weight:400;font-size:9px;letter-spacing:.14em;line-height:inherit;vertical-align:baseline;color:inherit}
@@ -1150,6 +1150,13 @@ input[type=range]::-moz-range-thumb{background:var(--ink);border-color:var(--ink
 .vtimer .vtt{position:relative;max-width:calc(100% - 48px)}.vtimer .vtt .chev{position:absolute;left:100%;top:50%;transform:translateY(-50%);margin-left:6px}
 .vtimer .tmrset{margin:auto auto 0}
 #view:has(> .vtimer){height:100%;box-sizing:border-box}
+.nbmore{flex:none;align-self:stretch;width:92px;min-height:80px;display:grid;place-items:center;border:1px solid var(--line);background:none;color:var(--quiet)}
+.nbmore .mono{font-size:10px;letter-spacing:.14em;text-transform:uppercase}
+.nbsearch{display:flex;align-items:center;gap:8px;margin:2px 0 14px;border-bottom:1px solid var(--line);color:var(--quiet)}
+.nbsearch .nbq{flex:1;min-width:0;border:0;background:none;font:15px var(--sans);color:var(--ink);padding:9px 0;outline:none;-webkit-appearance:none;appearance:none}
+.nbpager{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:18px 0 6px}
+.nbpager .mono{color:var(--quiet);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase}
+.nbpager .btn[disabled]{opacity:.35}
 html.dark{--page:#1D1B19;--paper:#34312C;--rule:#433F39;--card:#2B2926;--ink:#EFEAE2;--ink2:#B3AC9F;--quiet:#B3AC9F;--faint:#7F786E;--faint2:#5F5952;--line:#3D3934;--line2:#35322E;--soft:#36332F;--wash:#3A3226;--washline:#5C4B33;--star:#C9A86F;--done:#8FA488;color-scheme:dark}
 html.dark .card,html.dark .lcard{background:linear-gradient(160deg,#33302C 0%,#2A2825 60%,#272522 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 1px 2px rgba(0,0,0,.3)}
 html.dark .vcard{box-shadow:none}

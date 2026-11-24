@@ -25,12 +25,24 @@ const noteTags = () => { const s = new Set(); (M.notes || []).forEach((n) => (n.
 // the Journal has its own tags, same system as the Notepad but not shared (2026-11-06)
 // journal tags stay once made, even when no page has them; a long press deletes one (2026-11-11)
 const jTags = () => { const s = new Set(M.jTagList || []); (M.journal || []).forEach((n) => (n.tags || []).forEach((t) => s.add(t))); return [...s].sort((a, b) => a.localeCompare(b)); };
+// each notebook type has its own search and its own pages; the overview shows six of each and a See all (the owner, 2026-11-24)
+const NB_CAP = 6, NB_PER = 12;
+const nbHit = (k, parts) => { const q = (((S.nbQ || {})[k]) || '').trim().toLowerCase(); if (!q) return true; const t = parts.flat().filter((x) => x != null).join(' ').toLowerCase(); return q.split(/\s+/).every((w) => t.includes(w)); };
+const capRow = (L, f, v) => L.slice(0, NB_CAP).map(f).join('') + (L.length > NB_CAP ? `<button class="nbmore" data-a="nbgo" data-v="${v}"><span class="mono">See all</span></button>` : '');
+const nbSearch = (k) => `<label class="nbsearch">${icon('search', 16)}<input class="nbq" type="search" data-nbq="${k}" value="${esc(((S.nbQ || {})[k]) || '')}" aria-label="Search" enterkeyhint="search" autocomplete="off"></label>`;
+function nbPage(k, L) { const n = Math.max(1, Math.ceil(L.length / NB_PER)); S.nbPg = S.nbPg || {}; const p = S.nbPg[k] = Math.min(n - 1, Math.max(0, S.nbPg[k] || 0));
+  return { items: L.slice(p * NB_PER, (p + 1) * NB_PER), pager: n > 1 ? `<div class="nbpager"><button class="btn" data-a="nbpg" data-ref="${k}" data-v="-1" ${p ? '' : 'disabled'}>Newer</button><span class="mono">${p + 1} of ${n}</span><button class="btn" data-a="nbpg" data-ref="${k}" data-v="1" ${p < n - 1 ? '' : 'disabled'}>Older</button></div>` : '' }; }
+document.addEventListener('input', (e) => { const t = e.target; if (!t || !t.dataset || t.dataset.nbq == null) return; const k = t.dataset.nbq; S.nbQ = S.nbQ || {}; S.nbQ[k] = t.value; S.nbPg = S.nbPg || {}; S.nbPg[k] = 0;
+  const pos = t.selectionStart, sc = $('#main').scrollTop; render(); const n = document.querySelector(`[data-nbq="${k}"]`); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} } $('#main').scrollTop = sc; });
+const noteHit = (n) => nbHit('notes', [n.title, n.text, n.tags || []]);
+const jHit = (e) => nbHit('journal', [e.text, e.tags || [], e.d, fmtDate(e.d)]);
 function renderNotepad() {
   const F = S.nTag || 'all'; if (F !== 'all' && !noteTags().includes(F)) S.nTag = 'all';
   const notes = (M.notes || []).filter((n) => F === 'all' || (n.tags || []).includes(F)).sort((a, b) => (b.upd || 0) - (a.upd || 0));
   const dm = S.nFOpen ? `<span class="vsortx" data-a="nfopen"></span><span class="vdrop vsortm" role="menu"><span class="mono">Show</span>${[['all', 'All']].concat(noteTags().map((t) => [t, t])).map(([k, l]) => `<button role="menuitemradio" data-a="ntag" data-v="${esc(k)}" aria-checked="${F === k}">${esc(l)}${F === k ? icon('check', 16, 2) : ''}</button>`).join('')}</span>` : '';
   const tools = `<button class="fbtn" data-a="nnew" aria-label="Write a new note">${icon('pen-line', 18)}</button><span class="vsortw"><button class="fbtn" data-a="nfopen" aria-label="Filter" aria-haspopup="menu" aria-expanded="${!!S.nFOpen}" aria-pressed="${F !== 'all' || !!S.nFOpen}">${icon('sliders-horizontal', 18)}</button>${dm}</span>`;
-  return nbCrumbs([[M.areas.notebook.name, 'home'], ['Notes']], tools) + (notes.length ? `<div class="postits">${notes.map(postit).join('')}</div>` : `<p class="empty">${F === 'all' ? 'No notes yet.' : 'No notes with this tag.'}</p>`);
+  const hit = notes.filter(noteHit), pg = nbPage('notes', hit);
+  return nbCrumbs([[M.areas.notebook.name, 'home'], ['Notes']], tools) + (notes.length ? nbSearch('notes') : '') + (hit.length ? `<div class="postits">${pg.items.map(postit).join('')}</div>` + pg.pager : `<p class="empty">${!notes.length && F === 'all' ? 'No notes yet.' : notes.length ? 'Nothing found.' : 'No notes with this tag.'}</p>`);
 }
 // post-it pop-up, minimal like the journal (2026-11-06): the paper, a tag icon whose drop-down holds the tags (and
 // Delete), and a notepad that peels off a post-it when it saves
@@ -74,14 +86,14 @@ const jcard = (e, i = 0) => `<button class="jcard${e.paper === 'blank' ? ' blank
 const nbHead = (t, nw, all) => `<div class="nbhead"><button class="nbt" data-a="nbgo" data-v="${all}"><span class="mono">${t}</span><span class="chev" aria-hidden="true">${icon('chevron-right', 16)}</span></button><button class="nbpen" data-a="${nw}" aria-label="Write new">${icon('pen-line', 20)}</button></div>`;
 function renderNbHome() {
   const notes = (M.notes || []).slice().sort((a, b) => (b.upd || 0) - (a.upd || 0)); const J = jSorted();
-  return nbHead('Notes', 'nnew', 'notepad') + (notes.length ? `<div class="hscroll postrow wprow">${notes.map(postit).join('')}</div>` : '<p class="empty">No notes yet.</p>') + wRow()
-    + nbHead('Journal', 'jnew', 'journal') + (J.length ? `<div class="hscroll jrow">${J.map(jcard).join('')}</div>` : '<p class="empty">Nothing written yet.</p>')
+  return nbHead('Notes', 'nnew', 'notepad') + (notes.length ? `<div class="hscroll postrow wprow">${capRow(notes, postit, 'notepad')}</div>` : '<p class="empty">No notes yet.</p>') + wRow()
+    + nbHead('Journal', 'jnew', 'journal') + (J.length ? `<div class="hscroll jrow">${capRow(J, jcard, 'journal')}</div>` : '<p class="empty">Nothing written yet.</p>')
     + bRow();
 }
 // journal pages use the same tags and the same tag filter as the Notepad (2026-11-06)
 const tagFilter = (F, open, act, pick, list) => `<span class="vsortw"><button class="fbtn" data-a="${act}" aria-label="Filter" aria-haspopup="menu" aria-expanded="${!!open}" aria-pressed="${F !== 'all' || !!open}">${icon('sliders-horizontal', 18)}</button>${open ? `<span class="vsortx" data-a="${act}"></span><span class="vdrop vsortm" role="menu"><span class="mono">Show</span>${[['all', 'All']].concat(list.map((t) => [t, t])).map(([k, l]) => `<button role="menuitemradio" data-a="${pick}" data-v="${esc(k)}" aria-checked="${F === k}">${esc(l)}${F === k ? icon('check', 16, 2) : ''}</button>`).join('')}</span>` : ''}</span>`;
-function renderJournalAll() { const F = S.jTag || 'all'; const J = jSorted().filter((e) => F === 'all' || (e.tags || []).includes(F));
-  return nbCrumbs([[M.areas.notebook.name, 'home'], ['Journal']], `<button class="fbtn" data-a="jnew" aria-label="Write a new page">${icon('pen-line', 18)}</button>` + tagFilter(F, S.jFOpen, 'jfopen', 'jtagf', jTags())) + (J.length ? `<div class="jgrid">${J.map(jcard).join('')}</div>` : `<p class="empty">${F === 'all' ? 'Nothing written yet.' : 'No pages with this tag.'}</p>`); }
+function renderJournalAll() { const F = S.jTag || 'all'; const J0 = jSorted().filter((e) => F === 'all' || (e.tags || []).includes(F)); const J = J0.filter(jHit), pg = nbPage('journal', J);
+  return nbCrumbs([[M.areas.notebook.name, 'home'], ['Journal']], `<button class="fbtn" data-a="jnew" aria-label="Write a new page">${icon('pen-line', 18)}</button>` + tagFilter(F, S.jFOpen, 'jfopen', 'jtagf', jTags())) + (J0.length ? nbSearch('journal') : '') + (J.length ? `<div class="jgrid">${pg.items.map(jcard).join('')}</div>` + pg.pager : `<p class="empty">${J0.length ? 'Nothing found.' : F === 'all' ? 'Nothing written yet.' : 'No pages with this tag.'}</p>`); }
 // writing page (2026-11-06): nothing but the date, a tag icon (its drop-down holds the tags, never shown on the page),
 // lined paper and Save
 // text options: in the ⋯ menu and in a bar under selected text (2026-11-08)
@@ -425,6 +437,7 @@ function notebookAction(act, a, ref, v) {
       const e0 = jCurrent(); const ed = jEditable(e0); jSync(); jDropEmpty();
       save(); S.jTagOpen = false; S.jMenu = false; S.jTxt = false; S.jRe = null; S.jSel = null; S.nbView = S.jBack || 'home'; S.jEntry = null; jFromBack(); render(); return true; }
     // (a page opened from Studies goes back to Studies)
+    case 'nbpg': S.nbPg = S.nbPg || {}; S.nbPg[ref] = Math.max(0, (S.nbPg[ref] || 0) + (+v)); render(); $('#main').scrollTop = 0; return true;
     case 'nbgo': S.jNewTags = null; S.jNewSup = false; S.jFrom = null; S.nbView = v; if (v === 'words') { S.wView = 'list'; S.wMenu = false; } S.nFOpen = false; render(); $('#main').scrollTop = 0; return true;
   }
   return false;

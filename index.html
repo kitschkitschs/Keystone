@@ -1098,7 +1098,7 @@ input[type=range]::-moz-range-thumb{background:var(--ink);border-color:var(--ink
 #view .appt .apn{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15.5px}
 #view .appt .sub.where{flex:none;margin-left:10px;font:400 9.5px var(--mono);letter-spacing:.14em;color:var(--quiet);line-height:1}
 #view .appt .cnt{margin-left:auto;padding-left:8px;flex:none}
-#view .appt>.tickbtn{order:9;margin:0 0 0 4px} /* the first block title sits as close under the calendar as Schedule's first band */
+#view .appt>.tickbtn{order:9;margin:0 0 0 -2px} /* the first block title sits as close under the calendar as Schedule's first band */
 #view>.card:first-child>.bhead,#view>.card:first-child>.bhead button,#view>.hsec:first-child>.hhead{margin-top:-2px;min-height:12px!important;align-items:center}
 /* languages as short letters instead of flags (2026-11-24) */
 .flag.lcode{font-family:var(--mono);font-weight:400;font-size:9px;letter-spacing:.14em;line-height:inherit;vertical-align:baseline;color:inherit}
@@ -1160,6 +1160,13 @@ input[type=range]::-moz-range-thumb{background:var(--ink);border-color:var(--ink
 .vtimer .vtt{position:relative;max-width:calc(100% - 48px)}.vtimer .vtt .chev{position:absolute;left:100%;top:50%;transform:translateY(-50%);margin-left:6px}
 .vtimer .tmrset{margin:auto auto 0}
 #view:has(> .vtimer){height:100%;box-sizing:border-box}
+.nbmore{flex:none;align-self:stretch;width:92px;min-height:80px;display:grid;place-items:center;border:1px solid var(--line);background:none;color:var(--quiet)}
+.nbmore .mono{font-size:10px;letter-spacing:.14em;text-transform:uppercase}
+.nbsearch{display:flex;align-items:center;gap:8px;margin:2px 0 14px;border-bottom:1px solid var(--line);color:var(--quiet)}
+.nbsearch .nbq{flex:1;min-width:0;border:0;background:none;font:15px var(--sans);color:var(--ink);padding:9px 0;outline:none;-webkit-appearance:none;appearance:none}
+.nbpager{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:18px 0 6px}
+.nbpager .mono{color:var(--quiet);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase}
+.nbpager .btn[disabled]{opacity:.35}
 html.dark{--page:#1D1B19;--paper:#34312C;--rule:#433F39;--card:#2B2926;--ink:#EFEAE2;--ink2:#B3AC9F;--quiet:#B3AC9F;--faint:#7F786E;--faint2:#5F5952;--line:#3D3934;--line2:#35322E;--soft:#36332F;--wash:#3A3226;--washline:#5C4B33;--star:#C9A86F;--done:#8FA488;color-scheme:dark}
 html.dark .card,html.dark .lcard{background:linear-gradient(160deg,#33302C 0%,#2A2825 60%,#272522 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 1px 2px rgba(0,0,0,.3)}
 html.dark .vcard{box-shadow:none}
@@ -1949,8 +1956,11 @@ function slotDrop(out, d = T0) {
 // Schedule: a day with a real chore drops the generic chore item, and the chores without a set time take its place in
 // the day (its block and spot), unless I moved them myself that day (the owner, 2026-11-24)
 function choreSwap(DL, d) {
-  const cids = new Set(choreIds()); const isSlot = (id) => I(id) && I(id).type === 'slot' && I(id).opens === 'chores';
-  const real = DL.flatMap((x) => x.items).filter((id) => cids.has(id) && !(M.half || {})[id] && schedChore(id, d)); if (!real.length) return DL;
+  DL = genSwap(DL, d, 'chores', new Set(choreIds()), (id) => !(M.half || {})[id] && schedChore(id, d));
+  // scheduled training does the same to the generic movement item (the owner, 2026-11-24)
+  return typeof trainCats === 'function' ? genSwap(DL, d, 'training', new Set(trainCats().flatMap(kidsOf)), () => true) : DL; }
+function genSwap(DL, d, opens, ids, ok) { const isSlot = (id) => I(id) && I(id).type === 'slot' && I(id).opens === opens;
+  const real = DL.flatMap((x) => x.items).filter((id) => ids.has(id) && ok(id)); if (!real.length) return DL;
   const sx = DL.find((x) => x.items.some(isSlot));
   if (sx) { const mv = (M.dayMove || {})[d] || {}, dT = (M.dayTime || {})[d] || {}; const go = real.filter((id) => !I(id).time && !dT[id] && !mv[id]);
     DL.forEach((x) => { if (x !== sx) x.items = x.items.filter((id) => !go.includes(id)); });
@@ -2233,7 +2243,7 @@ function sheetBody() {
       ${g.style === 'sgroup' ? `<div class="fld"><span class="mono">Deadline</span><div class="inrow"><input class="inp" type="date" id="gdl" value="${g.deadline || ''}"><span class="note">optional</span></div></div>` : ''}
       ${g.style === 'project' && typeof hobOf === 'function' && hobOf(s.ref) && hobActs(hobOf(s.ref)).length ? `<div class="fld"><span class="mono">Activity it covers</span><div class="chips">${[['', 'None']].concat(hobActs(hobOf(s.ref)).map((k) => [k, inm(k)])).map(([k, l]) => `<button class="chip" data-a="projact" data-ref="${s.ref}" data-v="${k}" aria-pressed="${(g.act || '') === k}">${l}</button>`).join('')}</div></div>` : ''}
       ${g.style === 'dayblock' ? `<div class="fld"><span class="mono">Time</span><div class="inrow"><input class="inp" type="time" id="gstart" value="${g.start}"><span>to</span><input class="inp" type="time" id="gend" value="${g.end}"></div></div>` : ''}
-      ${secRootOf(s.ref) && !ROOTCOL[s.ref] ? '' : `<div class="fld"><span class="mono">Colour</span>${colorField(s.ref, g.color)}</div>`}
+      ${secRootOf(s.ref) ? '' : ROOTCOL[s.ref] && ROOTCOL[s.ref][0] === 'pages' ? `<div class="fld"><span class="mono">Colour</span>${colorField('p:' + ROOTCOL[s.ref][1], grpCol(s.ref))}</div>` : `<div class="fld"><span class="mono">Colour</span>${colorField(s.ref, g.color)}</div>`}
       ${g.style === 'hgroup' && g.special !== 'checkins' ? `<div class="fld"><span class="mono">Asked in a check-in</span><div class="chips">${[['', 'No'], ['morning', 'Morning'], ['evening', 'Evening']].map(([k, l]) => `<button class="chip" data-a="gci" data-ref="${s.ref}" data-v="${k}" aria-pressed="${(g.ci || '') === k}">${l}</button>`).join('')}</div></div>` : ''}
       ${g.style === 'acat' ? `<div class="fld"><span class="mono">Icon</span><div><button class="btn" data-a="iconfor" data-v="${s.ref}" style="display:inline-flex;gap:8px;align-items:center">${icon(g.icon || 'circle', 18)} Change icon</button></div></div>` : ''}`; }
   if (s.kind === 'area') { const a = M.areas[s.ref];
@@ -3821,13 +3831,15 @@ document.addEventListener('pointercancel', () => { if (rd) { clearTimeout(rd.t);
 // full picker (hue / strength / lightness sliders, a code, Save to my colours). ref is what gets the colour:
 // an item or group id, 'a:area', 'p:page', 'x:extra', or 'draft' (the open editor's unsaved copy).
 // My palette starts as the starter palette, so every colour in it can be edited or removed (2026-11-02)
-function myCols(pal) { const st = M.settings; if (pal === 'board') { if (!st.boardColors) st.boardColors = BOARD_PAL.slice(); return st.boardColors; } if (!st.palInit) { st.palInit = true; st.myColors = [...new Set(STONE_PAL.concat(PAL).map((p) => p[1]).concat(st.myColors || []))]; } return st.myColors; }
+function myCols(pal) { const st = M.settings; if (pal === 'paper') { if (!st.paperColors) st.paperColors = PAPER_PAL.slice(); return st.paperColors; } if (pal === 'board') { if (!st.boardColors) st.boardColors = BOARD_PAL.slice(); return st.boardColors; } if (!st.palInit) { st.palInit = true; st.myColors = [...new Set(STONE_PAL.concat(PAL).map((p) => p[1]).concat(st.myColors || []))]; } return st.myColors; }
 function hexToHsl(h) { const [r, g, b] = rgb(h).map((x) => x / 255); const mx = Math.max(r, g, b), mn = Math.min(r, g, b); let hh = 0, ss = 0; const l = (mx + mn) / 2;
   if (mx !== mn) { const d = mx - mn; ss = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); hh = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; hh *= 60; }
   return [Math.round(hh), Math.round(ss * 100), Math.round(l * 100)]; }
 function hslToHex(h, s, l) { s /= 100; l /= 100; const k = (n) => (n + h / 30) % 12; const a = s * Math.min(l, 1 - l); const f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
   return '#' + [f(0), f(8), f(4)].map((x) => pad(Math.round(x * 255).toString(16))).join('').toUpperCase(); }
-function colorField(ref, cur, opts = {}) { const pal = String(ref).startsWith('bd:') ? 'board' : undefined; const inh = opts.inhLabel || 'Same as its group';
+// board backgrounds pick from shades of paper; other board colours from the board palette (the owner, 2026-11-24)
+const colPal = (ref) => ref === 'bd:bg' ? 'paper' : String(ref).startsWith('bd:') ? 'board' : undefined;
+function colorField(ref, cur, opts = {}) { const pal = colPal(ref); const inh = opts.inhLabel || 'Same as its group';
   const sw = (c, n) => `<button style="--c:${c}" data-a="setcol" data-ref="${ref}" data-v="${c}" aria-label="${esc(n)}" title="${esc(n)}" aria-pressed="${(cur || '').toLowerCase() === c.toLowerCase()}"></button>`;
   return `<div class="sw cf">${opts.inherit ? `<button class="inh" style="--c:var(--card)" data-a="setcol" data-ref="${ref}" data-v="" aria-label="${inh}" title="${inh}" aria-pressed="${!cur}"></button>` : ''}${myCols(pal).map((c) => sw(c, (PAL.find((p) => p[1] === c) || [c])[0])).join('')}<button class="more" data-a="colopen" data-ref="${ref}" data-v="${opts.inherit ? inh : ''}" aria-label="More colours">+</button></div>`;
 }
@@ -3846,10 +3858,10 @@ function colorPickSheet(s) {
   return `<div class="cprev"><span id="cprev" style="background:${hex}"></span><input class="inp" id="chex" value="${hex}" aria-label="Colour code"></div>
     ${sl('h', 'Hue', 360)}${sl('s', 'Strength', 100)}${sl('l', 'Lightness', 92, 15)}
     <div class="btns"><button class="btn dark" data-a="coluse">Use this colour</button>${s.sel != null && myCols(s.pal)[s.sel] ? `<button class="btn" data-a="colupd">Update in my palette</button>` : ''}</div>
-    <div class="fld" style="margin-top:14px"><span class="mono">${s.pal === 'board' ? 'Board palette' : 'My palette'}</span><div class="sw mine">${myCols(s.pal).map((c, i) => `<span class="mc"><button style="--c:${c}" data-a="colpick" data-v="${i}" aria-label="Edit ${c}" aria-pressed="${s.sel === i}"></button>${s.sel === i ? `<button class="x" data-a="colrm" data-v="${i}" aria-label="Remove ${c} from my palette">${icon('x', 14)}</button>` : ''}</span>`).join('')}<button class="more" data-a="colsave" aria-label="Save this colour to my palette">+</button></div></div>
+    <div class="fld" style="margin-top:14px"><span class="mono">${s.pal === 'paper' ? 'Paper colours' : s.pal === 'board' ? 'Board palette' : 'My palette'}</span><div class="sw mine">${myCols(s.pal).map((c, i) => `<span class="mc"><button style="--c:${c}" data-a="colpick" data-v="${i}" aria-label="Edit ${c}" aria-pressed="${s.sel === i}"></button>${s.sel === i ? `<button class="x" data-a="colrm" data-v="${i}" aria-label="Remove ${c} from my palette">${icon('x', 14)}</button>` : ''}</span>`).join('')}<button class="more" data-a="colsave" aria-label="Save this colour to my palette">+</button></div></div>
     ${s.inherit ? `<button class="addbtn" data-a="setcol" data-ref="${s.ref}" data-v="">${icon('rotate-ccw', 18)} ${typeof s.inherit === 'string' ? esc(s.inherit) : 'Same as its group'}</button>` : ''}`;
 }
-function openColorPick(ref, inherit) { const cur = getCol(ref) || '#7DBE9A'; const [h, sat, l] = hexToHsl(/^#[0-9a-f]{6}$/i.test(cur) ? cur : '#7DBE9A'); openSheet({ kind: 'colorpick', title: 'Colour', ref, inherit, pal: String(ref).startsWith('bd:') ? 'board' : undefined, h, s: sat, l: Math.max(15, Math.min(92, l)), back: S.sheet }); }
+function openColorPick(ref, inherit) { const cur = getCol(ref) || '#7DBE9A'; const [h, sat, l] = hexToHsl(/^#[0-9a-f]{6}$/i.test(cur) ? cur : '#7DBE9A'); openSheet({ kind: 'colorpick', title: 'Colour', ref, inherit, pal: colPal(ref), h, s: sat, l: Math.max(15, Math.min(92, l)), back: S.sheet }); }
 function colorAction(act, a, v) {
   switch (act) {
     case 'setcol': capture(); tcapture(); xcapture(); applyColor(a.dataset.ref, v); return true;
@@ -4307,11 +4319,14 @@ function tmrSheet() { const o = tmr(); const step = (k, l, unit, d) => `<div cla
 // background colour; the break fills in quietly while it counts down. Without breaks it fills up to the day's study session.
 // the ring when breaks are set: one arc per focus stretch, with the same small gap after each one, the top included (the owner, 2026-11-24)
 function ringPlan() { const o = tmr(); const F = focusLen(); if (!F) return null; const t = M.timer || {}, p = t.pz || {};
+  // free breaks: the ring is the whole day's study time, with a gap at each break (the owner, 2026-11-24)
+  if (o.mode !== 'pomo') { const tot = sessLen(), R = o.rem; const done = minOn(null, T0) + supMin(T0) + tElapsed() / 60000; const cuts = [0]; for (let m = R; m < tot - 0.5; m += R) cuts.push(m); cuts.push(tot);
+    return { segs: cuts.slice(0, -1).map((c, i) => { const e = cuts[i + 1]; return { a: c / tot + RGAP / 2, len: (e - c) / tot - RGAP, f: Math.max(0, Math.min(1, (done - c) / (e - c))) }; }) }; }
   const n = o.mode === 'pomo' ? Math.max(1, o.rounds) : 1; const fEl = Math.max(0, Math.min(F, tElapsed() - (p.at || 0))); const k = o.mode === 'pomo' ? Math.min(p.n || 0, n) : 0;
   const fd = o.mode === 'pomo' ? (p.done ? n * F : (p.brkEnd || p.wait) ? k * F : k * F + fEl) : ((p.brkEnd || p.wait) ? F : fEl);
   const g = RGAP; const segs = []; for (let i = 0; i < n; i++) segs.push({ a: i / n + g / 2, len: 1 / n - g, f: Math.max(0, Math.min(1, (fd - i * F) / F)) });
   return { segs }; }
-const RW = 4, RGAP = 0.018; // a thin square-ended ring (Stone); the gaps between focus stretches are small
+const RW = 4, RGAP = 0.008; // a thin square-ended ring (Stone); the gaps between focus stretches are small
 function ringSvg() { const col = M.areas.study.color; const P = ringPlan(); const arc = (from, len, stroke, id) => `<circle ${id ? `id="${id}" ` : ''}cx="112" cy="112" r="104" fill="none" stroke="${stroke}" stroke-width="${RW}" stroke-dasharray="${(len * T_C).toFixed(2)} ${T_C}" stroke-dashoffset="${(-from * T_C).toFixed(2)}" transform="rotate(-90 112 112)"/>`;
   if (!P) return arc(0, 1, 'var(--line)') + arc(0, tPct() / 100, col, 'tring');
   return P.segs.map((g, i) => arc(g.a, g.len, 'var(--line)') + arc(g.a, g.len * g.f, col, 'tseg' + i)).join(''); }
@@ -4823,7 +4838,7 @@ const ihbars = (rows, acc) => `<div class="ihbars">${rows.map((r) => `<${r.go ? 
 // Keystone's flower: one rounded petal per thing, longer, fatter and deeper for more; names around it
 function iflower(vals, names, acc, size = 190, w = 350) { names = names || WD; const cx = w / 2, c = size / 2, L = size / 2 - 52, R = size / 2 - 22, n = vals.length;
   return `<div class="iflower" style="height:${size}px"><svg width="100%" height="${size}" viewBox="0 0 ${w} ${size}" aria-hidden="true">${vals.map((v, k) => { const a = (k / n) * 360, len = 12 + L * v;
-    return `<ellipse cx="${cx}" cy="${(c - len / 2 - 5).toFixed(2)}" rx="${(6 + 4 * v).toFixed(2)}" ry="${(len / 2).toFixed(2)}" transform="rotate(${a.toFixed(1)} ${cx} ${c})" fill="${tint(acc, (1 - v) * 0.62)}"/>`; }).join('')}<circle cx="${cx}" cy="${c}" r="11" fill="${acc}"/></svg>
+    return `<ellipse cx="${cx}" cy="${(c - len / 2 - 5).toFixed(2)}" rx="${(6 + 4 * v).toFixed(2)}" ry="${(len / 2).toFixed(2)}" transform="rotate(${a.toFixed(1)} ${cx} ${c})" fill="${acc}"/>`; }).join('')}<circle cx="${cx}" cy="${c}" r="11" fill="${acc}"/></svg>
     ${vals.map((v, k) => { const rad = ((k / n) * 360 - 90) * Math.PI / 180, x = R * Math.cos(rad); const tx = Math.abs(x) < 12 ? 'translateX(-50%)' : x < 0 ? 'translateX(-100%)' : 'none';
       return `<span style="left:calc(50% + ${x.toFixed(1)}px);top:${(c + R * Math.sin(rad) - 7).toFixed(1)}px;transform:${tx}">${esc(names[k])}</span>`; }).join('')}</div>`; }
 function ihorizon(share, h, R, none) { const hy = h / 2, cy = hy + R - share * 2 * R; if (none) return `<div class="ihz" style="height:${h}px"><b style="top:${hy}px"></b></div>`; // nothing answered yet: only the horizon
@@ -5808,17 +5823,23 @@ function filesCard(p) { const L = projFiles(p), x = G(p); const kn = { note: 'No
   // the + sits in the header and drops down Note, Board or PDF (2026-11-08)
   const menu = S.pjAdd === p ? `<div class="pjaddm"><button data-a="pnnew" data-v="${p}">${icon('sticky-note', 18)}Note</button><button data-a="pjbnew" data-v="${p}">${icon('layout-dashboard', 18)}Board</button><label>${icon('file-text', 18)}PDF<input type="file" accept="application/pdf" id="projpdf" data-ref="${p}" hidden></label></div>` : '';
   const plus = '';
-  if ((x.files || []).some((f) => !f.noThumb && (!f.thumb || (f.thumbPg || 1) !== thumbPgOf(f)))) setTimeout(() => pdfThumbs(p), 0);
+  if ((x.files || []).some((f) => !f.noThumb && (!f.thumb || (f.thumbPg || 1) !== thumbPgOf(f) || (f.thumbSig || '') !== thumbSig(f)))) setTimeout(() => pdfThumbs(p), 0);
   return lcardPlus('pjn:' + p, 'Files', L.length || '', L.length ? `<div class="pjfiles">${L.map(tile).join('')}</div>` : '', plus); }
 // the first page of each PDF becomes its preview, made once and kept with the file
 let thumbBusy = false;
 // the preview shows the page my bookmark is on, or the first page without one (the owner, 2026-11-24)
 const thumbPgOf = (f) => (f.mark && f.mark.pg) || 1;
+// the preview also shows the bookmark band and the highlights on that page, and redraws when they change (the owner, 2026-11-24)
+const thumbSig = (f) => { const n = thumbPgOf(f); const hl = (f.hl || []).filter((h) => h.pg === n); if (!f.mark && !hl.length) return ''; return JSON.stringify([f.mark || 0, hl.map((h) => [h.r || [h.x, h.y, h.w, h.h], hlCol(h)]), f.mark ? pdMarkCol() : 0]); };
+function thumbMarks(f, n, cx, W, H) { cx.save(); cx.globalCompositeOperation = 'multiply';
+  (f.hl || []).filter((h) => h.pg === n).forEach((h) => { cx.globalAlpha = 0.55; cx.fillStyle = hlCol(h); (h.r || [[h.x, h.y, h.w, h.h]]).forEach((q) => cx.fillRect(q[0] * W, q[1] * H, q[2] * W, q[3] * H)); });
+  if (f.mark && f.mark.pg === n) { const y = f.mark.y * H, h = Math.max(3, (f.mark.h || 0.024) * H); cx.globalAlpha = 0.38; cx.fillStyle = pdMarkCol(); cx.fillRect(0, y, W, h); cx.globalAlpha = 0.8; cx.fillStyle = mix(pdMarkCol(), '#000000', 0.25); cx.fillRect(0, y, 3, h); }
+  cx.restore(); }
 async function pdfThumbs(p) { if (thumbBusy) return; thumbBusy = true; let done = 0;
-  try { const lib = await pdfJs(); for (const f of (G(p).files || []).filter((q) => !q.noThumb && (!q.thumb || (q.thumbPg || 1) !== thumbPgOf(q)))) {
+  try { const lib = await pdfJs(); for (const f of (G(p).files || []).filter((q) => !q.noThumb && (!q.thumb || (q.thumbPg || 1) !== thumbPgOf(q) || (q.thumbSig || '') !== thumbSig(q)))) {
       try { const doc = await lib.getDocument({ data: await pdfBytes(f) }).promise; const want = Math.min(thumbPgOf(f), doc.numPages); const pg = await doc.getPage(want); const v1 = pg.getViewport({ scale: 1 }); const vp = pg.getViewport({ scale: 320 / v1.width });
         const cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height; const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height);
-        await pg.render({ canvasContext: cx, viewport: vp }).promise; f.thumb = cv.toDataURL('image/jpeg', 0.7); f.thumbPg = thumbPgOf(f); done++; } catch (e) { f.noThumb = true; } } }
+        await pg.render({ canvasContext: cx, viewport: vp }).promise; thumbMarks(f, want, cx, cv.width, cv.height); f.thumb = cv.toDataURL('image/jpeg', 0.7); f.thumbPg = thumbPgOf(f); f.thumbSig = thumbSig(f); done++; } catch (e) { f.noThumb = true; } } }
   catch (e) { /* pdf.js could not load: try again next time */ }
   thumbBusy = false; if (done) { save(); render(); } }
 async function pdfBytes(f) { return f.asset ? new Uint8Array(await (await fetch(blobUrl(f.asset))).arrayBuffer()) : Uint8Array.from(atob(f.src.split(',')[1]), (c) => c.charCodeAt(0)); }
@@ -6028,12 +6049,24 @@ const noteTags = () => { const s = new Set(); (M.notes || []).forEach((n) => (n.
 // the Journal has its own tags, same system as the Notepad but not shared (2026-11-06)
 // journal tags stay once made, even when no page has them; a long press deletes one (2026-11-11)
 const jTags = () => { const s = new Set(M.jTagList || []); (M.journal || []).forEach((n) => (n.tags || []).forEach((t) => s.add(t))); return [...s].sort((a, b) => a.localeCompare(b)); };
+// each notebook type has its own search and its own pages; the overview shows six of each and a See all (the owner, 2026-11-24)
+const NB_CAP = 6, NB_PER = 12;
+const nbHit = (k, parts) => { const q = (((S.nbQ || {})[k]) || '').trim().toLowerCase(); if (!q) return true; const t = parts.flat().filter((x) => x != null).join(' ').toLowerCase(); return q.split(/\s+/).every((w) => t.includes(w)); };
+const capRow = (L, f, v) => L.slice(0, NB_CAP).map(f).join('') + (L.length > NB_CAP ? `<button class="nbmore" data-a="nbgo" data-v="${v}"><span class="mono">See all</span></button>` : '');
+const nbSearch = (k) => `<label class="nbsearch">${icon('search', 16)}<input class="nbq" type="search" data-nbq="${k}" value="${esc(((S.nbQ || {})[k]) || '')}" aria-label="Search" enterkeyhint="search" autocomplete="off"></label>`;
+function nbPage(k, L) { const n = Math.max(1, Math.ceil(L.length / NB_PER)); S.nbPg = S.nbPg || {}; const p = S.nbPg[k] = Math.min(n - 1, Math.max(0, S.nbPg[k] || 0));
+  return { items: L.slice(p * NB_PER, (p + 1) * NB_PER), pager: n > 1 ? `<div class="nbpager"><button class="btn" data-a="nbpg" data-ref="${k}" data-v="-1" ${p ? '' : 'disabled'}>Newer</button><span class="mono">${p + 1} of ${n}</span><button class="btn" data-a="nbpg" data-ref="${k}" data-v="1" ${p < n - 1 ? '' : 'disabled'}>Older</button></div>` : '' }; }
+document.addEventListener('input', (e) => { const t = e.target; if (!t || !t.dataset || t.dataset.nbq == null) return; const k = t.dataset.nbq; S.nbQ = S.nbQ || {}; S.nbQ[k] = t.value; S.nbPg = S.nbPg || {}; S.nbPg[k] = 0;
+  const pos = t.selectionStart, sc = $('#main').scrollTop; render(); const n = document.querySelector(`[data-nbq="${k}"]`); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} } $('#main').scrollTop = sc; });
+const noteHit = (n) => nbHit('notes', [n.title, n.text, n.tags || []]);
+const jHit = (e) => nbHit('journal', [e.text, e.tags || [], e.d, fmtDate(e.d)]);
 function renderNotepad() {
   const F = S.nTag || 'all'; if (F !== 'all' && !noteTags().includes(F)) S.nTag = 'all';
   const notes = (M.notes || []).filter((n) => F === 'all' || (n.tags || []).includes(F)).sort((a, b) => (b.upd || 0) - (a.upd || 0));
   const dm = S.nFOpen ? `<span class="vsortx" data-a="nfopen"></span><span class="vdrop vsortm" role="menu"><span class="mono">Show</span>${[['all', 'All']].concat(noteTags().map((t) => [t, t])).map(([k, l]) => `<button role="menuitemradio" data-a="ntag" data-v="${esc(k)}" aria-checked="${F === k}">${esc(l)}${F === k ? icon('check', 16, 2) : ''}</button>`).join('')}</span>` : '';
   const tools = `<button class="fbtn" data-a="nnew" aria-label="Write a new note">${icon('pen-line', 18)}</button><span class="vsortw"><button class="fbtn" data-a="nfopen" aria-label="Filter" aria-haspopup="menu" aria-expanded="${!!S.nFOpen}" aria-pressed="${F !== 'all' || !!S.nFOpen}">${icon('sliders-horizontal', 18)}</button>${dm}</span>`;
-  return nbCrumbs([[M.areas.notebook.name, 'home'], ['Notes']], tools) + (notes.length ? `<div class="postits">${notes.map(postit).join('')}</div>` : `<p class="empty">${F === 'all' ? 'No notes yet.' : 'No notes with this tag.'}</p>`);
+  const hit = notes.filter(noteHit), pg = nbPage('notes', hit);
+  return nbCrumbs([[M.areas.notebook.name, 'home'], ['Notes']], tools) + (notes.length ? nbSearch('notes') : '') + (hit.length ? `<div class="postits">${pg.items.map(postit).join('')}</div>` + pg.pager : `<p class="empty">${!notes.length && F === 'all' ? 'No notes yet.' : notes.length ? 'Nothing found.' : 'No notes with this tag.'}</p>`);
 }
 // post-it pop-up, minimal like the journal (2026-11-06): the paper, a tag icon whose drop-down holds the tags (and
 // Delete), and a notepad that peels off a post-it when it saves
@@ -6077,14 +6110,14 @@ const jcard = (e, i = 0) => `<button class="jcard${e.paper === 'blank' ? ' blank
 const nbHead = (t, nw, all) => `<div class="nbhead"><button class="nbt" data-a="nbgo" data-v="${all}"><span class="mono">${t}</span><span class="chev" aria-hidden="true">${icon('chevron-right', 16)}</span></button><button class="nbpen" data-a="${nw}" aria-label="Write new">${icon('pen-line', 20)}</button></div>`;
 function renderNbHome() {
   const notes = (M.notes || []).slice().sort((a, b) => (b.upd || 0) - (a.upd || 0)); const J = jSorted();
-  return nbHead('Notes', 'nnew', 'notepad') + (notes.length ? `<div class="hscroll postrow wprow">${notes.map(postit).join('')}</div>` : '<p class="empty">No notes yet.</p>') + wRow()
-    + nbHead('Journal', 'jnew', 'journal') + (J.length ? `<div class="hscroll jrow">${J.map(jcard).join('')}</div>` : '<p class="empty">Nothing written yet.</p>')
+  return nbHead('Notes', 'nnew', 'notepad') + (notes.length ? `<div class="hscroll postrow wprow">${capRow(notes, postit, 'notepad')}</div>` : '<p class="empty">No notes yet.</p>') + wRow()
+    + nbHead('Journal', 'jnew', 'journal') + (J.length ? `<div class="hscroll jrow">${capRow(J, jcard, 'journal')}</div>` : '<p class="empty">Nothing written yet.</p>')
     + bRow();
 }
 // journal pages use the same tags and the same tag filter as the Notepad (2026-11-06)
 const tagFilter = (F, open, act, pick, list) => `<span class="vsortw"><button class="fbtn" data-a="${act}" aria-label="Filter" aria-haspopup="menu" aria-expanded="${!!open}" aria-pressed="${F !== 'all' || !!open}">${icon('sliders-horizontal', 18)}</button>${open ? `<span class="vsortx" data-a="${act}"></span><span class="vdrop vsortm" role="menu"><span class="mono">Show</span>${[['all', 'All']].concat(list.map((t) => [t, t])).map(([k, l]) => `<button role="menuitemradio" data-a="${pick}" data-v="${esc(k)}" aria-checked="${F === k}">${esc(l)}${F === k ? icon('check', 16, 2) : ''}</button>`).join('')}</span>` : ''}</span>`;
-function renderJournalAll() { const F = S.jTag || 'all'; const J = jSorted().filter((e) => F === 'all' || (e.tags || []).includes(F));
-  return nbCrumbs([[M.areas.notebook.name, 'home'], ['Journal']], `<button class="fbtn" data-a="jnew" aria-label="Write a new page">${icon('pen-line', 18)}</button>` + tagFilter(F, S.jFOpen, 'jfopen', 'jtagf', jTags())) + (J.length ? `<div class="jgrid">${J.map(jcard).join('')}</div>` : `<p class="empty">${F === 'all' ? 'Nothing written yet.' : 'No pages with this tag.'}</p>`); }
+function renderJournalAll() { const F = S.jTag || 'all'; const J0 = jSorted().filter((e) => F === 'all' || (e.tags || []).includes(F)); const J = J0.filter(jHit), pg = nbPage('journal', J);
+  return nbCrumbs([[M.areas.notebook.name, 'home'], ['Journal']], `<button class="fbtn" data-a="jnew" aria-label="Write a new page">${icon('pen-line', 18)}</button>` + tagFilter(F, S.jFOpen, 'jfopen', 'jtagf', jTags())) + (J0.length ? nbSearch('journal') : '') + (J.length ? `<div class="jgrid">${pg.items.map(jcard).join('')}</div>` + pg.pager : `<p class="empty">${J0.length ? 'Nothing found.' : F === 'all' ? 'Nothing written yet.' : 'No pages with this tag.'}</p>`); }
 // writing page (2026-11-06): nothing but the date, a tag icon (its drop-down holds the tags, never shown on the page),
 // lined paper and Save
 // text options: in the ⋯ menu and in a bar under selected text (2026-11-08)
@@ -6428,6 +6461,7 @@ function notebookAction(act, a, ref, v) {
       const e0 = jCurrent(); const ed = jEditable(e0); jSync(); jDropEmpty();
       save(); S.jTagOpen = false; S.jMenu = false; S.jTxt = false; S.jRe = null; S.jSel = null; S.nbView = S.jBack || 'home'; S.jEntry = null; jFromBack(); render(); return true; }
     // (a page opened from Studies goes back to Studies)
+    case 'nbpg': S.nbPg = S.nbPg || {}; S.nbPg[ref] = Math.max(0, (S.nbPg[ref] || 0) + (+v)); render(); $('#main').scrollTop = 0; return true;
     case 'nbgo': S.jNewTags = null; S.jNewSup = false; S.jFrom = null; S.nbView = v; if (v === 'words') { S.wView = 'list'; S.wMenu = false; } S.nFOpen = false; render(); $('#main').scrollTop = 0; return true;
   }
   return false;
@@ -6481,6 +6515,8 @@ function bTouch(b) { b.upd = Date.now(); }
 const bBg = (b) => MB_BG[b.bg] || b.bg || MB_BG.paper;
 const bDark = (b) => { if (b.bg === 'dusk') return true; const c = bBg(b); if (!/^#[0-9a-f]{6}$/i.test(c)) return false; const n = parseInt(c.slice(1), 16); return ((n >> 16) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114) < 110; };
 // the board palette: its own list, edited in the same colour picker as the rest of the app
+// shades of paper for board backgrounds: white, ivory, cream, parchment, kraft, newsprint, greys, tinted papers, black card
+const PAPER_PAL = ['#FFFFFF', '#FBF8F1', '#F6F0E1', '#EFE4CC', '#E6D8BC', '#D9C3A0', '#C4A77E', '#ECEAE4', '#DEDBD3', '#C9C6BE', '#F3E6E1', '#E5ECDF', '#E1E8EE', '#EEE8F0', '#3A3733', '#23211E'];
 const BOARD_PAL = ['#23211E', '#6E685F', '#9A9387', '#FAF8F4', '#FFFFFF', '#EFE8DC', '#F6E7A6', '#F6D5CF', '#D9E8D3', '#D6E3F0', '#E6DCF0', '#B5623E', '#C98A2E', '#5F8A5A', '#4F78A8', '#8A62A6', '#E8457F', '#2B2825'];
 const bCF = (lab, key, cur, inh) => `<div class="prow wrap bcf"><span class="mono plab">${lab}</span>${colorField('bd:' + key, cur, inh ? { inherit: true, inhLabel: inh } : {})}</div>`;
 function bTargets(b) { return (S.bMulti ? S.bMulti : S.bSel ? [S.bSel] : []).map((id) => b.items.find((i) => i.id === id)).filter(Boolean); }
@@ -6510,10 +6546,10 @@ const bHead = () => `<div class="nbhead"><button class="nbt" data-a="nbgo" data-
 function bCard(b, i = 0) {
   return `<button class="bcard" data-a="bdopen" data-ref="${b.id}"><span class="bprev" style="background:${bBg(b)}">${moodHtml(b, true)}</span><span class="bname">${esc(boardTitle(b))}</span></button>`; }
 const bSorted = () => boards().filter((b) => !b.proj).slice().sort((a, b) => (b.upd || 0) - (a.upd || 0));
-function bRow() { const B = bSorted(); return bHead() + (B.length ? `<div class="hscroll brow">${B.map(bCard).join('')}</div>` : '<p class="empty">No boards yet.</p>'); }
-function renderBoardsAll() { const B = bSorted();
-  return nbCrumbs([[M.areas.notebook.name, 'home'], ['Boards']], `<button class="fbtn" data-a="bnew" aria-label="New board">${icon('pen-line', 18)}</button>`) + ''
-    + (B.length ? `<div class="bgrid">${B.map(bCard).join('')}</div>` : '<p class="empty">No boards yet.</p>'); }
+function bRow() { const B = bSorted(); return bHead() + (B.length ? `<div class="hscroll brow">${capRow(B, bCard, 'boards')}</div>` : '<p class="empty">No boards yet.</p>'); }
+function renderBoardsAll() { const B0 = bSorted(); const B = B0.filter((b) => nbHit('boards', [boardTitle(b), (b.items || []).map((x) => x.text)])), pg = nbPage('boards', B);
+  return nbCrumbs([[M.areas.notebook.name, 'home'], ['Boards']], `<button class="fbtn" data-a="bnew" aria-label="New board">${icon('pen-line', 18)}</button>`) + (B0.length ? nbSearch('boards') : '')
+    + (B.length ? `<div class="bgrid">${pg.items.map(bCard).join('')}</div>` + pg.pager : `<p class="empty">${B0.length ? 'Nothing found.' : 'No boards yet.'}</p>`); }
 const boardTitle = (b) => b.title || ((mapRoots(b)[0] || {}).text) || 'Board';
 
 // ----- the board page: no top or bottom bar, like the journal -----
@@ -7790,7 +7826,7 @@ const wTile = (w, i) => `<button class="postit wtile" data-a="wgo" data-ref="${w
 function wDeckAll() { const ids = wList().map((w) => w.id); if (S.wOrder) { const o = S.wOrder.filter((id) => ids.includes(id)); ids.forEach((id) => { if (!o.includes(id)) o.unshift(id); }); S.wOrder = o; return o.map((id) => wList().find((w) => w.id === id)); } return wSorted(); }
 const wHead = () => `<div class="nbhead"><button class="nbt" data-a="nbgo" data-v="words"><span class="mono">Words</span><span class="chev" aria-hidden="true">${icon('chevron-right', 16)}</span></button><button class="nbpen" data-a="wnew" aria-label="New word">${icon('pen-line', 20)}</button></div>`;
 // on the landing: a little stack with the newest word on top
-function wRow() { const W = wSorted(); return wHead() + (W.length ? `<div class="hscroll postrow wprow">${W.map(wTile).join('')}</div>` : '<p class="empty">No words yet.</p>'); }
+function wRow() { const W = wSorted(); return wHead() + (W.length ? `<div class="hscroll postrow wprow">${capRow(W, wTile, 'words')}</div>` : '<p class="empty">No words yet.</p>'); }
 // a card has two faces and really turns over (2026-11-09: "more tactile"); the ones underneath show their word
 function wCardFace(w, under) {
   if (under) return `<div class="wcard wunder" data-under="${under}" aria-hidden="true"><div class="wfl"><div class="wf"><span class="wwd">${esc(w.word)}</span></div></div></div>`;
@@ -7803,7 +7839,7 @@ function renderWords() { const D = wDeck(); const N = D.length; const list = S.w
   const shuf = wList().length > 1 && !list ? `<button class="fbtn wshufb" data-a="wshuf" aria-label="Shuffle">${icon('shuffle', 13)}</button>` : '';
   const tools = `${list ? `<button class="fbtn" data-a="wnew" aria-label="New word">${icon('pen-line', 18)}</button>` : (N ? `<button class="fbtn" data-a="wopen" data-ref="${(D[((S.wI || 0) % N + N) % N] || {}).id}" aria-label="Edit this word">${icon('pencil', 18)}</button>` : '')}${wList().length ? `<span class="vsortw"><button class="fbtn" data-a="wfopen" aria-label="Filter" aria-haspopup="menu" aria-expanded="${!!S.wFOpen}" aria-pressed="${wF() !== 'all' || wFL() !== 'all' || !!S.wFOpen}">${icon('sliders-horizontal', 18)}</button>${S.wFOpen ? `<span class="vsortx" data-a="wfopen"></span><span class="vdrop vsortm" role="menu"><span class="mono">Language</span>${[['all', 'All']].concat(WLANGS).map(([k, l]) => `<button role="menuitemradio" data-a="wflang" data-v="${k}" aria-checked="${wFL() === k}"><span class="wfl1">${k === 'all' ? '' : flagSvg(k, 12)}${esc(l)}</span>${wFL() === k ? icon('check', 16, 2) : ''}</button>`).join('')}${wTags().length ? `<span class="mono">Tags</span>${[['all', 'All']].concat(wTags().map((t) => [t, t])).map(([k, l]) => `<button role="menuitemradio" data-a="wftag" data-v="${esc(k)}" aria-checked="${wF() === k}">${esc(l)}${wF() === k ? icon('check', 16, 2) : ''}</button>`).join('')}` : ''}</span>` : ''}</span>` : ''}`;
   if (!N) return nbCrumbs([[M.areas.notebook.name, 'home'], ['Words']], tools) + `<p class="empty">${wList().length ? 'No words here.' : 'No words yet.'}</p>`;
-  if (list) { const L = wSorted().filter(wPass); return nbCrumbs([[M.areas.notebook.name, 'home'], ['Words']], tools) + (L.length ? `<div class="postits">${L.map(wTile).join('')}</div>` : '<p class="empty">No words here.</p>'); }
+  if (list) { const L0 = wSorted().filter(wPass), L = L0.filter((w) => nbHit('words', [w.word, w.mean, w.note, w.tags || []])), pg = nbPage('words', L); return nbCrumbs([[M.areas.notebook.name, 'home'], ['Words']], tools) + (L0.length ? nbSearch('words') : '') + (L.length ? `<div class="postits">${pg.items.map(wTile).join('')}</div>` + pg.pager : `<p class="empty">${L0.length ? 'Nothing found.' : 'No words here.'}</p>`); }
   S.wI = ((S.wI || 0) % N + N) % N;
   // flash cards in a vertical scroll (2026-11-10): one word to a screen, tap shows what it means. I move the words myself
   // (no browser scroll snapping), so nothing can pull them back or jump. A menu right of the stack/spread button edits the word and sets its language and tags (2026-11-10).

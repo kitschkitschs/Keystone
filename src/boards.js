@@ -42,6 +42,8 @@ function bTouch(b) { b.upd = Date.now(); }
 const bBg = (b) => MB_BG[b.bg] || b.bg || MB_BG.paper;
 const bDark = (b) => { if (b.bg === 'dusk') return true; const c = bBg(b); if (!/^#[0-9a-f]{6}$/i.test(c)) return false; const n = parseInt(c.slice(1), 16); return ((n >> 16) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114) < 110; };
 // the board palette: its own list, edited in the same colour picker as the rest of the app
+// shades of paper for board backgrounds: white, ivory, cream, parchment, kraft, newsprint, greys, tinted papers, black card
+const PAPER_PAL = ['#FFFFFF', '#FBF8F1', '#F6F0E1', '#EFE4CC', '#E6D8BC', '#D9C3A0', '#C4A77E', '#ECEAE4', '#DEDBD3', '#C9C6BE', '#F3E6E1', '#E5ECDF', '#E1E8EE', '#EEE8F0', '#3A3733', '#23211E'];
 const BOARD_PAL = ['#23211E', '#6E685F', '#9A9387', '#FAF8F4', '#FFFFFF', '#EFE8DC', '#F6E7A6', '#F6D5CF', '#D9E8D3', '#D6E3F0', '#E6DCF0', '#B5623E', '#C98A2E', '#5F8A5A', '#4F78A8', '#8A62A6', '#E8457F', '#2B2825'];
 const bCF = (lab, key, cur, inh) => `<div class="prow wrap bcf"><span class="mono plab">${lab}</span>${colorField('bd:' + key, cur, inh ? { inherit: true, inhLabel: inh } : {})}</div>`;
 function bTargets(b) { return (S.bMulti ? S.bMulti : S.bSel ? [S.bSel] : []).map((id) => b.items.find((i) => i.id === id)).filter(Boolean); }
@@ -71,10 +73,10 @@ const bHead = () => `<div class="nbhead"><button class="nbt" data-a="nbgo" data-
 function bCard(b, i = 0) {
   return `<button class="bcard" data-a="bdopen" data-ref="${b.id}"><span class="bprev" style="background:${bBg(b)}">${moodHtml(b, true)}</span><span class="bname">${esc(boardTitle(b))}</span></button>`; }
 const bSorted = () => boards().filter((b) => !b.proj).slice().sort((a, b) => (b.upd || 0) - (a.upd || 0));
-function bRow() { const B = bSorted(); return bHead() + (B.length ? `<div class="hscroll brow">${B.map(bCard).join('')}</div>` : '<p class="empty">No boards yet.</p>'); }
-function renderBoardsAll() { const B = bSorted();
-  return nbCrumbs([[M.areas.notebook.name, 'home'], ['Boards']], `<button class="fbtn" data-a="bnew" aria-label="New board">${icon('pen-line', 18)}</button>`) + ''
-    + (B.length ? `<div class="bgrid">${B.map(bCard).join('')}</div>` : '<p class="empty">No boards yet.</p>'); }
+function bRow() { const B = bSorted(); return bHead() + (B.length ? `<div class="hscroll brow">${capRow(B, bCard, 'boards')}</div>` : '<p class="empty">No boards yet.</p>'); }
+function renderBoardsAll() { const B0 = bSorted(); const B = B0.filter((b) => nbHit('boards', [boardTitle(b), (b.items || []).map((x) => x.text)])), pg = nbPage('boards', B);
+  return nbCrumbs([[M.areas.notebook.name, 'home'], ['Boards']], `<button class="fbtn" data-a="bnew" aria-label="New board">${icon('pen-line', 18)}</button>`) + (B0.length ? nbSearch('boards') : '')
+    + (B.length ? `<div class="bgrid">${pg.items.map(bCard).join('')}</div>` + pg.pager : `<p class="empty">${B0.length ? 'Nothing found.' : 'No boards yet.'}</p>`); }
 const boardTitle = (b) => b.title || ((mapRoots(b)[0] || {}).text) || 'Board';
 
 // ----- the board page: no top or bottom bar, like the journal -----
