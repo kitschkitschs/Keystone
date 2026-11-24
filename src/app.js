@@ -898,7 +898,9 @@ function renderPlan() {
   const tasks = all.filter((id) => !S.planC || I(id).brk || kindOf(id) === S.planC);
   const brks = tasks.filter((id) => I(id).brk); tasks.splice(0, tasks.length, ...tasks.filter((id) => !I(id).brk));
   // a Task without a date stays here after a tick; a One-off leaves once ticked (2026-11-24, replaces the Persistent card)
-  const nos = tasks.filter((id) => (I(id).when || {}).mode === 'once' && !I(id).when.date && (keeps(id) || !Object.keys(M.log).some((d) => val(d, id))));
+  // Not scheduled is for One-offs only; Tasks have their own list in edit mode (the owner, 2026-11-24)
+  const nos = tasks.filter((id) => (I(id).when || {}).mode === 'once' && !I(id).when.date && !keeps(id) && !Object.keys(M.log).some((d) => val(d, id)));
+  const tks = tasks.filter((id) => keeps(id) && !repeatable(I(id)));
   const sch = tasks.filter((id) => (I(id).when || {}).mode === 'once' && I(id).when.date && (I(id).when.date >= T0 || onDay(id, T0))).sort((a, b) => I(a).when.date.localeCompare(I(b).when.date));
   const rep = tasks.filter((id) => repeatable(I(id)));
   const row = (id) => { const hm0 = homeItem(id); const ed = S.edit && !hm0; const blk = placements(id).find((p) => G(p) && G(p).style === 'dayblock');
@@ -906,16 +908,17 @@ function renderPlan() {
   const sec = (title, ids, empty) => lcard('p:' + title, title, ids.length, ids.length ? ids.map(row).join('') : `<p class="empty">${empty}</p>`);
   const fbar = cols.length > 1 ? colSquares(cols, S.planC, 'planc') : '';
   // one row over the categories: Add (a dropdown) on the left, the filter on the right (2026-11-04)
-  const AO = [['task', 'Task'], ['once', 'One-off task'], ['every', 'Repeat task'], ['routine', 'Routine'], ['break', 'Break']];
+  // a repeat and a routine are a Task set up a certain way (a repeat, steps), so they're not separate choices (the owner, 2026-11-24)
+  const AO = [['once', 'One-off task'], ['task', 'Task'], ['break', 'Break']];
   // generic items (2026-11-11): they stand in on a day with nothing specific from their section, and open it to pick the real thing
   const GO = [['study', 'Studies'], ['chores', 'Chores'], ['hobbies', 'Hobbies'], ['training', 'Movement'], ['workouts', 'Workouts'], ['mobility', 'Mobility']];
   const slots = Object.keys(M.items).filter((id) => I(id).type === 'slot' && placements(id).some((p) => G(p) && G(p).style === 'dayblock'));
   const slotRow = (id) => { const blk = placements(id).find((p) => G(p) && G(p).style === 'dayblock');
     return `<div class="row" data-ref="${id}"><span class="circ" style="--c:${colorOf(id)}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : ''}></span><button class="lbl" data-a="open" data-ref="${id}" style="text-align:left">${esc(I(id).name)}<span class="sub">${esc([blk ? G(blk).name : '', whenText(I(id))].filter(Boolean).join(' · '))}</span></button><span class="mono" style="font-size:10px;color:var(--quiet)">Optional</span><button class="swt" role="switch" aria-checked="${!!I(id).optional}" data-a="slotopt" data-ref="${id}" aria-label="${esc(tnm(id))} is optional"></button>${S.edit ? `<button class="rm" data-a="slotrm" data-ref="${id}" aria-label="Remove ${esc(tnm(id))}">${icon('x', 14)}</button>` : ''}</div>`; };
-  const abar = `<span class="vsortw"><button class="fbtn" data-a="planaddopen" aria-label="Add" aria-haspopup="menu" aria-expanded="${!!S.planAddOpen}" aria-pressed="${!!S.planAddOpen}">${icon('plus', 18)}</button>${S.planAddOpen ? `<span class="vsortx" data-a="planaddopen"></span><span class="vdrop vsortm vaddm" role="menu">${AO.map(([k, l]) => `<button role="menuitem" data-a="new" data-v="${k}">${l}</button>`).join('')}<span class="mono">Generic</span>${GO.map(([k, l]) => `<button role="menuitem" data-a="slotadd" data-v="${k}">${l}</button>`).join('')}</span>` : ''}</span>`;
+  const abar = `<span class="vsortw"><button class="fbtn" data-a="planaddopen" aria-label="Add" aria-haspopup="menu" aria-expanded="${!!S.planAddOpen}" aria-pressed="${!!S.planAddOpen}">${icon('plus', 18)}</button>${S.planAddOpen ? `<span class="vsortx" data-a="planaddopen"></span><span class="vdrop vsortm vaddm" role="menu">${AO.map(([k, l]) => `<button role="menuitem" data-a="new" data-v="${k}">${l}</button>`).join('')}</span>` : ''}</span>`;
   if (S.open['p:Repeat'] === undefined) S.open['p:Repeat'] = false; // Repeat starts folded
   // an add icon on the left balances the filter icon (2026-11-08)
-  return `<div class="ptools">${abar}${fbar}</div>` + sec('Not scheduled', nos, 'Nothing waiting. Tasks without a date land here.') + sec('Scheduled', sch, 'No dated tasks yet.') + (S.edit ? sec('Repeat', rep, 'No repeat tasks yet.') + (brks.length ? sec('Breaks', brks, '') : '') + (slots.length ? lcard('p:Generic', 'Generic', slots.length, slots.map(slotRow).join('')) : '') : ''); // repeats, persistent tasks, breaks and generic items are set up in edit mode (2026-11-24)
+  return `<div class="ptools">${abar}${fbar}</div>` + sec('Not scheduled', nos, 'Nothing waiting. One-offs without a date land here.') + sec('Scheduled', sch, 'No dated tasks yet.') + (S.edit ? sec('Tasks', tks, 'No tasks yet.') + sec('Repeat', rep, 'No repeat tasks yet.') + (brks.length ? sec('Breaks', brks, '') : '') + lcard('p:Generic', 'Generic', slots.length || '', slots.map(slotRow).join('') + `<div class="fld" style="padding:10px 0 4px"><span class="mono">Add a generic item</span><div class="chips">${GO.map(([k, l]) => `<button class="chip" data-a="slotadd" data-v="${k}">${icon('plus', 12)} ${l}</button>`).join('')}</div></div>`) : ''); // repeats, persistent tasks, breaks and generic items are set up in edit mode (2026-11-24)
 }
 
 // Appointments: categories (Social is one of them), then Today / Coming up / Past.
@@ -1121,7 +1124,7 @@ function sheetBody() {
     // which study task group: picked right here when there's more than one (2026-11-08)
     // a task from Capture first asks what kind it is (2026-11-10): a plain task, a chore, a study task or a prep
     if (s.pickTask && !s.pickStudy) { const row = (a, v, ic, l) => `<button class="arow" data-a="${a}" ${v ? `data-v="${v}"` : ''} style="text-align:left"><span class="an" style="display:flex;align-items:center;gap:12px">${icon(ic, 20)}${l}</span><span class="chev" aria-hidden="true">${icon('chevron-right', 16)}</span></button>`;
-      return `<div class="fld"><div class="afind">${row('new', 'task', 'check', 'Task')}${row('new', 'once', 'circle', 'One-off')}${row('vadd', 'g-oneoff', 'spray-can', 'Chore')}${row('addstudy', '', 'book-open', 'Study task')}${row('vadd', 'g-prep', 'cooking-pot', 'Prep')}</div></div>`; }
+      return `<div class="fld"><div class="afind">${row('new', 'once', 'check', 'Task')}${row('vadd', 'g-oneoff', 'spray-can', 'Chore')}${row('addstudy', '', 'book-open', 'Study task')}${row('vadd', 'g-prep', 'cooking-pot', 'Prep')}</div></div>`; }
     if (s.pickStudy) { const subs = S.subj && G(S.subj) ? [S.subj] : subjIds();
       return `<div class="fld"><span class="mono">Study task in</span><div class="afind">${subs.map((sb) => sgroupsOf(sb).map((g) => `<button class="arow" data-a="vadd" data-v="${g}" style="text-align:left"><span class="an">${esc(G(g).name)}<span class="sub">${esc(G(sb).name)}</span></span><span class="chev" aria-hidden="true">${icon('chevron-right', 16)}</span></button>`).join('')).join('') || '<p class="empty">No task groups yet.</p>'}</div></div>`; }
     // the page I'm on comes first, under This page (2026-11-08)
