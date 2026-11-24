@@ -173,7 +173,7 @@ function slotGo(id) { const it = I(id); S.sheet = null; S.fromSlot = id; S.room 
 // ---------- blocks ----------
 const segBar = (cols, cls = '') => `<span class="vseg ${cls}" aria-hidden="true">${cols.map((c) => `<i style="background:${c}"></i>`).join('')}</span>`;
 function vCard(o) {
-  const t = VTONE[o.lvl || 0]; const bg = darkOn ? `radial-gradient(130% 110% at 100% 0%,${mix(t, '#33302C', 0.5)} 0%,${mix(t, '#2E2B28', 0.8)} 55%,${mix(t, '#2A2825', 0.9)} 100%)` : `radial-gradient(125% 100% at 100% 0%,${mix(t, TH.card, 0.1)} 0%,${mix(t, TH.card, 0.7)} 58%,${mix(t, TH.card, 0.84)} 100%)`; // dark: the card glows warmer as it needs care
+  const t = VTONE[o.lvl || 0]; const bg = darkOn ? mix(t, '#2E2B28', 0.86) : mix(t, TH.card, 0.86); // a flat, quiet tint of the verdict's tone, no glow (the owner, 2026-11-24: less shiny)
   const tag = o.go ? 'button' : 'div';
   return `<${tag} class="vcard" ${o.go || ''} style="background:${bg};border-color:${mix(t, TH.line, 0.55)}"><span class="mono">${esc(o.eyebrow)}</span>${o.go && !o.nochev ? '<span class="vchev" aria-hidden="true">' + icon('chevron-right', 16) + '</span>' : ''}<span class="vword">${esc(o.word)}</span>${o.sub ? `<span class="vsub">${esc(o.sub)}</span>` : ''}${segBar(o.segs)}<span class="mono vfoot">${esc(o.foot)}</span></${tag}>`;
 }

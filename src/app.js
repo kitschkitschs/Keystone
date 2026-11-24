@@ -454,7 +454,7 @@ function render() { WKC.clear(); bkDot(); setTimeout(navTrack, 0);
   $('#rail').hidden = (!A.pages.length && S.area !== 'hobbies') || !!S.insOn;
   $('#areas').innerHTML = M.areaOrder.map((a) => { const x = M.areas[a]; const on = a === S.area;
     return `<button data-area="${a}" ${on ? 'aria-current="page"' : ''}><span class="pill"${S.edit && on ? ` data-ic="a:${a}"` : ''}>${esc(x.name)}</span></button>`; }).join(''); // the bottom bar names the areas in small caps (Stone, 2026-11-23)
-  const v = $('#view'); v.classList.toggle('ptoday', S.area === 'plan' && S.page === 'today'); v.classList.toggle('pplan', S.area === 'plan' && S.page === 'plan');
+  const v = $('#view'); v.classList.toggle('ptoday', S.area === 'plan' && S.page === 'today'); v.classList.toggle('pplan', S.area === 'plan' && S.page === 'plan'); v.classList.toggle('phob', S.area === 'hobbies');
   if (S.studyMode) $('#areas').innerHTML = studyBar();
   $('#areas').classList.toggle('two', !!S.studyMode);
   if (S.insOn) { v.innerHTML = renderInsight(); $('#ttl').innerHTML = insTitle(); } // Insight from the ⋯ menu covers the area until I tap an area
@@ -705,11 +705,22 @@ function slotDrop(out, d = T0) {
     const studyOn = all.some((id) => sids.has(id) || (I(id) && I(id).part && sids.has(I(id).part))), choreOn = all.some((id) => cids.has(id) && !(M.half || {})[id] && schedChore(id, d)), moveOn = all.some((id) => tids.has(id));
     if (studyOn || choreOn || moveOn || hobOn) out.forEach((x) => { x.items = x.items.filter((id) => !(I(id) && I(id).type === 'slot' && ((I(id).opens === 'study' && studyOn) || (I(id).opens === 'chores' && choreOn) || (I(id).opens === 'training' && moveOn) || (I(id).opens === 'hobbies' && hobOn)))); });
   return out; }
+// Schedule: a day with a real chore drops the generic chore item, and the chores without a set time take its place in
+// the day (its block and spot), unless I moved them myself that day (the owner, 2026-11-24)
+function choreSwap(DL, d) {
+  const cids = new Set(choreIds()); const isSlot = (id) => I(id) && I(id).type === 'slot' && I(id).opens === 'chores';
+  const real = DL.flatMap((x) => x.items).filter((id) => cids.has(id) && !(M.half || {})[id] && schedChore(id, d)); if (!real.length) return DL;
+  const sx = DL.find((x) => x.items.some(isSlot));
+  if (sx) { const mv = (M.dayMove || {})[d] || {}, dT = (M.dayTime || {})[d] || {}; const go = real.filter((id) => !I(id).time && !dT[id] && !mv[id]);
+    DL.forEach((x) => { if (x !== sx) x.items = x.items.filter((id) => !go.includes(id)); });
+    const rest = sx.items.filter((id) => !go.includes(id)); const k = rest.findIndex(isSlot); rest.splice(k, 0, ...go); sx.items = rest; }
+  DL.forEach((x) => { x.items = x.items.filter((id) => !isSlot(id)); });
+  return DL; }
 // a set-time item dragged on the Schedule for one day keeps that day's time in M.dayTime (2026-11-13)
 const tAt = (id, d) => ((M.dayTime || {})[d] || {})[id] || I(id).time;
 function placeDay(d) {
   const fz = frozenOf(d); if (fz) { return fz.filter((o) => !isMissed(o.id, d) && !halfWait(o.id, d)).map((o) => Object.assign({}, o)); }
-  const out = []; const DL = dayList(d);
+  const out = []; const DL = choreSwap(dayList(d), d);
   // items with a set time (and appointments) are fixed for the whole day; untimed items flow around ALL of them, and a block
   // that spills over pushes the next block's untimed items later, so nothing hides behind anything (2026-11-02)
   // a started two-part chore's second part sits on Schedule at the time its timer goes off (the owner, 2026-11-13);
@@ -1991,7 +2002,7 @@ function ciSentence(which, d) {
   return out.filter(Boolean).join(' ');
 }
 function ciRows(d) {
-  const row = (w, ic, label, ci, done, sent) => `<button class="cirow" data-a="${ci ? 'checkin' : ''}" data-ref="${ci || ''}"><span class="ci-ic">${icon(ic, 18)}</span><span class="lbl"><b>${label}${done && typeof hval(d, ci) === 'string' && hval(d, ci).includes('@') ? ' · ' + esc(hval(d, ci).split('@')[1] || '') : ''}</b><span class="${done || sent ? 'sent' : 'nd'}">${esc(done || sent ? sent || 'Done.' : 'Not done yet')}</span></span></button>`;
+  const row = (w, ic, label, ci, done, sent) => `<button class="cirow" data-a="${ci ? 'checkin' : ''}" data-ref="${ci || ''}"><span class="lbl"><b>${label}${done && typeof hval(d, ci) === 'string' && hval(d, ci).includes('@') ? ' · ' + esc(hval(d, ci).split('@')[1] || '') : ''}</b><span class="${done || sent ? 'sent' : 'nd'}">${esc(done || sent ? sent || 'Done.' : 'Not done yet')}</span></span></button>`;
   const m = ciItem('morning'), e = ciItem('evening');
   return row('morning', 'sun', 'Morning', m, m && !!hval(d, m), ciSentence('morning', d))
     + row('evening', 'moon', 'Evening', e, e && !!hval(d, e), ciSentence('evening', d));
