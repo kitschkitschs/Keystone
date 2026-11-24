@@ -111,7 +111,7 @@ function parseHM(s) { s = String(s || '').trim().toLowerCase().replace(',', '.')
   const h = s.match(/(\d+(?:\.\d+)?)\s*h/), m = s.match(/(\d+)\s*m/); if (h || m) return (h ? +h[1] : 0) + (m ? +m[1] / 60 : 0);
   const n = parseFloat(s); return isNaN(n) ? 0 : n; }
 function tInfo(k, s, g) { const it = I(k); const dl = it.due || G(g).deadline || null; const l1 = lastStudied([k]), l2 = sLastDone(k); const last = l1 && l2 ? (l1 > l2 ? l1 : l2) : l1 || l2;
-  return { id: k, subj: s, g, dl, due: dl ? diff(T0, dl) : undefined, done: hrs(taskMin(k)), est: +it.est || 0, since: last ? diff(last, T0) : Math.max(0, diff(it.made || T0, T0)) }; }
+  return { id: k, subj: s, g, dl, due: dl ? diff(T0, dl) : undefined, done: hrs(taskMin(k)), est: +it.est || 0, never: !last, since: last ? diff(last, T0) : Math.max(0, diff(it.made || T0, T0)) }; }
 function sTasks(s) { return sgroupsOf(s).flatMap((g) => kidsOf(g).filter((k) => !sFinished(k)).map((k) => tInfo(k, s, g))); }
 const dayBar = (ids) => Array.from({ length: 7 }, (_, i) => { const d = addDays(T0, i - 6); return minOn(ids, d) > 0 ? SEGOK : !ids && supMin(d) > 0 ? SEGSOFT : SEG0; });
 const lowDay = (d) => { const r = relDay(d); return r === fmtDate(d) ? r : r.toLowerCase(); };
@@ -199,12 +199,12 @@ function jobRow(j, place, plain) { const it = I(j.id); const late = j.left < 0;
   // Patch 2 (the owner, 2026-11-24): no tick box; a tap opens the logging pop-up, editing only in edit mode
   if (!plain) return jobRow(j, place + (isDone(j.id, T0) ? ' · done today' : ''), true);
   const unit = late ? (j.left === -1 ? 'day overdue' : 'days overdue') : j.left === 1 ? 'day left' : 'days left';
-  return `<button class="vjob" data-a="vjob" data-ref="${j.id}"><span class="vjh"><span class="vjt"><b>${inm(it)}</b></span><span class="vbig"><em ${late ? 'class="late"' : ''}>${Math.abs(j.left)}</em> ${unit}</span></span><span class="mono vjm">${esc(place)}</span>${segBar(jobSegs(j))}</button>`; }
+  return `<button class="vjob" data-a="vjob" data-ref="${j.id}"><span class="vjh"><span class="vjt"><b>${inm(it)}</b></span><span class="vbig">${!j.last ? 'Not done yet' : `<em ${late ? 'class="late"' : ''}>${Math.abs(j.left)}</em> ${unit}`}</span></span><span class="mono vjm">${esc(place)}</span>${segBar(jobSegs(j))}</button>`; }
 // tick: the subject page's version, with a circle on the left in the urgency bar's colour; the rest of the card opens the timer (2026-11-04)
 function taskRow(t, tick) { const it = I(t.id);
   // Patch 2 (the owner, 2026-11-24): no tick box or timer icon; a tap opens the logging pop-up, which can start study mode
   if (tick) return taskRow(t).replace('<button class="vjob" data-a="vtimer"', '<button class="vjob" data-a="vtlog"').replace('</span></span><span class="mono vjm">' + esc(G(t.subj).name), '</span></span><span class="mono vjm">' + esc(G(t.subj).name) + (val(T0, t.id) ? ' · done today' : ''));
-  return `<button class="vjob" data-a="vtimer" data-ref="${t.id}"><span class="vjh"><span class="vjt"><b>${inm(it)}</b></span><span class="vbig"><em ${t.due !== undefined && t.due < 0 ? 'class="late"' : ''}>${t.due !== undefined ? Math.abs(t.due) : t.since}</em> ${t.due !== undefined ? (t.due < 0 ? (t.due === -1 ? 'day overdue' : 'days overdue') : t.due === 1 ? 'day to deadline' : 'days to deadline') : t.since === 1 ? 'day since' : 'days since'}</span></span><span class="mono vjm">${esc(G(t.subj).name)}${t.est ? ` · <span class="nw">${estHM(taskMin(t.id) / 60)} of ${estHM(t.est)}</span>` : ''}</span>${studyUrg(t) ? segBar(studyUrg(t)) : ''}${progLine(t.done, t.est)}</button>`; }
+  return `<button class="vjob" data-a="vtimer" data-ref="${t.id}"><span class="vjh"><span class="vjt"><b>${inm(it)}</b></span><span class="vbig">${t.due === undefined && t.never ? 'Not done yet' : `<em ${t.due !== undefined && t.due < 0 ? 'class="late"' : ''}>${t.due !== undefined ? Math.abs(t.due) : t.since}</em> ${t.due !== undefined ? (t.due < 0 ? (t.due === -1 ? 'day overdue' : 'days overdue') : t.due === 1 ? 'day to deadline' : 'days to deadline') : t.since === 1 ? 'day since' : 'days since'}`}</span></span><span class="mono vjm">${esc(G(t.subj).name)}${t.est ? ` · <span class="nw">${estHM(taskMin(t.id) / 60)} of ${estHM(t.est)}</span>` : ''}</span>${studyUrg(t) ? segBar(studyUrg(t)) : ''}${progLine(t.done, t.est)}</button>`; }
 // Study tasks get the same urgency bar as Home (only with a deadline, 2026-11-04) (2026-11-04): it fills toward the deadline, from when the task was made,
 // and turns red once the deadline has passed. Without a deadline, only a repeating task has the bar: it fills like Home freshness from the last time I studied it (2026-11-04).
 // every task has an urgency line (2026-11-06): a task with no deadline and no repeat fills over a week since I last studied it
@@ -444,8 +444,8 @@ function supOpen() { const cur = S.nbView === 'jpage' && S.area === 'notebook'; 
   const e = supToday(); S.sheet = null; S.menu = false; S.stv = null; S.jFrom = 'study'; S.area = 'notebook'; S.insOn = false; S.jBack = 'home';
   S.jMenu = false; S.jTagOpen = false; S.jRe = null; S.jSel = null; S.jCaret = null; S.nbView = 'jpage'; S.jEntry = e ? e.id : 'new'; S.jNewTags = e ? null : ['Studies']; S.jNewSup = !e;
   render(); if (typeof jGrow === 'function') jGrow(); $('#main').scrollTop = 0; }
-function saveTimer(msg) { const t = M.timer; if (!t) return; const min = Math.round(tElapsed() / 60000); const id = t.id && I(t.id) ? t.id : null; const before = minOn(null, T0) + supMin(T0);
-  M.timer = null; if (min < 1) { save(); render(); flash('Under a minute, not saved'); return; }
+function saveTimer(msg) { const t = M.timer; if (!t) return; const ms = tElapsed(), min = Math.round(ms / 60000); const id = t.id && I(t.id) ? t.id : null; const before = minOn(null, T0) + supMin(T0);
+  M.timer = null; if (ms < 60000 || min < 1) { save(); render(); return; } // under a minute just clears (the owner, 2026-11-24)
   change(() => { M.study = M.study || {}; (M.study[T0] = M.study[T0] || []).push({ id, min }); L(T0); }, msg || ('Saved ' + dur(min) + (before < sessLen() && before + min >= sessLen() ? ' · study session done' : '')), false); }
 let supT = 0;
 setInterval(() => {

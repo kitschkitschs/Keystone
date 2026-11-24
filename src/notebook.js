@@ -28,7 +28,11 @@ const jTags = () => { const s = new Set(M.jTagList || []); (M.journal || []).for
 // each notebook type has its own search and its own pages; the overview shows six of each and a See all (the owner, 2026-11-24)
 const NB_CAP = 6, NB_PER = 12;
 const nbHit = (k, parts) => { const q = (((S.nbQ || {})[k]) || '').trim().toLowerCase(); if (!q) return true; const t = parts.flat().filter((x) => x != null).join(' ').toLowerCase(); return q.split(/\s+/).every((w) => t.includes(w)); };
-const capRow = (L, f, v) => L.slice(0, NB_CAP).map(f).join('') + (L.length > NB_CAP ? `<button class="nbmore" data-a="nbgo" data-v="${v}"><span class="mono">See all</span></button>` : '');
+// See all looks like the things in its row: a post-it, a journal page or a board (the owner, 2026-11-24)
+const seeAll = (v) => v === 'journal' ? `<button class="jcard nbmore" data-a="nbgo" data-v="${v}"><span class="mono jcs">&nbsp;</span><span class="jmini nbsa" aria-hidden="true"></span><span class="nbsat">See all</span></button>`
+  : v === 'boards' ? `<button class="bcard nbmore" data-a="nbgo" data-v="${v}"><span class="bprev nbsa"><span class="nbsat">See all</span></span><span class="bname">&nbsp;</span></button>`
+  : `<button class="postit nbmore" data-a="nbgo" data-v="${v}"><span class="pt">See all</span><span class="pls"></span><span class="ptag mono"></span></button>`;
+const capRow = (L, f, v) => L.slice(0, NB_CAP).map(f).join('') + (L.length > NB_CAP ? seeAll(v) : '');
 const nbSearch = (k) => `<label class="nbsearch">${icon('search', 16)}<input class="nbq" type="search" data-nbq="${k}" value="${esc(((S.nbQ || {})[k]) || '')}" aria-label="Search" enterkeyhint="search" autocomplete="off"></label>`;
 function nbPage(k, L) { const n = Math.max(1, Math.ceil(L.length / NB_PER)); S.nbPg = S.nbPg || {}; const p = S.nbPg[k] = Math.min(n - 1, Math.max(0, S.nbPg[k] || 0));
   return { items: L.slice(p * NB_PER, (p + 1) * NB_PER), pager: n > 1 ? `<div class="nbpager"><button class="btn" data-a="nbpg" data-ref="${k}" data-v="-1" ${p ? '' : 'disabled'}>Newer</button><span class="mono">${p + 1} of ${n}</span><button class="btn" data-a="nbpg" data-ref="${k}" data-v="1" ${p < n - 1 ? '' : 'disabled'}>Older</button></div>` : '' }; }
