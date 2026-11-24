@@ -3046,20 +3046,27 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
   const setTack = () => { const T = (M.dayTack = M.dayTack || {})[day] = (M.dayTack[day] || {}); T[x.id] = tack; };
   if (Array.isArray(window.__dbg)) window.__dbg.push({ top, crt: cr.top, oh: x.el.offsetHeight, sc: x.sc, off: x.off, ey: e.clientY, m, idx, b, day, tack, prev: prev && prev.id, nxt: nxt && nxt.id, inB: inB.map((o) => o.id + '@' + o.a + '-' + o.b) });
   if (!S.edit && day === x.from) { change(() => { moveOnDay(x.id, day, b, idx); setTack(); }, 'Moved ' + it.name + ' on ' + fmtDate(day)); return; }
+  // edit mode moves it on every day (2026-11-24 rework): a real chore or workout standing in for its generic item moves
+  // the generic item; the order in the block's list follows the drop; that day's own moves in the block are cleared so the
+  // day shows the every-day order
+  const slotFor = (id) => { if (!I(id) || I(id).time) return id; const tr = typeof trainCats === 'function' ? new Set(trainCats().flatMap(kidsOf)) : new Set(); const ch = new Set(choreIds());
+    const op = ch.has(id) ? ['chores'] : tr.has(id) ? ['training', 'move'] : []; for (const k of blockIds()) { const sl = G(k).kids.find((q) => I(q) && I(q).type === 'slot' && op.includes(I(q).opens)); if (sl) return sl; } return id; };
+  const xid = slotFor(x.id); const xit = I(xid);
   change(() => {
-    blockIds().forEach((k) => { const ks = G(k).kids; const i = ks.indexOf(x.id); if (i >= 0) ks.splice(i, 1); });
-    // in front of or behind anything in the block, routines too (2026-11-11): right after the item before the drop, or
-    // right in front of the item after it
-    const ks = g.kids; const flow = (o) => !o.appt && !I(o.id).time && ks.includes(o.id); /* items with a set time sit by their time, not by their place in the list */ const pk = inB.filter((o) => mid(o) < m && flow(o)).sort((p, q) => p.b - q.b).pop();
+    const oldB = blockIds().find((k) => G(k).kids.includes(xid));
+    blockIds().forEach((k) => { const ks = G(k).kids; const i = ks.indexOf(xid); if (i >= 0) ks.splice(i, 1); });
+    const ks = g.kids; const kid = (o) => slotFor(o.id); const flow = (o) => !o.appt && !I(kid(o)).time && ks.includes(kid(o)) && kid(o) !== xid; /* items with a set time sit by their time, not by their place in the list */
+    const pk = inB.filter((o) => mid(o) < m && flow(o)).sort((p, q) => p.b - q.b).pop();
     const nx = inB.filter((o) => mid(o) >= m && flow(o)).sort((p, q) => p.a - q.a)[0];
-    const at = pk ? ks.indexOf(pk.id) + 1 : nx ? ks.indexOf(nx.id) : ks.length;
-    ks.splice(at, 0, x.id);
-    if (day !== x.from) it.when.date = day;
-    if (tack) { it.before = tack; delete it.behind; } else { delete it.before; if (prev && (prev.appt || I(prev.id).time)) it.behind = prev.id; else delete it.behind; }
-    syncDayOrders(x.id);
-    // the day I dropped it on shows it exactly where it was dropped
-    moveOnDay(x.id, day, b, idx); setTack();
-  }, 'Moved ' + it.name + (day !== x.from ? ' to ' + fmtDate(day) : S.edit && !(it.when && it.when.mode === 'once') ? ' on every day' : ''));
+    const at = pk ? ks.indexOf(kid(pk)) + 1 : nx ? ks.indexOf(kid(nx)) : ks.length;
+    ks.splice(at, 0, xid);
+    if (day !== x.from && xit.when) xit.when.date = day;
+    if (tack) { xit.before = tack; delete xit.behind; } else { delete xit.before; if (prev && (prev.appt || I(prev.id).time)) xit.behind = prev.id; else delete xit.behind; }
+    syncDayOrders(xid);
+    [b, oldB].filter(Boolean).forEach((k) => { const od = (M.dayOrder || {})[day]; if (od) delete od[k]; const inK = new Set(G(k).kids); PD.filter((o) => o.blk === k).forEach((o) => inK.add(o.id));
+      ['dayTime', 'dayAfter', 'dayTack', 'dayMove'].forEach((key) => { const q = (M[key] || {})[day]; if (!q) return; inK.forEach((id) => { if (key === 'dayTime' && I(id) && I(id).time && !q[id]) return; if (key !== 'dayTime' || !(I(id) && I(id).time)) delete q[id]; }); }); });
+    delete ((M.dayTime || {})[day] || {})[x.id];
+  }, 'Moved ' + xit.name + (day !== x.from ? ' to ' + fmtDate(day) : S.edit && !(xit.when && xit.when.mode === 'once') ? ' on every day' : ''));
 });
 
 // ---------- Health area (2026-11-01): Health merged with Fitness; folders Health and Training ----------
