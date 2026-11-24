@@ -34,7 +34,7 @@ const STONE_PAL = [['Sage', '#8FA58A'], ['Moss', '#7E8F5E'], ['Ochre', '#C9A55A'
 const PAL = [['Sage', '#7DBE9A'], ['Moss', '#6FA24A'], ['Ochre', '#EDBB3A'], ['Amber', '#F08A3E'], ['Terracotta', '#E0644E'], ['Rose', '#EC8FA8'], ['Plum', '#A877C4'], ['Slate', '#6F9BD6'], ['Teal', '#3FAFA6'], ['Sand', '#D9AE72']];
 const rgb = (h) => { h = h.replace('#', ''); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); };
 // dark mode (2026-11-08): warm near-black, cards that glow warmer as they need care; kept per device
-const THL = { card: '#E1DFDA', page: '#D8D6D0', ink: '#2E2E2C', line: '#C3C1BB' }, THD = { card: '#2B2926', page: '#1D1B19', ink: '#EFEAE2', line: '#3D3934' };
+const THL = { card: '#E1DFDA', page: '#D8D6D0', ink: '#2E2E2C', line: '#C3C1BB' }, THD = { card: '#262624', page: '#1E1E1C', ink: '#E6E3DD', line: '#3B3A37' };
 const TH = Object.assign({}, THL); let darkOn = false; try { darkOn = localStorage.getItem('daybook3-dark') === '1'; } catch (e) { /* no storage */ }
 function applyTheme() { Object.assign(TH, darkOn ? THD : THL); document.documentElement.classList.toggle('dark', darkOn); document.documentElement.style.colorScheme = darkOn ? 'dark' : 'only light'; /* tells the browser not to darken the page by itself, and to draw its own pickers to match */ const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = TH.page; }
 applyTheme();
@@ -302,13 +302,17 @@ function skipList() { const stop = M.settings.skipAsk || ''; const out = []; for
 const foodPend = () => ((M.settings || {}).foodPend || []).filter((x) => !(M.foodMark || {})[x]);
 function skipCheck() { if (S.sheet || S.edit) return; if (skipList().length || foodPend().length) openSheet({ kind: 'skipped', title: 'Welcome back' }); else if (!M.settings.skipAsk || M.settings.skipAsk < addDays(T0, -1)) { M.settings.skipAsk = addDays(T0, -1); save(); } }
 const badList = () => ((G('g-bad') || {}).kids || []).filter((id) => I(id));
-const badMoved = (d) => dayListRaw(d, true).flatMap((x) => x.items.map((id) => ({ id, b: x.b }))).filter((o) => I(o.id).type !== 'checkin');
+// what a bad day moves on: the day as it would be on Today (generic items give way to specific ones), without breaks or doubles (the owner, 2026-11-24)
+const badMoved = (d) => { const seen = new Set(); return slotDrop(dayListRaw(d, true), d).flatMap((x) => x.items.map((id) => ({ id, b: x.b }))).filter((o) => { const it = I(o.id); if (!it || it.type === 'checkin' || it.brk || seen.has(o.id)) return false; seen.add(o.id); return true; }); };
 function dayList(d) { const out = dayListRaw(d); if (frozenOf(d)) return out;
   if (isBad(d)) { out.forEach((x) => { x.items = []; }); return out; }
   const run = []; for (let p = addDays(d, -1); run.length < 30 && isBad(p) && M.badDays[p] !== 'skip'; p = addDays(p, -1)) run.push(p); // a skipped day made bad excuses the day, its work doesn't pile onto today
   run.forEach((p) => dayListRaw(p, true).forEach((x) => x.items.forEach((id) => {
     if (I(id).type === 'checkin' || run.some((q) => isDone(id, q)) || out.some((z) => z.items.includes(id))) return;
-    const y = out.find((z) => z.b === x.b); if (y) y.items.push(id); })));
+    const y = out.find((z) => z.b === x.b); if (!y) return; const i = x.items.indexOf(id);
+    // it goes back in its usual spot: after the item it normally follows, or before the one it normally comes before (the owner, 2026-11-24)
+    const prev = x.items.slice(0, i).reverse().find((k) => y.items.includes(k)), next = x.items.slice(i + 1).find((k) => y.items.includes(k));
+    if (prev) y.items.splice(y.items.indexOf(prev) + 1, 0, id); else if (next) y.items.splice(y.items.indexOf(next), 0, id); else y.items.push(id); })));
   return out; }
 // A task set to follow every workout (a shower) goes right after the workout, in the same block when there's room for it, otherwise
 // first thing in the next block (2026-11-11). Room = the block's length against the minutes already in it.
@@ -681,7 +685,7 @@ function renderToday() {
   h += `<div class="stack" ${d < T0 ? '' : 'data-list="g-blocks"'} style="margin-top:${S.edit ? 0 : 6}px">${blocksH || (bad && !S.edit ? '' : `<p class="empty">${live ? 'Nothing left for today.' : d < T0 ? 'Nothing was ticked that day.' : 'Nothing planned that day yet.'}</p>`)}</div>`;
   if (S.edit) h += `<div style="margin-top:10px">${badCard()}</div>`;
   // what was scheduled before I made it a bad day, in case I feel like doing more
-  if (bad && !S.edit) { const mv = badMoved(d); if (mv.length) h += `<div class="donebox"><button class="donebtn" data-a="showmoved">${fold(S.showMoved)} Scheduled · ${mv.length} moved to the next normal day</button>
+  if (bad && !S.edit) { const mv = badMoved(d); if (mv.length) h += `<div class="donebox"><button class="donebtn" data-a="showmoved">${fold(S.showMoved)} Rescheduled · ${mv.length}</button>
       ${S.showMoved ? `<div class="list">${mv.map((o) => itemRow(o.id, o.b, d)).join('')}</div>` : ''}</div>`; }
   if (S.edit) h += `<div style="margin-top:10px"><button class="addcard" data-a="addblock">+ Add day block</button></div>`;
   if (live && !S.edit) {
@@ -712,13 +716,13 @@ function schedChore(id, d) { if (!isDone(id, d)) return true; const w = (I(id) |
 function slotDrop(out, d = T0) {
   const all = out.flatMap((x) => x.items); const sids = typeof subjIds === 'function' ? new Set(subjIds().flatMap(sIds)) : new Set(); const cids = typeof choreIds === 'function' ? new Set(choreIds()) : new Set();
     const tids = typeof trainCats === 'function' ? new Set(trainCats().flatMap(kidsOf)) : new Set(); const hobOn = typeof hobArea === 'function' && all.some((id) => hobArea(id));
-    const studyOn = all.some((id) => sids.has(id) || (I(id) && I(id).part && sids.has(I(id).part))), choreOn = all.some((id) => cids.has(id) && !(M.half || {})[id] && schedChore(id, d)), moveOn = all.some((id) => tids.has(id));
+    const studyOn = all.some((id) => sids.has(id) || (I(id) && I(id).part && sids.has(I(id).part))), choreOn = all.some((id) => cids.has(id) && ((M.half || {})[id] || schedChore(id, d))), moveOn = all.some((id) => tids.has(id));
     if (studyOn || choreOn || moveOn || hobOn) out.forEach((x) => { x.items = x.items.filter((id) => !(I(id) && I(id).type === 'slot' && ((I(id).opens === 'study' && studyOn) || (I(id).opens === 'chores' && choreOn) || (I(id).opens === 'training' && moveOn) || (I(id).opens === 'hobbies' && hobOn)))); });
   return out; }
 // Schedule: a day with a real chore drops the generic chore item, and the chores without a set time take its place in
 // the day (its block and spot), unless I moved them myself that day (the owner, 2026-11-24)
 function choreSwap(DL, d) {
-  DL = genSwap(DL, d, 'chores', new Set(choreIds()), (id) => !(M.half || {})[id] && schedChore(id, d));
+  DL = genSwap(DL, d, 'chores', new Set(choreIds()), (id) => !!(M.half || {})[id] || schedChore(id, d)); // a started two-parter counts too (2026-11-24)
   // scheduled training does the same to the generic movement item (the owner, 2026-11-24)
   return typeof trainCats === 'function' ? genSwap(DL, d, 'training', new Set(trainCats().flatMap(kidsOf)), () => true) : DL; }
 function genSwap(DL, d, opens, ids, ok) { const isSlot = (id) => I(id) && I(id).type === 'slot' && I(id).opens === opens;
@@ -829,7 +833,7 @@ function renderSchedule() {
       const inner = !dayV ? '' : bk ? `<span class="bkt"><span>${inm(it)}</span></span>` : `<span class="bn">${inm(it)}</span><span class="bt">${estHM((o.b - o.a) / 60)}</span>`; // the time it takes, not when it starts (2026-11-23)
       const fd = faded(di, o);
       const mv = it.type !== 'checkin' && d >= T0; // set-time items and appointments move too, snapping to what's around them (2026-11-13)
-      return `<button class="box ${dayV ? 'wide' : ''} ${mv ? 'mv' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && it.brk ? ' brk' : ''}" style="top:${top}px;height:${ht}px;--c:${c};--bg:${fd ? mix(c, TH.page, 0.5) : c};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" data-from="${o.a}" data-to="${o.b}" aria-label="${esc(tnm(it))}, ${fmtHM(o.a)}">${inner}</button>`; }).join('') + '</div>';
+      return `<button class="box ${dayV ? 'wide' : ''} ${ht < 20 ? 'xs' : ht < 30 ? 'sm' : ''} ${mv ? 'mv' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && it.brk ? ' brk' : ''}" style="top:${top}px;height:${ht}px;--c:${c};--bg:${fd ? mix(c, TH.page, 0.5) : c};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" data-from="${o.a}" data-to="${o.b}" aria-label="${esc(tnm(it))}, ${fmtHM(o.a)}">${inner}</button>`; }).join('') + '</div>';
   });
   S.ymap = { y, h0, h1, zones: blockIds().filter((b) => OV[b]).map((b) => ({ b, top: yIn(ends[b], b), h: OV[b] / 60 * PX, e: ends[b], ov: OV[b] })) };
   h += '</div>';
@@ -897,6 +901,10 @@ function renderAppts() {
 }
 
 // ---------- layer: menu, sheets, toast ----------
+// clear everything logged before today, keeping every item, note and setting (the owner, 2026-11-24)
+const LOG_KEYS = ['log', 'snap', 'frozen', 'feel', 'photos', 'study', 'support', 'missed', 'badDays', 'dayMove', 'dayOrder', 'dayTime', 'dayTack', 'foodMark', 'rOpen', 'training'];
+function clearOldLogs() { LOG_KEYS.forEach((k) => { const o = M[k]; if (!o || typeof o !== 'object' || Array.isArray(o)) return; Object.keys(o).forEach((d) => { if (/^\d{4}-\d\d-\d\d$/.test(d) && d < T0) delete o[d]; }); });
+  if (Array.isArray(M.events)) M.events = M.events.filter((e) => !e.day || e.day >= T0); }
 // Every delete asks first (2026-11-02). Returns the question, or null when the action needs none.
 function askDelete(act, a, ref, v) {
   const nm = (x) => x ? '“' + x + '”' : 'this';
@@ -945,7 +953,7 @@ function sheetLayer() { let h = '';
   return h; }
 function renderLayer() { setTimeout(navTrack, 0);
   let h = vLayer() + insLayer();
-  if (S.menu) h += `<div class="scrim" style="background:transparent" data-a="closemenu"></div><div class="menu" role="menu"><span class="mundo"><button role="menuitem" data-a="histundo" ${HIST.past.length ? '' : 'disabled'}>Undo</button><button role="menuitem" data-a="histredo" ${HIST.fut.length ? '' : 'disabled'}>Redo</button></span>${vMenu()}<span class="mono">Data</span><button role="menuitem" data-a="insopen">Insight</button>${bkMenu()}<span class="mono">App</span><button role="menuitem" data-a="toggleedit">${S.edit ? 'Finish editing' : 'Edit'}</button>
+  if (S.menu) h += `<div class="scrim" style="background:transparent" data-a="closemenu"></div><div class="menu" role="menu"><span class="mundo"><button role="menuitem" data-a="histundo" ${HIST.past.length ? '' : 'disabled'}>Undo</button><button role="menuitem" data-a="histredo" ${HIST.fut.length ? '' : 'disabled'}>Redo</button></span>${vMenu()}<span class="mono">Data</span><button role="menuitem" data-a="insopen">Insight</button>${bkMenu()}<button role="menuitem" data-a="askclearold">Clear old logs</button><span class="mono">App</span><button role="menuitem" data-a="toggleedit">${S.edit ? 'Finish editing' : 'Edit'}</button>
     <button role="menuitem" data-a="archopen">Archive</button></div>`;
   // pop-ups stack (2026-11-06): the pop-ups underneath (S.sheet.back, ...) stay drawn but can't be touched; the top one works
   if (S.sheet) { const top = S.sheet, chain = []; for (let x = top; x; x = x.back) chain.unshift(x);
@@ -1341,6 +1349,8 @@ document.addEventListener('click', (e) => {
     case 'badmode': { S.menu = false; const on = !isBad(T0); change(() => { M.badDays = M.badDays || {}; if (on) M.badDays[T0] = true; else delete M.badDays[T0]; }, on ? 'Bad day · the rest moves to the next normal day' : 'Normal day again'); S.day = T0; break; }
     case 'askblank': openSheet({ kind: 'confirm', title: 'Start empty?', msg: 'This removes the example items and ticks. Day blocks, categories and the two check-ins stay.', yes: 'doblank', yesLabel: 'Start empty' }); break;
     case 'askseed': openSheet({ kind: 'confirm', title: 'Put back the examples?', msg: 'This replaces everything with the example items again.', yes: 'doseed', yesLabel: 'Put them back' }); break;
+    case 'askclearold': S.menu = false; openSheet({ kind: 'confirm', title: 'Clear old logs?', msg: 'This deletes everything I logged before today: ticks, check-ins, feelings, study time, meal photos, life events, bad days and skipped days. My items, notes, journal, words, boards, lists, plans and settings stay. Saving a backup first keeps a copy.', yes: 'doclearold', yesLabel: 'Clear old logs' }); break;
+    case 'doclearold': S.sheet = null; change(() => clearOldLogs(), 'Old logs cleared'); break;
     case 'doblank': S.sheet = null; M = blank(); save(); render(); flash('Started empty'); break;
     case 'doseed': S.sheet = null; M = seed(); freezePast(); save(); render(); flash('Examples are back'); break;
     case 'pickday': if (a.dataset.c === 'x') { const t = tripsOn(v)[0]; if (t) { trainingAction('tripopen', a, t.id); break; } S.xday = S.xday === v && v !== T0 ? T0 : v; render(); break; }
@@ -1527,16 +1537,17 @@ document.addEventListener('pointerdown', (e) => { if (e.target.closest('.swmiss'
   const host = row.dataset.ref || row.dataset.appt ? row : row.parentElement; const id = host.dataset.ref || host.dataset.appt; if (!I(id) || I(id).type === 'checkin' || I(id).brk || isDone(id, T0)) return;
   swp = { row, id, x: e.clientX, y: e.clientY, on: false }; });
 document.addEventListener('pointermove', (e) => { const w = swp; if (!w) return; const dx = e.clientX - w.x, dy = e.clientY - w.y;
-  if (!w.on) { if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { swp = null; return; } if (dx < -12 && Math.abs(dx) > Math.abs(dy) * 1.4) { w.on = true; if (lp) { clearTimeout(lp.t); lp = null; } w.row.style.transition = 'none'; } else return; }
+  if (!w.on) { if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { swp = null; return; } if (dx < -12 && Math.abs(dx) > Math.abs(dy) * 1.4) { w.on = true; if (lp) { clearTimeout(lp.t); lp = null; } w.row.style.transition = 'none'; swpClose(); swpBtn(w.row, w.id); } else return; }
   w.dx = Math.max(-110, Math.min(0, dx)); w.row.style.transform = `translateX(${w.dx}px)`; });
 // the swipe doesn't miss by itself (2026-11-10): it slides the row aside and shows a Miss button; a tap anywhere else slides it back
 function swpClose() { document.querySelectorAll('.swmiss').forEach((b) => { const r = b.parentElement; b.remove(); if (r) { r.style.transition = 'transform .2s'; r.style.transform = ''; r.style.opacity = ''; r.classList.remove('swopen'); } }); }
-function swpOpen(row, id) { swpClose(); const b = document.createElement('button'); b.className = 'swmiss'; b.dataset.a = 'miss'; b.dataset.ref = id; b.dataset.d = T0; b.setAttribute('aria-label', 'Miss ' + I(id).name + ' today'); b.innerHTML = icon('circle-slash', 18) + '<span>Miss</span>';
-  row.classList.add('swopen'); row.appendChild(b); row.style.transition = 'transform .18s'; row.style.transform = 'translateX(-84px)'; row.style.opacity = ''; }
+// the Miss it button rides along with the row from the first move, so it slides into view while I drag (the owner, 2026-11-24)
+function swpBtn(row, id) { let b = row.querySelector(':scope > .swmiss'); if (b) return b; b = document.createElement('button'); b.className = 'swmiss'; b.dataset.a = 'miss'; b.dataset.ref = id; b.dataset.d = T0; b.setAttribute('aria-label', 'Miss ' + I(id).name + ' today'); b.textContent = 'Miss it'; row.classList.add('swopen'); row.appendChild(b); return b; }
+function swpOpen(row, id) { document.querySelectorAll('.swmiss').forEach((b) => { if (b.parentElement !== row) { const r = b.parentElement; b.remove(); if (r) { r.style.transition = 'transform .2s'; r.style.transform = ''; r.classList.remove('swopen'); } } }); swpBtn(row, id); row.style.transition = 'transform .18s'; row.style.transform = 'translateX(-84px)'; row.style.opacity = ''; }
 function swpEnd() { const w = swp; swp = null; if (!w || !w.on) return; suppress = true; setTimeout(() => { suppress = false; }, 300);
   if ((w.dx || 0) < -50) { if (navigator.vibrate) navigator.vibrate(8); swpOpen(w.row, w.id); return; }
-  w.row.style.transition = 'transform .25s cubic-bezier(.34,1.56,.64,1), opacity .2s'; w.row.style.transform = ''; w.row.style.opacity = ''; }
-document.addEventListener('pointerup', swpEnd); document.addEventListener('pointercancel', () => { const w = swp; swp = null; if (w && w.on) { w.row.style.transform = ''; w.row.style.opacity = ''; } });
+  w.row.style.transition = 'transform .25s cubic-bezier(.34,1.56,.64,1), opacity .2s'; w.row.style.transform = ''; w.row.style.opacity = ''; const r = w.row; setTimeout(() => { if (r.style.transform) return; const b = r.querySelector(':scope > .swmiss'); if (b) b.remove(); r.classList.remove('swopen'); }, 260); }
+document.addEventListener('pointerup', swpEnd); document.addEventListener('pointercancel', () => { const w = swp; swp = null; if (w && w.on) { w.row.style.transform = ''; w.row.style.opacity = ''; const b = w.row.querySelector(':scope > .swmiss'); if (b) b.remove(); w.row.classList.remove('swopen'); } });
 document.addEventListener('pointerdown', (e) => { if (document.querySelector('.swmiss') && !e.target.closest('.swmiss')) swpClose(); }, true);
 // a sideways two-finger swipe on a touchpad does the same
 let swWheel = { id: null, sum: 0, t: 0 };
