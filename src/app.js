@@ -551,7 +551,7 @@ function itemRow(id, list, d) {
   // a break looks like a day block's title (2026-11-11): its icon, its name in small capitals, its length on the right
   if (it.brk) { const ln = `${it.time ? esc(it.time) + ' · ' : ''}${estHM((it.dur || 15) / 60)}`;
     // outside edit mode it's a minimal title like the block titles on Schedule (2026-11-11): dashed lines, small capitals
-    if (!S.edit) return `<div class="row brkrow brkmin" data-ref="${id}"><button class="brkt" data-a="${live ? 'open' : 'peek'}" data-ref="${id}" data-d="${d}" aria-label="${esc(tnm(it))}, a break, ${ln}"><span class="bkt"><span>${inm(it)} · ${ln}</span></span></button></div>`;
+    if (!S.edit) return `<div class="row brkrow brkmin" data-ref="${id}"><button class="brkt" data-a="${live ? 'open' : 'peek'}" data-ref="${id}" data-d="${d}" aria-label="${esc(tnm(it))}, a break, ${ln}"><span class="bkt"><span>${inm(it)} · ${estHM((it.dur || 15) / 60)}</span></span></button></div>`;
     return `<div class="row brkrow" data-ref="${id}">${grip()}<span class="nm mono" style="flex:1">${nm(id, it.name)}</span><span class="cnt">${ln}</span>${tail(id, list)}</div>`; }
   if (it.type === 'checkin') return `<div class="row" data-ref="${id}" data-fixed="1">${S.edit ? '<span class="grip"></span>' : ''}${tickCircle(id, d, live)}<button class="lbl" data-a="checkin" data-ref="${id}">${nm(id, it.name)}</button><span class="chev">›</span></div>`;
   const much = String(val(d, id) || '').startsWith('much');
@@ -1435,9 +1435,8 @@ document.addEventListener('click', (e) => {
 let lastTick = null;
 document.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('[data-a="tick"],[data-a="vtick"],[data-a="psub"],[data-a="addtick"],.tickbtn,[data-a="stick"],[data-a="rstep"],[data-a="cifinish"]'); if (!b) return;
   const c = b.querySelector('.circ') || b; const r = c.getBoundingClientRect(); lastTick = { t: Date.now(), x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, true);
-function celebrate(kind) { const ph = $('#phone'); if (!ph || !lastTick) return; const P = ph.getBoundingClientRect(); const ox = lastTick.x - P.left, oy = lastTick.y - P.top; lastTick = null;
-  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const mk0 = document.querySelector(`#main .day[data-v="${T0}"] .dd`); if (mk0) mk0.style.opacity = '0'; // the mark waits for its flight
+// a burst of confetti from a point inside the phone (also the study timer, 2026-11-24)
+function confetti(ox, oy) { const ph = $('#phone'); const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const fx = document.createElement('div'); fx.className = 'cfx'; ph.appendChild(fx); setTimeout(() => fx.remove(), 2600);
   if (!calm) { const cols = STONE_PAL.map((x) => x[1]);
     for (let i = 0; i < 70; i++) { const p = document.createElement('i'); const a = Math.random() * Math.PI * 2, v = 90 + Math.random() * 170, w = 5 + Math.random() * 5;
@@ -1445,6 +1444,11 @@ function celebrate(kind) { const ph = $('#phone'); if (!ph || !lastTick) return;
       const dx = Math.cos(a) * v, dy = Math.sin(a) * v - 60, sp = (Math.random() - 0.5) * 900;
       p.animate([{ transform: 'translate(-50%,-50%) rotate(0deg)', opacity: 1 }, { transform: `translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px)) rotate(${sp / 2}deg)`, opacity: 1, offset: 0.45 },
         { transform: `translate(calc(-50% + ${dx * 1.25}px),calc(-50% + ${dy + 260}px)) rotate(${sp}deg)`, opacity: 0 }], { duration: 1500 + Math.random() * 700, easing: 'cubic-bezier(.15,.7,.35,1)', fill: 'forwards' }); } }
+  return fx; }
+function celebrate(kind) { const ph = $('#phone'); if (!ph || !lastTick) return; const P = ph.getBoundingClientRect(); const ox = lastTick.x - P.left, oy = lastTick.y - P.top; lastTick = null;
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const mk0 = document.querySelector(`#main .day[data-v="${T0}"] .dd`); if (mk0) mk0.style.opacity = '0'; // the mark waits for its flight
+  const fx = confetti(ox, oy);
   // the mark: from the row up to today's cell, where it settles in
   const main = $('#main'); if (main && main.scrollTop > 0) main.scrollTo({ top: 0, behavior: calm ? 'auto' : 'smooth' });
   // the flight follows the cell while the page scrolls up, and grows to the cell mark's own size, so it lands exactly on it (2026-11-09)
