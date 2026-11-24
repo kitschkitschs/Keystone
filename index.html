@@ -4569,7 +4569,7 @@ function vNew(gid) { const g = G(gid); if (!g) return; const st = g.style;
   const D = { name: '', type: 'task', kind: 'behaviour', tags: [], made: T0, dur: 20, insight: true };
   // every new item starts with no frequency (2026-11-11)
   if (st === 'room' || gid === 'g-tend') D.when = { mode: 'once', date: null };
-  else if (st === 'tcat') Object.assign(D, { when: { mode: 'once', date: null }, dur: 45 });
+  else if (st === 'tcat') Object.assign(D, { when: { mode: 'once', date: null }, dur: 45, persist: true }); // training items are persistent by default (2026-11-24)
   else if (st === 'sgroup') Object.assign(D, { when: { mode: 'once', date: null }, est: 1, dur: 60, insight: false });
   else Object.assign(D, { when: { mode: 'once', date: gid === 'g-prep' ? T0 : null }, insight: false }, {});
   const title = st === 'tcat' ? 'New session · ' + g.name : st === 'room' ? 'New job · ' + g.name : gid === 'g-tend' ? 'New thing to tend' : gid === 'g-prep' ? 'New prep' : gid === 'g-oneoff' ? 'New chore' : 'New study task';
@@ -5334,6 +5334,8 @@ function tMigrate(m) {
   if (!m.settings.conds3) { m.settings.conds3 = true; if (m.example) { m.conds = m.conds || []; const ago = (n) => { const x = new Date(); x.setDate(x.getDate() - n); return iso(x); };
     [['cs-mig', 'Migraine week', 22, 17], ['cs-iron', 'Low iron, tired', 9, null], ['cs-hip', 'Tight hip flexor', 52, 44, 1]].forEach(([id, name, a, b, f]) => { if (!m.conds.some((x) => x.id === id)) m.conds.push(Object.assign({ id, name, start: ago(a), sample: true }, b === null ? {} : { end: ago(b) }, f ? { fit: true } : {})); }); } }
   if (!m.settings.conds2) { m.settings.conds2 = true; (m.conds || []).forEach((x) => { if (x.id === 'cs-shin' || x.id === 'cs-knee') x.fit = true; }); }
+  // every training item is persistent, like hobby activities: a one-off session stays after its tick (the owner, 2026-11-24)
+  if (!m.settings.trpersist1 && m.groups['g-train']) { m.settings.trpersist1 = true; m.groups['g-train'].kids.forEach((c) => ((m.groups[c] || {}).kids || []).forEach((k) => { const it = m.items[k]; if (it && it.type === 'task' && (!it.when || it.when.mode === 'once')) it.persist = true; })); }
   if (m.settings.train1) return; m.settings.train1 = true; const ex = !!m.example; m.log = m.log || {};
   m.groups['g-train'] = m.groups['g-train'] || { name: 'Training', holds: 'tcats', kids: [] };
   TCATS.forEach(([id, name, color, ic]) => { if (!m.groups[id]) { m.groups[id] = { name, style: 'tcat', holds: 'task', color, icon: ic, kids: [] }; m.groups['g-train'].kids.push(id); } });
@@ -5694,7 +5696,7 @@ setInterval(() => { const R = M && M.wrun; if (!R || !R.tm || R.tm.state !== 'ru
 
 // ---------- actions ----------
 function woNewItem(name) { const cat = trainCats().includes('tc-work') ? 'tc-work' : trainCats()[0]; if (!cat) return null; const id = uid('wo');
-  M.items[id] = { name, type: 'task', kind: 'behaviour', tags: [], made: T0, dur: 45, insight: true, when: { mode: 'once', date: null }, wo: { follow: 'list', ex: [] } }; G(cat).kids.push(id); return id; }
+  M.items[id] = { name, type: 'task', kind: 'behaviour', tags: [], made: T0, dur: 45, insight: true, when: { mode: 'once', date: null }, persist: true, wo: { follow: 'list', ex: [] } }; G(cat).kids.push(id); return id; }
 function woRemoveEx(x) { Object.values(M.items).forEach((it) => { if (it.wo) it.wo.ex = it.wo.ex.filter((e) => e.x !== x); if (it.exs) it.exs = it.exs.filter((k) => k !== x); }); M.exercises = exList().filter((e) => e.id !== x); }
 function workoutAction(act, a, ref, v) {
   const R = M.wrun;
