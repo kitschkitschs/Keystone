@@ -364,40 +364,52 @@ const T_C = 2 * Math.PI * 104;
 const tShown = () => { const id = M.timer && M.timer.id && I(M.timer.id) ? M.timer.id : null; return tElapsed() + (id ? 0 : minOn(null, T0) * 60000 + supMs()); };
 const tRule = () => { const m = Math.floor(minOn(null, T0) + supMin(T0) + tElapsed() / 60000); return m >= sessLen() ? dur(m) + ' today · session done' : m + ' of ' + sessLen() + ' min today'; };
 // ---------- timer extras (Patch 2, the owner, 2026-11-24): confetti when the session fills, a ding, break reminders, pomodoro ----------
-const TMR_DEF = { mode: 'free', rem: 0, work: 25, short: 5, long: 15, every: 4, sound: true };
-const tmr = () => Object.assign({}, TMR_DEF, (M.settings || {}).timer || {});
+const TMR_DEF = { mode: 'free', rem: 0, brk: 5, work: 25, rounds: 4, sound: true };
+// Patch 3 (the owner, 2026-11-24): pomodoro is only focus, break and rounds; a break shows in the ring for both modes
+const tmr = () => { const o = Object.assign({}, TMR_DEF, (M.settings || {}).timer || {}); if (o.short && !((M.settings.timer || {}).brk)) o.brk = o.short; delete o.short; delete o.long; delete o.every; return o; };
 let dingCtx = null;
 function ding() { if (!tmr().sound) return; try { dingCtx = dingCtx || new (window.AudioContext || window.webkitAudioContext)(); const c = dingCtx; if (c.state === 'suspended') c.resume(); const t = c.currentTime;
   [[1318.5, 0.32, 1.8], [2637, 0.08, 0.9], [3956, 0.03, 0.5]].forEach(([f, g, len]) => { const o = c.createOscillator(), v = c.createGain(); o.type = 'sine'; o.frequency.value = f;
     v.gain.setValueAtTime(0.0001, t); v.gain.exponentialRampToValueAtTime(g, t + 0.008); v.gain.exponentialRampToValueAtTime(0.0001, t + len); o.connect(v).connect(c.destination); o.start(t); o.stop(t + len + 0.05); }); } catch (e) {} }
 const mss = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ':' + pad(s % 60); };
-// what the pomodoro line says: focus time left and which round, or the break counting down
-function pomoText() { const o = tmr(), t = M.timer; if (o.mode !== 'pomo' || !t) return ''; const p = t.pomo || {};
-  if (p.brkEnd) return (p.long ? 'Long break' : 'Break') + ' · ' + mss(p.brkEnd - Date.now()) + ' left';
-  return 'Focus ' + ((p.n || 0) % o.every + 1) + ' of ' + o.every + ' · ' + mss(o.work * 60000 - (tElapsed() - (p.at || 0))) + ' left'; }
-function tmrTick() { const t = M.timer; if (!t) return; const o = tmr(); const now = Date.now();
+const tPz = () => { const t = M.timer; if (!t) return {}; return (t.pz = t.pz || { n: 0, at: 0 }); };
+const brkOn = () => !!(M.timer && tPz().brkEnd);
+const brkLeft = () => Math.max(0, (tPz().brkEnd || 0) - Date.now());
+// focus length for this stretch: the pomodoro's focus, or the time between break reminders; 0 = no breaks
+const focusLen = () => { const o = tmr(); return (o.mode === 'pomo' ? o.work : o.rem) * 60000; };
+// the line under the clock's progress: the break, or how long until the next one
+function pomoText() { const o = tmr(), t = M.timer; if (!t) return ''; const p = tPz();
+  if (p.brkEnd) return 'Back to it in ' + mss(brkLeft());
+  if (o.mode === 'pomo') return p.done ? 'All ' + o.rounds + ' rounds done' : 'Round ' + Math.min(o.rounds, (p.n || 0) + 1) + ' of ' + o.rounds + ' · ' + mss(focusLen() - (tElapsed() - (p.at || 0))) + ' left';
+  return o.rem ? 'Break in ' + mss(focusLen() - (tElapsed() - (p.at || 0))) : ''; }
+function startBreak(now) { const t = M.timer, o = tmr(), p = tPz(); if (t.start) { t.acc = (t.acc || 0) + now - t.start; t.start = null; } p.brkEnd = now + o.brk * 60000; ding(); flash('Time for a break'); }
+function tmrTick() { const t = M.timer; if (!t) return; const o = tmr(); const now = Date.now(); const p = tPz();
   // the ring fills: confetti from the clock and a ding, once a day
   if (t.start && tPct() >= 100 && t.fxDay !== T0 && minOn(null, T0) + supMin(T0) < sessLen()) { t.fxDay = T0; ding(); const r = document.querySelector('#main .vring'), ph = $('#phone'); if (r && ph) { const R = r.getBoundingClientRect(), P = ph.getBoundingClientRect(); confetti(R.left + R.width / 2 - P.left, R.top + R.height / 2 - P.top); } save(); }
-  if (o.mode === 'pomo') { const p = t.pomo = t.pomo || { n: 0, at: 0 };
-    if (p.brkEnd && now >= p.brkEnd) { p.brkEnd = null; p.long = false; p.at = tElapsed(); ding(); flash('Break over'); save(); render(); }
-    else if (!p.brkEnd && t.start && tElapsed() - (p.at || 0) >= o.work * 60000) { t.acc = (t.acc || 0) + now - t.start; t.start = null; p.n = (p.n || 0) + 1; p.long = p.n % o.every === 0; p.brkEnd = now + (p.long ? o.long : o.short) * 60000; ding(); flash(p.long ? 'Time for a long break' : 'Time for a break'); save(); render(); } }
-  else if (o.rem > 0 && t.start) { if (!t.remAt) t.remAt = tElapsed() + o.rem * 60000; else if (tElapsed() >= t.remAt) { t.remAt = tElapsed() + o.rem * 60000; ding(); flash('Time for a break'); save(); } } }
+  if (p.brkEnd) { if (now >= p.brkEnd) { p.brkEnd = null; p.at = tElapsed(); ding(); flash('Break over'); save(); render(); } return; }
+  if (!t.start || !focusLen() || p.done) return;
+  if (tElapsed() - (p.at || 0) >= focusLen()) { if (o.mode === 'pomo') { p.n = (p.n || 0) + 1; if (p.n >= o.rounds) { t.acc = (t.acc || 0) + now - t.start; t.start = null; p.done = true; ding(); flash('All rounds done'); save(); render(); return; } }
+    startBreak(now); save(); render(); } }
 setInterval(tmrTick, 1000);
-const tmrLine = () => { const o = tmr(); return o.mode === 'pomo' ? 'Pomodoro ' + o.work + '/' + o.short : o.rem ? 'Break every ' + dur(o.rem) : 'No break reminders'; };
+const tmrLine = () => { const o = tmr(); return o.mode === 'pomo' ? 'Pomodoro · ' + o.work + ' min, ' + o.brk + ' min break, ' + o.rounds + ' rounds' : o.rem ? 'Break every ' + dur(o.rem) + ' for ' + dur(o.brk) : 'No breaks'; };
 function tmrSheet() { const o = tmr(); const step = (k, l, unit, d) => `<div class="tg"><span class="l">${l}</span><span class="inrow" style="gap:10px;margin:0"><button class="btn" data-a="vtm" data-ref="${k}" data-v="-${d}" aria-label="Less">−</button><b class="tmv">${o[k] ? o[k] + unit : 'Off'}</b><button class="btn" data-a="vtm" data-ref="${k}" data-v="${d}" aria-label="More">+</button></span></div>`;
-  return `<div class="fld"><span class="mono">Mode</span><div class="chips">${[['free', 'Free'], ['pomo', 'Pomodoro']].map(([k, l]) => `<button class="chip" data-a="vtmode" data-v="${k}" aria-pressed="${o.mode === k}">${l}</button>`).join('')}</div></div>
-    <div class="fld calset">${o.mode === 'pomo' ? step('work', 'Focus', ' min', 5) + step('short', 'Short break', ' min', 1) + step('long', 'Long break', ' min', 5) + step('every', 'Long break after', ' rounds', 1) : step('rem', 'Break reminder every', ' min', 5)}
+  return `<div class="fld"><span class="mono">Mode</span><div class="chips">${[['free', 'Breaks'], ['pomo', 'Pomodoro']].map(([k, l]) => `<button class="chip" data-a="vtmode" data-v="${k}" aria-pressed="${o.mode === k}">${l}</button>`).join('')}</div></div>
+    <div class="fld calset">${o.mode === 'pomo' ? step('work', 'Focus', ' min', 5) + step('brk', 'Break', ' min', 1) + step('rounds', 'Rounds', '', 1) : step('rem', 'Break every', ' min', 5) + (o.rem ? step('brk', 'Break', ' min', 1) : '')}
     <div class="tg"><span class="l">Ding</span><button class="swt" role="switch" aria-checked="${o.sound}" data-a="vtsound" aria-label="Ding"></button></div></div>`; }
+// what the ring and clock show: a break counts down in a quiet colour, otherwise the day's study
+const ringPct = () => brkOn() ? brkLeft() / (tmr().brk * 60000) * 100 : tPct();
+const clockMs = () => brkOn() ? brkLeft() : tShown();
+const ruleText = () => brkOn() ? 'Break' : tRule();
 // the timer (polished, 2026-11-10): what I'm working on, the clock inside a ring that fills up to one study session, one line of progress, the buttons
 function timerPage() {
   const t = M.timer || {}; const id = t.id && I(t.id) ? t.id : null; const run = !!t.start, any = tElapsed() > 0; const col = M.areas.study.color;
   const sub = id ? (() => { const s = subjIds().find((x) => sIds(x).includes(id)); return s ? G(s).name : ''; })() : '';
   return (S.studyMode ? '' : crumbs([[studyName(), ''], ['Timer']])) + `<div class="vtimer">
     <button class="vtt" data-a="vtpick" aria-label="Change what I'm working on">${esc(id ? I(id).name : 'Study session')} <span class="chev" aria-hidden="true">${icon('chevron-down', 14)}</span></button><span class="mono vtsub">${esc(sub)}</span>
-    <div class="vring"><svg viewBox="0 0 224 224" aria-hidden="true"><circle cx="112" cy="112" r="104" fill="none" stroke="var(--soft)" stroke-width="8"/><circle id="tring" cx="112" cy="112" r="104" fill="none" stroke="${col}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${T_C}" stroke-dashoffset="${T_C * (1 - tPct() / 100)}" transform="rotate(-90 112 112)"/></svg><div class="vclock ${run ? '' : 'idle'}" id="tclock" role="timer">${fmtClock(tShown())}</div></div>
-    <span class="mono" id="trule">${tRule()}</span>${tmr().mode === 'pomo' ? `<span class="mono tpomo" id="tpomo">${esc(pomoText())}</span>` : ''}
+    <div class="vring"><svg viewBox="0 0 224 224" aria-hidden="true"><circle cx="112" cy="112" r="104" fill="none" stroke="var(--soft)" stroke-width="8"/><circle id="tring" cx="112" cy="112" r="104" fill="none" stroke="${brkOn() ? 'var(--faint)' : col}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${T_C}" stroke-dashoffset="${T_C * (1 - ringPct() / 100)}" transform="rotate(-90 112 112)"/></svg><div class="vclock ${run || brkOn() ? '' : 'idle'}" id="tclock" role="timer">${fmtClock(clockMs())}</div></div>
+    <span class="mono${brkOn() ? ' tbrk' : ''}" id="trule">${esc(ruleText())}</span><span class="mono tpomo" id="tpomo">${esc(pomoText())}</span>
     <div class="btns" style="justify-content:center"><button class="btn dark vtgo" data-a="${run ? 'tpause' : 'tstart'}">${run ? 'Pause' : any ? 'Carry on' : 'Start'}</button>${run || any ? '<button class="btn" data-a="tstop">Stop and save</button>' : ''}</div>
-    <button class="tmrset mono" data-a="vtmr">${icon('sliders-horizontal', 14)}<span>${esc(tmrLine())}</span></button></div>`;
+    <button class="btn tmrset" data-a="vtmr">${esc(tmrLine())}</button></div>`;
 }
 // Study support is a normal journal page with the tag 'Study support' (2026-11-10): today's one opens, or a new one starts
 const SUP_TAG = 'Study support'; // its pages also carry 'Studies' (the owner, 2026-11-12)
@@ -414,7 +426,7 @@ function saveTimer(msg) { const t = M.timer; if (!t) return; const min = Math.ro
   change(() => { M.study = M.study || {}; (M.study[T0] = M.study[T0] || []).push({ id, min }); L(T0); }, msg || ('Saved ' + dur(min) + (before < sessLen() && before + min >= sessLen() ? ' · study session done' : '')), false); }
 let supT = 0;
 setInterval(() => {
-  const c = document.getElementById('tclock'); if (c && M.timer && M.timer.start) { c.textContent = fmtClock(tShown()); const b = document.getElementById('tring'); if (b) b.setAttribute('stroke-dashoffset', T_C * (1 - tPct() / 100)); const r = document.getElementById('trule'); if (r) r.textContent = tRule(); }
+  const c = document.getElementById('tclock'); if (c && M.timer && (M.timer.start || brkOn())) { c.textContent = fmtClock(clockMs()); const b = document.getElementById('tring'); if (b) b.setAttribute('stroke-dashoffset', T_C * (1 - ringPct() / 100)); const r = document.getElementById('trule'); if (r) r.textContent = ruleText(); }
   { const pe = document.getElementById('tpomo'); if (pe) pe.textContent = pomoText(); }
   // Study support time runs only while writing (typed in the last 20 seconds), and pauses when you stop
   if (supOn() && S.supLast && Date.now() - S.supLast < 20000) {
@@ -448,7 +460,7 @@ function vLayer() {
 }
 // the two study mode buttons; in edit mode a tap changes the icon (2026-11-10)
 const studyBar = () => [['timer', 'Timer', 'timer'], ['support', 'Study support', 'heart-handshake']].map(([v, l, ic]) => { const on = v === 'timer' ? S.stv === 'timer' && S.area === 'study' : supOn();
-  return `<button ${S.edit ? `data-a="iconfor" data-v="ui:sm-${v}"` : `data-a="vstv" data-v="${v}"`} aria-label="${S.edit ? 'Change the icon for ' + l : l}" ${on ? 'aria-current="page"' : ''} style="color:${on ? M.areas.study.color : '#857E73'}"><span class="pill" style="background:${on ? M.areas.study.color + '38' : 'transparent'};${S.edit ? 'outline:1.5px dashed var(--faint);outline-offset:2px' : ''}">${icon(uiIc('sm-' + v, ic), 24, on ? 2 : 1.6)}</span></button>`; }).join('');
+  return `<button ${S.edit ? `data-a="iconfor" data-v="ui:sm-${v}"` : `data-a="vstv" data-v="${v}"`} aria-label="${S.edit ? 'Change the icon for ' + l : l}" ${on ? 'aria-current="page"' : ''} style="color:${on ? 'var(--ink)' : 'var(--faint)'}"><span class="pill" style="background:transparent;${S.edit ? 'outline:1.5px dashed var(--faint);outline-offset:2px' : ''}">${icon(uiIc('sm-' + v, ic), 24, on ? 2 : 1.6)}</span></button>`; }).join('');
 function vMenu() {
   let h = '';
   // no 'This page' group in the menu any more (2026-11-06), except a project's On hold / Finished (2026-11-08)
@@ -529,10 +541,10 @@ function verdictAction(act, a, ref, v) {
     case 'vtpick': openSheet({ kind: 'vtpick', title: 'Working on' }); return true;
     case 'vtset': { const t = M.timer; if (t && tElapsed() > 0 && (t.id || '') !== v) saveTimer(); M.timer = Object.assign(M.timer || { start: null, acc: 0 }, { id: v || null }); S.sheet = null; save(); render(); return true; }
     case 'tstart': { try { dingCtx = dingCtx || new (window.AudioContext || window.webkitAudioContext)(); dingCtx.resume(); } catch (e) {} // sound needs a tap first on phones
-      M.timer = Object.assign(M.timer || { id: null, acc: 0 }, { start: Date.now() }); const p = M.timer.pomo; if (p && p.brkEnd) { p.brkEnd = null; p.long = false; p.at = tElapsed(); } save(); render(); return true; }
+      M.timer = Object.assign(M.timer || { id: null, acc: 0 }, { start: Date.now() }); const p = tPz(); if (p.brkEnd || p.done) { if (p.done) p.n = 0; p.brkEnd = null; p.done = false; p.at = tElapsed(); } save(); render(); return true; }
     case 'vtmr': openSheet({ kind: 'vtmr', title: 'Timer' }); return true;
-    case 'vtmode': M.settings.timer = Object.assign(tmr(), { mode: v }); if (M.timer) { M.timer.pomo = { n: 0, at: tElapsed() }; M.timer.remAt = 0; } save(); renderLayer(); render(); return true;
-    case 'vtm': { const o = tmr(); const lim = { work: [5, 90], short: [1, 30], long: [5, 60], every: [2, 8], rem: [0, 120] }[ref]; o[ref] = Math.max(lim[0], Math.min(lim[1], (o[ref] || 0) + (+v))); M.settings.timer = o; if (M.timer) M.timer.remAt = 0; save(); renderLayer(); render(); return true; }
+    case 'vtmode': M.settings.timer = Object.assign(tmr(), { mode: v }); if (M.timer) M.timer.pz = { n: 0, at: tElapsed() }; save(); renderLayer(); render(); return true;
+    case 'vtm': { const o = tmr(); const lim = { work: [5, 90], brk: [1, 30], rounds: [1, 12], rem: [0, 120] }[ref]; o[ref] = Math.max(lim[0], Math.min(lim[1], (o[ref] || 0) + (+v))); M.settings.timer = o; save(); renderLayer(); render(); return true; }
     case 'vtsound': M.settings.timer = Object.assign(tmr(), { sound: !tmr().sound }); save(); renderLayer(); if (tmr().sound) ding(); return true;
     case 'tpause': { const t = M.timer; if (t && t.start) { t.acc = (t.acc || 0) + Date.now() - t.start; t.start = null; } save(); render(); return true; }
     case 'tstop': saveTimer(); return true;

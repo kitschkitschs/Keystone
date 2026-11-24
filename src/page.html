@@ -945,7 +945,7 @@ nav.areas.two{justify-content:space-evenly} /* study mode: its two icons spaced 
 
 /* dark mode (2026-11-08, from the cleaning-system reference): warm near-black page, soft charcoal cards with a faint light edge */
 /* ===== Stone (2026-11-23): the look over the whole app. Square corners, hairlines, small spaced caps, one ink. ===== */
-#phone *:not(.dot,.fdd,.cfmark,.hdot,.ovdot,.badot,.xdot,.dd,.d,.xdots i,.ci-ic,.whl *){border-radius:0!important} /* every corner square; dots and the wheel stay round */
+#phone *:not(.dot,.fdd,.cfmark,.hdot,.ovdot,.badot,.xdot,.dd,.d,.xdots i,.ci-ic,.whl *,.ihz i,.ihzm i){border-radius:0!important} /* every corner square; dots and the wheel stay round */
 .card,.lcard,.hsec{background:transparent;box-shadow:none;border:0}
 .btn,.chip,.fbtn,.scale button,.tag,.hchip,.pick,.menu{box-shadow:none}
 header.top{padding-right:16px}#plusbtn,#menubtn{width:22px}#menubtn{margin:0 0 0 18px}#donebtn{margin-left:12px} /* the top bar icons keep the same 16px from the edge as the title (2026-11-23) */
@@ -1109,13 +1109,26 @@ input[type=range]::-moz-range-thumb{background:var(--ink);border-color:var(--ink
 #view .htabs button[aria-selected="true"]{border-color:var(--quiet);color:var(--ink);font-weight:400}
 #view .htabs button[aria-selected="true"]::after{display:none}
 /* breaks on Today: no side lines, left aligned with the list, only how long they take (2026-11-24) */
-#view .brkt{justify-content:flex-start}#view .brkt::before,#view .brkt::after{display:none}
+#view .brkt{justify-content:flex-start;margin:0;min-height:36px} /* same height as a task row (2026-11-24) */#view .brkt::before,#view .brkt::after{display:none}
 /* study timer extras (2026-11-24): pomodoro line, the settings line under the buttons, the steppers in its sheet */
-.vtimer .tpomo{margin-top:6px;color:var(--ink)}
-.tmrset{display:inline-flex;align-items:center;gap:6px;margin:18px auto 0;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--quiet);min-height:32px}
+.vtimer .tpomo{margin-top:6px;color:var(--quiet)}.vtimer .tpomo:empty{display:none}.vtimer .tbrk{color:var(--ink)}
+.vtimer .tmrset{margin:16px auto 0;font-size:14px;color:var(--ink2)} /* the breaks setting is a plain button saying what's set (2026-11-24) */
 .tmv{font-weight:400;font-size:14px;min-width:64px;text-align:center}
 /* Studies and Home items: no tick box or timer, the whole card is the button (2026-11-24) */
 #view button.vjob{display:block;width:100%}
+/* the opened calendar's month sits in a square box on top of the grid, in the small spaced caps of the block titles (2026-11-24) */
+.calnav{border:1px solid var(--line);margin-top:0;height:40px}
+.calnav span{font:500 10.5px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--ink)}
+/* Insight in Stone (2026-11-24): headings like Today's block titles, square ring ends, serif numbers; the flowers and the avoidance sun stay round */
+#view .ilab{justify-content:center;align-items:center;gap:12px;margin-top:18px;min-height:20px}
+#view .ilab::before,#view .ilab::after{content:"";flex:1;border-top:1px solid var(--line)}#view .ilab::before{order:-1}#view .ilab::after{order:9}
+#view .ilab>.mono{font:500 10.5px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--ink)}
+#view .ilab>span:last-child:not(.mono){font:400 9.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--quiet);text-align:left}
+#view .ilab>span:last-child:not(.mono)::before{content:"· "}
+#view .istats b{font-family:var(--serif);font-weight:400;font-size:22px}
+#view .istats span{font:400 9px var(--mono);letter-spacing:.12em;text-transform:uppercase}
+/* ring names stay readable on top of darker colours: a halo in the page colour (2026-11-24) */
+.irl{text-shadow:0 0 2px var(--page),0 0 2px var(--page),0 0 3px var(--page),1px 0 0 var(--page),-1px 0 0 var(--page),0 1px 0 var(--page),0 -1px 0 var(--page);font-weight:500}
 html.dark{--page:#1D1B19;--paper:#34312C;--rule:#433F39;--card:#2B2926;--ink:#EFEAE2;--ink2:#CFC8BC;--quiet:#A59E92;--faint:#7F786E;--faint2:#5F5952;--line:#3D3934;--line2:#35322E;--soft:#36332F;--wash:#3A3226;--washline:#5C4B33;--star:#C9A86F;--done:#8FA488;color-scheme:dark}
 html.dark .card,html.dark .lcard{background:linear-gradient(160deg,#33302C 0%,#2A2825 60%,#272522 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 1px 2px rgba(0,0,0,.3)}
 html.dark .vcard{box-shadow:none}
