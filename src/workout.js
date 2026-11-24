@@ -180,7 +180,7 @@ setInterval(() => { const R = M && M.wrun; if (!R || !R.tm || R.tm.state !== 'ru
 
 // ---------- actions ----------
 function woNewItem(name) { const cat = trainCats().includes('tc-work') ? 'tc-work' : trainCats()[0]; if (!cat) return null; const id = uid('wo');
-  M.items[id] = { name, type: 'task', kind: 'behaviour', tags: [], made: T0, dur: 45, insight: true, when: { mode: 'once', date: null }, wo: { follow: 'list', ex: [] } }; G(cat).kids.push(id); return id; }
+  M.items[id] = { name, type: 'task', kind: 'behaviour', tags: [], made: T0, dur: 45, insight: true, when: { mode: 'once', date: null }, persist: true, wo: { follow: 'list', ex: [] } }; G(cat).kids.push(id); return id; }
 function woRemoveEx(x) { Object.values(M.items).forEach((it) => { if (it.wo) it.wo.ex = it.wo.ex.filter((e) => e.x !== x); if (it.exs) it.exs = it.exs.filter((k) => k !== x); }); M.exercises = exList().filter((e) => e.id !== x); }
 function workoutAction(act, a, ref, v) {
   const R = M.wrun;

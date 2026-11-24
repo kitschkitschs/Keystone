@@ -13,6 +13,8 @@ function tMigrate(m) {
   if (!m.settings.conds3) { m.settings.conds3 = true; if (m.example) { m.conds = m.conds || []; const ago = (n) => { const x = new Date(); x.setDate(x.getDate() - n); return iso(x); };
     [['cs-mig', 'Migraine week', 22, 17], ['cs-iron', 'Low iron, tired', 9, null], ['cs-hip', 'Tight hip flexor', 52, 44, 1]].forEach(([id, name, a, b, f]) => { if (!m.conds.some((x) => x.id === id)) m.conds.push(Object.assign({ id, name, start: ago(a), sample: true }, b === null ? {} : { end: ago(b) }, f ? { fit: true } : {})); }); } }
   if (!m.settings.conds2) { m.settings.conds2 = true; (m.conds || []).forEach((x) => { if (x.id === 'cs-shin' || x.id === 'cs-knee') x.fit = true; }); }
+  // every training item is persistent, like hobby activities: a one-off session stays after its tick (the owner, 2026-11-24)
+  if (!m.settings.trpersist1 && m.groups['g-train']) { m.settings.trpersist1 = true; m.groups['g-train'].kids.forEach((c) => ((m.groups[c] || {}).kids || []).forEach((k) => { const it = m.items[k]; if (it && it.type === 'task' && (!it.when || it.when.mode === 'once')) it.persist = true; })); }
   if (m.settings.train1) return; m.settings.train1 = true; const ex = !!m.example; m.log = m.log || {};
   m.groups['g-train'] = m.groups['g-train'] || { name: 'Training', holds: 'tcats', kids: [] };
   TCATS.forEach(([id, name, color, ic]) => { if (!m.groups[id]) { m.groups[id] = { name, style: 'tcat', holds: 'task', color, icon: ic, kids: [] }; m.groups['g-train'].kids.push(id); } });

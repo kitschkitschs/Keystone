@@ -521,7 +521,7 @@ function vNew(gid) { const g = G(gid); if (!g) return; const st = g.style;
   const D = { name: '', type: 'task', kind: 'behaviour', tags: [], made: T0, dur: 20, insight: true };
   // every new item starts with no frequency (2026-11-11)
   if (st === 'room' || gid === 'g-tend') D.when = { mode: 'once', date: null };
-  else if (st === 'tcat') Object.assign(D, { when: { mode: 'once', date: null }, dur: 45 });
+  else if (st === 'tcat') Object.assign(D, { when: { mode: 'once', date: null }, dur: 45, persist: true }); // training items are persistent by default (2026-11-24)
   else if (st === 'sgroup') Object.assign(D, { when: { mode: 'once', date: null }, est: 1, dur: 60, insight: false });
   else Object.assign(D, { when: { mode: 'once', date: gid === 'g-prep' ? T0 : null }, insight: false }, {});
   const title = st === 'tcat' ? 'New session · ' + g.name : st === 'room' ? 'New job · ' + g.name : gid === 'g-tend' ? 'New thing to tend' : gid === 'g-prep' ? 'New prep' : gid === 'g-oneoff' ? 'New chore' : 'New study task';
