@@ -44,6 +44,7 @@ function woSheet(s) { const it = I(s.ref); if (!it || !it.wo) return ''; const w
   const left = exList().filter((x) => !w.ex.some((e) => e.x === x.id)).sort((a, b) => a.name.localeCompare(b.name));
   return `<div class="fld"><span class="mono">Name</span><input class="inp" id="woname" data-woname="${s.ref}" value="${esc(it.name)}"></div>
     <div class="fld"><span class="mono">Follow it as</span><div class="chips">${[['list', 'List'], ['one', 'One at a time']].map(([v, l]) => `<button class="chip" data-a="wofollow" data-ref="${s.ref}" data-v="${v}" aria-pressed="${(w.follow || 'list') === v}">${l}</button>`).join('')}</div></div>
+    <div class="tg"><span class="l">Stands in for generic items<span class="sub" style="display:block;font-size:12.5px;color:var(--quiet)">Off for an extra one, like a recovery workout: Movement and Workout stay on my day beside it</span></span><button class="swt" role="switch" aria-checked="${!it.nogen}" data-a="wonogen" data-ref="${s.ref}" aria-label="Stands in for generic items"></button></div>
     <div class="fld"><span class="mono">Exercises · done set by set</span>${rows || '<p class="empty" style="padding:4px 0">No exercises yet.</p>'}
       <select class="inp" data-woadd="${s.ref}" aria-label="Add an exercise"><option value="">+ Add an exercise</option>${left.map((x) => `<option value="${x.id}">${esc(xtn(x))}</option>`).join('')}<option value="__new">New exercise…</option></select></div>
     <div class="btns" style="margin-top:14px"><button class="btn danger" data-a="wodel" data-ref="${s.ref}">Take the exercises off this session</button></div>`; }
@@ -198,6 +199,7 @@ function workoutAction(act, a, ref, v) {
   switch (act) {
     case 'wonew': { let id; change(() => { id = woNewItem('New workout'); }); if (id) openSheet({ kind: 'wo', ref: id, title: 'Workout' }); else flash('Make a training category first'); return true; }
     case 'woedit': openSheet({ kind: 'wo', ref, title: 'Workout' }); return true;
+    case 'wonogen': change(() => { const it = I(ref); if (it.nogen) delete it.nogen; else it.nogen = true; }); return true; // an extra workout leaves the generic items alone (the owner, 2026-11-24)
     case 'wofollow': change(() => { I(ref).wo.follow = v; }); return true;
     case 'wostep': { const [f, d] = v.split('|'); const e = I(S.sheet.ref).wo.ex[+ref]; const x = exOf(e.x) || {}; const step = f === 'n' && x.timed ? 5 : 1;
       change(() => { e[f] = Math.max(f === 'n' && x.timed ? 5 : 1, e[f] + step * (+d)); }); return true; }
