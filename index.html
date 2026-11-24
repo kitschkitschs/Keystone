@@ -2002,7 +2002,7 @@ function placeDay(d) {
   // a started two-part chore's second part sits on Schedule at the time its timer goes off (the owner, 2026-11-13);
   // if something with a set time is there, it falls into the first free spot behind it
   const twoAt = {}; Object.keys(M.half || {}).forEach((id) => { const it = I(id); if (!it || !it.two || isDone(id, d) || isMissed(id, d)) return; const due = new Date(M.half[id].at + (+it.two || 2) * 3600000);
-    const sh = new Date(due); sh.setHours(sh.getHours() - DAY_H); if (iso(sh) !== d || halfDay(M.half[id]) !== d) return; twoAt[id] = due.getHours() * 60 + due.getMinutes() + (iso(due) !== d ? 1440 : 0); });
+    const sh = new Date(due); sh.setHours(sh.getHours() - DAY_H); if (iso(sh) !== d || halfDay(M.half[id]) > d) return; /* due on a later day: it shows on that day (2026-11-24) */ twoAt[id] = due.getHours() * 60 + due.getMinutes() + (iso(due) !== d ? 1440 : 0); });
   // the first part stays where it was; the second part fits itself in after it's due (the owner, 2026-11-24)
   // missed items that come back on their own (an overdue repeat, a task past its date, one moved on from a bad day, an unfinished
   // two-part chore) don't keep their set time: they take the first free spot at the top of their block (2026-11-14)
