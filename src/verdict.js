@@ -161,10 +161,16 @@ function studyVerdict() {
 const subjRank = (s) => { const v = subjVerdict(s); return v.lvl * 1000 + Math.max(0, ...v.tasks.map((t) => t.due !== undefined ? 100 - t.due : t.since)); };
 
 // slots: done when their area was used that day
+// the training items a generic training item stands for: its own category (Workout, Mobility), or for Movement every
+// category that no other generic on my days covers (2026-11-24)
+function slotTrainIds(sid) { const it = typeof sid === 'string' ? I(sid) : sid; if (!it || typeof trainCats !== 'function') return new Set();
+  if (it.tcat) return new Set(kidsOf(it.tcat));
+  const own = new Set(Object.keys(M.items).filter((k) => I(k).type === 'slot' && I(k).tcat && placements(k).some((p) => G(p) && G(p).style === 'dayblock')).map((k) => I(k).tcat));
+  return new Set(trainCats().filter((c) => !own.has(c)).flatMap(kidsOf)); }
 function slotDone(it, d) {
   if (it.opens === 'study') return minOn(null, d) + supMin(d) >= sessLen(); // Study support minutes count toward the day's study minutes (the owner, 2026-11-12)
   if (it.opens === 'chores') return choreIds().some((k) => val(d, k));
-  if (it.opens === 'training') return typeof trainedOn === 'function' && trainedOn(d).length > 0;
+  if (it.opens === 'training') return typeof trainCats === 'function' && [...slotTrainIds(it)].some((k) => isDone(k, d));
   if (it.opens === 'hobbies') return typeof hobIds === 'function' && hobIds().some((h) => hobActs(h).some((k) => val(d, k)) || hobProjs(h).some((p) => (G(p).worked || []).includes(d) || projTasks(p).some((k) => val(d, k))));
   return false; }
 function slotSub(it) { if (it.opens === 'study') { const m = minOn(null, T0), s = supMin(T0); return s >= sessLen() ? 'Study support done' : ''; } // no 'Opens …', the arrow says it (2026-11-04)
