@@ -114,14 +114,14 @@ function renderTraining() {
   if (d !== T0 && !S.edit) return h;
   // no verdict card on Training (2026-11-04)
   // Sessions as Planner rows, one card per category like Today's blocks; adding only in edit mode (2026-11-04)
-  h += `<div class="stack" ${S.edit ? 'data-list="g-train"' : ''} style="margin-top:14px">` + trainCats().map((c) => { const g = G(c); const ks = kidsOf(c); const open = S.edit || S.open['b:' + c] !== false;
+  h += `<div class="stack" ${S.edit ? 'data-list="g-train"' : ''} style="margin-top:14px">` + trainCats().filter((c) => c !== woCat()).map((c) => { const g = G(c); const ks = kidsOf(c); const open = S.edit || S.open['b:' + c] !== false;
     const left = ks.filter((k) => onDay(k, T0) && !isDone(k, T0)).length;
     return `<section class="card" data-ref="${c}"><div class="bhead">${grip()}${S.edit ? `<span class="nm mono" style="font-size:11px;flex:1">${nm(c, g.name)}</span>${tail(c, 'g-train')}`
       : `<button data-a="bopen" data-ref="${c}" aria-expanded="${open}" style="display:flex;align-items:center;gap:8px;width:100%;min-height:44px"><span class="nm mono" style="flex:1">${esc(g.name)}</span><span class="cnt">${left ? left + ' today' : ''}</span>${fold(open)}</button>`}</div>
       ${open ? `<div class="list" data-list="${c}">${ks.map((k) => itemRow(k, c, T0)).join('') || (S.edit ? '' : '<p class="empty">No sessions yet.</p>')}${S.edit ? `<button class="addrow" data-a="vadd" data-v="${c}"><span class="plus">+</span>Add session</button>` : ''}</div>` : ''}</section>`; }).join('') + '</div>';
   if (S.edit) h += `<div style="margin-top:10px"><button class="addcard" data-a="taddcat">+ Add category</button></div>`;
   // my workouts (sets and reps I follow in the app) and the one list of exercises they're made from (2026-11-24)
-  if (!S.edit) h += woSection();
+  h += woSection(); // the Workouts category shows here, with Start, instead of as a card above (the owner, 2026-11-24)
   // Training's own colour (the generic movement item and the Training tab wear it), set here in edit mode like the other sections (2026-11-24)
   if (S.edit) h += `<div style="margin-top:16px">${lcard(null, 'Colour', '', `<div class="vdef">${colorField('p:training', ((M.pages || {}).training || {}).color || '#3FAFA6')}</div>`)}</div>`;
   if (G('hg-aches')) h += `<div style="margin-top:14px">${hGroup('hg-aches', T0)}</div>`;
