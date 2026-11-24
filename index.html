@@ -1701,7 +1701,7 @@ function save() { gc(); histNote(); clearTimeout(saveT); saveT = setTimeout(asyn
 }, 300); }
 // undo and redo live in the ⋯ menu, not on a pop-up (2026-11-10): each named change keeps the state before it
 const HIST = { past: [], fut: [] };
-// Persistent (2026-11-11): a task that stays where it lives after a tick, with no repeat, like a hobby activity
+// A Task (persist: true, 2026-11-11, called Task vs One-off since 2026-11-24) stays where it lives after a tick, like a hobby activity; a One-off goes
 const keeps = (k) => !!(I(k) && I(k).persist);
 // Coupled items (2026-11-11): ticking one ticks the items it links to that day (a hike ticks Outdoors). Kept apart in the log as
 // 'ln:<target>' = the item that ticked it, so unticking takes it off again, and a tick I made myself is never touched.
@@ -2168,8 +2168,8 @@ function renderPlan() {
   if (S.planC && !cols.some((x) => x[2] === S.planC)) S.planC = null;
   const tasks = all.filter((id) => !S.planC || I(id).brk || kindOf(id) === S.planC);
   const brks = tasks.filter((id) => I(id).brk); tasks.splice(0, tasks.length, ...tasks.filter((id) => !I(id).brk));
-  const nos = tasks.filter((id) => (I(id).when || {}).mode === 'once' && !I(id).when.date && !keeps(id) && !Object.keys(M.log).some((d) => val(d, id)));
-  const per = tasks.filter((id) => keeps(id) && !repeatable(I(id)));
+  // a Task without a date stays here after a tick; a One-off leaves once ticked (2026-11-24, replaces the Persistent card)
+  const nos = tasks.filter((id) => (I(id).when || {}).mode === 'once' && !I(id).when.date && (keeps(id) || !Object.keys(M.log).some((d) => val(d, id))));
   const sch = tasks.filter((id) => (I(id).when || {}).mode === 'once' && I(id).when.date && (I(id).when.date >= T0 || onDay(id, T0))).sort((a, b) => I(a).when.date.localeCompare(I(b).when.date));
   const rep = tasks.filter((id) => repeatable(I(id)));
   const row = (id) => { const hm0 = homeItem(id); const ed = S.edit && !hm0; const blk = placements(id).find((p) => G(p) && G(p).style === 'dayblock');
@@ -2177,7 +2177,7 @@ function renderPlan() {
   const sec = (title, ids, empty) => lcard('p:' + title, title, ids.length, ids.length ? ids.map(row).join('') : `<p class="empty">${empty}</p>`);
   const fbar = cols.length > 1 ? colSquares(cols, S.planC, 'planc') : '';
   // one row over the categories: Add (a dropdown) on the left, the filter on the right (2026-11-04)
-  const AO = [['once', 'One-off task'], ['every', 'Repeat task'], ['routine', 'Routine'], ['break', 'Break']];
+  const AO = [['task', 'Task'], ['once', 'One-off task'], ['every', 'Repeat task'], ['routine', 'Routine'], ['break', 'Break']];
   // generic items (2026-11-11): they stand in on a day with nothing specific from their section, and open it to pick the real thing
   const GO = [['study', 'Studies'], ['chores', 'Chores'], ['hobbies', 'Hobbies'], ['training', 'Training']];
   const slots = Object.keys(M.items).filter((id) => I(id).type === 'slot' && placements(id).some((p) => G(p) && G(p).style === 'dayblock'));
@@ -2186,7 +2186,7 @@ function renderPlan() {
   const abar = `<span class="vsortw"><button class="fbtn" data-a="planaddopen" aria-label="Add" aria-haspopup="menu" aria-expanded="${!!S.planAddOpen}" aria-pressed="${!!S.planAddOpen}">${icon('plus', 18)}</button>${S.planAddOpen ? `<span class="vsortx" data-a="planaddopen"></span><span class="vdrop vsortm vaddm" role="menu">${AO.map(([k, l]) => `<button role="menuitem" data-a="new" data-v="${k}">${l}</button>`).join('')}<span class="mono">Generic</span>${GO.map(([k, l]) => `<button role="menuitem" data-a="slotadd" data-v="${k}">${l}</button>`).join('')}</span>` : ''}</span>`;
   if (S.open['p:Repeat'] === undefined) S.open['p:Repeat'] = false; // Repeat starts folded
   // an add icon on the left balances the filter icon (2026-11-08)
-  return `<div class="ptools">${abar}${fbar}</div>` + sec('Not scheduled', nos, 'Nothing waiting. Tasks without a date land here.') + sec('Scheduled', sch, 'No dated tasks yet.') + (S.edit ? sec('Repeat', rep, 'No repeat tasks yet.') + (per.length ? sec('Persistent', per, '') : '') + (brks.length ? sec('Breaks', brks, '') : '') + (slots.length ? lcard('p:Generic', 'Generic', slots.length, slots.map(slotRow).join('')) : '') : ''); // repeats, persistent tasks, breaks and generic items are set up in edit mode (2026-11-24)
+  return `<div class="ptools">${abar}${fbar}</div>` + sec('Not scheduled', nos, 'Nothing waiting. Tasks without a date land here.') + sec('Scheduled', sch, 'No dated tasks yet.') + (S.edit ? sec('Repeat', rep, 'No repeat tasks yet.') + (brks.length ? sec('Breaks', brks, '') : '') + (slots.length ? lcard('p:Generic', 'Generic', slots.length, slots.map(slotRow).join('')) : '') : ''); // repeats, persistent tasks, breaks and generic items are set up in edit mode (2026-11-24)
 }
 
 // Appointments: categories (Social is one of them), then Today / Coming up / Past.
@@ -2392,7 +2392,7 @@ function sheetBody() {
     // which study task group: picked right here when there's more than one (2026-11-08)
     // a task from Capture first asks what kind it is (2026-11-10): a plain task, a chore, a study task or a prep
     if (s.pickTask && !s.pickStudy) { const row = (a, v, ic, l) => `<button class="arow" data-a="${a}" ${v ? `data-v="${v}"` : ''} style="text-align:left"><span class="an" style="display:flex;align-items:center;gap:12px">${icon(ic, 20)}${l}</span><span class="chev" aria-hidden="true">${icon('chevron-right', 16)}</span></button>`;
-      return `<div class="fld"><div class="afind">${row('new', 'once', 'check', 'Task')}${row('vadd', 'g-oneoff', 'spray-can', 'Chore')}${row('addstudy', '', 'book-open', 'Study task')}${row('vadd', 'g-prep', 'cooking-pot', 'Prep')}</div></div>`; }
+      return `<div class="fld"><div class="afind">${row('new', 'task', 'check', 'Task')}${row('new', 'once', 'circle', 'One-off')}${row('vadd', 'g-oneoff', 'spray-can', 'Chore')}${row('addstudy', '', 'book-open', 'Study task')}${row('vadd', 'g-prep', 'cooking-pot', 'Prep')}</div></div>`; }
     if (s.pickStudy) { const subs = S.subj && G(S.subj) ? [S.subj] : subjIds();
       return `<div class="fld"><span class="mono">Study task in</span><div class="afind">${subs.map((sb) => sgroupsOf(sb).map((g) => `<button class="arow" data-a="vadd" data-v="${g}" style="text-align:left"><span class="an">${esc(G(g).name)}<span class="sub">${esc(G(sb).name)}</span></span><span class="chev" aria-hidden="true">${icon('chevron-right', 16)}</span></button>`).join('')).join('') || '<p class="empty">No task groups yet.</p>'}</div></div>`; }
     // the page I'm on comes first, under This page (2026-11-08)
@@ -2480,7 +2480,8 @@ function itemSheet(s) {
   } else if (D.type !== 'checkin' && D.type !== 'step') {
     h += schedUI(s, D);
     if (D.brk) { if (s.ref && !s.isNew) h += `<div class="btns"><button class="btn danger" data-a="ddelete">Delete</button></div>`; return h; } // a break: a name, its time and length, its days
-    if (D.type === 'task' || D.type === 'routine') h += (isTrainSheet(s) ? afterField(D) : '') + sw('optional', 'Optional', D.optional) + ((D.when || {}).mode === 'once' ? sw('persist', 'Persistent', D.persist) : '')
+    if (D.type === 'task' || D.type === 'routine') h += ((D.when || {}).mode === 'once' ? `<div class="fld"><span class="mono">Type</span><div class="chips">${[['1', 'Task', 'stays after a tick'], ['0', 'One-off', 'gone once ticked']].map(([v, l, sub]) => `<button class="chip" data-a="dpersist" data-v="${v}" aria-pressed="${!!D.persist === (v === '1')}">${l}<span class="sub" style="font-size:11.5px;color:var(--quiet)">· ${sub}</span></button>`).join('')}</div></div>` : '') // Task or One-off replaces the Persistent switch; a repeat is always a task (2026-11-24)
+      + (isTrainSheet(s) ? afterField(D) : '') + sw('optional', 'Optional', D.optional)
       + (D.type === 'task' && isChoreSheet(s) ? sw('two', 'Two parts', D.two) + (D.two ? `<div class="fld"><span class="mono">Second part after</span><div class="inrow"><input class="inp" id="dtwo" inputmode="decimal" value="${typeof D.two === 'number' ? D.two : 2}" style="width:80px"><span class="note" style="margin:0">hours</span></div></div>` : '') : '');
     // study items: everything under Estimate waits behind More settings too (2026-11-06)
     if (isStudyItem(s, D)) s._more = h.length;
@@ -2568,8 +2569,9 @@ function openItem(id) { const it = I(id); if (!it) return; if (it.type === 'step
 function newItem(mode, block) {
   // Breaks (2026-11-11): a named stretch of a day block, like Lunch. It takes up time but there's nothing to tick.
   if (mode === 'break') { openSheet({ kind: 'item', isNew: true, title: 'New break', draft: { name: '', brk: true, type: 'task', when: { mode: 'days', days: [0, 1, 2, 3, 4, 5, 6], n: 1, date: T0 }, made: T0, dur: 15, tags: [] }, block: block || blockIds()[0], steps: [] }); return; }
-  const D = { name: '', type: mode === 'routine' ? 'routine' : 'task', when: mode === 'every' ? { mode: 'every', n: 1, date: T0 } : mode === 'routine' ? { mode: 'once', date: T0 } : { mode: 'once', date: mode === 'once' && S.page === 'plan' ? null : T0 }, kind: 'behaviour', tags: [], insight: mode !== 'once', made: T0, dur: 30 };
-  openSheet({ kind: 'item', isNew: true, title: mode === 'routine' ? 'New routine' : mode === 'every' ? 'New repeat task' : 'New task', draft: D, block: block || blockIds()[blockIds().length - 1], steps: [] });
+  const D = { name: '', type: mode === 'routine' ? 'routine' : 'task', when: mode === 'every' ? { mode: 'every', n: 1, date: T0 } : mode === 'routine' ? { mode: 'once', date: T0 } : { mode: 'once', date: (mode === 'once' || mode === 'task') && S.page === 'plan' ? null : T0 }, kind: 'behaviour', tags: [], insight: mode !== 'once' && mode !== 'task', made: T0, dur: 30 };
+  if (mode === 'task') D.persist = true; // a Task stays after a tick; a One-off goes (2026-11-24)
+  openSheet({ kind: 'item', isNew: true, title: mode === 'routine' ? 'New routine' : mode === 'every' ? 'New repeat task' : mode === 'once' ? 'New one-off' : 'New task', draft: D, block: block || blockIds()[blockIds().length - 1], steps: [] });
 }
 function newAppt(pick) { const cat = pick && G(pick) ? pick : S.cat !== 'all' && G(S.cat) ? S.cat : G('g-appts').kids[0];
   openSheet({ kind: 'item', isNew: true, title: 'New ' + (G(cat) ? G(cat).name.toLowerCase().replace(/s$/, '') : 'plan'), draft: { name: '', type: 'appt', date: S.day >= T0 ? S.day : T0, time: '', note: '', kind: '', tags: [], insight: false, made: T0 }, cat }); }
@@ -2758,6 +2760,7 @@ document.addEventListener('click', (e) => {
     case 'sched': { const it = I(ref); if (!it || it.type === 'appt' || it.type === 'checkin' || it.part) { openItem(ref); break; } openItem(ref); S.sheet.quick = true; S.sheet.title = 'Schedule'; renderLayer(); break; }
     case 'dday': { capture(); const ds = S.sheet.draft.when.days; const i = +v; const k = ds.indexOf(i); if (k >= 0) ds.splice(k, 1); else ds.push(i); ds.sort(); renderLayer(); break; }
     case 'dcolor': capture(); if (v) S.sheet.draft.color = v; else delete S.sheet.draft.color; renderLayer(); break;
+    case 'dpersist': capture(); if (v === '1') S.sheet.draft.persist = true; else delete S.sheet.draft.persist; renderLayer(); break;
     case 'dflag': capture(); tcapture(); S.sheet.draft[v] = v === 'insight' ? S.sheet.draft.insight === false : !S.sheet.draft[v]; renderLayer(); break;
     case 'dtag': { capture(); const tg = S.sheet.draft.tags = S.sheet.draft.tags || []; const k = tg.indexOf(v); if (k >= 0) tg.splice(k, 1); else tg.push(v); renderLayer(); break; }
     case 'tagedit': { capture(); tcapture(); if (S.tagEdit) { const before = JSON.stringify(M.tags); tagNames(); if (JSON.stringify(M.tags) !== before) save(); } S.tagEdit = !S.tagEdit; renderLayer(); break; }
