@@ -312,7 +312,10 @@ function mbItem(b, x, thumb) { const sel = !thumb && S.bSel === x.id;
   const ink = x.ink || (x.fill === '#23211E' || (!x.fill && bDark(b)) ? '#F2EFEA' : 'var(--ink)');
   const fill = x.fill ? `;background:${x.fill};padding:.45em .6em` : '';
   return `<div class="${cls} mbt ${x.t === 'note' ? 'mbnote' : ''}" data-id="${x.id}" data-fs="${x.fs}" style="${st};font-size:calc(100cqw * ${x.fs})"><div class="mbtx" style="font-family:${font};color:${ink};text-align:${{ l: 'left', c: 'center', r: 'right' }[x.al || 'l']}${x.b ? ';font-weight:600' : ''}${x.i ? ';font-style:italic' : ''}${fill}">${esc(x.text || '').replace(/\n/g, '<br>')}</div>${hd}${lk}</div>`; }
-function moodHtml(b, thumb) { const H = moodHeight(b);
+// a board's small preview is kept until the board (or its bubble styles, or my files) change, so the notebook opens quicker (2026-11-24)
+const moodThumbC = new Map();
+function moodHtml(b, thumb) { if (thumb) { const key = JSON.stringify(b) + '|' + JSON.stringify(M.bubbleStyles || null) + '|' + (typeof FILES === 'object' && FILES ? Object.keys(FILES).length : 0) + '|' + document.documentElement.className; const hit = moodThumbC.get(b.id); if (hit && hit.key === key) return hit.html; const html = moodHtml0(b, true); moodThumbC.set(b.id, { key, html }); return html; } return moodHtml0(b, thumb); }
+function moodHtml0(b, thumb) { const H = moodHeight(b);
   if (!thumb) { const o = bReach(b), Wu = bRight(b) + o.l; return `<div class="mbcanvas ${bDark(b) ? 'dusk' : ''}" style="--ol:${o.l};--ot:${o.t};width:calc(100cqw * ${Wu} * var(--z,1));height:calc(100cqw * ${H + o.t} * var(--z,1));background-color:${bBg(b)};${bPat(b).replace(/5cqw/g, 'calc(5cqw * var(--z,1))').replace(/6cqw/g, 'calc(6cqw * var(--z,1))')}">${moodInner(b, H)}</div>`; }
   return `<div class="mboard ${thumb ? 'thumb' : ''} ${bDark(b) ? 'dusk' : ''} ${S.bLink && !thumb ? 'linking' : ''}" data-bid="${b.id}" ${thumb ? '' : `data-board="${b.id}"`} style="height:calc(100cqw * ${H});background-color:${bBg(b)};${bPat(b)}">${b.items.filter((x) => x.t).map((x) => mbItem(b, x, thumb)).join('')}${(b.links || []).length ? '<svg class="mblinks" aria-hidden="true"></svg>' : ''}${mapRoots(b).map((r) => mapHtml(b, r, thumb)).join('')}</div>`; }
 function moodInner(b, H) { return `<div class="mboard ${bDark(b) ? 'dusk' : ''} ${S.bLink ? 'linking' : ''}" data-bid="${b.id}" data-board="${b.id}" style="width:calc(100cqw * var(--z,1));height:calc(100cqw * ${H} * var(--z,1))">${b.items.filter((x) => x.t).map((x) => mbItem(b, x)).join('')}<svg class="mblinks" aria-hidden="true"></svg>${mapRoots(b).map((r) => mapHtml(b, r)).join('')}</div>`; }
@@ -1247,3 +1250,5 @@ async function bPng() { const b = curBoard(); if (!b) return;
   } catch (e) { flash(e && e.message === 'load' ? 'I need to be online to make the picture' : 'Could not make the picture'); }
   finally { Object.assign(S, { bZoom: keep.z, bSel: keep.sel, bMulti: keep.multi, bLines: keep.lines, bLk: keep.lk, bPanel: keep.panel, bMap: keep.map, bTool: keep.tool }); render(); const m = $('#main'), w = $('#mbwrap'); if (m) m.scrollTop = keep.top || 0; if (w) w.scrollLeft = keep.left || 0; } }
 
+// lay the board previews out while the app is idle after it opens, so the first visit to the notebook is quick too (2026-11-24)
+setTimeout(() => { const go = () => { try { boards().forEach((b) => { if (b && b.items) moodHtml(b, true); }); } catch (e) {} }; if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else go(); }, 2500);

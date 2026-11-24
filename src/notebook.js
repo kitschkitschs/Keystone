@@ -154,8 +154,12 @@ function jMig(e, PW) { if ((e.ps || []).some((q) => q && q.st)) { const R = e.rs
 // widths are measured on the page itself (the same font the lines are drawn in), word by word, and remembered
 const jW = {};
 function jMeasure(fl) { const out = {}; ['n', 'h', 'q'].forEach((k) => { let pr = fl.querySelector('.jprobe.s-' + k); if (!pr) { pr = document.createElement('span'); pr.className = 'jl jprobe s-' + k; pr.setAttribute('contenteditable', 'false'); fl.appendChild(pr); }
-    const C = jW[k] = jW[k] || new Map(); out[k] = (str) => { if (!str) return 0; let w = C.get(str); if (w == null) { pr.textContent = str; w = pr.getBoundingClientRect().width; C.set(str, w); } return w; }; }); return out; }
-if (document.fonts) document.fonts.addEventListener('loadingdone', () => { Object.keys(jW).forEach((k) => delete jW[k]); if (document.querySelector('.jpaper')) jLayout(); });
+    const C = jW[k] = jW[k] || new Map(); const cx = jCtx(pr, k); out[k] = (str) => { if (!str) return 0; let w = C.get(str); if (w == null) { if (cx) { if (cx.ctx.font !== cx.f) cx.ctx.font = cx.f; w = cx.ctx.measureText(str).width; } else { pr.textContent = str; w = pr.getBoundingClientRect().width; } C.set(str, w); } return w; }; }); return out; }
+// measuring on a canvas in the probe's font skips a page layout per word, which made the notebook slow to open (2026-11-24)
+let jCv = null; const jFonts = {};
+function jCtx(pr, k) { if (k in jFonts) return jFonts[k]; try { const cs = getComputedStyle(pr); if (cs.letterSpacing && cs.letterSpacing !== 'normal' && cs.letterSpacing !== '0px') return null; if (cs.wordSpacing && cs.wordSpacing !== '0px' && cs.wordSpacing !== 'normal') return null;
+  jCv = jCv || document.createElement('canvas'); const cx = jCv.getContext('2d'); if (!cx) return null; cx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`; return (jFonts[k] = { ctx: cx, f: cx.font }); } catch (e) { return null; } }
+if (document.fonts) document.fonts.addEventListener('loadingdone', () => { Object.keys(jW).forEach((k) => delete jW[k]); jMiniC.clear(); Object.keys(jFonts).forEach((k) => delete jFonts[k]); if (document.querySelector('.jpaper')) jLayout(); });
 // free stretches of one row, left to right
 function jGaps(r, PW, im) { const ya = r * JLH + 3, yb = (r + 1) * JLH - 3; let free = [[0, PW]];
   im.forEach((q) => { const sp = jSpanX(q, PW, ya - 2, yb + 2); if (!sp) return; let [a, b] = sp;
@@ -207,7 +211,13 @@ function jPicsDraw(E, PW, pl) { const mini = !!pl; pl = pl || document.querySele
   pl.innerHTML = (E.imgs || []).map((p) => { const f = p.frame || 'plain', P = JFR[f], w = p.w * PW; const pd = P ? `;padding:${(w * P[0]).toFixed(1)}px ${(w * P[0]).toFixed(1)}px ${(w * P[1]).toFixed(1)}px` : '';
     return `<span class="jpc f-${f}${S.jSel === p.id ? ' sel' : ''}" data-pc="${p.id}" style="left:${(p.x * 100).toFixed(2)}%;top:${p.y.toFixed(1)}px;width:${(p.w * 100).toFixed(2)}%;height:${(jPcH(p) * PW).toFixed(1)}px;z-index:${p.z || 1};--t:${jTq(p)}deg${pd}"><b class="jph"><img src="${esc(jImgSrc(p))}" alt="" draggable="false"><i class="jgl"></i></b></span>`; }).join('');
   if (S.jSel && !mini) jPick(S.jSel); }
-function jMinis() { document.querySelectorAll('.jmp').forEach((m) => { const e = (M.journal || []).find((x) => x.id === m.dataset.jref); if (!e) return; const PW = S.jPW || 336; m.style.width = PW + 'px'; m.style.transform = 'none'; const E = jLayoutText(m); if (E) jPicsDraw(E, PW, m.querySelector('.jpics')); const box = m.parentNode; m.style.transform = `scale(${box.clientWidth / PW})`; }); }
+// the small journal previews: each one's laid-out page is kept, so reopening the notebook doesn't lay every page out again (2026-11-24)
+const jMiniC = new Map();
+function jMinis() { const PW = S.jPW || 336; const nf = typeof FILES === 'object' && FILES ? Object.keys(FILES).length : 0; const ms = [...document.querySelectorAll('.jmp')]; const bw = ms.map((m) => m.parentNode.clientWidth);
+  ms.forEach((m, i) => { const e = (M.journal || []).find((x) => x.id === m.dataset.jref); if (!e) return; m.style.width = PW + 'px'; m.style.transform = 'none';
+    const key = PW + '|' + nf + '|' + JSON.stringify(e); const hit = jMiniC.get(e.id);
+    if (hit && hit.key === key) m.innerHTML = hit.html; else { const E = jLayoutText(m); if (E) jPicsDraw(E, PW, m.querySelector('.jpics')); jMiniC.set(e.id, { key, html: m.innerHTML }); }
+    m.style.transform = `scale(${bw[i] / PW})`; }); }
 function jLayoutText(pa) { const mini = !!pa; pa = pa || document.querySelector('.jpaper'); const fl = pa && pa.querySelector('.jflow'); if (!fl) return null; const e = pa.dataset.jref ? (M.journal || []).find((x) => x.id === pa.dataset.jref) : jCurrent(); const E = e || { text: '', imgs: [] }; if (!mini) { const w = document.getElementById('jwc'); if (w) w.textContent = jWords(E.text || ''); } const PW = mini ? (S.jPW || 336) : (fl.clientWidth || 336); if (!mini) S.jPW = PW;
   jMig(E, PW); const Wm = jMeasure(fl); const segs = jFlowSegs(E, PW, Wm); fl.querySelectorAll('.jl:not(.jprobe)').forEach((n) => n.remove());
   fl.insertAdjacentHTML('afterbegin', segs.map((s, i) => { let sty = `left:${s.x.toFixed(1)}px;top:${s.r * JLH}px;width:${s.w.toFixed(1)}px`; if (s.al === 'c') sty += ';text-align:center'; else if (s.al === 'r') sty += ';text-align:right';
