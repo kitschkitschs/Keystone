@@ -442,6 +442,8 @@ const supEntry = (e) => !!e && !!e.sup; // a hidden mark, the page itself only c
 const supToday = () => (M.journal || []).find((x) => x.d === T0 && supEntry(x)) || null;
 const supOn = () => S.area === 'notebook' && S.nbView === 'jpage' && (supEntry(jCurrent()) || (S.jEntry === 'new' && !!S.jNewSup));
 function supOpen() { const cur = S.nbView === 'jpage' && S.area === 'notebook'; if (cur) { jSync(); jDropEmpty(); save(); }
+  /* closing it goes back to the page I opened it from (the owner, 2026-11-24) */
+  if (!cur) { const P = {}; ['area', 'page', 'stv', 'studyMode', 'subj', 'room', 'pick', 'proj', 'hob', 'day', 'sview', 'nbView', 'insOn', 'fromSlot', 'edit'].forEach((k) => { P[k] = S[k]; }); P.scroll = ($('#main') || {}).scrollTop || 0; S.supPrev = P; }
   const e = supToday(); S.sheet = null; S.menu = false; S.stv = null; S.jFrom = 'study'; S.area = 'notebook'; S.insOn = false; S.jBack = 'home';
   S.jMenu = false; S.jTagOpen = false; S.jRe = null; S.jSel = null; S.jCaret = null; S.nbView = 'jpage'; S.jEntry = e ? e.id : 'new'; S.jNewTags = e ? null : ['Studies']; S.jNewSup = !e;
   render(); if (typeof jGrow === 'function') jGrow(); $('#main').scrollTop = 0; }

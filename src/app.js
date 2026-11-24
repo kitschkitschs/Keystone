@@ -745,6 +745,15 @@ function genSwap(DL, d, opens, ids, ok) { const isSlot = (id) => I(id) && I(id).
   return DL; }
 // a set-time item dragged on the Schedule for one day keeps that day's time in M.dayTime (2026-11-13)
 const tAt = (id, d) => ((M.dayTime || {})[d] || {})[id] || I(id).time;
+// the morning routine: the first routine in the first day block (2026-11-24)
+const morningId = () => { const b = blockIds()[0]; return ((G(b) || {}).kids || []).find((k) => I(k) && I(k).type === 'routine') || null; };
+// once it's ticked, it sits ending at the tick and everything after it moves by the same amount, in order; breaks and
+// appointments stay where they are and the rest goes around them
+function mShift(out, d) { const at = ((M.mTick || {})[d]); const mid = morningId(); if (at == null || !mid) return; const m0 = out.find((o) => o.id === mid && !o.two); if (!m0) return;
+  const delta = at - m0.b; if (!delta) return; const end0 = m0.b, len = m0.b - m0.a; m0.a = at - len; m0.b = at;
+  const hard = (o) => o.appt || (I(o.id) && I(o.id).brk); let cur = at;
+  const dT = (M.dayTime || {})[d] || {}; out.filter((o) => o !== m0 && !hard(o) && !o.two && !dT[o.id] && o.a >= end0) /* ones I moved by hand stay where I put them */.sort((p, q) => p.a - q.a).forEach((o) => { const l = o.b - o.a; let a = Math.max(o.a + delta, cur);
+    for (let k = 0; k < 8; k++) { const h = out.find((q) => hard(q) && a < q.b && a + l > q.a); if (!h) break; a = h.b; } o.a = a; o.b = a + l; cur = a + l; }); }
 let TWO_IN = false; const TWO_LATE = (d) => d < T0; /* a past day keeps it where it was */
 function placeDay(d) {
   const fz = frozenOf(d); if (fz) { return fz.filter((o) => !isMissed(o.id, d) && !halfWait(o.id, d)).map((o) => Object.assign({}, o)); }
@@ -791,6 +800,7 @@ function placeDay(d) {
       while (moved) { moved = false; busy.forEach((f) => { if (cur < f.b && cur + len > f.a) { cur = f.b; moved = true; } }); }
       out.push({ id, a: cur, b: cur + len, blk: b }); cur += len; });
   });
+  mShift(out, d);
   // second parts go in last, into the first free spot from when they're due, so nothing else moves for them
   /* counted from the moment part one was ticked (the owner, 2026-11-24) */
   Object.keys(twoAt).sort((p, q) => twoAt[p] - twoAt[q]).forEach((id) => { const len = I(id).dur || 30; let a0 = twoAt[id], moved = true;
@@ -922,7 +932,7 @@ function renderAppts() {
 
 // ---------- layer: menu, sheets, toast ----------
 // clear everything logged before today, keeping every item, note and setting (the owner, 2026-11-24)
-const LOG_KEYS = ['log', 'snap', 'frozen', 'feel', 'photos', 'study', 'support', 'missed', 'badDays', 'dayMove', 'dayOrder', 'dayTime', 'dayTack', 'dayAfter', 'foodMark', 'rOpen', 'training', 'multi'];
+const LOG_KEYS = ['log', 'snap', 'frozen', 'feel', 'photos', 'study', 'support', 'missed', 'badDays', 'dayMove', 'dayOrder', 'dayTime', 'dayTack', 'dayAfter', 'mTick', 'foodMark', 'rOpen', 'training', 'multi'];
 function clearOldLogs() { LOG_KEYS.forEach((k) => { const o = M[k]; if (!o || typeof o !== 'object' || Array.isArray(o)) return; Object.keys(o).forEach((d) => { if (/^\d{4}-\d\d-\d\d$/.test(d) && d < T0) delete o[d]; }); });
   if (Array.isArray(M.events)) M.events = M.events.filter((e) => !e.day || e.day >= T0); }
 // Every delete asks first (2026-11-02). Returns the question, or null when the action needs none.
@@ -1326,7 +1336,7 @@ document.addEventListener('click', (e) => {
   if (t.closest('#menubtn')) { S.menu = !S.menu; renderLayer(); return; }
   if (t.closest('#donebtn')) { S.edit = false; render(); return; }
   if (t.closest('#plusbtn')) { openSheet({ kind: 'add', title: 'Capture', capEdit: !!S.edit }); return; }
-  const ar = t.closest('[data-area]'); if (ar) { const a = ar.dataset.area; if (S.insOn || S.area !== a || M.areas[a].nav === 'verdict' || a === 'notebook') { S.nbView = 'home'; S.jFrom = null; S.jNewTags = null; S.insOn = false; S.insDrop = false; S.area = a; S.page = M.areas[a].pages[0] || null; S.room = null; S.subj = null; S.pick = null; S.stv = null; S.vdrop = false; S.fromSlot = null; render(); $('#main').scrollTop = 0; } return; }
+  const ar = t.closest('[data-area]'); if (ar) { const a = ar.dataset.area; if (S.insOn || S.area !== a || M.areas[a].nav === 'verdict' || a === 'notebook') { S.nbView = 'home'; S.jFrom = null; S.supPrev = null; S.jNewTags = null; S.insOn = false; S.insDrop = false; S.area = a; S.page = M.areas[a].pages[0] || null; S.room = null; S.subj = null; S.pick = null; S.stv = null; S.vdrop = false; S.fromSlot = null; render(); $('#main').scrollTop = 0; } return; }
   const pg = t.closest('[data-page]'); if (pg) { S.page = pg.dataset.page; if (S.page === 'insight') S.ins = 'home'; S.insDrop = false; render(); $('#main').scrollTop = 0; return; }
   const a = t.closest('[data-a]'); if (!a) return;
   if ((a.classList.contains('scrim') || a.classList.contains('askwrap')) && t !== a) return;
@@ -1520,7 +1530,9 @@ function tick(id) {
   if (it.type === 'routine') { const all = isDone(id, T0); const st = rSteps(id, T0);
     change(() => { const mm = M.missed = M.missed || {}; const md = mm[T0] = mm[T0] || {};
       if (all) { if (val(T0, id)) { delete L(T0)[id]; st.forEach((s) => { if (md[s] === 'r') delete md[s]; }); } else st.forEach((s) => { delete L(T0)[s]; }); }
-      else { L(T0)[id] = 'done'; st.forEach((s) => { if (!val(T0, s)) md[s] = 'r'; }); } }, (all ? 'Unticked ' : 'Ticked ') + it.name); return; }
+      else { L(T0)[id] = 'done'; st.forEach((s) => { if (!val(T0, s)) md[s] = 'r'; }); }
+      /* the morning routine's tick time moves the day's schedule (the owner, 2026-11-24, a try) */
+      if (id === morningId()) { const mt = M.mTick = M.mTick || {}; if (all) delete mt[T0]; else { const n = new Date(); let m = n.getHours() * 60 + n.getMinutes(); if (m < DAY_H * 60) m += 1440; mt[T0] = m; } } }, (all ? 'Unticked ' : 'Ticked ') + it.name); return; }
   if (it.type === 'checkin') { openSheet({ kind: 'checkin', ref: id, title: it.name }); return; }
   if (!cur && twoTick(id)) return;
   // a hobby item ticks like any other; Too much is a swipe to the left in Hobbies (2026-11-11)
