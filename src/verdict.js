@@ -361,11 +361,11 @@ function subjPage(s) {
 // ---------- timer and Study support ----------
 function tElapsed() { const t = M.timer; if (!t) return 0; return (t.acc || 0) + (t.start ? Date.now() - t.start : 0); }
 const fmtClock = (ms) => { const s = Math.floor(ms / 1000); return pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60); };
-const tPct = () => Math.min(100, Math.round((minOn(null, T0) + supMin(T0) + tElapsed() / 60000) / sessLen() * 100));
+const tPct = () => Math.min(100, Math.round((minOn(null, T0) + supMs() / 60000 + tElapsed() / 60000) / sessLen() * 100));
 const T_C = 2 * Math.PI * 104;
 // the generic Study session's clock shows the whole day's study time, Study support writing included (the owner, 2026-11-13)
-// Study support writing counts up on the clock whatever I'm working on (the owner, 2026-11-24)
-const tShown = () => { const id = M.timer && M.timer.id && I(M.timer.id) ? M.timer.id : null; return tElapsed() + supMs() + (id ? 0 : minOn(null, T0) * 60000); };
+// Study support writing counts on the day's total (the ring and the minutes line), never on a picked task's clock (the owner, 2026-11-24)
+const tShown = () => { const id = M.timer && M.timer.id && I(M.timer.id) ? M.timer.id : null; return tElapsed() + (id ? 0 : minOn(null, T0) * 60000 + supMs()); };
 const tRule = () => { const m = Math.floor(minOn(null, T0) + supMin(T0) + tElapsed() / 60000); return m >= sessLen() ? dur(m) + ' today · session done' : m + ' of ' + sessLen() + ' min today'; };
 // ---------- timer extras (Patch 2, the owner, 2026-11-24): confetti when the session fills, a ding, break reminders, pomodoro ----------
 const TMR_DEF = { mode: 'free', rem: 0, brk: 5, work: 25, rounds: 4, sound: true };
