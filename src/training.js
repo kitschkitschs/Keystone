@@ -114,7 +114,7 @@ function renderTraining() {
   // Sessions as Planner rows, one card per category like Today's blocks; adding only in edit mode (2026-11-04)
   h += `<div class="stack" ${S.edit ? 'data-list="g-train"' : ''} style="margin-top:14px">` + trainCats().map((c) => { const g = G(c); const ks = kidsOf(c); const open = S.edit || S.open['b:' + c] !== false;
     const left = ks.filter((k) => onDay(k, T0) && !isDone(k, T0)).length;
-    return `<section class="card" data-ref="${c}"><div class="bhead">${grip()}${S.edit ? `<span class="circ" style="--c:${g.color};width:14px;height:14px;background:${g.color}" data-col="${c}" role="button" aria-label="Change colour"></span><span class="nm mono" style="font-size:11px;flex:1">${nm(c, g.name)}</span>${tail(c, 'g-train')}`
+    return `<section class="card" data-ref="${c}"><div class="bhead">${grip()}${S.edit ? `<span class="nm mono" style="font-size:11px;flex:1">${nm(c, g.name)}</span>${tail(c, 'g-train')}`
       : `<button data-a="bopen" data-ref="${c}" aria-expanded="${open}" style="display:flex;align-items:center;gap:8px;width:100%;min-height:44px"><span class="nm mono" style="flex:1">${esc(g.name)}</span><span class="cnt">${left ? left + ' today' : ''}</span>${fold(open)}</button>`}</div>
       ${open ? `<div class="list" data-list="${c}">${ks.map((k) => itemRow(k, c, T0)).join('') || (S.edit ? '' : '<p class="empty">No sessions yet.</p>')}${S.edit ? `<button class="addrow" data-a="vadd" data-v="${c}"><span class="plus">+</span>Add session</button>` : ''}</div>` : ''}</section>`; }).join('') + '</div>';
   if (S.edit) h += `<div style="margin-top:10px"><button class="addcard" data-a="taddcat">+ Add category</button></div>`;

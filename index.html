@@ -1400,9 +1400,9 @@ function homeOf(ref) { return placements(ref)[0]; }
 const slotCol = (it) => { const o = it.opens; const A = M.areas || {}, P = M.pages || {}; return o === 'study' ? secCol('study') : o === 'chores' ? secCol('chores') : o === 'hobbies' ? (A.hobbies || {}).color : o === 'training' || o === 'move' ? (P.training || {}).color : null; };
 // Patch 3 (the owner, 2026-11-24): Studies, Chores, Homemaking and Cooking each have ONE colour; their items, rooms, subjects and
 // task groups wear it everywhere (Today, Schedule, calendars) and can't have their own
-const SEC_ROOT = { 'g-subjects': 'study', 'g-rooms': 'chores', 'g-oneoff': 'chores', 'g-tend': 'homemaking', 'g-prep': 'cooking' };
+const SEC_ROOT = { 'g-subjects': 'study', 'g-rooms': 'chores', 'g-oneoff': 'chores', 'g-tend': 'homemaking', 'g-prep': 'cooking', 'g-train': 'training' }; /* Training too: every training item wears the Training colour (the owner, 2026-11-24) */
 function secRootOf(k, n = 0) { if (!k || n > 8) return null; if (SEC_ROOT[k]) return SEC_ROOT[k]; const g = G(k); if (!g || g.style === 'dayblock') return null; return secRootOf(parentGrp(k), n + 1); }
-const secCol = (sec) => { const A = M.areas || {}, P = M.pages || {}; return (sec === 'study' ? (A.study || {}).color : sec === 'chores' ? (P.chores || {}).color || (A.home || {}).color : ((P[sec] || {}).color || (A.home || {}).color)) || '#9A9387'; };
+const secCol = (sec) => { const A = M.areas || {}, P = M.pages || {}; return (sec === 'study' ? (A.study || {}).color : sec === 'chores' ? (P.chores || {}).color || (A.home || {}).color : ((P[sec] || {}).color || (sec === 'training' ? '#3FAFA6' : (A.home || {}).color))) || '#9A9387'; };
 const itemSec = (id) => { for (const p of placements(id)) { const r = secRootOf(p); if (r) return r; } return null; };
 function colorOf(id) { const it = I(id); if (!it && G(id)) return grpCol(id); if (it && it.type !== 'slot') { const sc = itemSec(id); if (sc) return secCol(sc); } if (it && it.type === 'slot' && slotCol(it)) return slotCol(it); if (it && it.color) return it.color; /* generic items wear their parent colour (the owner, 2026-11-24) */ const P = placements(id); const pl = P.find((p) => !(G(p) && (G(p).style === 'dayblock' || G(p).holds === 'slot'))) || P[0]; if (!pl) return '#9A9387'; if (pl.startsWith('s:')) return colorOf(pl.slice(2)); return grpCol(pl); }
 // a group without its own colour wears its parent's, up to the page or area it sits in (2026-11-11: items take their parent colour everywhere)
@@ -1985,7 +1985,7 @@ function choreSwap(DL, d) {
 function genSwap(DL, d, opens, ids, ok) { const isSlot = (id) => I(id) && I(id).type === 'slot' && I(id).opens === opens;
   const real = DL.flatMap((x) => x.items).filter((id) => ids.has(id) && ok(id)); if (!real.length) return DL;
   const sx = DL.find((x) => x.items.some(isSlot));
-  if (sx) { const mv = (M.dayMove || {})[d] || {}, dT = (M.dayTime || {})[d] || {}; const go = real.filter((id) => !I(id).time && !dT[id] && !mv[id]);
+  if (sx) { const mv = (M.dayMove || {})[d] || {}, dT = (M.dayTime || {})[d] || {}; const od = ((M.dayOrder || {})[d] || {})[sx.b] || []; const go = real.filter((id) => !I(id).time && !dT[id] && !mv[id] && !od.includes(id)); /* already placed by hand that day: it stays where I put it (2026-11-24) */
     DL.forEach((x) => { if (x !== sx) x.items = x.items.filter((id) => !go.includes(id)); });
     const rest = sx.items.filter((id) => !go.includes(id)); const k = rest.findIndex(isSlot); rest.splice(k, 0, ...go); sx.items = rest; }
   DL.forEach((x) => { x.items = x.items.filter((id) => !isSlot(id)); });
@@ -2010,7 +2010,7 @@ function placeDay(d) {
   // repeats keep the order they always have unless I move them (2026-11-20); only an unfinished two-part chore goes to the top
   const topped = new Set([...carried].filter((id) => (M.half || {})[id]));
   if (topped.size) DL.forEach((x) => { const c = x.items.filter((id) => topped.has(id)); x.items = c.concat(x.items.filter((id) => !topped.has(id))); });
-  const fixedT = (id) => I(id).time && !carried.has(id);
+  const fixedT = (id) => (I(id).time || dT[id]) && !carried.has(id); /* moved to a time on this day (2026-11-24) */
   const allFixed = []; DL.forEach(({ b, items, appts }) => { const g = G(b);
     items.filter(fixedT).forEach((id) => { const t = hm(tAt(id, d)); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), blk: b }); });
     (appts || []).forEach((id) => { const t = hm(tAt(id, d) || g.start); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), appt: true, blk: b }); }); });
@@ -2049,7 +2049,7 @@ const colSquares = (cols, pick, act) => `<span class="tsqs" role="group" aria-la
 // what a colour stands for in the schedule key: an appointment's type, else the section or slot the item is planned from
 // the colour key names the generic owner of a colour: the section (Studies, Chores, Homemaking, Cooking, Training,
 // Hobbies) or group it belongs to, and every one that shares the colour (the owner, 2026-11-24)
-const SEC_NM = (k) => { const A = M.areas || {}, P = M.pages || {}; const x = k === 'study' ? A.study : k === 'hobbies' ? A.hobbies : P[k === 'move' ? 'training' : k]; return (x && x.name) || ''; };
+const SEC_NM = (k) => { const A = M.areas || {}, P = M.pages || {}; const x = k === 'study' ? A.study : k === 'hobbies' ? A.hobbies : P[k === 'move' ? 'training' : k]; return (x && x.name) || ({ study: 'Studies', hobbies: 'Hobbies', move: 'Training', training: 'Training', chores: 'Chores', homemaking: 'Homemaking', cooking: 'Cooking' })[k] || ''; };
 function keyName(id, appt) { if (appt) return G(catOf(id)).name; const it = I(id);
   if (it && it.type === 'slot' && it.opens && SEC_NM(it.opens)) return SEC_NM(it.opens); { const sc = it && it.type !== 'slot' ? itemSec(id) : null; if (sc && SEC_NM(sc)) return SEC_NM(sc); }
   const pl = placements(id).find((p) => !(G(p) && (G(p).style === 'dayblock' || G(p).holds === 'slot')));
@@ -2913,6 +2913,30 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
   // an item with a set time (or an appointment): its new time snaps to the nearest edge on that day, the end of the item
   // before it, the start of the item after it or a block's start, so things can be blocked together (the owner, 2026-11-13)
   const o0 = placeDay(x.from).find((o) => o.id === x.id) || {};
+  // moving on one day (the owner, 2026-11-24): it lands on the nearest quarter hour, or snaps right behind or in front of an
+  // item when dropped close to its edge; dropped onto other items, it takes that spot and they make room behind it
+  if (!S.edit && day === x.from && !o0.appt && it.type !== 'checkin') {
+    const len = (o0.b - o0.a) || it.dur || 30; const tm = minuteAt((top - cr.top) / x.sc);
+    const PDd = placeDay(day).filter((o) => o.id !== x.id && I(o.id).type !== 'checkin');
+    const hard = (o) => o.appt || I(o.id).brk; const ov = (o, a) => a < o.b && a + len > o.a;
+    let t = Math.round(tm / 15) * 15, bd = 7.5;
+    PDd.forEach((o) => [o.b, o.a - len].forEach((c) => { const dd = Math.abs(c - tm); if (dd < bd) { bd = dd; t = c; } }));
+    /* landing in the middle of an earlier item: it goes right behind that item */
+    const inMid = PDd.find((o) => !hard(o) && o.a < t && ov(o, t)); if (inMid) t = inMid.b;
+    /* breaks and appointments don't move: it goes in front of or behind them, whichever side it was dropped nearer */
+    for (let k = 0; k < 6; k++) { const h = PDd.find((o) => hard(o) && ov(o, t)); if (!h) break; t = tm + len / 2 < (h.a + h.b) / 2 && h.a - len >= 0 ? h.a - len : h.b; }
+    const nb = blockAtTime(fmtHM(t)) || b; const idx = PDd.filter((o) => o.blk === nb && o.a < t).length;
+    change(() => {
+      const dT = (M.dayTime = M.dayTime || {})[day] = M.dayTime[day] || {}; dT[x.id] = fmtHM(t);
+      const TK0 = (M.dayTack = M.dayTack || {})[day] = M.dayTack[day] || {}; TK0[x.id] = null;
+      moveOnDay(x.id, day, nb, idx);
+      /* everything after it in its block keeps its order: what's in the way moves back to make room, the rest stays put */
+      let cur = t + len; PDd.filter((o) => !hard(o) && o.blk === nb && o.a >= t).sort((p, q) => p.a - q.a).forEach((o) => {
+        const l = o.b - o.a; let a = Math.max(o.a, cur);
+        for (let k = 0; k < 6; k++) { const h = PDd.find((q) => hard(q) && a < q.b && a + l > q.a); if (!h) break; a = h.b; }
+        dT[o.id] = fmtHM(a); cur = a + l; });
+    }, 'Moved ' + it.name + ' to ' + fmtHM(t) + ' on ' + fmtDate(day));
+    return; }
   if (it.time || o0.appt) { const len = (o0.b - o0.a) || it.dur || 30; const tm = minuteAt((top - cr.top) / x.sc);
     const cand = blockIds().map((k) => hm(G(k).start));
     placeDay(day).filter((o) => o.id !== x.id && I(o.id).type !== 'checkin').forEach((o) => { cand.push(o.b); cand.push(o.appt || I(o.id).time ? o.a - len : o.a); });
@@ -5340,7 +5364,7 @@ function renderTraining() {
   // Sessions as Planner rows, one card per category like Today's blocks; adding only in edit mode (2026-11-04)
   h += `<div class="stack" ${S.edit ? 'data-list="g-train"' : ''} style="margin-top:14px">` + trainCats().map((c) => { const g = G(c); const ks = kidsOf(c); const open = S.edit || S.open['b:' + c] !== false;
     const left = ks.filter((k) => onDay(k, T0) && !isDone(k, T0)).length;
-    return `<section class="card" data-ref="${c}"><div class="bhead">${grip()}${S.edit ? `<span class="circ" style="--c:${g.color};width:14px;height:14px;background:${g.color}" data-col="${c}" role="button" aria-label="Change colour"></span><span class="nm mono" style="font-size:11px;flex:1">${nm(c, g.name)}</span>${tail(c, 'g-train')}`
+    return `<section class="card" data-ref="${c}"><div class="bhead">${grip()}${S.edit ? `<span class="nm mono" style="font-size:11px;flex:1">${nm(c, g.name)}</span>${tail(c, 'g-train')}`
       : `<button data-a="bopen" data-ref="${c}" aria-expanded="${open}" style="display:flex;align-items:center;gap:8px;width:100%;min-height:44px"><span class="nm mono" style="flex:1">${esc(g.name)}</span><span class="cnt">${left ? left + ' today' : ''}</span>${fold(open)}</button>`}</div>
       ${open ? `<div class="list" data-list="${c}">${ks.map((k) => itemRow(k, c, T0)).join('') || (S.edit ? '' : '<p class="empty">No sessions yet.</p>')}${S.edit ? `<button class="addrow" data-a="vadd" data-v="${c}"><span class="plus">+</span>Add session</button>` : ''}</div>` : ''}</section>`; }).join('') + '</div>';
   if (S.edit) h += `<div style="margin-top:10px"><button class="addcard" data-a="taddcat">+ Add category</button></div>`;
