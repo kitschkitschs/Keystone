@@ -27,7 +27,8 @@ function calLines(k, d) { const w = weekStart(d); const inWeek = new Set(); for 
   // one stack per day: every row of the week keeps its place (an empty row when this day hasn't that tag), so the lines
   // stay level across the week and evenly spaced; snapBars sizes them in whole device pixels (2026-11-06)
   // three fixed slots: the first line sits in the middle, the second under it, the third over it (2026-11-06)
-  const slots = [rows[2], rows[0], rows[1]];
+  // only as many slots as the week has lines, the first at the bottom, so it sits as far from the bottom as the plan marks from the top (the owner, 2026-11-24)
+  const slots = rows.slice().reverse();
   return `<span class="condlines">` + slots.map((id) => { if (!id || !today.has(id)) return '<i class="no"></i>'; const prev = lineTagsOn(k, addDays(d, -1)).has(id), next = d < T0 && lineTagsOn(k, addDays(d, 1)).has(id);
     const names = condsDay(d).filter((x) => (ctagsOf(x).length ? ctagsOf(x) : ['none']).includes(id)).map((x) => x.name).join(', ');
     return `<i class="${prev ? '' : 'st'} ${next ? '' : 'en'}" style="--cc:${id === 'none' ? CT_NONE : ctagCol(id)}" title="${esc(names)}"></i>`; }).join('') + `</span>`; }
