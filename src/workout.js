@@ -52,6 +52,7 @@ function woSheet(s) { const it = I(s.ref); if (!it || !it.wo) return ''; const w
       <div class="wxnums">${st(i, 'sets', e.sets + (e.sets === 1 ? ' set' : ' sets'))}${st(i, 'n', x.timed ? e.n + ' s' : e.n + ' reps')}</div></div>`; }).join('');
   const left = exList().filter((x) => !w.ex.some((e) => e.x === x.id)).sort((a, b) => a.name.localeCompare(b.name));
   return `<div class="fld"><span class="mono">Name</span><input class="inp" id="woname" data-woname="${s.ref}" value="${esc(it.name)}"></div>
+    <div class="fld"><span class="mono">Details</span><input class="inp" id="woextra" data-woextra="${s.ref}" value="${esc(it.extra || '')}" maxlength="40" placeholder="Like gym or short"></div>
     <div class="fld"><span class="mono">Follow it as</span><div class="chips">${[['list', 'List'], ['one', 'One at a time']].map(([v, l]) => `<button class="chip" data-a="wofollow" data-ref="${s.ref}" data-v="${v}" aria-pressed="${(w.follow || 'list') === v}">${l}</button>`).join('')}</div></div>
     <div class="tg"><span class="l">Stands in for generic items<span class="sub" style="display:block;font-size:12.5px;color:var(--quiet)">Off for an extra one, like a recovery workout: Movement and Workout stay on my day beside it</span></span><button class="swt" role="switch" aria-checked="${!it.nogen}" data-a="wonogen" data-ref="${s.ref}" aria-label="Stands in for generic items"></button></div>
     <div class="fld"><span class="mono">Rest between sets</span><span class="stp wstp"><button data-a="worest" data-ref="${s.ref}" data-v="-1" aria-label="Less">−</button><b>${woRest(w) ? mmss(woRest(w)) : 'None'}</b><button data-a="worest" data-ref="${s.ref}" data-v="1" aria-label="More">+</button></span></div>
@@ -286,6 +287,7 @@ function workoutAction(act, a, ref, v) {
 // typing a workout's name, giving a session exercises, adding an exercise from the list
 document.addEventListener('change', (e) => { const ds = e.target.dataset || {};
   if (ds.wnote && M.wrun) { M.wrun.note = e.target.value; save(); return; }
+  if (ds.woextra) { const v = e.target.value.trim(), k = ds.woextra; if (I(k)) setTimeout(() => change(() => { if (v) I(k).extra = v; else delete I(k).extra; }), 0); return; } // small grey caps beside the name, like a hobby activity's (the owner, 2026-11-25)
   if (ds.woname) { const v = e.target.value.trim(), k = ds.woname; if (v && I(k)) setTimeout(() => change(() => { I(k).name = v; }), 0); return; } // after the click that blurred it has drawn
   if (ds.wogive) { const k = e.target.value; if (k && I(k)) { change(() => { I(k).wo = { follow: 'list', ex: [] }; }); openSheet({ kind: 'wo', ref: k, title: 'Workout' }); } return; }
   if (ds.woadd) { const x = e.target.value; const it = I(ds.woadd); if (!x || !it) return; if (x === '__new') { workoutAction('wxnew'); return; }
