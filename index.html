@@ -1267,6 +1267,8 @@ html.dark .feelcard.empty{background:var(--card)}html.dark .jcard .jct,html.dark
 .wbars{display:inline-flex;align-items:flex-end;gap:3px;height:32px;flex:none;margin-top:4px}.wbars>span{display:flex;flex-direction:column;align-items:center;gap:3px;width:6px}.wbars i{display:block;width:6px;background:var(--tc)}.wbars em{display:block;width:6px;height:3px}
 .wbars em.a1{background:color-mix(in srgb,#F08A3E 35%,var(--page))}.wbars em.a2{background:color-mix(in srgb,#F08A3E 70%,var(--page))}.wbars em.a3{background:#F08A3E}
 .wlast{font-size:12.5px;color:var(--quiet);line-height:1.45;margin:12px 0 0}
+.tl .box.msel{outline:2px solid var(--ink);outline-offset:1px;z-index:3}
+.mselbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:10px;margin:8px 0 0;padding:8px 10px;background:var(--page);border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:12.5px;color:var(--quiet)}.mselbar span{flex:1}.mselbar .btn{padding:6px 12px;min-height:0}
 </style>
 <div class="phone" id="phone">
   <header class="top"><div class="ttl" id="ttl"></div><button class="hb" id="plusbtn" aria-label="Add something"><svg width="22" height="22" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M457.31-457.31H220v-45.38h237.31V-740h45.38v237.31H740v45.38H502.69V-220h-45.38v-237.31Z"/></svg></button><button class="hb donebtn2" id="donebtn" aria-label="Done editing" hidden>Done</button><button class="hb" id="menubtn" aria-label="Menu"><svg width="22" height="22" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M225.55-443.54q-15.1 0-25.71-10.75-10.61-10.74-10.61-25.83 0-15.09 10.75-25.72 10.74-10.62 25.83-10.62 15.09 0 25.91 10.75 10.82 10.74 10.82 25.83 0 15.09-10.87 25.72-10.86 10.62-26.12 10.62Zm254.33 0q-15.09 0-25.72-10.75-10.62-10.74-10.62-25.83 0-15.09 10.75-25.72 10.74-10.62 25.83-10.62 15.09 0 25.72 10.75 10.62 10.74 10.62 25.83 0 15.09-10.75 25.72-10.74 10.62-25.83 10.62Zm254.31 0q-15.09 0-25.91-10.75-10.82-10.74-10.82-25.83 0-15.09 10.87-25.72 10.86-10.62 26.12-10.62 15.1 0 25.71 10.75 10.61 10.74 10.61 25.83 0 15.09-10.75 25.72-10.74 10.62-25.83 10.62Z"/></svg></button></header>
@@ -2220,6 +2222,7 @@ function renderSchedule() {
   const LATE = Math.max(0, ...PDs.flat().filter((o) => o.late).map((o) => o.b - ends[o.blk])); const H = y(h1 * 60); const lateRoom = LATE ? LATE / 60 * PX + 8 : 0; // a late part two hangs below the last block; the block itself doesn't stretch for it (the owner, 2026-11-25)
   const cols = `grid-template-columns:22px repeat(${days.length},minmax(0,1fr))`;
   let h = renderCal('s') + calEdit();
+  if (S.msel && !S.edit) h += `<div class="mselbar"><span>${S.msel.ids.length} selected · tap to add or take off, hold one to move them all</span><button class="btn" data-a="mselx">Done</button></div>`; // several items moved together on one day (the owner, 2026-11-25)
   if (S.edit) h += `<p class="note" style="margin:6px 0 0;font-size:12.5px;color:var(--quiet)">Drop right against an item to block it there on every day, wherever that item lands. Drop in open space to set it to that time <span aria-hidden="true">●</span>.</p>`; // the two kinds of edit-mode drop (the owner, 2026-11-25)
   h += `<div class="tl" style="height:${H}px;margin-top:4px;${lateRoom ? `margin-bottom:${lateRoom}px;` : ''}${cols}">`;
   for (let k = h0; k < h1; k++) h += `<div class="hr ${starts.includes(k * 60) ? 'bs' : ''}" style="top:${y(k * 60)}px"><span>${pad(k)}</span></div>`;
@@ -2247,7 +2250,7 @@ function renderSchedule() {
       const inner = !dayV ? '' : bk ? `<span class="bkt"><span>${inm(it)}</span></span>` : `<span class="bn">${inm(it)}</span><span class="bt">${estHM((o.b - o.a) / 60)}</span>`; // the time it takes, not when it starts (2026-11-23)
       const fd = faded(di, o);
       const mv = it.type !== 'checkin' && d >= T0 && !o.two && !o.cont; // set-time items and appointments move too, snapping to what's around them (2026-11-13)
-      return `<button class="box ${dayV ? 'wide' : ''} ${ht < 20 ? 'xs' : ht < 30 ? 'sm' : ''} ${mv ? 'mv' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && it.brk ? ' brk' : ''}${o.flows ? ' fl1' : o.cont ? ' fl2' : ''}${S.edit && !o.appt && !it.brk && I(standIn(o.id, d)) && I(standIn(o.id, d)).time ? ' pin' : ''}" style="top:${top}px;height:${ht}px;--fs:${Math.max(5, Math.min(9.5, ht - 1.5)).toFixed(1)}px;--c:${c};--bg:${fd ? mix(c, TH.page, 0.5) : c};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" data-from="${o.a}" data-to="${o.b}" aria-label="${esc(tnm(it))}, ${fmtHM(o.a)}">${inner}</button>`; }).join('') + '</div>';
+      return `<button class="box ${dayV ? 'wide' : ''} ${ht < 20 ? 'xs' : ht < 30 ? 'sm' : ''} ${mv ? 'mv' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${S.msel && S.msel.day === d && S.msel.ids.includes(o.id) ? ' msel' : ''}${!o.appt && it.brk ? ' brk' : ''}${o.flows ? ' fl1' : o.cont ? ' fl2' : ''}${S.edit && !o.appt && !it.brk && I(standIn(o.id, d)) && I(standIn(o.id, d)).time ? ' pin' : ''}" style="top:${top}px;height:${ht}px;--fs:${Math.max(5, Math.min(9.5, ht - 1.5)).toFixed(1)}px;--c:${c};--bg:${fd ? mix(c, TH.page, 0.5) : c};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" data-from="${o.a}" data-to="${o.b}" aria-label="${esc(tnm(it))}, ${fmtHM(o.a)}">${inner}</button>`; }).join('') + '</div>';
   });
   S.ymap = { y, h0, h1, zones: blockIds().filter((b) => OV[b]).map((b) => ({ b, top: yIn(ends[b], b), h: OV[b] / 60 * PX, e: ends[b], ov: OV[b] })) };
   h += '</div>';
@@ -2793,6 +2796,7 @@ document.addEventListener('click', (e) => {
     case 'month': { const k = a.dataset.c === 's' ? 'smonthOf' : a.dataset.c === 'f' ? 'fmonthOf' : a.dataset.c === 'x' ? 'xmonthOf' : 'monthOf'; S.fmonthOf = S.fmonthOf || T0.slice(0, 7); S.xmonthOf = S.xmonthOf || T0.slice(0, 7); const [y, m] = S[k].split('-').map(Number); const d = new Date(y, m - 1 + (+v), 1); S[k] = iso(d).slice(0, 7); render(); break; }
     case 'secopen': S.open[ref] = S.open[ref] === false; render(); break;
     case 'bdur': { const dd = a.dataset.d || T0, it = I(ref); const base = it.dur || 15; const n = Math.max(5, durOn(ref, dd, 15) + 5 * (+v)); change(() => { const m = M.dayDur = M.dayDur || {}; const o = m[dd] = m[dd] || {}; if (n === base) delete o[ref]; else o[ref] = n; if (!Object.keys(o).length) delete m[dd]; }); if (S.sheet) renderLayer(); break; }
+    case 'mselx': S.msel = null; render(); break;
     case 'peek': openSheet({ kind: 'peek', ref, d: a.dataset.d || T0, from: a.dataset.from, to: a.dataset.to, title: I(ref).name }); break;
     case 'addtick': S.sheet = null; tick(ref); break;
     case 'addset': { S.sheet = null; const cur = val(T0, ref); const nv = /^\d+$/.test(v) ? +v : v; change(() => { if (String(cur) === String(nv)) delete L(T0)[ref]; else L(T0)[ref] = nv; }, (String(cur) === String(nv) ? 'Cleared ' : 'Logged ') + I(ref).name); break; }
@@ -3105,21 +3109,43 @@ function editSnap(id, day, lead, front, nb, chain, back) { let xid = standIn(id,
 // Schedule edit mode: hold a box without a set time, then drag it to another place, block or (one-off tasks) day.
 let sd = null;
 // a picked-up box loses its red overflow outline while held
+// several items picked by double tap move together on one day, keeping their spacing (the owner, 2026-11-25)
+function multiMove(id, day, tm, o0) { const ids = S.msel.ids; const PD = placeDay(day).filter((o) => I(o.id) && I(o.id).type !== 'checkin' && !o.two);
+  const sel = PD.filter((o) => ids.includes(o.id) && !o.cont).sort((p, q) => p.a - q.a); const oth = PD.filter((o) => !ids.includes(o.id) && !o.cont);
+  const hard = (o) => o.appt || I(o.id).brk; const len = o0.b - o0.a;
+  let t = Math.round(tm / 15) * 15, bd = 7.5; oth.forEach((o) => [o.b, o.a - len].forEach((c) => { const dd = Math.abs(c - tm); if (dd < bd) { bd = dd; t = c; } }));
+  let delta = t - o0.a; if (!delta) { render(); return; }
+  for (let k = 0; k < 10; k++) { const h = oth.find((o) => hard(o) && sel.some((q) => q.a + delta < o.b && q.b + delta > o.a)); if (!h) break; const q = sel.find((z) => z.a + delta < h.b && z.b + delta > h.a); delta += h.b - (q.a + delta); }
+  change(() => { const dT = (M.dayTime = M.dayTime || {})[day] = M.dayTime[day] || {}; const TK0 = (M.dayTack = M.dayTack || {})[day] = M.dayTack[day] || {}; const DA1 = (M.dayAfter = M.dayAfter || {})[day] = M.dayAfter[day] || {};
+    const busy = oth.filter(hard).map((o) => ({ a: o.a, b: o.b }));
+    sel.forEach((o) => { const a = o.a + delta; dT[o.id] = fmtHM(a); TK0[o.id] = null; delete DA1[o.id]; const nb = blockAtTime(fmtHM(a)) || o.blk; moveOnDay(o.id, day, nb, PD.filter((q) => q.blk === nb && q.a < a).length); busy.push({ a, b: a + o.b - o.a }); });
+    /* what's in the way makes room behind them; the rest stays put */
+    const lo = Math.min(...sel.map((o) => o.a + delta));
+    oth.filter((o) => !hard(o) && o.b > lo).sort((p, q) => p.a - q.a).forEach((o) => { const l = o.b - o.a; let a = o.a; for (let k = 0; k < 20; k++) { const h = busy.find((q) => a < q.b && a + l > q.a); if (!h) break; a = h.b; } if (a !== o.a) dT[o.id] = fmtHM(a); busy.push({ a, b: a + l }); });
+  }, 'Moved ' + sel.length + ' items on ' + fmtDate(day)); }
+// a double tap on a box starts picking several; a single tap still opens it, a moment later
+let tap1 = null;
+document.addEventListener('click', (e) => { const bx = e.target.closest && e.target.closest('.tl .box[data-ref]'); if (!bx || suppress || S.edit || S.sheet) return;
+  e.preventDefault(); e.stopPropagation(); const id = bx.dataset.ref, d = bx.dataset.d;
+  if (S.msel) { if (S.msel.day !== d) { flash('One day at a time'); return; } const i = S.msel.ids.indexOf(id); if (i >= 0) S.msel.ids.splice(i, 1); else S.msel.ids.push(id); if (!S.msel.ids.length) S.msel = null; render(); return; }
+  if (tap1 && tap1.id === id && tap1.d === d) { clearTimeout(tap1.t); tap1 = null; if (bx.classList.contains('mv') && !(I(id) && I(id).type === 'checkin')) { S.msel = { day: d, ids: [id] }; if (navigator.vibrate) navigator.vibrate(10); render(); } return; }
+  if (tap1) clearTimeout(tap1.t); const ds = Object.assign({}, bx.dataset);
+  tap1 = { id, d, t: setTimeout(() => { tap1 = null; if (ds.a === 'peek') openSheet({ kind: 'peek', ref: id, d: ds.d || T0, from: ds.from, to: ds.to, title: I(id).name }); }, 260) }; }, true);
 function liftOut(bx) { bx.classList.remove('spill'); }
 function minuteAt(px) { const { h0, h1, y, zones } = S.ymap; const z = (zones || []).find((q) => px >= q.top && px <= q.top + q.h); S.ymap.zb = z ? z.b : null; /* inside a block's overflow: the minute in the overflow, so drops there land where they're aimed (2026-11-12: items jumped when a day ran over its block) */ if (z) return z.e + Math.round((px - z.top) / Math.max(1, z.h) * z.ov); let best = h0 * 60, bd = 1e9; for (let m = h0 * 60; m <= h1 * 60; m += 5) { const dd = Math.abs(y(m) - px); if (dd < bd) { bd = dd; best = m; } } return best; }
 document.addEventListener('pointerdown', (e) => {
   const bx = e.target.closest('.box.mv'); if (!bx || S.sheet) return;
-  sd = { id: bx.dataset.ref, from: bx.dataset.d, el: bx, x: e.clientX, y: e.clientY, sc: bx.getBoundingClientRect().height / bx.offsetHeight || 1, off: (e.clientY - bx.getBoundingClientRect().top) / (bx.getBoundingClientRect().height / bx.offsetHeight || 1), st: $('#main').scrollTop, on: false, t: setTimeout(() => { if (!sd) return; sd.on = true; liftOut(bx); bx.classList.add('lift'); if (navigator.vibrate) navigator.vibrate(10); }, 300) };
+  sd = { id: bx.dataset.ref, from: bx.dataset.d, el: bx, x: e.clientX, y: e.clientY, sc: bx.getBoundingClientRect().height / bx.offsetHeight || 1, off: (e.clientY - bx.getBoundingClientRect().top) / (bx.getBoundingClientRect().height / bx.offsetHeight || 1), st: $('#main').scrollTop, on: false, t: setTimeout(() => { if (!sd) return; sd.on = true; liftOut(bx); bx.classList.add('lift'); sd.grp = S.msel && !S.edit && S.msel.ids.includes(bx.dataset.ref) ? [...document.querySelectorAll('.tl .box.msel')].filter((z) => z !== bx) : []; sd.grp.forEach((z) => { liftOut(z); z.classList.add('lift'); }); if (navigator.vibrate) navigator.vibrate(10); }, 300) };
   try { bx.setPointerCapture(e.pointerId); } catch (_) {}
 });
 document.addEventListener('pointermove', (e) => { if (!sd) return;
   if (!sd.on) { if (Math.hypot(e.clientX - sd.x, e.clientY - sd.y) > 8) { clearTimeout(sd.t); sd = null; } return; }
   e.preventDefault(); sd.cx = e.clientX; sd.cy = e.clientY;
   const mn = $('#main'), mr = mn.getBoundingClientRect(); if (e.clientY < mr.top + 40) mn.scrollTop -= 8; else if (e.clientY > mr.bottom - 40) mn.scrollTop += 8;
-  sd.el.style.transform = `translate(${(e.clientX - sd.x) / sd.sc}px,${(e.clientY - sd.y) / sd.sc + mn.scrollTop - sd.st}px)`; });
+  sd.el.style.transform = `translate(${(e.clientX - sd.x) / sd.sc}px,${(e.clientY - sd.y) / sd.sc + mn.scrollTop - sd.st}px)`; (sd.grp || []).forEach((z) => { z.style.transform = sd.el.style.transform; }); });
 document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; sd = null; clearTimeout(x.t); if (!x.on) return;
   suppress = true; setTimeout(() => { suppress = false; }, 300);
-  const top = e.clientY - x.off * x.sc; x.el.style.transform = ''; x.el.classList.remove('lift');
+  const top = e.clientY - x.off * x.sc; x.el.style.transform = ''; x.el.classList.remove('lift'); (x.grp || []).forEach((z) => { z.style.transform = ''; z.classList.remove('lift'); });
   const cols = [...document.querySelectorAll('.tl .col[data-day]')]; const col = cols.find((c) => { const r = c.getBoundingClientRect(); return e.clientX >= r.left - 2 && e.clientX <= r.right + 2; }) || cols.find((c) => c.dataset.day === x.from);
   if (!col) return; const day = col.dataset.day; const cr = col.getBoundingClientRect();
   // the middle of the box decides (2026-11-11): above another item's middle = in front of it, below = behind it
@@ -3135,6 +3161,7 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
   // item when dropped close to its edge; dropped onto other items, it takes that spot and they make room behind it
   if (day === x.from && !o0.appt && it.type !== 'checkin') {
     const len = (o0.b - o0.a) || it.dur || 30; const tm = minuteAt((top - cr.top) / x.sc);
+    if (!S.edit && S.msel && S.msel.day === day && S.msel.ids.includes(x.id) && S.msel.ids.length > 1) { multiMove(x.id, day, tm, o0); return; }
     const P0 = placeDay(day).filter((o) => o.id !== x.id && I(o.id).type !== 'checkin');
     /* what follows it (the owner, 2026-11-24): items snapped right behind it on this day, and tasks set to always come after it,
        move along with it, in a row behind it */
