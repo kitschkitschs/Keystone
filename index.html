@@ -20,7 +20,7 @@
   /* Stone (2026-11-23): putty paper, one ink, hairlines, square corners */
   --page:#D8D6D0; --card:#E1DFDA; --ink:#2E2E2C; --ink2:#5A5A57; --quiet:#5A5A57; --faint:#94938E; --faint2:#A5A49F;
   --line:#C3C1BB; --line2:#C9C7C1; --soft:#CFCDC7; --wash:#CFCDC7; --washline:#BDBBB6; --star:#8A8984; --done:#6B8A66; --much:#B07A4A; --danger:#A8645A;
-  --brk:color-mix(in srgb,var(--ink) 9%,var(--page)); --paper:#E4E2DD; --rule:#C6C4BE;
+  --brk:color-mix(in srgb,var(--ink) 9%,var(--page));  --brkc:color-mix(in srgb,var(--ink) 24%,var(--page)); --paper:#E4E2DD; --rule:#C6C4BE;
   --serif:'Newsreader',Georgia,serif; --mono:'IBM Plex Mono',ui-monospace,monospace; --sans:'Inter Tight','Inter',system-ui,-apple-system,sans-serif;
   color-scheme:light;
 }
@@ -1857,7 +1857,7 @@ const optText = (it) => !it.optional ? '' : it.optDays && it.optDays.length ? 'O
 const optDaysUI = (D) => !D.optional ? '' : `<div class="fld"><span class="mono">Optional on</span><div class="chips"><button class="chip" data-a="doptday" data-v="all" aria-pressed="${!(D.optDays && D.optDays.length)}">Every day</button>${WD.map((n, k) => `<button class="chip" data-a="doptday" data-v="${k}" aria-pressed="${!!(D.optDays && D.optDays.includes(k))}">${n}</button>`).join('')}</div></div>`;
 function tickCircle(id, d, live) { const k = isMulti(id) ? TK : null;
   const st = val(d, id); const done = instDone(id, d, k); const much = typeof st === 'string' && st.startsWith('much');
-  const c = colorOf(id);
+  const c = I(id) && I(id).brk ? 'var(--brkc)' : colorOf(id);
   const inner = ''; // a done task is just a dot filled with its colour (2026-11-20)
   const circ = `<span class="circ ${much ? 'much' : done ? 'done' : d === T0 && halfOf(id) ? 'half' : ''}${optOn(id, d) ? ' opt' : ''}" style="--c:${c}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : 'aria-hidden="true"'}>${inner}</span>`;
   if (!live || S.edit) return S.edit ? circ : `<span class="tickbtn">${circ}</span>`;
@@ -1895,7 +1895,7 @@ function itemRow(id, list, d) {
   // a break looks like a day block's title (2026-11-11): its icon, its name in small capitals, its length on the right
   if (it.brk) { const ln = `${it.time ? esc(it.time) + ' · ' : ''}${estHM((it.dur || 15) / 60)}`;
     // outside edit mode it's a minimal title like the block titles on Schedule (2026-11-11): dashed lines, small capitals
-    if (!S.edit) return `<div class="row brkrow brkmin" data-ref="${id}"><button class="brkt" data-a="${live ? 'open' : 'peek'}" data-ref="${id}" data-d="${d}" aria-label="${esc(tnm(it))}, a break, ${ln}"><span class="bkt"><span>${inm(it)} · ${estHM((it.dur || 15) / 60)}</span></span></button></div>`;
+    if (!S.edit) return `<div class="row brkrow brkmin" data-ref="${id}"><button class="brkt" data-a="${live ? 'open' : 'peek'}" data-ref="${id}" data-d="${d}" aria-label="${esc(tnm(it))}, a break, ${ln}"><span class="bkt"><span>${inm(it)} · ${estHM((it.dur || 15) / 60)}</span></span></button>${tickCircle(id, d, live)}</div>`; // a break ticks like any item, optional, in faint grey (the owner, 2026-11-25)
     return `<div class="row brkrow" data-ref="${id}">${grip()}<span class="nm mono" style="flex:1">${nm(id, it.name)}</span><span class="cnt">${ln}</span>${tail(id, list)}</div>`; }
   if (it.type === 'checkin') return `<div class="row" data-ref="${id}" data-fixed="1">${S.edit ? '<span class="grip"></span>' : ''}${tickCircle(id, d, live)}<button class="lbl" data-a="checkin" data-ref="${id}">${nm(id, it.name)}</button><span class="chev">›</span></div>`;
   const much = String(val(d, id) || '').startsWith('much');
@@ -1977,7 +1977,7 @@ const uiIc = (key, def) => ((M.settings || {}).uiIcons || {})[key] || def;
 // (a chore page, the + sheet, Studies), not only while Today is on screen, so yesterday's mark is always right (2026-11-10)
 // a started two-part chore stands in for the generic chore on Today (not on Schedule, which is for planning)
 function halfDrop(DL) { return DL; } // a started two-part chore no longer stands in for the day's chore (2026-11-14: unfinished doesn't count)
-function snapDay(d, DL) { DL = DL || slotDrop(dayList(d), d); const opt = (id) => optOn(id, d); let due = missedOn(d).filter((id) => !opt(id)).length, done = 0; const seenK = {}; DL.forEach((x) => x.items.concat(x.appts || []).forEach((id) => { if (I(id) && I(id).brk) return; const kk = isMulti(id) && !(x.appts || []).includes(id) ? (seenK[id] = (seenK[id] ?? -1) + 1) : null; const dn = I(id) && I(id).type === 'routine' ? isDone(id, d) && rComplete(id, d) : instDone(id, d, kk); if (opt(id) && !dn) return; due++; if (dn) done++; })); /* an optional item only counts once it's done */ M.snap[d] = { due, done };
+function snapDay(d, DL) { DL = DL || slotDrop(dayList(d), d); const opt = (id) => optOn(id, d); let due = missedOn(d).filter((id) => !opt(id)).length, done = 0; const seenK = {}; DL.forEach((x) => x.items.concat(x.appts || []).forEach((id) => { if (I(id) && I(id).brk) { if (isDone(id, d)) { due++; done++; } return; } /* a break is optional: it only counts once ticked */ const kk = isMulti(id) && !(x.appts || []).includes(id) ? (seenK[id] = (seenK[id] ?? -1) + 1) : null; const dn = I(id) && I(id).type === 'routine' ? isDone(id, d) && rComplete(id, d) : instDone(id, d, kk); if (opt(id) && !dn) return; due++; if (dn) done++; })); /* an optional item only counts once it's done */ M.snap[d] = { due, done };
   // a bad day is finished when its own list and the day's appointments are done (2026-11-10: an empty Bad day list never finished)
   if (isBad(d)) { const bl = badList().concat(DL.flatMap((x) => x.appts || [])).filter((id, i, A) => A.indexOf(id) === i); Object.assign(M.snap[d], { bad: 1, bdue: bl.length, bdone: bl.filter((id) => isDone(id, d)).length }); }
   return M.snap[d]; }
@@ -2001,7 +2001,6 @@ function renderToday() {
     const g = G(b); const shown = live ? items.filter((id) => S.edit || !instDone(id, d, instK(b, id))) : items;
     const apShown = live && !S.edit ? (appts || []).filter((id) => !isDone(id, d)) : (appts || []);
     if (!S.edit && !shown.length && !apShown.length) return '';
-    if (live && !S.edit && !apShown.length && shown.every((id) => I(id) && I(id).brk)) return ''; // only breaks left once the rest is ticked: the block falls away (the owner, 2026-11-13)
     const open = S.edit || S.open['b:' + b] !== false;
     const ap = appts || []; const total = items.length + ap.length, left = items.concat(ap).filter((id) => !instDone(id, d, instK(b, id))).length;
     const apRow = (id) => `<div class="appt" data-appt="${id}" style="--c:${G(catOf(id)).color}">${tickCircle(id, d, live)}<button data-a="peek" data-ref="${id}" data-d="${d}" class="apb"><span class="apn">${inm(id)}${tdur(I(id))}</span><span class="sub where">${esc(apTime(I(id)))}</span><span class="cnt">${live && I(id).time ? inTime(I(id).time) : ''}</span></button></div>`; // name first, the time after it like other details; a long name is cut short, the time stays (2026-11-24)
