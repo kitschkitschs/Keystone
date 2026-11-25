@@ -793,13 +793,28 @@ function genSwap(DL, d, opens, ids, ok) { const isSlot = typeof opens === 'funct
 const tAt = (id, d) => ((M.dayTime || {})[d] || {})[id] || I(id).time;
 // the morning routine: the first routine in the first day block (2026-11-24)
 const morningId = () => { const b = blockIds()[0]; return ((G(b) || {}).kids || []).find((k) => I(k) && I(k).type === 'routine') || null; };
-// once it's ticked, it sits ending at the tick and everything after it moves by the same amount, in order; breaks and
-// appointments stay where they are and the rest goes around them
-function mShift(out, d) { const at = ((M.mTick || {})[d]); const mid = morningId(); if (at == null || !mid) return; const m0 = out.find((o) => o.id === mid && !o.two); if (!m0) return;
-  const delta = at - m0.b; if (!delta) return; const end0 = m0.b, len = m0.b - m0.a; m0.a = at - len; m0.b = at;
-  const hard = (o) => o.appt || (I(o.id) && I(o.id).brk); let cur = at;
-  const dT = (M.dayTime || {})[d] || {}; out.filter((o) => o !== m0 && !hard(o) && !o.two && !dT[o.id] && o.a >= end0) /* ones I moved by hand stay where I put them */.sort((p, q) => p.a - q.a).forEach((o) => { const l = o.b - o.a; let a = Math.max(o.a + delta, cur);
-    for (let k = 0; k < 8; k++) { const h = out.find((q) => hard(q) && a < q.b && a + l > q.a); if (!h) break; a = h.b; } o.a = a; o.b = a + l; cur = a + l; }); }
+// once it's ticked, it sits ending at the tick and everything after it chains on from there in order, down through the day
+// blocks: an item waits for its own block to start, one that doesn't fit before its block ends goes on into the next block,
+// and only the last block can run over (red), which shows what won't fit before bedtime (the owner, 2026-11-25).
+// Items with a set time, breaks, appointments and hand-moved items stay where they are and the rest goes around them.
+function mShift(out, d, fixedL) { const at = ((M.mTick || {})[d]); const mid = morningId(); if (at == null || !mid) return; const m0 = out.find((o) => o.id === mid && !o.two && !o.cont); if (!m0) return;
+  const BI = blockIds(); const st = (b) => hm(G(b).start), en = (b) => hm(G(b).end); const last = BI[BI.length - 1];
+  const blockAt = (m) => BI.find((b) => st(b) <= m && m < en(b)) || BI.filter((b) => st(b) <= m).pop() || BI[0];
+  const fx = new Set(fixedL || []); const hard = (o) => o.appt || fx.has(o) || o.two || o.late || (I(o.id) && I(o.id).brk);
+  let end0 = m0.b, len0 = m0.b - m0.a; if (m0.flows) { const c = out.find((o) => o.id === mid && o.cont); if (c) { end0 = c.b; len0 += c.b - c.a; out.splice(out.indexOf(c), 1); } m0.flows = false; }
+  m0.a = at - len0; m0.b = at; { const bk = blockAt(at - 1); if (BI.indexOf(bk) > BI.indexOf(m0.blk)) m0.blk = bk; }
+  // the rest in the order they were in; an item that ran into the next block goes in as one piece again
+  const conts = out.filter((o) => o.cont && !hard(o)); const mv = out.filter((o) => o !== m0 && !hard(o) && !o.cont && o.a >= end0 - 0.001).sort((p, q) => p.a - q.a);
+  conts.forEach((c) => { const f = mv.find((o) => o.id === c.id && o.flows); if (f) { f.b += c.b - c.a; f.flows = false; out.splice(out.indexOf(c), 1); } });
+  const busy = () => out.filter(hard);
+  let cur = at; mv.forEach((o) => { const l = o.b - o.a; const fl = I(o.id) && I(o.id).flow; let a = Math.max(cur, st(o.blk)), blk = o.blk;
+    for (let k = 0; k < 20; k++) { let ch = false; const h = busy().find((q) => a < q.b && a + l > q.a); if (h) { a = h.b; ch = true; }
+      blk = BI.indexOf(blockAt(a)) > BI.indexOf(blk) ? blockAt(a) : blk; if (a < st(blk)) { a = st(blk); ch = true; }
+      const nb = BI[BI.indexOf(blk) + 1]; if (!fl && nb && a + l > en(blk)) { a = Math.max(a, st(nb)); blk = nb; ch = true; }
+      if (!ch) break; }
+    const nb = BI[BI.indexOf(blk) + 1];
+    if (fl && nb && a < en(blk) && a + l > en(blk)) { const s0 = Math.max(st(nb), en(blk)); o.a = a; o.b = en(blk); o.blk = blk; o.flows = true; const c = { id: o.id, a: s0, b: s0 + a + l - en(blk), blk: nb, cont: true }; out.push(c); cur = c.b; return; }
+    o.a = a; o.b = a + l; o.blk = blk; cur = o.b; }); }
 let TWO_IN = false; const TWO_LATE = (d) => d < T0; /* a past day keeps it where it was */
 function placeDay(d) {
   const fz = frozenOf(d); if (fz) { return fz.filter((o) => !isMissed(o.id, d) && !halfWait(o.id, d)).map((o) => Object.assign({}, o)); }
@@ -872,7 +887,7 @@ function placeDay(d) {
     items.filter((id) => !fixedT(id) && !tacked.has(id) && !anc[id]).forEach(seq);
     items.filter((id) => !fixedT(id) && !tacked.has(id) && anc[id]).forEach(seq); // what follows something that never got placed here
   });
-  mShift(out, d);
+  mShift(out, d, allFixed);
   // second parts go in last, into the first free spot from when they're due, so nothing else moves for them
   /* counted from the moment part one was ticked (the owner, 2026-11-24) */
   Object.keys(twoAt).sort((p, q) => twoAt[p] - twoAt[q]).forEach((id) => { const len = I(id).dur || 30; let a0 = twoAt[id], moved = true;
