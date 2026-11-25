@@ -185,8 +185,10 @@ function woFinish(R, head, dc, all) { const it = I(R.item), w = it.wo; const lab
   </div><div class="wfoot"><button class="wbig fill" data-a="wrsave">Save</button></div>`; }
 function woTStop(R) { const x = exOf(I(R.item).wo.ex[+R.tm.k.split('-')[0]].x) || {}; R.tm.state = x.side && !R.tm.side ? 'gap' : 'over'; }
 // a hold that runs out only says so (and buzzes once); it never moves me on
-setInterval(() => { const R = M && M.wrun; if (!R || !R.tm || R.tm.state !== 'run' || !S.sheet || S.sheet.kind !== 'wrun') return;
-  if (Date.now() >= R.tm.end) { woTStop(R); try { navigator.vibrate && navigator.vibrate(300); } catch (_) {} save(); renderLayer(); return; }
+// a countdown that runs out dings, wherever I am in the app (the owner, 2026-11-25)
+setInterval(() => { const R = M && M.wrun; if (!R || !R.tm || R.tm.state !== 'run') return;
+  if (Date.now() >= R.tm.end) { woTStop(R); ding(true); try { navigator.vibrate && navigator.vibrate(300); } catch (_) {} save(); if (S.sheet && S.sheet.kind === 'wrun') renderLayer(); return; }
+  if (!S.sheet || S.sheet.kind !== 'wrun') return;
   document.querySelectorAll('#layer .wcd').forEach((el) => { el.textContent = tLeft(R); }); }, 250);
 
 // ---------- actions ----------
@@ -246,7 +248,7 @@ function workoutAction(act, a, ref, v) {
       keep(); return true; }
     case 'wundo': delete R.done[ref]; keep(); return true;
     case 'wprev': { const F = woFlat(w); const j = R.i || 0; if (j > 0) { R.i = j - 1; delete R.done[woK(...F[j - 1])]; } R.tm = null; keep(); return true; }
-    case 'wtstart': { const e = entry(ref); const dur = R.act[ref] != null ? R.act[ref] : e.n; const side = R.tm && R.tm.k === ref && R.tm.state === 'gap' ? 1 : 0; R.tm = { k: ref, side, end: Date.now() + dur * 1000, state: 'run' }; woWake(); keep(); return true; }
+    case 'wtstart': { try { dingCtx = dingCtx || new (window.AudioContext || window.webkitAudioContext)(); if (dingCtx.state === 'suspended') dingCtx.resume(); } catch (_) {} const e = entry(ref); const dur = R.act[ref] != null ? R.act[ref] : e.n; const side = R.tm && R.tm.k === ref && R.tm.state === 'gap' ? 1 : 0; R.tm = { k: ref, side, end: Date.now() + dur * 1000, state: 'run' }; woWake(); keep(); return true; }
     case 'wtstop': woTStop(R); keep(); return true;
     case 'wfin': R.phase = 'fin'; R.tm = null; keep(); return true;
     case 'wback': R.phase = 'go'; keep(); return true;

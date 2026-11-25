@@ -381,7 +381,7 @@ const TMR_DEF = { mode: 'free', rem: 0, brk: 5, work: 25, rounds: 4, sound: true
 // Patch 3 (the owner, 2026-11-24): pomodoro is only focus, break and rounds; a break shows in the ring for both modes
 const tmr = () => { const o = Object.assign({}, TMR_DEF, (M.settings || {}).timer || {}); if (o.short && !((M.settings.timer || {}).brk)) o.brk = o.short; delete o.short; delete o.long; delete o.every; return o; };
 let dingCtx = null;
-function ding() { if (!tmr().sound) return; try { dingCtx = dingCtx || new (window.AudioContext || window.webkitAudioContext)(); const c = dingCtx; if (c.state === 'suspended') c.resume(); const t = c.currentTime;
+function ding(force) { if (!force && !tmr().sound) return; try { dingCtx = dingCtx || new (window.AudioContext || window.webkitAudioContext)(); const c = dingCtx; if (c.state === 'suspended') c.resume(); const t = c.currentTime;
   [[1318.5, 0.32, 1.8], [2637, 0.08, 0.9], [3956, 0.03, 0.5]].forEach(([f, g, len]) => { const o = c.createOscillator(), v = c.createGain(); o.type = 'sine'; o.frequency.value = f;
     v.gain.setValueAtTime(0.0001, t); v.gain.exponentialRampToValueAtTime(g, t + 0.008); v.gain.exponentialRampToValueAtTime(0.0001, t + len); o.connect(v).connect(c.destination); o.start(t); o.stop(t + len + 0.05); }); } catch (e) {} }
 const mss = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ':' + pad(s % 60); };
