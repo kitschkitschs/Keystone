@@ -514,6 +514,7 @@ textarea.inp{resize:none;font:inherit;padding-top:10px;height:auto}
 .list.pastday>*{opacity:.55}
 .editing .box.mv{outline:1.5px dashed var(--quiet);outline-offset:-1px}
 .box,.list .row{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.box.pin::after{content:'';position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:50%;background:var(--deep);opacity:.8} /* edit mode: set to a clock time; the rest are blocked to the item before them */
 .box.lift{z-index:20;box-shadow:0 8px 20px rgba(60,50,30,.25);opacity:.95}
 .band{position:absolute;left:0;right:0;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;color:var(--quiet);text-transform:uppercase;writing-mode:vertical-rl;transform:rotate(180deg);padding:4px 0}
 /* edit mode */

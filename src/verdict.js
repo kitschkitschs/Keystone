@@ -167,7 +167,9 @@ function slotTrainIds(sid) { const it = typeof sid === 'string' ? I(sid) : sid; 
   // a workout set apart from the generic items (a recovery workout) never stands in for one, scheduled or ticked (the owner, 2026-11-24)
   if (it.tcat) return new Set(kidsOf(it.tcat).filter((k) => !I(k).nogen));
   const own = new Set(Object.keys(M.items).filter((k) => I(k).type === 'slot' && I(k).tcat && placements(k).some((p) => G(p) && G(p).style === 'dayblock')).map((k) => I(k).tcat));
-  return new Set(trainCats().filter((c) => !own.has(c)).flatMap(kidsOf).filter((k) => !I(k).nogen)); }
+  // Movement never gives way to a workout: workouts stand in only for the Workout generic (the owner, 2026-11-25)
+  const wc = typeof woCat === 'function' ? woCat() : null;
+  return new Set(trainCats().filter((c) => !own.has(c) && c !== wc).flatMap(kidsOf).filter((k) => !I(k).nogen && !I(k).wo)); }
 function slotDone(it, d) {
   if (it.opens === 'study') return minOn(null, d) + supMin(d) >= sessLen(); // Study support minutes count toward the day's study minutes (the owner, 2026-11-12)
   if (it.opens === 'chores') return choreIds().some((k) => val(d, k));

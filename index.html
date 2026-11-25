@@ -524,6 +524,7 @@ textarea.inp{resize:none;font:inherit;padding-top:10px;height:auto}
 .list.pastday>*{opacity:.55}
 .editing .box.mv{outline:1.5px dashed var(--quiet);outline-offset:-1px}
 .box,.list .row{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.box.pin::after{content:'';position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:50%;background:var(--deep);opacity:.8} /* edit mode: set to a clock time; the rest are blocked to the item before them */
 .box.lift{z-index:20;box-shadow:0 8px 20px rgba(60,50,30,.25);opacity:.95}
 .band{position:absolute;left:0;right:0;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;color:var(--quiet);text-transform:uppercase;writing-mode:vertical-rl;transform:rotate(180deg);padding:4px 0}
 /* edit mode */
@@ -2147,6 +2148,7 @@ function renderSchedule() {
   const LATE = Math.max(0, ...PDs.flat().filter((o) => o.late).map((o) => o.b - ends[o.blk])); const H = y(h1 * 60); const lateRoom = LATE ? LATE / 60 * PX + 8 : 0; // a late part two hangs below the last block; the block itself doesn't stretch for it (the owner, 2026-11-25)
   const cols = `grid-template-columns:22px repeat(${days.length},minmax(0,1fr))`;
   let h = renderCal('s') + calEdit();
+  if (S.edit) h += `<p class="note" style="margin:6px 0 0;font-size:12.5px;color:var(--quiet)">Drop right against an item to block it there on every day, wherever that item lands. Drop in open space to set it to that time <span aria-hidden="true">●</span>.</p>`; // the two kinds of edit-mode drop (the owner, 2026-11-25)
   h += `<div class="tl" style="height:${H}px;margin-top:4px;${lateRoom ? `margin-bottom:${lateRoom}px;` : ''}${cols}">`;
   for (let k = h0; k < h1; k++) h += `<div class="hr ${starts.includes(k * 60) ? 'bs' : ''}" style="top:${y(k * 60)}px"><span>${pad(k)}</span></div>`;
   // block lines, like the old Daybook: a dashed line at each block's start with its name (day view: time used of its length)
@@ -2173,7 +2175,7 @@ function renderSchedule() {
       const inner = !dayV ? '' : bk ? `<span class="bkt"><span>${inm(it)}</span></span>` : `<span class="bn">${inm(it)}</span><span class="bt">${estHM((o.b - o.a) / 60)}</span>`; // the time it takes, not when it starts (2026-11-23)
       const fd = faded(di, o);
       const mv = it.type !== 'checkin' && d >= T0 && !o.two && !o.cont; // set-time items and appointments move too, snapping to what's around them (2026-11-13)
-      return `<button class="box ${dayV ? 'wide' : ''} ${ht < 20 ? 'xs' : ht < 30 ? 'sm' : ''} ${mv ? 'mv' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && it.brk ? ' brk' : ''}" style="top:${top}px;height:${ht}px;--fs:${Math.max(5, Math.min(9.5, ht - 1.5)).toFixed(1)}px;--c:${c};--bg:${fd ? mix(c, TH.page, 0.5) : c};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" data-from="${o.a}" data-to="${o.b}" aria-label="${esc(tnm(it))}, ${fmtHM(o.a)}">${inner}</button>`; }).join('') + '</div>';
+      return `<button class="box ${dayV ? 'wide' : ''} ${ht < 20 ? 'xs' : ht < 30 ? 'sm' : ''} ${mv ? 'mv' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && it.brk ? ' brk' : ''}${S.edit && !o.appt && !it.brk && I(standIn(o.id)) && I(standIn(o.id)).time ? ' pin' : ''}" style="top:${top}px;height:${ht}px;--fs:${Math.max(5, Math.min(9.5, ht - 1.5)).toFixed(1)}px;--c:${c};--bg:${fd ? mix(c, TH.page, 0.5) : c};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" data-from="${o.a}" data-to="${o.b}" aria-label="${esc(tnm(it))}, ${fmtHM(o.a)}">${inner}</button>`; }).join('') + '</div>';
   });
   S.ymap = { y, h0, h1, zones: blockIds().filter((b) => OV[b]).map((b) => ({ b, top: yIn(ends[b], b), h: OV[b] / 60 * PX, e: ends[b], ov: OV[b] })) };
   h += '</div>';
@@ -2996,6 +2998,25 @@ function editMove(id, day, t, len, nb, chain, PDd, hard) { const xid = standIn(i
     PDd.filter((o) => !hard(o) && o.blk === nb && o.a >= t && I(standIn(o.id)) && I(standIn(o.id)).time).sort((p, q) => p.a - q.a).forEach((o) => { const l = o.b - o.a; if (o.a >= cur) { cur = o.b; return; } let a = cur;
       for (let k = 0; k < 8; k++) { const h = PDd.find((q) => hard(q) && a < q.b && a + l > q.a); if (!h) break; a = h.b; } I(standIn(o.id)).time = fmtHM(a); clearOwn(standIn(o.id)); clearOwn(o.id); if (standIn(o.id) === o.id) dTd[o.id] = fmtHM(a); cur = a + l; });
   }, 'Moved ' + it.name + ' to ' + T + ' on every day'); }
+// edit mode, dropped right behind (or in front of) an item (the owner, 2026-11-25): it's blocked together with that item on
+// every day, wherever that item lands, instead of getting a clock time. Dropped in open space it gets the clock time (editMove).
+function editSnap(id, day, lead, front, nb, chain) { const xid = standIn(id); const it = I(xid); const L = lead ? standIn(lead) : null, F = front ? standIn(front) : null; const ref = L || F;
+  if (!ref || ref === xid || !I(ref)) return false;
+  const clearOwn = (k) => { ['dayTime', 'dayMove', 'dayTack', 'dayAfter'].forEach((key) => Object.entries(M[key] || {}).forEach(([d, q]) => { if (d >= T0 && q) delete q[k]; }));
+    Object.entries(M.dayOrder || {}).forEach(([d, o]) => { if (d >= T0) Object.values(o).forEach((l) => { const i = l.indexOf(k); if (i >= 0) l.splice(i, 1); }); }); };
+  const blkOf = (k) => blockIds().find((b) => G(b).kids.includes(k));
+  change(() => {
+    delete it.time; delete it.before; delete it.behind; clearOwn(xid); if (xid !== id) clearOwn(id);
+    blockIds().forEach((b) => { const ks = G(b).kids; const i = ks.indexOf(xid); if (i >= 0) ks.splice(i, 1); });
+    const tb = blkOf(ref) || nb; const ks = G(tb).kids; const ri = ks.indexOf(ref);
+    if (L) { if (I(L).time) it.behind = L; ks.splice(ri >= 0 ? ri + 1 : ks.length, 0, xid); }
+    else { if (I(F).time) it.before = F; ks.splice(ri >= 0 ? ri : ks.length, 0, xid); }
+    /* what follows it comes along, in a row right behind it */
+    let pos = ks.indexOf(xid); const src = afterSrc(); chain.forEach((o) => { const fid = standIn(o.id); if (!I(fid) || I(fid).time || fid === xid) return; clearOwn(fid); if ((src[o.id] || []).includes(id)) return;
+      blockIds().forEach((b) => { const k2 = G(b).kids; const i = k2.indexOf(fid); if (i >= 0) k2.splice(i, 1); }); pos = ks.indexOf(xid) + 1 + chain.indexOf(o); ks.splice(Math.min(pos, ks.length), 0, fid); delete I(fid).behind; });
+    syncDayOrders(xid);
+  }, (L ? 'Blocked ' + it.name + ' behind ' + I(L).name : 'Blocked ' + it.name + ' in front of ' + I(F).name) + ' on every day');
+  return true; }
 // Schedule edit mode: hold a box without a set time, then drag it to another place, block or (one-off tasks) day.
 let sd = null;
 // a picked-up box loses its red overflow outline while held
@@ -3037,14 +3058,15 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
     for (let q = [x.id], k = 0; q.length && k < 20; k++) { const nx = []; q.forEach((id) => folOf(id).forEach((o) => { chain.push(o); nx.push(o.id); })); q = nx; }
     const PDd = P0.filter((o) => !chain.includes(o)); const tot = len + chain.reduce((n, o) => n + (o.b - o.a), 0);
     const hard = (o) => o.appt || I(o.id).brk; const ov = (o, a, l = tot) => a < o.b && a + l > o.a;
-    let t = Math.round(tm / 15) * 15, bd = 7.5, lead = null;
-    PDd.forEach((o) => [[o.b, o.id], [o.a - tot, null]].forEach(([c, ld]) => { const dd = Math.abs(c - tm); if (dd < bd) { bd = dd; t = c; lead = ld; } }));
+    let t = Math.round(tm / 15) * 15, bd = 7.5, lead = null, front = null;
+    PDd.forEach((o) => [[o.b, o.id, null], [o.a - tot, null, o.id]].forEach(([c, ld, fr]) => { const dd = Math.abs(c - tm); if (dd < bd) { bd = dd; t = c; lead = ld; front = fr; } }));
     /* landing in the middle of an earlier item: it goes right behind that item */
-    const inMid = PDd.find((o) => !hard(o) && o.a < t && ov(o, t)); if (inMid) { t = inMid.b; lead = inMid.id; }
+    const inMid = PDd.find((o) => !hard(o) && o.a < t && ov(o, t)); if (inMid) { t = inMid.b; lead = inMid.id; front = null; }
     /* breaks and appointments don't move: it goes in front of or behind them, whichever side it was dropped nearer */
-    for (let k = 0; k < 6; k++) { const h = PDd.find((o) => hard(o) && ov(o, t)); if (!h) break; const fr = tm + len / 2 < (h.a + h.b) / 2 && h.a - tot >= 0; t = fr ? h.a - tot : h.b; lead = fr ? null : h.id; }
+    for (let k = 0; k < 6; k++) { const h = PDd.find((o) => hard(o) && ov(o, t)); if (!h) break; const fr = tm + len / 2 < (h.a + h.b) / 2 && h.a - tot >= 0; t = fr ? h.a - tot : h.b; lead = fr ? null : h.id; front = fr ? h.id : null; }
     const nb = blockAtTime(fmtHM(t)) || b; const idx = PDd.filter((o) => o.blk === nb && o.a < t).length;
-    if (S.edit) { editMove(x.id, day, t, len, nb, chain, PDd, hard); return; }
+    /* edit mode: snapped to an item = blocked together with it on every day; dropped in open space = that clock time on every day (the owner, 2026-11-25) */
+    if (S.edit) { const ap = (k) => k && PDd.some((o) => o.id === k && o.appt); if (!(lead && ap(lead)) && !(front && ap(front)) && editSnap(x.id, day, lead, front, nb, chain)) return; editMove(x.id, day, t, len, nb, chain, PDd, hard); return; }
     change(() => {
       const dT = (M.dayTime = M.dayTime || {})[day] = M.dayTime[day] || {}; dT[x.id] = fmtHM(t);
       const TK0 = (M.dayTack = M.dayTack || {})[day] = M.dayTack[day] || {}; TK0[x.id] = null;
@@ -4280,7 +4302,9 @@ function slotTrainIds(sid) { const it = typeof sid === 'string' ? I(sid) : sid; 
   // a workout set apart from the generic items (a recovery workout) never stands in for one, scheduled or ticked (the owner, 2026-11-24)
   if (it.tcat) return new Set(kidsOf(it.tcat).filter((k) => !I(k).nogen));
   const own = new Set(Object.keys(M.items).filter((k) => I(k).type === 'slot' && I(k).tcat && placements(k).some((p) => G(p) && G(p).style === 'dayblock')).map((k) => I(k).tcat));
-  return new Set(trainCats().filter((c) => !own.has(c)).flatMap(kidsOf).filter((k) => !I(k).nogen)); }
+  // Movement never gives way to a workout: workouts stand in only for the Workout generic (the owner, 2026-11-25)
+  const wc = typeof woCat === 'function' ? woCat() : null;
+  return new Set(trainCats().filter((c) => !own.has(c) && c !== wc).flatMap(kidsOf).filter((k) => !I(k).nogen && !I(k).wo)); }
 function slotDone(it, d) {
   if (it.opens === 'study') return minOn(null, d) + supMin(d) >= sessLen(); // Study support minutes count toward the day's study minutes (the owner, 2026-11-12)
   if (it.opens === 'chores') return choreIds().some((k) => val(d, k));
