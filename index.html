@@ -1897,9 +1897,9 @@ function itemRow(id, list, d) {
   const it = I(id); const live = d === T0;
   if (it.type === 'slot') return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, false)}<span class="lbl">${S.edit ? nm(id, it.name) : `<button data-a="${live ? 'slot' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left;display:flex;align-items:center;gap:8px"><span style="flex:1">${inm(it)}${live && it.opens === 'study' && minOn(null, T0) + supMin(T0) < sessLen() ? `<span class="tdur">${estHM((minOn(null, T0) + supMin(T0)) / 60)} of ${estHM(sessLen() / 60)}</span>` : ''}${live && slotSub(it) ? `<span class="sub">${esc(slotSub(it))}</span>` : ''}</span>${live ? '<span class="chev" aria-hidden="true">' + icon('chevron-right', 16) + '</span>' : ''}</button>`}</span>${tail(id, list)}</div>`;
   // a break looks like a day block's title (2026-11-11): its icon, its name in small capitals, its length on the right
-  if (it.brk) { const ln = `${it.time ? esc(it.time) + ' · ' : ''}${estHM((it.dur || 15) / 60)}`;
+  if (it.brk) { const ln = `${it.time ? esc(it.time) + ' · ' : ''}${estHM(durOn(id, d, 15) / 60)}`;
     // outside edit mode it's a minimal title like the block titles on Schedule (2026-11-11): dashed lines, small capitals
-    if (!S.edit) return `<div class="row brkrow brkmin" data-ref="${id}"><button class="brkt" data-a="${live ? 'open' : 'peek'}" data-ref="${id}" data-d="${d}" aria-label="${esc(tnm(it))}, a break, ${ln}"><span class="bkt"><span>${inm(it)} · ${estHM((it.dur || 15) / 60)}</span></span></button>${tickCircle(id, d, live)}</div>`; // a break ticks like any item, optional, in faint grey (the owner, 2026-11-25)
+    if (!S.edit) return `<div class="row brkrow brkmin" data-ref="${id}"><button class="brkt" data-a="${live ? 'open' : 'peek'}" data-ref="${id}" data-d="${d}" aria-label="${esc(tnm(it))}, a break, ${ln}"><span class="bkt"><span>${inm(it)} · ${estHM(durOn(id, d, 15) / 60)}</span></span></button>${tickCircle(id, d, live)}</div>`; // a break ticks like any item, optional, in faint grey (the owner, 2026-11-25)
     return `<div class="row brkrow" data-ref="${id}">${grip()}<span class="nm mono" style="flex:1">${nm(id, it.name)}</span><span class="cnt">${ln}</span>${tail(id, list)}</div>`; }
   if (it.type === 'checkin') return `<div class="row" data-ref="${id}" data-fixed="1">${S.edit ? '<span class="grip"></span>' : ''}${tickCircle(id, d, live)}<button class="lbl" data-a="checkin" data-ref="${id}">${nm(id, it.name)}</button><span class="chev">›</span></div>`;
   const much = String(val(d, id) || '').startsWith('much');
@@ -2080,6 +2080,9 @@ function genSwap(DL, d, opens, ids, ok) { const isSlot = typeof opens === 'funct
   return DL; }
 // a set-time item dragged on the Schedule for one day keeps that day's time in M.dayTime (2026-11-13)
 const tAt = (id, d) => ((M.dayTime || {})[d] || {})[id] || I(id).time;
+// a break's length can change for one day only (the owner, 2026-11-25): M.dayDur[day][id] = minutes
+const durOn = (id, d, def = 30) => ((M.dayDur || {})[d] || {})[id] || (I(id) || {}).dur || def;
+const brkDayUI = (id, d) => `<div class="fld"><span class="mono">Length ${d === T0 ? 'today' : 'on ' + esc(fmtDate(d))} only</span><span class="stp"><button data-a="bdur" data-ref="${id}" data-d="${d}" data-v="-1" aria-label="Shorter">−</button><b>${estHM(durOn(id, d, 15) / 60)}</b><button data-a="bdur" data-ref="${id}" data-d="${d}" data-v="1" aria-label="Longer">+</button></span></div>`;
 // the morning routine: the first routine in the first day block (2026-11-24)
 const morningId = () => { const b = blockIds()[0]; return ((G(b) || {}).kids || []).find((k) => I(k) && I(k).type === 'routine') || null; };
 // once it's ticked, it sits ending at the tick and everything after it chains on from there in order, down through the day
@@ -2089,14 +2092,15 @@ const morningId = () => { const b = blockIds()[0]; return ((G(b) || {}).kids || 
 function mShift(out, d, fixedL) { const at = ((M.mTick || {})[d]); const mid = morningId(); if (at == null || !mid) return; const m0 = out.find((o) => o.id === mid && !o.two && !o.cont); if (!m0) return;
   const BI = blockIds(); const st = (b) => hm(G(b).start), en = (b) => hm(G(b).end); const last = BI[BI.length - 1];
   const blockAt = (m) => BI.find((b) => st(b) <= m && m < en(b)) || BI.filter((b) => st(b) <= m).pop() || BI[0];
-  const fx = new Set(fixedL || []); const hard = (o) => o.appt || fx.has(o) || o.two || o.late || (I(o.id) && I(o.id).brk);
+  const fx = new Set(fixedL || []); const fol = (o) => !!(I(o.id) && I(o.id).brk && I(o.id).follow && !((M.dayTime || {})[d] || {})[o.id]); /* a break set to move with my day chains on like the rest (the owner, 2026-11-25: lunch moves, dinner stays) */
+  const hard = (o) => o.appt || o.two || o.late || ((fx.has(o) || (I(o.id) && I(o.id).brk)) && !fol(o));
   let end0 = m0.b, len0 = m0.b - m0.a; if (m0.flows) { const c = out.find((o) => o.id === mid && o.cont); if (c) { end0 = c.b; len0 += c.b - c.a; out.splice(out.indexOf(c), 1); } m0.flows = false; }
   m0.a = at - len0; m0.b = at; { const bk = blockAt(at - 1); if (BI.indexOf(bk) > BI.indexOf(m0.blk)) m0.blk = bk; }
   // the rest in the order they were in; an item that ran into the next block goes in as one piece again
   const conts = out.filter((o) => o.cont && !hard(o)); const mv = out.filter((o) => o !== m0 && !hard(o) && !o.cont && o.a >= end0 - 0.001).sort((p, q) => p.a - q.a);
   conts.forEach((c) => { const f = mv.find((o) => o.id === c.id && o.flows); if (f) { f.b += c.b - c.a; f.flows = false; out.splice(out.indexOf(c), 1); } });
   const busy = () => out.filter(hard);
-  let cur = at; mv.forEach((o) => { const l = o.b - o.a; const fl = I(o.id) && I(o.id).flow; let a = Math.max(cur, st(o.blk)), blk = o.blk;
+  let cur = at; mv.forEach((o) => { const l = o.b - o.a; const fl = true; /* everything that moves this way may run on into the next block (the owner, 2026-11-25) */ let a = Math.max(cur, st(o.blk)), blk = o.blk;
     for (let k = 0; k < 20; k++) { let ch = false; const h = busy().find((q) => a < q.b && a + l > q.a); if (h) { a = h.b; ch = true; }
       blk = BI.indexOf(blockAt(a)) > BI.indexOf(blk) ? blockAt(a) : blk; if (a < st(blk)) { a = st(blk); ch = true; }
       const nb = BI[BI.indexOf(blk) + 1]; if (!fl && nb && a + l > en(blk)) { a = Math.max(a, st(nb)); blk = nb; ch = true; }
@@ -2131,7 +2135,7 @@ function placeDay(d) {
   const SW = DL.swapT || {}; const tAt = (id, dd) => ((M.dayTime || {})[dd] || {})[id] || SW[id] || I(id).time; /* a stand-in takes its generic item's time */
   const fixedT = (id) => !!(dT[id] || SW[id]) || (!!I(id).time && !carried.has(id)); /* moved to a time on this day (2026-11-24) */
   const allFixed = []; DL.forEach(({ b, items, appts }) => { const g = G(b);
-    items.filter(fixedT).forEach((id) => { const t = hm(tAt(id, d)); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), blk: b }); });
+    items.filter(fixedT).forEach((id) => { const t = hm(tAt(id, d)); allFixed.push({ id, a: t, b: t + durOn(id, d), blk: b }); });
     (appts || []).forEach((id) => { const t = hm(tAt(id, d) || g.start); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), appt: true, blk: b }); }); });
   /* two items with a set time never sit on top of each other: the later one (or a stand-in that took a generic item's time)
      goes right behind the other (the owner, 2026-11-25: workouts hid under the Movement generic) */
@@ -2163,11 +2167,11 @@ function placeDay(d) {
     // backwards; a day's own choice wins over the every-day one (it.before)
     const dt = (M.dayTack || {})[d] || {}; const tackOf = (id) => { const t = (id in dt ? dt[id] : I(id).before) || null; return t && I(t) ? t : null; }; // breaks too (2026-11-12), but only when dropped right at them (see the drop)
     const tacked = new Set(); const busy = fixed.slice();
-    fixed.forEach((f) => { let end = f.a; items.filter((id) => !fixedT(id) && !carried.has(id) && !anc[id] && tackOf(id) === f.id).reverse().forEach((id) => { const len = I(id).dur || 30; if (end - len < hm(g.start)) return; /* no room before the block starts: it flows as usual */ if (busy.some((q) => end - len < q.b && end > q.a)) return; /* something else is there (an appointment): it finds a free spot instead (2026-11-14) */ const q = { id, a: end - len, b: end, blk: b }; out.push(q); busy.push(q); tacked.add(id); end -= len; }); });
+    fixed.forEach((f) => { let end = f.a; items.filter((id) => !fixedT(id) && !carried.has(id) && !anc[id] && tackOf(id) === f.id).reverse().forEach((id) => { const len = durOn(id, d); if (end - len < hm(g.start)) return; /* no room before the block starts: it flows as usual */ if (busy.some((q) => end - len < q.b && end > q.a)) return; /* something else is there (an appointment): it finds a free spot instead (2026-11-14) */ const q = { id, a: end - len, b: end, blk: b }; out.push(q); busy.push(q); tacked.add(id); end -= len; }); });
     fixed.slice().sort((p, q) => p.a - q.a).forEach(putFol); busy.filter((q) => tacked.has(q.id)).forEach(putFol);
     /* an item never jumps into a gap in front of the items above it in the list, even when those went behind something with a set time (the owner, 2026-11-25: a 20-minute workout slipped in before lunch, away from its row) */
     const idx = new Map(items.map((x, i) => [x, i]));
-    const seq = (id) => { if (pl.has(id)) return; pl.add(id); const len = I(id).dur || 30; let moved = true; if (after[id]) cur = Math.max(cur, after[id]);
+    const seq = (id) => { if (pl.has(id)) return; pl.add(id); const len = durOn(id, d); let moved = true; if (after[id]) cur = Math.max(cur, after[id]);
       { const i0 = idx.get(id); out.forEach((q) => { if (q.blk === b && !q.appt && !q.cont && idx.has(q.id) && idx.get(q.id) < i0 && !fixedT(q.id) && !(I(q.id) && I(q.id).brk)) cur = Math.max(cur, q.b); }); }
       while (moved) { moved = false; busy.forEach((f) => { if (cur < f.b && cur + len > f.a) { cur = f.b; moved = true; } }); }
       const endB = hm(g.end), nb = BI[BI.indexOf(b) + 1];
@@ -2315,7 +2319,7 @@ function renderAppts() {
 
 // ---------- layer: menu, sheets, toast ----------
 // clear everything logged before today, keeping every item, note and setting (the owner, 2026-11-24)
-const LOG_KEYS = ['log', 'snap', 'frozen', 'feel', 'photos', 'study', 'support', 'missed', 'badDays', 'dayMove', 'dayOrder', 'dayTime', 'dayTack', 'dayAfter', 'mTick', 'foodMark', 'rOpen', 'training', 'multi'];
+const LOG_KEYS = ['log', 'snap', 'frozen', 'feel', 'photos', 'study', 'support', 'missed', 'badDays', 'dayMove', 'dayOrder', 'dayTime', 'dayTack', 'dayAfter', 'dayDur', 'mTick', 'foodMark', 'rOpen', 'training', 'multi'];
 function clearOldLogs() { LOG_KEYS.forEach((k) => { const o = M[k]; if (!o || typeof o !== 'object' || Array.isArray(o)) return; Object.keys(o).forEach((d) => { if (/^\d{4}-\d\d-\d\d$/.test(d) && d < T0) delete o[d]; }); });
   if (Array.isArray(M.events)) M.events = M.events.filter((e) => !e.day || e.day >= T0); }
 // Every delete asks first (2026-11-02). Returns the question, or null when the action needs none.
@@ -2474,7 +2478,7 @@ function sheetBody() {
       if (it.type === 'routine') lines.push(['Steps', rSteps(s.ref, d).map((x) => (sVal(s.ref, x, d) ? '✓ ' : stepMissed(x, d, s.ref) ? '✕ ' : '') + I(x).name + (I(x).optional ? ' (optional)' : '')).join(', ')]); }
     if (it.note) lines.push(['Note', it.note]);
     lines.push(['Status', done ? (String(val(d, s.ref)).startsWith('much') ? 'Too much' : 'Done') : d < T0 ? 'Not done' : d === T0 ? 'Not done yet' : 'Coming up']);
-    return `<dl class="peek">${lines.map(([k, v]) => `<dt class="mono">${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+    return `<dl class="peek">${lines.map(([k, v]) => `<dt class="mono">${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>${it.brk && d >= T0 ? brkDayUI(s.ref, d) : ''}
       <div class="btns">${d === T0 && it.type !== 'checkin' && it.type !== 'routine' ? `<button class="btn dark" data-a="peektick">${it.type === 'slot' ? 'Open ' + (it.opens === 'study' ? 'Study' : it.opens === 'training' ? 'Training' : it.opens === 'hobbies' ? 'Hobbies' : 'Chores') : done ? 'Untick' : 'Tick as done'}</button>` : ''}${d <= T0 && !done && it.type !== 'checkin' ? `<button class="btn" data-a="miss" data-ref="${s.ref}" data-d="${d}">Missed</button>` : ''}<button class="btn" data-a="peekedit">Edit</button></div>`; }
   if (s.kind === 'add') {
     // Add or log, redone (2026-11-08): compact, everything in reach. Always on top: a feeling, plan items, notebook items.
@@ -2581,7 +2585,7 @@ function itemSheet(s) {
       <div class="fld"><span class="mono">Category</span><div class="chips">${G('g-appts').kids.filter(G).map((c) => `<button class="chip" style="--c:${G(c).color}" data-a="dset" data-k="cat" data-v="${c}" aria-pressed="${s.cat === c}"><span class="d"></span>${esc(G(c).name)}</button>`).join('')}</div></div>`;
   } else if (D.type !== 'checkin' && D.type !== 'step') {
     h += schedUI(s, D);
-    if (D.brk) { if (s.ref && !s.isNew) h += `<div class="btns"><button class="btn danger" data-a="ddelete">Delete</button></div>`; return h; } // a break: a name, its time and length, its days
+    if (D.brk) { h += sw('follow', 'Moves with my day', D.follow) + `<p class="note" style="margin:-4px 0 10px;font-size:12.5px;color:var(--quiet)">When I tick my morning routine, it moves along with everything else. Off, it stays at its time.</p>`; if (s.ref && !s.isNew) h += brkDayUI(s.ref, T0) + `<div class="btns"><button class="btn danger" data-a="ddelete">Delete</button></div>`; return h; } // a break: a name, its time and length, its days
     if (D.type === 'slot') h += afterField(D) + sw('optional', 'Optional', D.optional) + optDaysUI(D); // generic items take followers too: a shower after the Workout generic (the owner, 2026-11-24)
     if (D.type === 'task' || D.type === 'routine') h += ((D.when || {}).mode === 'once' ? `<div class="fld"><span class="mono">Type</span><div class="chips">${[['1', 'Task', 'stays after a tick'], ['0', 'One-off', 'gone once ticked']].map(([v, l, sub]) => `<button class="chip" data-a="dpersist" data-v="${v}" aria-pressed="${!!D.persist === (v === '1')}">${l}<span class="sub" style="font-size:11.5px;color:var(--quiet)">· ${sub}</span></button>`).join('')}</div></div>` : '') // Task or One-off replaces the Persistent switch; a repeat is always a task (2026-11-24)
       + (isTrainSheet(s) ? afterField(D) : '') + sw('optional', 'Optional', D.optional) + optDaysUI(D) + sw('flow', 'Can run into the next block', D.flow) // a slow weekend morning routine carries on into the next block instead of spilling over (the owner, 2026-11-24)
@@ -2788,6 +2792,7 @@ document.addEventListener('click', (e) => {
       if (a.dataset.c === 'f') { S.fmonth = !S.fmonth; if (!S.fmonth) S.fday = T0; S.fmonthOf = (S.fday || T0).slice(0, 7); render(); break; } if (a.dataset.c === 's') { S.smonth = !S.smonth; if (!S.smonth) S.sday = T0; S.smonthOf = S.sday.slice(0, 7); } else { S.month = !S.month; if (!S.month) S.day = T0; S.monthOf = S.day.slice(0, 7); } render(); break;
     case 'month': { const k = a.dataset.c === 's' ? 'smonthOf' : a.dataset.c === 'f' ? 'fmonthOf' : a.dataset.c === 'x' ? 'xmonthOf' : 'monthOf'; S.fmonthOf = S.fmonthOf || T0.slice(0, 7); S.xmonthOf = S.xmonthOf || T0.slice(0, 7); const [y, m] = S[k].split('-').map(Number); const d = new Date(y, m - 1 + (+v), 1); S[k] = iso(d).slice(0, 7); render(); break; }
     case 'secopen': S.open[ref] = S.open[ref] === false; render(); break;
+    case 'bdur': { const dd = a.dataset.d || T0, it = I(ref); const base = it.dur || 15; const n = Math.max(5, durOn(ref, dd, 15) + 5 * (+v)); change(() => { const m = M.dayDur = M.dayDur || {}; const o = m[dd] = m[dd] || {}; if (n === base) delete o[ref]; else o[ref] = n; if (!Object.keys(o).length) delete m[dd]; }); if (S.sheet) renderLayer(); break; }
     case 'peek': openSheet({ kind: 'peek', ref, d: a.dataset.d || T0, from: a.dataset.from, to: a.dataset.to, title: I(ref).name }); break;
     case 'addtick': S.sheet = null; tick(ref); break;
     case 'addset': { S.sheet = null; const cur = val(T0, ref); const nv = /^\d+$/.test(v) ? +v : v; change(() => { if (String(cur) === String(nv)) delete L(T0)[ref]; else L(T0)[ref] = nv; }, (String(cur) === String(nv) ? 'Cleared ' : 'Logged ') + I(ref).name); break; }
