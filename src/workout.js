@@ -21,6 +21,9 @@ const acheOf = (x) => acheItems().filter((k) => (I(k).exs || []).includes(x));
 // every set in the order I do them: set 1 of everything, then set 2 (2026-11-24: "ordered by set, not exercise")
 function woFlat(w) { const out = []; const m = Math.max(0, ...w.ex.map((e) => e.sets)); for (let s = 0; s < m; s++) w.ex.forEach((e, i) => { if (s < e.sets && exOf(e.x)) out.push([i, s]); }); return out; }
 const woK = (i, s) => i + '-' + s;
+// rest between sets (rounds), in seconds; 0 = no rest screen (the owner, 2026-11-25)
+const woRest = (w) => (w.rest != null ? w.rest : 90);
+const mmss = (n) => Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0');
 
 // ---------- Training page: Workouts and Exercises ----------
 // one Workouts list: the Workouts category's sessions, with Start (2026-11-24). Outside edit mode a tap schedules it;
@@ -30,8 +33,8 @@ function woSection() {
   if (woHome()) save();
   const ks = (woCat() ? kidsOf(woCat()) : []).filter((k) => I(k).type === 'task' || I(k).type === 'routine');
   const rows = ks.map((k) => { const w = I(k).wo || { ex: [] }; const n = w.ex.filter((e) => exOf(e.x)).length; const live = R && R.item === k; const wt = whenText(I(k));
-    const sub = [n ? n + (n === 1 ? ' exercise' : ' exercises') + ' · ' + woSets(w) + ' sets' : 'No exercises yet', ed ? '' : wt, isDone(k, T0) ? 'done today' : ''].filter(Boolean).join(' · ');
-    return `<div class="row wrow" data-ref="${k}">${grip()}<button class="lbl" data-a="${ed ? 'woedit' : 'sched'}" data-ref="${k}" style="text-align:left">${inm(k)}<span class="sub">${esc(sub)}</span></button>${ed ? tail(k, woCat()) : `<button class="wgo" data-a="wostart" data-ref="${k}" ${n ? '' : 'disabled'}>${live ? 'Resume' : 'Start'}</button>`}</div>`; }).join('');
+    const sub = [n ? n + (n === 1 ? ' exercise' : ' exercises') + ' · ' + woSets(w) + ' sets' : 'No exercises yet', ed ? '' : wt].filter(Boolean).join(' · ');
+    return `<div class="row wrow" data-ref="${k}">${grip()}<button class="lbl" data-a="${ed ? 'woedit' : 'sched'}" data-ref="${k}" style="text-align:left">${inm(k)}<span class="sub">${esc(sub)}</span></button>${ed ? (live ? `<button class="rm" data-a="wodrop" data-ref="${k}" aria-label="Throw away the workout I'm in the middle of">${icon('trash-2', 15)}</button>` : '') + tail(k, woCat()) : (isDone(k, T0) && !live ? `<span class="wgo wdn" style="--tc:${woCol()}">Done</span>` : `<button class="wgo" data-a="wostart" data-ref="${k}" ${n ? '' : 'disabled'}>${live ? 'Resume' : 'Start'}</button>`)}</div>`; }).join('');
   const ex = exList().slice().sort((a, b) => a.name.localeCompare(b.name));
   const exRows = ex.map((e) => { const a = acheOf(e.id).map((k) => I(k).name.toLowerCase()); const bits = [e.side ? 'two sides' : '', e.timed ? 'timed' : '', a.length ? 'touches ' + a.join(', ') : ''].filter(Boolean);
     const inner = `<span class="lbl">${xnm(e)}${bits.length ? `<span class="sub">${esc(bits.join(' · '))}</span>` : ''}</span>`;
@@ -51,6 +54,7 @@ function woSheet(s) { const it = I(s.ref); if (!it || !it.wo) return ''; const w
   return `<div class="fld"><span class="mono">Name</span><input class="inp" id="woname" data-woname="${s.ref}" value="${esc(it.name)}"></div>
     <div class="fld"><span class="mono">Follow it as</span><div class="chips">${[['list', 'List'], ['one', 'One at a time']].map(([v, l]) => `<button class="chip" data-a="wofollow" data-ref="${s.ref}" data-v="${v}" aria-pressed="${(w.follow || 'list') === v}">${l}</button>`).join('')}</div></div>
     <div class="tg"><span class="l">Stands in for generic items<span class="sub" style="display:block;font-size:12.5px;color:var(--quiet)">Off for an extra one, like a recovery workout: Movement and Workout stay on my day beside it</span></span><button class="swt" role="switch" aria-checked="${!it.nogen}" data-a="wonogen" data-ref="${s.ref}" aria-label="Stands in for generic items"></button></div>
+    <div class="fld"><span class="mono">Rest between sets</span><span class="stp wstp"><button data-a="worest" data-ref="${s.ref}" data-v="-1" aria-label="Less">−</button><b>${woRest(w) ? mmss(woRest(w)) : 'None'}</b><button data-a="worest" data-ref="${s.ref}" data-v="1" aria-label="More">+</button></span></div>
     <div class="fld"><span class="mono">Exercises · done set by set</span>${rows || '<p class="empty" style="padding:4px 0">No exercises yet.</p>'}
       <select class="inp" data-woadd="${s.ref}" aria-label="Add an exercise"><option value="">+ Add an exercise</option>${left.map((x) => `<option value="${x.id}">${esc(xtn(x))}</option>`).join('')}<option value="__new">New exercise…</option></select></div>
     <div class="btns" style="margin-top:14px"><button class="btn" data-a="open" data-ref="${s.ref}">Schedule, block and more</button><button class="btn danger" data-a="wodel" data-ref="${s.ref}">Take the exercises off this session</button></div>`; }
@@ -130,6 +134,7 @@ function woLayer() { const R = M.wrun; if (!R || !I(R.item)) return ''; const it
       ${last ? `<p class="wlast">Last time I wrote: “${esc(last.note)}”</p>` : ''}
     </div><div class="wfoot"><button class="wbig fill" data-a="wrgo">Go</button></div>`;
   } else if (R.phase === 'fin') h = woFinish(R, head, dc, F.length);
+  else if (R.phase === 'rest' && R.rest) h = woRestView(R, w, F, head);
   else if ((w.follow || 'list') === 'one') h = woOne(R, w, F, head, dc);
   else h = woList(R, w, F, head, dc);
   return `<div class="cifull wfull" role="dialog" aria-label="${esc(it.name)}" style="--tc:${woCol()}">${h}</div>`; }
@@ -145,8 +150,8 @@ function woCtl(R, e, k, turn, big) { const x = exOf(e.x); const tm = R.tm && R.t
   return big ? `<button class="wbig fill" data-a="wdone" data-ref="${k}">Done</button>` : `<button class="wtk" data-a="wdone" data-ref="${k}" aria-label="Tick"></button>`; }
 function woAmt(R, e, k) { const x = exOf(e.x); const n = R.act[k] != null ? R.act[k] : e.n; const tm = R.tm && R.tm.k === k ? R.tm : null;
   if (tm && tm.state === 'run') return `<span class="wamt"><b class="wcd">${tLeft(R)}</b> s <i>${x.side ? (tm.side ? 'right' : 'left') : ''}</i></span>`;
-  if (tm && tm.state === 'gap') return `<span class="wamt"><i>left side done</i></span>`;
-  if (tm && tm.state === 'over') return `<span class="wamt"><i>time's up</i></span>`;
+  if (tm && tm.state === 'gap') return `<span class="wamt"><b class="wcd">0</b> s <i>left</i></span>`;
+  if (tm && tm.state === 'over') return `<span class="wamt"><b class="wcd">0</b> s <i>${x.side ? 'right' : ''}</i></span>`;
   if (R.edit === k) return `<span class="stp wstp"><button data-a="wst" data-v="-1" aria-label="Less">−</button><b>${n}</b><button data-a="wst" data-v="1" aria-label="More">+</button></span>`;
   return `<button class="wamt" data-a="wamt" data-ref="${k}">${woUnit(e.x, n)}${woSide(e.x)}</button>`; }
 function woList(R, w, F, head, dc) { const nx = woNext(R); const m = Math.max(...w.ex.map((e) => e.sets));
@@ -158,9 +163,9 @@ function woList(R, w, F, head, dc) { const nx = woNext(R); const m = Math.max(..
   return h + `</div><div class="wfoot"><button class="wbig" data-a="wfin">Finish</button></div>`; }
 function woOne(R, w, F, head, dc) { if (!F.length) return head('') + '<div class="sb"><p class="empty">No exercises.</p></div>';
   let j = F.findIndex(([i, s]) => !R.done[woK(i, s)]); if (R.i != null && R.i >= 0 && R.i < F.length && !R.done[woK(...F[R.i])]) j = R.i; if (j < 0) j = F.length - 1; R.i = j;
-  const [i, s] = F[j], e = w.ex[i], x = exOf(e.x), k = woK(i, s), tm = R.tm && R.tm.k === k ? R.tm : null; const n = tm && tm.state === 'run' ? tLeft(R) : (R.act[k] != null ? R.act[k] : e.n);
+  const [i, s] = F[j], e = w.ex[i], x = exOf(e.x), k = woK(i, s), tm = R.tm && R.tm.k === k ? R.tm : null; const n = tm ? (tm.state === 'run' ? tLeft(R) : 0) : (R.act[k] != null ? R.act[k] : e.n);
   const nxt = F.slice(j + 1).find(([a, b]) => !R.done[woK(a, b)]); const hf = R.half[k];
-  const unit = !x.timed ? 'reps' + woSide(e.x) + (x.side ? ' · ' + (hf ? 'right' : 'left') : '') : !tm ? 'seconds' + woSide(e.x) : tm.state === 'run' ? 'seconds · ' + (x.side ? (tm.side ? 'right side' : 'left side') : 'holding') : tm.state === 'gap' ? 'left side done · the right when I’m ready' : 'time’s up · Done when I’m ready';
+  const unit = !x.timed ? 'reps' + woSide(e.x) + (x.side ? ' · ' + (hf ? 'right' : 'left') : '') : !tm ? 'seconds' + woSide(e.x) : 'seconds' + (x.side ? ' · ' + (tm.state !== 'gap' && tm.side ? 'right side' : 'left side') : '');
   return head(woRounds(w, R) + ' of ' + woSets(w) + ' sets') + `<div class="wsegs">${F.map(([a, b], q) => `<i class="${R.done[woK(a, b)] ? 'on' : ''} ${q === j ? 'cur' : ''}"></i>`).join('')}</div>
     <div class="sb wone"><span class="mono">Set ${s + 1} of ${e.sets}</span><h3>${xnm(x)}</h3>
       <div class="wnum"><button data-a="wbig" data-ref="${k}" data-v="-1" aria-label="Less">−</button><span class="${tm && tm.state === 'run' ? 'wcd' : ''}">${n}</span><button data-a="wbig" data-ref="${k}" data-v="1" aria-label="More">+</button></div>
@@ -173,20 +178,29 @@ function woFinish(R, head, dc, all) { const it = I(R.item), w = it.wo; const lab
   const acheRow = (k) => { const sc = SCALES[I(k).scale] || SCALES.symptom3; const cur = R.f.ache[k] != null ? R.f.ache[k] : val(T0, k);
     return `<div class="row"><span class="lbl">${esc(I(k).name)}</span><span class="wsc">${sc.map((l, q) => `<button data-a="wache" data-ref="${k}" data-v="${q + 1}" aria-pressed="${cur === q + 1}">${esc(l)}</button>`).join('')}</span></div>`; };
   const sug = w.ex.map((e, i) => { if (!exOf(e.x)) return ''; const g = woSuggest(e, R); const can = g.kind === 'up' || g.kind === 'down';
-    return `<div class="row wsug"><span class="lbl">${xnm(exOf(e.x))} <span class="mono wsm">${lab[g.kind]} · ${esc(g.to)}</span><span class="sub">${esc(g.why)}</span></span>${woBars(e.x, R)}${can ? `<button class="wtk ${R.f.acc[i] ? 'on' : ''}" data-a="wacc" data-ref="${i}" aria-label="Use next time" aria-pressed="${!!R.f.acc[i]}"></button>` : '<span class="wtkgap"></span>'}</div>`; }).join('');
+    return `<div class="row wsug"><span class="lbl">${xnm(exOf(e.x))} <span class="mono wsm">${lab[g.kind]} · ${esc(g.to)}</span></span>${woBars(e.x, R)}${can ? `<button class="wtk ${R.f.acc[i] ? 'on' : ''}" data-a="wacc" data-ref="${i}" aria-label="Use next time" aria-pressed="${!!R.f.acc[i]}"></button>` : '<span class="wtkgap"></span>'}</div>`; }).join('');
   return head('Done · ' + woRounds(w, R) + ' of ' + woSets(w) + ' sets') + `<div class="sb">
     <div class="wsh"><b>Before I save</b></div>
     <div class="row"><span class="lbl">Stop and save Strength on my watch</span><button class="wtk ${R.stop ? 'on' : ''}" data-a="wwatch" data-v="stop" aria-label="Done" aria-pressed="${!!R.stop}"></button></div>
     <div class="wsh"><b>Aches and pains</b></div>${ac.map(acheRow).join('') || '<p class="empty">No aches and pains items.</p>'}
     <div class="wsh"><b>Next time</b></div>${sug}
-    <p class="wlast">Bars: my volume per week for six weeks, with a mark under weeks that area ached. Only ticked suggestions change the workout.</p>
     <div class="wsh"><b>Note</b></div><textarea class="inp" id="wnote" data-wnote="1" rows="2" placeholder="Anything to remember?">${esc(R.note || '')}</textarea>
-    <div class="btns" style="margin-top:18px"><button class="btn" data-a="wback">Back to the sets</button><button class="btn danger" data-a="wdrop">Throw it away</button></div>
-  </div><div class="wfoot"><button class="wbig fill" data-a="wrsave">Save</button></div>`; }
+  </div><div class="wfoot"><button class="wbig fill" data-a="wrsave" ${R.stop ? '' : 'disabled'}>Save</button></div>`; }
+// the rest after a set: a countdown that dings at 0 and stays there; I start the next set myself
+function woRestView(R, w, F, head) { const r = R.rest; const left = r.state === 'run' ? Math.max(0, Math.ceil((r.end - Date.now()) / 1000)) : 0;
+  const nx = F.find(([i, s]) => !R.done[woK(i, s)]);
+  return head('Rest · ' + woRounds(w, R) + ' of ' + woSets(w) + ' sets') + `<div class="sb wone"><span class="mono">Rest</span>
+      <div class="wnum"><button data-a="wrest" data-v="-1" aria-label="Less">−</button><span class="wrcd">${mmss(left)}</span><button data-a="wrest" data-v="1" aria-label="More">+</button></div>
+      ${nx ? `<p class="wnext">Next · set ${nx[1] + 1}<b>${esc(xtn(exOf(w.ex[nx[0]].x)))} · ${woUnit(w.ex[nx[0]].x, w.ex[nx[0]].n)}${woSide(w.ex[nx[0]].x)}</b></p>` : ''}</div>
+    <div class="wfoot"><button class="wbig fill" data-a="wrnext">${nx ? 'Start set ' + (nx[1] + 1) : 'Go on'}</button></div>`; }
 function woTStop(R) { const x = exOf(I(R.item).wo.ex[+R.tm.k.split('-')[0]].x) || {}; R.tm.state = x.side && !R.tm.side ? 'gap' : 'over'; }
 // a hold that runs out only says so (and buzzes once); it never moves me on
 // a countdown that runs out dings, wherever I am in the app (the owner, 2026-11-25)
-setInterval(() => { const R = M && M.wrun; if (!R || !R.tm || R.tm.state !== 'run') return;
+setInterval(() => { const R = M && M.wrun; if (!R) return;
+  if (R.phase === 'rest' && R.rest && R.rest.state === 'run') { const left = Math.max(0, Math.ceil((R.rest.end - Date.now()) / 1000));
+    if (left <= 0) { R.rest.state = 'over'; ding(true); try { navigator.vibrate && navigator.vibrate(300); } catch (_) {} save(); }
+    if (S.sheet && S.sheet.kind === 'wrun') document.querySelectorAll('#layer .wrcd').forEach((el) => { el.textContent = mmss(left); }); }
+  if (!R.tm || R.tm.state !== 'run') return;
   if (Date.now() >= R.tm.end) { woTStop(R); ding(true); try { navigator.vibrate && navigator.vibrate(300); } catch (_) {} save(); if (S.sheet && S.sheet.kind === 'wrun') renderLayer(); return; }
   if (!S.sheet || S.sheet.kind !== 'wrun') return;
   document.querySelectorAll('#layer .wcd').forEach((el) => { el.textContent = tLeft(R); }); }, 250);
@@ -229,6 +243,8 @@ function workoutAction(act, a, ref, v) {
     case 'wxdel': { const x = exOf(ref); S.sheet = S.sheet.back || null; change(() => woRemoveEx(ref), 'Deleted ' + (x ? x.name : '')); return true; }
     case 'wacx': { tcapture(); const D = S.sheet.draft; D.exs = (D.exs || []).includes(v) ? D.exs.filter((x) => x !== v) : (D.exs || []).concat(v); if (!D.exs.length) delete D.exs; renderLayer(); return true; }
     case 'wostart': woRunStart(ref); return true;
+    case 'worest': { const w = I(ref).wo; change(() => { w.rest = Math.max(0, Math.min(600, woRest(w) + (+v) * 15)); }); return true; }
+    case 'wodrop': change(() => { if (M.wrun && M.wrun.item === ref) delete M.wrun; }, 'Workout thrown away'); return true;
   }
   if (!R || !S.sheet || S.sheet.kind !== 'wrun') return false;
   const w = I(R.item) && I(R.item).wo; if (!w) return false;
@@ -243,9 +259,12 @@ function workoutAction(act, a, ref, v) {
     case 'wst': { const k = R.edit; const e = entry(k); const x = exOf(e.x); R.act[k] = Math.max(0, (R.act[k] != null ? R.act[k] : e.n) + (+v) * (x.timed ? 5 : 1)); keep(); return true; }
     case 'wbig': { const e = entry(ref); const x = exOf(e.x); if (R.tm && R.tm.k === ref && R.tm.state === 'run') { R.tm.end += (+v) * 5000; } else R.act[ref] = Math.max(0, (R.act[ref] != null ? R.act[ref] : e.n) + (+v) * (x.timed ? 5 : 1)); keep(); return true; }
     case 'whalf': R.half[ref] = !R.half[ref]; keep(); return true;
-    case 'wdone': { R.done[ref] = 1; delete R.half[ref]; if (R.tm && R.tm.k === ref) R.tm = null; R.edit = null;
+    case 'wdone': { const r0 = woRounds(w, R); R.done[ref] = 1; delete R.half[ref]; if (R.tm && R.tm.k === ref) R.tm = null; R.edit = null;
       if ((w.follow || 'list') === 'one') { const F = woFlat(w); const j = F.findIndex(([i, s]) => woK(i, s) === ref); const nx = F.slice(j + 1).findIndex(([i, s]) => !R.done[woK(i, s)]); if (nx < 0 && F.every(([i, s]) => R.done[woK(i, s)])) R.phase = 'fin'; else R.i = nx < 0 ? null : j + 1 + nx; }
+      const r1 = woRounds(w, R); if (R.phase !== 'fin' && r1 > r0 && r1 < woSets(w) && woRest(w)) { R.phase = 'rest'; R.rest = { end: Date.now() + woRest(w) * 1000, state: 'run' }; }
       keep(); return true; }
+    case 'wrest': { const r = R.rest; if (!r) return true; const left = r.state === 'run' ? Math.max(0, r.end - Date.now()) : 0; const nl = Math.max(0, left + (+v) * 15000); r.end = Date.now() + nl; r.state = nl ? 'run' : 'over'; keep(); return true; }
+    case 'wrnext': R.phase = 'go'; delete R.rest; keep(); return true;
     case 'wundo': delete R.done[ref]; keep(); return true;
     case 'wprev': { const F = woFlat(w); const j = R.i || 0; if (j > 0) { R.i = j - 1; delete R.done[woK(...F[j - 1])]; } R.tm = null; keep(); return true; }
     case 'wtstart': { try { dingCtx = dingCtx || new (window.AudioContext || window.webkitAudioContext)(); if (dingCtx.state === 'suspended') dingCtx.resume(); } catch (_) {} const e = entry(ref); const dur = R.act[ref] != null ? R.act[ref] : e.n; const side = R.tm && R.tm.k === ref && R.tm.state === 'gap' ? 1 : 0; R.tm = { k: ref, side, end: Date.now() + dur * 1000, state: 'run' }; woWake(); keep(); return true; }
@@ -254,7 +273,7 @@ function workoutAction(act, a, ref, v) {
     case 'wback': R.phase = 'go'; keep(); return true;
     case 'wache': { const n = +v; R.f.ache[ref] = R.f.ache[ref] === n ? 0 : n; keep(); return true; }
     case 'wacc': R.f.acc[ref] = !R.f.acc[ref]; keep(); return true;
-    case 'wrsave': { const nt = document.getElementById('wnote'); const note = nt ? nt.value.trim() : ''; const today = woToday(R); const sug = w.ex.map((e) => (exOf(e.x) ? woSuggest(e, R) : null)); const name = I(R.item).name;
+    case 'wrsave': { if (!R.stop) return true; const nt = document.getElementById('wnote'); const note = nt ? nt.value.trim() : ''; const today = woToday(R); const sug = w.ex.map((e) => (exOf(e.x) ? woSuggest(e, R) : null)); const name = I(R.item).name;
       change(() => { L(T0)[R.item] = 'done';
         Object.entries(R.f.ache).forEach(([k, n]) => { if (n) L(T0)[k] = n; else delete L(T0)[k]; });
         if (Object.keys(today.sets).length) { if (note) today.note = note; wlog().push(today); }
