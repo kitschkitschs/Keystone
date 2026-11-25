@@ -796,12 +796,13 @@ const tAt = (id, d) => ((M.dayTime || {})[d] || {})[id] || I(id).time;
 const durOn = (id, d, def = 30) => ((M.dayDur || {})[d] || {})[id] || (I(id) || {}).dur || def;
 const brkDayUI = (id, d) => `<div class="fld"><span class="mono">Length ${d === T0 ? 'today' : 'on ' + esc(fmtDate(d))} only</span><span class="stp"><button data-a="bdur" data-ref="${id}" data-d="${d}" data-v="-1" aria-label="Shorter">−</button><b>${estHM(durOn(id, d, 15) / 60)}</b><button data-a="bdur" data-ref="${id}" data-d="${d}" data-v="1" aria-label="Longer">+</button></span></div>`;
 // the morning routine: the first routine in the first day block (2026-11-24)
-const morningId = () => { const b = blockIds()[0]; return ((G(b) || {}).kids || []).find((k) => I(k) && I(k).type === 'routine') || null; };
+// on a day with its own morning routine (a slow weekend one), that's the one (the owner, 2026-11-25)
+const morningId = (d = T0) => { const b = blockIds()[0]; const rs = ((G(b) || {}).kids || []).filter((k) => I(k) && I(k).type === 'routine'); return rs.find((k) => onDay(k, d)) || rs[0] || null; };
 // once it's ticked, it sits ending at the tick and everything after it chains on from there in order, down through the day
 // blocks: an item waits for its own block to start, one that doesn't fit before its block ends goes on into the next block,
 // and only the last block can run over (red), which shows what won't fit before bedtime (the owner, 2026-11-25).
 // Items with a set time, breaks, appointments and hand-moved items stay where they are and the rest goes around them.
-function mShift(out, d, fixedL) { const at = ((M.mTick || {})[d]); const mid = morningId(); if (at == null || !mid) return; const m0 = out.find((o) => o.id === mid && !o.two && !o.cont); if (!m0) return;
+function mShift(out, d, fixedL) { const at = ((M.mTick || {})[d]); const mid = morningId(d); if (at == null || !mid) return; const m0 = out.find((o) => o.id === mid && !o.two && !o.cont); if (!m0) return;
   const BI = blockIds(); const st = (b) => hm(G(b).start), en = (b) => hm(G(b).end); const last = BI[BI.length - 1];
   const blockAt = (m) => BI.find((b) => st(b) <= m && m < en(b)) || BI.filter((b) => st(b) <= m).pop() || BI[0];
   const fx = new Set(fixedL || []); const fol = (o) => !!(I(o.id) && I(o.id).brk && I(o.id).follow && !((M.dayTime || {})[d] || {})[o.id]); /* a break set to move with my day chains on like the rest (the owner, 2026-11-25: lunch moves, dinner stays) */
@@ -1107,7 +1108,7 @@ function closeSheet() { if (S.sheet && S.sheet.kind === 'note' && typeof nAuto =
 const swRow = (cur, act, extra = '') => `<div class="sw">${extra}${PAL.map(([n, c]) => `<button style="--c:${c}" data-a="${act}" data-v="${c}" aria-label="${n}" title="${n}" aria-pressed="${(cur || '').toLowerCase() === c.toLowerCase()}"></button>`).join('')}</div>`;
 // a step's own options in the routine sheet: optional, which days it's part of the routine, its tags (2026-11-11)
 function partPick(s) { const have = (s.steps || []).map((x) => x.id).filter(Boolean); const self = s.ref;
-  const all = Object.keys(M.items).filter((k) => k !== self && !have.includes(k) && I(k).type === 'task' && !I(k).part && !I(k).brk && !(!repeatable(I(k)) && everDone(k))).sort((a, b) => I(a).name.localeCompare(I(b).name));
+  const all = Object.keys(M.items).filter((k) => k !== self && !have.includes(k) && (I(k).type === 'checkin' || (I(k).type === 'task' && !I(k).part && !I(k).brk && !(!repeatable(I(k)) && everDone(k))))).sort((a, b) => I(a).name.localeCompare(I(b).name));
   return all.length ? `<select class="inp" data-partadd="1" aria-label="Add one of my items as a step" style="margin-top:8px"><option value="">+ Add one of my items</option>${all.map((k) => `<option value="${k}">${esc(tnm(k))}</option>`).join('')}</select>` : ''; }
 function stepOpts(x, i) { const ch = (a, v, on, l) => `<button class="chip" data-a="${a}" data-ref="${i}" data-v="${v}" aria-pressed="${!!on}">${esc(l)}</button>`;
   return `<div class="stepopts"><div class="tg"><span class="l">Optional</span><button class="swt" role="switch" aria-checked="${!!x.optional}" data-a="dstep-opt" data-ref="${i}" aria-label="Optional"></button></div>
