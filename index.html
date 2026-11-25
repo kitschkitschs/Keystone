@@ -5697,12 +5697,12 @@ function woSection() {
   const ks = (woCat() ? kidsOf(woCat()) : []).filter((k) => I(k).type === 'task' || I(k).type === 'routine');
   const rows = ks.map((k) => { const w = I(k).wo || { ex: [] }; const n = w.ex.filter((e) => exOf(e.x)).length; const live = R && R.item === k; const wt = whenText(I(k));
     const sub = [n ? n + (n === 1 ? ' exercise' : ' exercises') + ' · ' + woSets(w) + ' sets' : 'No exercises yet', ed ? '' : wt, isDone(k, T0) ? 'done today' : ''].filter(Boolean).join(' · ');
-    return `<div class="row wrow" data-ref="${k}"><button class="lbl" data-a="${ed ? 'woedit' : 'sched'}" data-ref="${k}" style="text-align:left">${inm(k)}<span class="sub">${esc(sub)}</span></button>${ed ? tail(k, woCat()) : `<button class="wgo" data-a="wostart" data-ref="${k}" ${n ? '' : 'disabled'}>${live ? 'Resume' : 'Start'}</button>`}</div>`; }).join('');
+    return `<div class="row wrow" data-ref="${k}">${grip()}<button class="lbl" data-a="${ed ? 'woedit' : 'sched'}" data-ref="${k}" style="text-align:left">${inm(k)}<span class="sub">${esc(sub)}</span></button>${ed ? tail(k, woCat()) : `<button class="wgo" data-a="wostart" data-ref="${k}" ${n ? '' : 'disabled'}>${live ? 'Resume' : 'Start'}</button>`}</div>`; }).join('');
   const ex = exList().slice().sort((a, b) => a.name.localeCompare(b.name));
   const exRows = ex.map((e) => { const a = acheOf(e.id).map((k) => I(k).name.toLowerCase()); const bits = [e.side ? 'two sides' : '', e.timed ? 'timed' : '', a.length ? 'touches ' + a.join(', ') : ''].filter(Boolean);
     const inner = `<span class="lbl">${xnm(e)}${bits.length ? `<span class="sub">${esc(bits.join(' · '))}</span>` : ''}</span>`;
     return ed ? `<button class="row" data-a="wxedit" data-ref="${e.id}" style="width:100%;text-align:left">${inner}</button>` : `<div class="row">${inner}</div>`; }).join('');
-  return `<div style="margin-top:14px">${lcard('t:wo', woCat() ? G(woCat()).name : 'Workouts', ks.length || '', (rows || '<p class="empty">No workouts yet.</p>') + (ed ? `<button class="addrow" data-a="wonew"><span class="plus">+</span>New workout</button>` : ''))}</div>
+  return `<div style="margin-top:14px">${lcard('t:wo', woCat() ? G(woCat()).name : 'Workouts', ks.length || '', (rows ? (ed ? `<div class="list" data-list="${woCat()}">${rows}</div>` : rows) : '<p class="empty">No workouts yet.</p>') + (ed ? `<button class="addrow" data-a="wonew"><span class="plus">+</span>New workout</button>` : ''))}</div>
     <div style="margin-top:14px">${lcard('t:wx', 'Exercises', ex.length || '', (exRows || `<p class="empty">No exercises yet.${ed ? ' Each one is made once and used in any workout.' : ''}</p>`) + (ed ? `<button class="addrow" data-a="wxnew"><span class="plus">+</span>New exercise</button>` : ''))}</div>`;
 }
 
