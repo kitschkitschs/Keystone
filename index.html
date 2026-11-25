@@ -1488,7 +1488,7 @@ function placeName(p) { if (p.startsWith('s:')) return (I(p.slice(2)) || {}).nam
 // ---------- log ----------
 const L = (d) => M.log[d] || (M.log[d] = {});
 const val = (d, id) => (M.log[d] || {})[id];
-function isDone(id, d) { const it = I(id); if (it && it.type === 'slot') return slotDone(it, d); if (it && it.type === 'routine') { const st = rSteps(id, d); return !!val(d, id) || (st.length ? st.every((s) => val(d, s)) : false); } return !!val(d, id); }
+function isDone(id, d) { const it = I(id); if (it && it.type === 'slot') return slotDone(it, d); if (it && it.type === 'routine') { const st = rSteps(id, d); return !!val(d, id) || (st.length ? st.every((s) => sVal(id, s, d)) : false); } return !!val(d, id); }
 // Routines (2026-11-11): a part can be optional, and can be variable (only on days without a workout, with one, or on certain weekdays).
 // Ticking the routine closes it: parts I didn't tick count as missed. It is complete when every part that isn't optional got ticked.
 const rStepsAll = (id) => ((I(id) || {}).steps || []).filter((s) => I(s));
@@ -1499,8 +1499,12 @@ const isLinkPart = (s) => !!I(s) && !['step', 'checkin'].includes(I(s).type);
 const pOpt = (rid, s) => isLinkPart(s) ? (((I(rid) || {}).partOpt || {})[s] || {}) : (I(s) || {});
 function stepOn(s, d, rid) { const x = pOpt(rid, s); const o = x.only || ''; if (!o) return true; if (o === 'rest') return !workDay(d); if (o === 'train') return workDay(d); if (o === 'days') return (x.days || []).includes(wd(d)); return true; }
 const rSteps = (id, d) => rStepsAll(id).filter((s) => stepOn(s, d, id));
-const stepMissed = (s, d) => !!(((M.missed || {})[d] || {})[s]);
-function rComplete(id, d) { const st = rSteps(id, d); if (!st.length) return !!val(d, id); return st.every((s) => (pOpt(id, s).optional) || (val(d, s) && !stepMissed(s, d))); }
+// a linked item in two or more routines ticks in each one on its own, like brushing teeth morning and evening (the owner, 2026-11-25); the item itself counts as done once any of them is ticked
+const rShared = (s) => isLinkPart(s) && Object.values(M.items).filter((r) => r.type === 'routine' && (r.steps || []).includes(s)).length > 1;
+const sKey = (rid, s) => rid && rShared(s) ? s + '@' + rid : s;
+const sVal = (rid, s, d) => val(d, sKey(rid, s));
+const stepMissed = (s, d, rid) => !!(((M.missed || {})[d] || {})[sKey(rid, s)]);
+function rComplete(id, d) { const st = rSteps(id, d); if (!st.length) return !!val(d, id); return st.every((s) => (pOpt(id, s).optional) || (sVal(id, s, d) && !stepMissed(s, d, id))); }
 function lastDoneBefore(id, d) { const ks = Object.keys(M.log).filter((k) => k < d).sort().reverse(); for (const k of ks) if (isDone(id, k)) return k; return null; }
 function doneSince(id, from, to) { return Object.keys(M.log).some((k) => k >= from && k <= to && isDone(id, k)); }
 const repeatable = (it) => it.type === 'routine' || (it.when && it.when.mode !== 'once');
@@ -1907,7 +1911,7 @@ function itemRow(id, list, d) {
     const open = S.edit || routineOpen(id, d); const steps = S.edit ? rStepsAll(id) : rSteps(id, d);
     return `<div data-ref="${id}"><div class="row">${grip()}${tickCircle(id, d, live)}
       <button class="lbl" data-a="ropen" data-ref="${id}" aria-expanded="${!!open}" style="display:flex;align-items:center;gap:10px">${S.edit ? `<span style="flex:1">${nm(id, it.name)}</span>` : `<span style="flex:1">${inm(it)}<span class="sub where">Routine</span>${tdur(it)}</span>`}${S.edit ? '' : `${fold(open)}`}</button>${tail(id, list)}</div>
-      ${open ? `<div class="steps" data-list="s:${id}">${steps.map((s) => I(s).type === 'checkin' ? ciStepRow(s, id, d, live) : `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" data-a="step" data-ref="${s}" aria-label="Tick ${esc(tnm(s))}"><span class="circ ${val(d, s) ? 'done' : ''}${pOpt(id, s).optional ? ' opt' : ''}" style="--c:${colorOf(isLinkPart(s) ? s : id)}"></span></button>` : `<span class="circ ${val(d, s) ? 'done' : ''}${pOpt(id, s).optional ? ' opt' : ''}" style="--c:${colorOf(isLinkPart(s) ? s : id)}"></span>`}<span class="lbl">${nm(s, I(s).name)}${S.edit && stepNote(s, id) && !(S.area === 'plan' && S.page === 'today') ? `<span class="sub">${esc(stepNote(s, id))}</span>` : ''}</span>${tail(s, 's:' + id, { gear: false })}</div>`).join('')}
+      ${open ? `<div class="steps" data-list="s:${id}">${steps.map((s) => I(s).type === 'checkin' ? ciStepRow(s, id, d, live) : `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" data-a="step" data-ref="${s}" data-v="${id}" aria-label="Tick ${esc(tnm(s))}"><span class="circ ${sVal(id, s, d) ? 'done' : ''}${pOpt(id, s).optional ? ' opt' : ''}" style="--c:${colorOf(isLinkPart(s) ? s : id)}"></span></button>` : `<span class="circ ${sVal(id, s, d) ? 'done' : ''}${pOpt(id, s).optional ? ' opt' : ''}" style="--c:${colorOf(isLinkPart(s) ? s : id)}"></span>`}<span class="lbl">${nm(s, I(s).name)}${S.edit && stepNote(s, id) && !(S.area === 'plan' && S.page === 'today') ? `<span class="sub">${esc(stepNote(s, id))}</span>` : ''}</span>${tail(s, 's:' + id, { gear: false })}</div>`).join('')}
         ${S.edit ? `<button class="addrow" data-a="addstep" data-ref="${id}"><span class="plus">+</span>Add step</button>` : ''}</div>` : ''}</div>`;
   }
   return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, live)}<span class="lbl">${S.edit ? nm(id, it.name) + '' : `<button data-a="${live ? 'sched' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left">${inm(it)}${onToday && whereOf(id) ? `<span class="sub where">${esc(whereOf(id))}</span>` : ''}${tdur(it)}</button>`}${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>${tail(id, list)}</div>`; // estimate on the right (2026-11-04)
@@ -1921,7 +1925,7 @@ function pastDay(d) {
   const isTick = (v) => typeof v === 'string' && (v === 'done' || v.startsWith('done@') || v.startsWith('much'));
   const tk = Object.keys(lg).filter((id) => I(id) && !I(id).brk && ['task', 'routine', 'checkin', 'appt', 'slot'].includes(I(id).type) && isTick(lg[id]));
   Object.keys(M.items).filter((id) => I(id).type === 'routine' && !tk.includes(id) && (I(id).steps || []).some((st) => isTick(lg[st]))).forEach((id) => tk.push(id));
-  const sub = (id) => { const it = I(id); if (it.type === 'routine') { const st = rSteps(id, d); const dn = st.filter((x) => isTick(lg[x])); return st.length ? dn.length + ' of ' + st.length : ''; }
+  const sub = (id) => { const it = I(id); if (it.type === 'routine') { const st = rSteps(id, d); const dn = st.filter((x) => isTick(lg[sKey(id, x)])); return st.length ? dn.length + ' of ' + st.length : ''; }
     if (String(lg[id]).startsWith('done@')) return lg[id].slice(5); if (String(lg[id]).startsWith('much')) return 'Too much'; return ''; }; // grey text only for values (2026-11-08)
   // routines sit with tasks; a check-in that's a step of its routine shows only as part of it (2026-11-08)
   const inRout = (id) => Object.values(M.items).some((x) => x.type === 'routine' && (x.steps || []).includes(id));
@@ -2452,7 +2456,7 @@ function sheetBody() {
     lines.push(['Day', relDay(d) === fmtDate(d) ? fmtDate(d) : relDay(d) + ', ' + fmtDate(d)]);
     if (isA) { lines.push(['Time', apTime(it) || 'No time set']); lines.push(['Category', G(catOf(s.ref)).name]); if (it.when && it.when.mode !== 'once') lines.push(['Frequency', whenText(Object.assign({}, it, { when: Object.assign({}, it.when, { date: it.date }) }))]); else if (it.rep) lines.push(['Frequency', repText(it.rep)]); }
     else { if (s.from) lines.push(['Time', fmtHM(+s.from) + '–' + fmtHM(+s.to) + (it.time ? '' : ' · fills its block')]); if (it.type !== 'checkin') lines.push(['Day block', G(blockOfItem(s.ref)).name]); const wt = whenText(it); if (wt) lines.push(['Repeats', wt]);
-      if (it.type === 'routine') lines.push(['Steps', rSteps(s.ref, d).map((x) => (val(d, x) ? '✓ ' : stepMissed(x, d) ? '✕ ' : '') + I(x).name + (I(x).optional ? ' (optional)' : '')).join(', ')]); }
+      if (it.type === 'routine') lines.push(['Steps', rSteps(s.ref, d).map((x) => (sVal(s.ref, x, d) ? '✓ ' : stepMissed(x, d, s.ref) ? '✕ ' : '') + I(x).name + (I(x).optional ? ' (optional)' : '')).join(', ')]); }
     if (it.note) lines.push(['Note', it.note]);
     lines.push(['Status', done ? (String(val(d, s.ref)).startsWith('much') ? 'Too much' : 'Done') : d < T0 ? 'Not done' : d === T0 ? 'Not done yet' : 'Coming up']);
     return `<dl class="peek">${lines.map(([k, v]) => `<dt class="mono">${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
@@ -2792,7 +2796,8 @@ document.addEventListener('click', (e) => {
     case 'skippick': { const P = S.sheet.pick = S.sheet.pick || []; const i = P.indexOf(v); if (i >= 0) P.splice(i, 1); else P.push(v); renderLayer(); return true; }
     case 'skipfood': { const F = S.sheet.food = S.sheet.food || {}; const nx = { '': 'ok', ok: 'fail', fail: 'skip' }[F[ref] || '']; if (nx) F[ref] = nx; else delete F[ref]; renderLayer(); return true; }
     case 'skipbad': { const P = (S.sheet && S.sheet.pick) || []; const F = (S.sheet && S.sheet.food) || {}; const Dq = [...new Set(foodPend().concat(skipList()))]; S.sheet = null; change(() => { M.settings.foodPend = Dq.filter((x) => !F[x]); M.badDays = M.badDays || {}; P.forEach((x) => { M.badDays[x] = 'skip'; }); M.foodMark = M.foodMark || {}; Object.keys(F).forEach((x) => { M.foodMark[x] = F[x]; }); M.settings.skipAsk = addDays(T0, -1); P.forEach((x) => snapDay(x)); }, P.length ? (P.length === 1 ? 'Made it a bad day' : 'Made them bad days') : null); break; }
-    case 'step': { const it = I(ref); const was = val(T0, ref); change(() => { if (was) delete L(T0)[ref]; else { L(T0)[ref] = 'done'; if (M.missed && M.missed[T0]) delete M.missed[T0][ref]; } }, was ? 'Unticked ' + it.name : null); break; }
+    case 'step': { const it = I(ref); const k = sKey(v, ref); const was = val(T0, k); change(() => { if (was) delete L(T0)[k]; else { L(T0)[k] = 'done'; if (M.missed && M.missed[T0]) delete M.missed[T0][k]; }
+      if (k !== ref) { if (Object.keys(L(T0)).some((x) => x.startsWith(ref + '@') && L(T0)[x])) L(T0)[ref] = 'done'; else delete L(T0)[ref]; } }, was ? 'Unticked ' + it.name : null); break; }
     case 'checkin': openSheet({ kind: 'checkin', ref, title: I(ref).name }); break;
     case 'cidone': { const was = val(T0, v); change(() => { if (was) { delete L(T0)[v]; if (I(v).which === 'morning') delete L(T0)['ci-mfeel']; } else L(T0)[v] = 'done'; }, was ? 'Check-in not done' : 'Check-in done'); S.sheet = null; render(); break; }
     case 'much': { const r = S.sheet.ref; if (G(r)) { const x = G(r); x.muchK = Object.assign({}, x.muchK || {}, { [T0]: v || '' }); if (x.act && x.muchAuto === T0 && I(x.act)) L(T0)[x.act] = v ? 'much:' + v : 'much'; } else L(T0)[r] = v ? 'much:' + v : 'much'; save(); S.sheet = null; render(); break; }
@@ -2906,8 +2911,8 @@ function tick(id) {
   if (it.type === 'slot') { slotGo(id); return; }
   if (it.type === 'routine') { const all = isDone(id, T0); const st = rSteps(id, T0);
     change(() => { const mm = M.missed = M.missed || {}; const md = mm[T0] = mm[T0] || {};
-      if (all) { if (val(T0, id)) { delete L(T0)[id]; st.forEach((s) => { if (md[s] === 'r') delete md[s]; }); } else st.forEach((s) => { delete L(T0)[s]; }); }
-      else { L(T0)[id] = 'done'; st.forEach((s) => { if (!val(T0, s)) md[s] = 'r'; }); }
+      if (all) { if (val(T0, id)) { delete L(T0)[id]; st.forEach((s) => { if (md[sKey(id, s)] === 'r') delete md[sKey(id, s)]; }); } else st.forEach((s) => { delete L(T0)[sKey(id, s)]; if (sKey(id, s) !== s && !Object.keys(L(T0)).some((x) => x.startsWith(s + '@') && L(T0)[x])) delete L(T0)[s]; }); }
+      else { L(T0)[id] = 'done'; st.forEach((s) => { if (!sVal(id, s, T0)) md[sKey(id, s)] = 'r'; }); }
       /* the morning routine's tick time moves the day's schedule (the owner, 2026-11-24, a try) */
       if (id === morningId()) { const mt = M.mTick = M.mTick || {}; if (all) delete mt[T0]; else { const n = new Date(); let m = n.getHours() * 60 + n.getMinutes(); if (m < DAY_H * 60) m += 1440; mt[T0] = m; } } }, (all ? 'Unticked ' : 'Ticked ') + it.name); return; }
   if (it.type === 'checkin') { openSheet({ kind: 'checkin', ref: id, title: it.name }); return; }
@@ -4915,7 +4920,7 @@ function insSample(days) {
 const insVal = (D, d, id) => { const v = (M.log[d] || {})[id]; return v !== undefined ? v : (D.sample[d] || {})[id]; };
 function insDone(D, id, d) { const it = I(id); if (!it) return false;
   // a routine is complete when every part that isn't optional was ticked that day (2026-11-11)
-  if (it.type === 'routine') { const st = rSteps(id, d); return st.length ? st.every((s) => pOpt(id, s).optional || (insVal(D, d, s) && !stepMissed(s, d))) : !!insVal(D, d, id); }
+  if (it.type === 'routine') { const st = rSteps(id, d); return st.length ? st.every((s) => pOpt(id, s).optional || (insVal(D, d, sKey(id, s)) && !stepMissed(s, d, id))) : !!insVal(D, d, id); }
   if (it.type === 'slot') return isDone(id, d);
   if (minOn([id], d) > 0) return true; return !!insVal(D, d, id); }
 
