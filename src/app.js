@@ -630,7 +630,7 @@ function pastDay(d) {
   const ln = (name, sub = '', right = '', a = '', c = '') => `<${a ? 'button' : 'div'} class="pdl" ${a}>${c ? `<span class="pdot" style="background:${c}"></span>` : ''}<span class="pdn">${esc(name)}</span>${sub ? `<span class="sub">${esc(sub)}</span>` : ''}${right ? `<span class="pdv">${esc(right)}</span>` : ''}</${a ? 'button' : 'div'}>`;
   const secs = []; const sec = (t, lines) => { if (lines.length) secs.push(`<div class="pdh mono">${esc(t)}</div>${lines.join('')}`); };
   const isTick = (v) => typeof v === 'string' && (v === 'done' || v.startsWith('done@') || v.startsWith('much'));
-  const tk = Object.keys(lg).filter((id) => I(id) && ['task', 'routine', 'checkin', 'appt', 'slot'].includes(I(id).type) && isTick(lg[id]));
+  const tk = Object.keys(lg).filter((id) => I(id) && !I(id).brk && ['task', 'routine', 'checkin', 'appt', 'slot'].includes(I(id).type) && isTick(lg[id]));
   Object.keys(M.items).filter((id) => I(id).type === 'routine' && !tk.includes(id) && (I(id).steps || []).some((st) => isTick(lg[st]))).forEach((id) => tk.push(id));
   const sub = (id) => { const it = I(id); if (it.type === 'routine') { const st = rSteps(id, d); const dn = st.filter((x) => isTick(lg[x])); return st.length ? dn.length + ' of ' + st.length : ''; }
     if (String(lg[id]).startsWith('done@')) return lg[id].slice(5); if (String(lg[id]).startsWith('much')) return 'Too much'; return ''; }; // grey text only for values (2026-11-08)
@@ -730,10 +730,10 @@ function renderToday() {
       ${S.showMoved ? `<div class="list">${mv.map((o) => itemRow(o.id, o.b, d)).join('')}</div>` : ''}</div>`; }
   if (S.edit) h += `<div style="margin-top:10px"><button class="addcard" data-a="addblock">+ Add day block</button></div>`;
   if (live && !S.edit) {
-    const doneIds = DL.flatMap((x) => x.items.concat(x.appts || []).filter((id) => instDone(id, d, (x.appts || []).includes(id) ? null : instK(x.b, id))).map((id) => ({ id, b: x.b, k: isMulti(id) ? instK(x.b, id) : null }))).concat(bad ? badList().filter((id) => isDone(id, d)).map((id) => ({ id, b: 'g-bad' })) : []);
+    const doneIds = DL.flatMap((x) => x.items.concat(x.appts || []).filter((id) => !(I(id) && I(id).brk) /* breaks never list here (the owner, 2026-11-25) */ && instDone(id, d, (x.appts || []).includes(id) ? null : instK(x.b, id))).map((id) => ({ id, b: x.b, k: isMulti(id) ? instK(x.b, id) : null }))).concat(bad ? badList().filter((id) => isDone(id, d)).map((id) => ({ id, b: 'g-bad' })) : []);
     if (doneIds.length) h += `<div class="donebox"><button class="donebtn" data-a="showdone">${fold(S.showDone)} Done today · ${doneIds.length}</button>
       ${S.showDone ? doneIds.map(({ id, k }) => `<button class="drow" data-a="tick" data-ref="${id}"${k != null ? ` data-k="${k}"` : ''} aria-label="${esc(tnm(id))}, done. Tap to change"><span class="circ ${String(val(d, id) || '').startsWith('much') ? 'much' : 'done'}" style="--c:${colorOf(id)}"></span><span>${inm(id)}${String(val(d, id) || '').startsWith('much') ? ' · too much' : ''}</span></button>`).join('') : ''}</div>`;
-    const mis = missedOn(d);
+    const mis = missedOn(d).filter((id) => !I(id).brk);
     if (mis.length) h += `<div class="donebox"><button class="donebtn" data-a="showmissed">${fold(S.showMissed)} Missed · ${mis.length}</button>
       ${S.showMissed ? mis.map((id) => `<button class="drow" data-a="unmiss" data-ref="${id}" data-d="${d}" aria-label="${esc(tnm(id))}, missed. Tap to put it back"><span class="circ missed" aria-hidden="true">–</span><span style="flex:1">${inm(id)}</span><span class="cnt">Put back</span></button>`).join('') : ''}</div>`;
   }
@@ -2619,7 +2619,7 @@ function ciPart(p, d) {
   if (p.ids) h += trackRows(p.ids, d, c || hcolor(p.ids[0]), (k) => `<div class="trow">${isTags(k) ? '' : `<div class="thead"><span class="tname">${inm(k)}</span>${hyperDetHead(k, d, c || hcolor(k))}</div>`}${answerUI(k, d, c || hcolor(k))}${partDet(k, d, c || hcolor(k))}</div>`);
   if (p.list) h += trackerList(p.list, d, G(p.list).color || '#9A9387');
   if (p.tab) h += tabBody(p.tab, d, c);
-  if (p.training) h += trainCats().map((c) => `<span class="mono cisub">${esc(G(c).name)}</span><div class="list">${kidsOf(c).map((k) => itemRow(k, c, d)).join('') || '<p class="empty">No sessions yet.</p>'}</div>`).join('') || '<p class="note">No training set up yet.</p>'; // every training option (2026-11-09)
+  if (p.training) h += trainCats().map((c) => `<span class="mono cisub">${esc(G(c).name)}</span><div class="list">${kidsOf(c).map((k) => I(k) && I(k).wo ? `<div class="row ciwo${isDone(k, d) ? ' dn' : ''}" data-ref="${k}"><span class="lbl">${inm(k)}</span></div>` /* workouts are only an overview here: done ones greyed (the owner, 2026-11-25) */ : itemRow(k, c, d)).join('') || '<p class="empty">No sessions yet.</p>'}</div>`).join('') || '<p class="note">No training set up yet.</p>'; // every training option (2026-11-09)
   if (p.food) h += photosUI(d) + trackerList(foodGroup(), d, G(foodGroup()).color);
   return `<div class="cipart">${h}</div>`;
 }
