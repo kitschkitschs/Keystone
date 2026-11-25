@@ -102,7 +102,9 @@ const studyRows = (d) => ((M.study || {})[d] || []);
 const minOn = (ids, d) => studyRows(d).filter((x) => !ids || ids.includes(x.id)).reduce((a, x) => a + x.min, 0);
 const taskMin = (id) => Object.keys(M.study || {}).reduce((a, d) => a + minOn([id], d), 0);
 const supMin = (d) => (((M.support || {})[d] || {}).min || 0);
-const sessLen = () => M.settings.studyLen || 30;
+// a bad day has its own study goal (the owner, 2026-11-25); until it's set, it's the same as any day's
+const sessLenOf = (bad) => (bad && M.settings.studyLenBad) || M.settings.studyLen || 30;
+const sessLen = (d) => sessLenOf(isBad(d || T0));
 function lastStudied(ids) { const ks = Object.keys(M.study || {}).filter((d) => d <= T0 && minOn(ids, d) > 0).sort(); return ks[ks.length - 1] || null; }
 const hrs = (min) => Math.round(min / 6) / 10;
 // estimates are kept in hours; they show and are typed as hours and minutes, like 1h 30m or 30m (2026-11-04)
@@ -171,7 +173,7 @@ function slotTrainIds(sid) { const it = typeof sid === 'string' ? I(sid) : sid; 
   const wc = typeof woCat === 'function' ? woCat() : null;
   return new Set(trainCats().filter((c) => !own.has(c) && c !== wc).flatMap(kidsOf).filter((k) => !I(k).nogen && !I(k).wo)); }
 function slotDone(it, d) {
-  if (it.opens === 'study') return minOn(null, d) + supMin(d) >= sessLen(); // Study support minutes count toward the day's study minutes (the owner, 2026-11-12)
+  if (it.opens === 'study') return minOn(null, d) + supMin(d) >= sessLen(d); // Study support minutes count toward the day's study minutes (the owner, 2026-11-12)
   if (it.opens === 'chores') return choreIds().some((k) => val(d, k));
   if (it.opens === 'training') return typeof trainCats === 'function' && [...slotTrainIds(it)].some((k) => isDone(k, d));
   if (it.opens === 'hobbies') return typeof hobIds === 'function' && hobIds().some((h) => hobActs(h).some((k) => val(d, k)) || hobProjs(h).some((p) => (G(p).worked || []).includes(d) || projTasks(p).some((k) => val(d, k))));
@@ -266,7 +268,8 @@ function homeLanding() {
 }
 // edit mode on a Home page or Studies: which day block new tasks from here go in, and the icon they get by default (2026-11-11)
 // the daily study minimum, set in Studies edit mode (2026-11-11)
-function vMinCard() { return lcard(null, 'Study minimum', '', `<div class="inrow" style="justify-content:center;gap:18px;padding:4px 0 2px"><button class="btn" data-a="vsesslen" data-v="-5" aria-label="5 minutes less">−</button><b style="font-size:22px;font-family:var(--serif);font-weight:400">${sessLen()} min</b><button class="btn" data-a="vsesslen" data-v="5" aria-label="5 minutes more">+</button></div>`); }
+function vMinCard() { return lcard(null, 'Study minimum', '', vMinRows()); }
+const vMinRows = () => [[false, 'Normal days', 'vsesslen'], [true, 'Bad days', 'vsesslenb']].map(([b, l, a]) => `<div class="inrow" style="justify-content:center;gap:18px;padding:4px 0 2px;align-items:center"><span class="mono" style="flex:1">${l}</span><button class="btn" data-a="${a}" data-v="-5" aria-label="5 minutes less">−</button><b style="font-size:22px;font-family:var(--serif);font-weight:400;min-width:70px;text-align:center">${sessLenOf(b)} min</b><button class="btn" data-a="${a}" data-v="5" aria-label="5 minutes more">+</button></div>`).join('');
 function vDefaults(k, what) { const cur = defBlock(k);
   return lcard(null, 'New ' + what, '', `<div class="vdef"><span class="mono">Day block</span><div class="chips">${blockIds().map((b) => `<button class="chip" data-a="vdefblk" data-ref="${k}" data-v="${b}" aria-pressed="${cur === b}">${esc(G(b).name)}</button>`).join('')}</div></div>`) + secColCard(k); }
 // the section's own colour, which all its items wear (the owner, 2026-11-24)
@@ -521,7 +524,7 @@ function vSheet(s) {
       ${whenDidI()}
       ${dn ? '<div class="btns"><button class="btn" data-a="vunlog">Untick today</button></div>' : ''}`; }
   if (s.kind === 'vtmr') return tmrSheet();
-  if (s.kind === 'vsess') return `<div class="inrow" style="justify-content:center;gap:18px"><button class="btn" data-a="vsesslen" data-v="-5" aria-label="5 minutes less">−</button><b style="font-size:22px;font-family:var(--serif);font-weight:400">${sessLen()} min</b><button class="btn" data-a="vsesslen" data-v="5" aria-label="5 minutes more">+</button></div>`;
+  if (s.kind === 'vsess') return vMinRows();
   if (s.kind === 'vtpick') { const cur = (M.timer || {}).id || null;
     return `<button class="ttrow" data-a="vtset" data-v="" aria-pressed="${!cur}"><b>Just studying</b><span aria-hidden="true">${icon('chevron-right', 14)}</span></button>` + subjIds().map((x) => { const T = sTasks(x); return T.length ? `<div class="fld"><span class="mono">${esc(G(x).name)}</span><div class="stack" style="gap:6px">${T.map((t) => `<button class="ttrow" data-a="vtset" data-v="${t.id}" aria-pressed="${cur === t.id}"><b>${inm(t.id)}</b><small>${esc(G(t.g).name)}${t.est ? ' · ' + estHM(taskMin(t.id) / 60) + ' of ' + estHM(t.est) : ''}</small><span aria-hidden="true">${icon('chevron-right', 14)}</span></button>`).join('')}</div></div>` : ''; }).join(''); }
   return '';
@@ -587,7 +590,8 @@ function verdictAction(act, a, ref, v) {
     case 'vstv': if (v === 'support') { supOpen(); return true; } if (S.area !== 'study') { S.area = 'study'; S.page = null; } S.menu = false; S.sheet = null; S.stv = S.stv === v && S.studyMode ? null : v; if (!S.studyMode && S.stv === v) S.area = 'study'; render(); $('#main').scrollTop = 0; return true;
     case 'studymode': S.menu = false; S.studyMode = !S.studyMode; if (S.studyMode) { S.area = 'study'; S.page = null; S.edit = false; S.nbView = 'home'; } else S.stv = null; render(); return true;
     case 'vsess': openSheet({ kind: 'vsess', title: 'Study session length' }); return true;
-    case 'vsesslen': M.settings.studyLen = Math.max(5, Math.min(240, sessLen() + (+v))); save(); if (S.sheet) renderLayer(); else render(); return true;
+    case 'vsesslenb': M.settings.studyLenBad = Math.max(5, Math.min(240, sessLenOf(true) + (+v))); save(); if (S.sheet) renderLayer(); else render(); return true;
+    case 'vsesslen': M.settings.studyLen = Math.max(5, Math.min(240, sessLenOf(false) + (+v))); save(); if (S.sheet) renderLayer(); else render(); return true;
     case 'slot': slotGo(ref); return true;
   }
   return false;
