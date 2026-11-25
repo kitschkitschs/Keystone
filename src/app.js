@@ -237,7 +237,7 @@ function afterSrc() { if (WKC.has('_src')) return WKC.get('_src'); const m = {};
 // the owner 2026-11-25). Blocking only places it; unlike Always after it never adds days.
 const stickOf = (id) => { const s = (I(id) || {}).stick; return (Array.isArray(s) ? s : s ? [s] : []).filter((t) => I(t) && t !== id); };
 function folSrc() { if (WKC.has('_fsrc')) return WKC.get('_fsrc'); const a = afterSrc(), m = {}; Object.keys(a).forEach((k) => { m[k] = a[k].slice(); });
-  Object.keys(M.items).forEach((k) => stickOf(k).forEach((t) => { const l = m[k] = m[k] || []; if (!l.includes(t)) l.unshift(t); })); WKC.set('_fsrc', m); return m; }
+  Object.keys(M.items).forEach((k) => { const st = stickOf(k); if (st.length) m[k] = st.concat((m[k] || []).filter((t) => !st.includes(t))); }); /* nearest first, in the order I blocked it */ WKC.set('_fsrc', m); return m; }
 function workoutOn(d, id) { const key = d + '|' + id; if (WKC.has(key)) return WKC.get(key); let r = false;
   try { r = (afterSrc()[id] || []).some((k) => onDay0(k, d)); } catch (e) { r = false; }
   WKC.set(key, r); return r; }
@@ -1762,7 +1762,11 @@ const clearOwn = (k) => { ['dayTime', 'dayMove', 'dayTack', 'dayAfter'].forEach(
 // edit mode, dropped right behind (or in front of) an item (the owner, 2026-11-25): it's blocked together with that item on
 // every day, wherever that item lands, instead of getting a clock time. Dropped in open space it gets the clock time (editMove).
 // Two stand-ins for the same generic item (two workouts in the Workout generic's place) just swap their order.
-function editSnap(id, day, lead, front, nb, chain) { let xid = standIn(id, day); const it0 = I(xid); let L = lead ? standIn(lead, day) : null, F = front ? standIn(front, day) : null;
+// the row of items right in front of the one I drop behind, as it is on that day, nearest first: on a day the item I
+// dropped it behind is missing, it follows the next one up that row, and so on (the owner, 2026-11-25)
+function backRun(PD, lead, self) { const out = []; let cur = lead && PD.find((o) => o.id === lead && !o.cont);
+  for (let k = 0; cur && k < 12; k++) { const pv = PD.filter((o) => !o.appt && !o.cont && o.id !== self && o.id !== lead && !out.includes(o.id) && Math.abs(o.b - cur.a) < 1).pop(); if (!pv) break; out.push(pv.id); cur = pv; } return out; }
+function editSnap(id, day, lead, front, nb, chain, back) { let xid = standIn(id, day); const it0 = I(xid); let L = lead ? standIn(lead, day) : null, F = front ? standIn(front, day) : null;
   if (L && L === xid) { xid = id; L = lead; } if (F && F === xid) { xid = id; F = front; }
   const it = I(xid); const ref = L || F; if (!ref || ref === xid || !I(ref) || !it0) return false;
   const blkOf = (k) => blockIds().find((b) => G(b).kids.includes(k));
@@ -1771,7 +1775,7 @@ function editSnap(id, day, lead, front, nb, chain) { let xid = standIn(id, day);
     if (I(ref).stick) { I(ref).stick = stickOf(ref).filter((k) => k !== xid && k !== id); if (!I(ref).stick.length) delete I(ref).stick; } // no going round in circles
     blockIds().forEach((b) => { const ks = G(b).kids; const i = ks.indexOf(xid); if (i >= 0) ks.splice(i, 1); });
     const tb = blkOf(ref) || nb; const ks = G(tb).kids; const ri = ks.indexOf(ref);
-    if (L) { it.stick = [...new Set([L, lead].filter((k) => k && I(k) && k !== xid))]; ks.splice(ri >= 0 ? ri + 1 : ks.length, 0, xid); }
+    if (L) { const row = [lead].concat(back || []); it.stick = [...new Set(row.concat(row.map((k) => standIn(k, day))))].filter((k) => k && I(k) && k !== xid && k !== id); /* the row as it was that day first, the generic items they stood in for last */ ks.splice(ri >= 0 ? ri + 1 : ks.length, 0, xid); }
     else { if (I(F).time) it.before = F; ks.splice(ri >= 0 ? ri : ks.length, 0, xid); }
     /* what follows it comes along, in a row right behind it */
     chain.forEach((o) => { const fid = standIn(o.id, day); if (!I(fid) || I(fid).time || fid === xid || (afterSrc()[o.id] || []).some((k) => k === id || k === xid)) return; blockIds().forEach((b) => { const k2 = G(b).kids; const i = k2.indexOf(fid); if (i >= 0) k2.splice(i, 1); }); ks.splice(Math.min(ks.indexOf(xid) + 1 + chain.indexOf(o), ks.length), 0, fid); });
@@ -1828,7 +1832,7 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
     for (let k = 0; k < 6; k++) { const h = PDd.find((o) => hard(o) && ov(o, t)); if (!h) break; const fr = tm + len / 2 < (h.a + h.b) / 2 && h.a - tot >= 0; t = fr ? h.a - tot : h.b; lead = fr ? null : h.id; front = fr ? h.id : null; }
     const nb = blockAtTime(fmtHM(t)) || b; const idx = PDd.filter((o) => o.blk === nb && o.a < t).length;
     /* edit mode: snapped to an item = blocked together with it on every day; dropped in open space = that clock time on every day (the owner, 2026-11-25) */
-    if (S.edit) { const ap = (k) => k && PDd.some((o) => o.id === k && o.appt); if (!(lead && ap(lead)) && !(front && ap(front)) && editSnap(x.id, day, lead, front, nb, chain)) return; editMove(x.id, day, t, len, nb, chain, PDd, hard); return; }
+    if (S.edit) { const ap = (k) => k && PDd.some((o) => o.id === k && o.appt); if (!(lead && ap(lead)) && !(front && ap(front)) && editSnap(x.id, day, lead, front, nb, chain, backRun(PDd, lead, x.id))) return; editMove(x.id, day, t, len, nb, chain, PDd, hard); return; }
     change(() => {
       const dT = (M.dayTime = M.dayTime || {})[day] = M.dayTime[day] || {}; dT[x.id] = fmtHM(t);
       const TK0 = (M.dayTack = M.dayTack || {})[day] = M.dayTack[day] || {}; TK0[x.id] = null;
