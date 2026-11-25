@@ -857,7 +857,10 @@ function placeDay(d) {
     const tacked = new Set(); const busy = fixed.slice();
     fixed.forEach((f) => { let end = f.a; items.filter((id) => !fixedT(id) && !carried.has(id) && !anc[id] && tackOf(id) === f.id).reverse().forEach((id) => { const len = I(id).dur || 30; if (end - len < hm(g.start)) return; /* no room before the block starts: it flows as usual */ if (busy.some((q) => end - len < q.b && end > q.a)) return; /* something else is there (an appointment): it finds a free spot instead (2026-11-14) */ const q = { id, a: end - len, b: end, blk: b }; out.push(q); busy.push(q); tacked.add(id); end -= len; }); });
     fixed.slice().sort((p, q) => p.a - q.a).forEach(putFol); busy.filter((q) => tacked.has(q.id)).forEach(putFol);
+    /* an item never jumps into a gap in front of the items above it in the list, even when those went behind something with a set time (the owner, 2026-11-25: a 20-minute workout slipped in before lunch, away from its row) */
+    const idx = new Map(items.map((x, i) => [x, i]));
     const seq = (id) => { if (pl.has(id)) return; pl.add(id); const len = I(id).dur || 30; let moved = true; if (after[id]) cur = Math.max(cur, after[id]);
+      { const i0 = idx.get(id); out.forEach((q) => { if (q.blk === b && !q.appt && !q.cont && idx.has(q.id) && idx.get(q.id) < i0 && !fixedT(q.id) && !(I(q.id) && I(q.id).brk)) cur = Math.max(cur, q.b); }); }
       while (moved) { moved = false; busy.forEach((f) => { if (cur < f.b && cur + len > f.a) { cur = f.b; moved = true; } }); }
       const endB = hm(g.end), nb = BI[BI.indexOf(b) + 1];
       if (I(id).flow && nb && G(nb) && cur < endB && cur + len > endB && !carry[nb]) { const s0 = hm(G(nb).start); carry[nb] = { id, a: s0, b: s0 + cur + len - endB, blk: nb, cont: true }; out.push({ id, a: cur, b: endB, blk: b, flows: true }); cur = endB; return; }
@@ -1823,6 +1826,8 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
     const DA = (M.dayAfter || {})[day] || {}; const src = folSrc(); const chain = [];
     const folOf = (id) => P0.filter((o) => !chain.includes(o) && (DA[o.id] === id || (src[o.id] || []).includes(id)) && !(o.appt || I(o.id).brk)).sort((p, q) => p.a - q.a);
     for (let q = [x.id], k = 0; q.length && k < 20; k++) { const nx = []; q.forEach((id) => folOf(id).forEach((o) => { chain.push(o); nx.push(o.id); })); q = nx; }
+    /* dropped past one of its own followers: that one and the ones after it stay where they are, so it can go behind them (2026-11-25) */
+    { const cut = chain.findIndex((o) => tm >= o.a && !(afterSrc()[o.id] || []).includes(x.id)); if (cut >= 0) chain.splice(cut); } /* one set to always come after it still does */
     const PDd = P0.filter((o) => !chain.includes(o)); const tot = len + chain.reduce((n, o) => n + (o.b - o.a), 0);
     const hard = (o) => o.appt || I(o.id).brk; const ov = (o, a, l = tot) => a < o.b && a + l > o.a;
     let t = Math.round(tm / 15) * 15, bd = 7.5, lead = null, front = null;
@@ -1830,7 +1835,7 @@ document.addEventListener('pointerup', (e) => { if (!sd) return; const x = sd; s
     /* landing in the middle of an earlier item: it goes right behind that item */
     const inMid = PDd.find((o) => !hard(o) && o.a < t && ov(o, t)); if (inMid) { t = inMid.b; lead = inMid.id; front = null; }
     /* breaks and appointments don't move: it goes in front of or behind them, whichever side it was dropped nearer */
-    for (let k = 0; k < 6; k++) { const h = PDd.find((o) => hard(o) && ov(o, t)); if (!h) break; const fr = tm + len / 2 < (h.a + h.b) / 2 && h.a - tot >= 0; t = fr ? h.a - tot : h.b; lead = fr ? null : h.id; front = fr ? h.id : null; }
+    for (let k = 0; k < 6; k++) { const h = PDd.find((o) => hard(o) && ov(o, t, lead ? len : tot)); if (!h) break; /* snapped behind an item, only the item itself has to fit: what comes along goes around the break (2026-11-25) */ const fr = tm + len / 2 < (h.a + h.b) / 2 && h.a - tot >= 0; t = fr ? h.a - tot : h.b; lead = fr ? null : h.id; front = fr ? h.id : null; }
     const nb = blockAtTime(fmtHM(t)) || b; const idx = PDd.filter((o) => o.blk === nb && o.a < t).length;
     /* edit mode: snapped to an item = blocked together with it on every day; dropped in open space = that clock time on every day (the owner, 2026-11-25) */
     if (S.edit) { const ap = (k) => k && PDd.some((o) => o.id === k && o.appt); if (!(lead && ap(lead)) && !(front && ap(front)) && editSnap(x.id, day, lead, front, nb, chain, backRun(PDd, lead, x.id))) return; editMove(x.id, day, t, len, nb, chain, PDd, hard); return; }
