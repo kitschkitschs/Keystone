@@ -694,7 +694,7 @@ function snapDay(d, DL) { DL = DL || slotDrop(dayList(d), d); const opt = (id) =
   return M.snap[d]; }
 function renderToday() {
   const d = S.edit ? T0 : S.day; const live = d === T0;
-  const DL = lateTwo(slotDrop(dayList(d), d), d); // generic slots give way to real work on Today only; Schedule keeps them (2026-11-14)
+  const DL = lateTwo(slotDrop(choreSwap(dayList(d), d), d), d); // real work takes its generic item's place in the same block as on the Schedule (the owner, 2026-11-25: Today had a workout in the evening, Schedule in the day)
   if (live) { snapDay(T0, DL);
     // the day just got completed by a tick: confetti from that row, and the day's mark flies up to the calendar (2026-11-09)
     { const s0 = M.snap[T0]; const comp = s0.bad ? s0.bdue > 0 && s0.bdone >= s0.bdue : s0.due > 0 && s0.done >= s0.due; if (comp && S.dayComp === false && lastTick && Date.now() - lastTick.t < 2000) requestAnimationFrame(() => celebrate(s0.bad ? 'bad' : 'plan')); S.dayComp = comp; } }
