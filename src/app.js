@@ -2113,7 +2113,7 @@ function migrate(m) {
   tMigrate(m); cMigrate(m); sSessMigrate(m); hMigrate(m); nMigrate(m); shMigrate(m); wMigrate(m); wMigrate2(m); wMigrate3(m); oeMigrate(m); hyperMigrate(m); oeMigrate2(m); remMigrate(m); // Training and Expeditions folders (2026-11-04)
   ciRepair(m);
   // 2026-11-11: snack day = the first snack logged in a week; training extras link to a training item, not a kind and distance
-  snackFix(m); afterFix(m); stickFix(m); latteGone(m); halfRoll(m); m.seen = m.seen || {}; m.seen[T0] = 1;
+  badRoutines(m); snackFix(m); afterFix(m); stickFix(m); latteGone(m); halfRoll(m); m.seen = m.seen || {}; m.seen[T0] = 1;
   // a third kind of appointment, Travel (2026-11-14); added once, so removing it in edit mode sticks
   // Stone (2026-11-23): Notebook is called Notes, and my palette gets quiet colours that sit on the putty paper; both once
   if (m.settings && !m.settings.stone1) { m.settings.stone1 = true; if (m.areas && m.areas.notebook && m.areas.notebook.name === 'Notebook') m.areas.notebook.name = 'Notes'; }
@@ -2396,6 +2396,10 @@ function stickFix(m) { if (!m.settings || m.settings.stick2) return; m.settings.
 function afterFix(m) { if (!m.settings || m.settings.after2) return; m.settings.after2 = true; const g = (m.groups || {})['g-train']; const its = m.items || {};
   const W = g ? g.kids.filter((c) => c !== 'tc-move' && m.groups[c]).flatMap((c) => m.groups[c].kids.filter((k) => its[k])) : [];
   Object.keys(its).forEach((t) => { if (!its[t].afterTrain) return; delete its[t].afterTrain; W.forEach((k) => { if (k === t) return; const a = its[k].then = its[k].then || []; if (!a.includes(t)) a.push(t); }); }); }
+// the morning and evening routines are on the bad day list too (the owner, 2026-11-25); once, so taking one off sticks
+function badRoutines(m) { const st = m.settings = m.settings || {}; if (st.badR) return; st.badR = true; const g = (m.groups || {})['g-bad'], bl = ((m.groups || {})['g-blocks'] || {}).kids || []; if (!g) return;
+  const rt = (b) => (((m.groups || {})[b] || {}).kids || []).find((k) => m.items[k] && m.items[k].type === 'routine');
+  const mo = rt(bl[0]), ev = rt(bl[bl.length - 1]); if (mo && !g.kids.includes(mo)) g.kids.unshift(mo); if (ev && ev !== mo && !g.kids.includes(ev)) g.kids.push(ev); }
 function snackFix(m) { if (!(m.settings && m.settings.plan3) || m.settings.snack2) return; m.settings.snack2 = true; const p3 = m.settings.plan3; const sd = (p3.extras || []).find((x) => x.id === 'x-snackday'); if (sd) { sd.when = { src: 'treat' }; sd.weekly = true; }
     const tri = (m.groups['g-train'] ? m.groups['g-train'].kids : []).flatMap((c) => (m.groups[c] ? m.groups[c].kids : [])).filter((k) => m.items[k]);
     (p3.extras || []).forEach((x) => { if (x.when && x.when.src === 'train' && !x.when.id) { const k = tri.find((t) => (m.items[t].name || '').toLowerCase().includes((x.when.kind || '').toLowerCase())); if (k) x.when = { src: 'train', id: k }; else delete x.when; } }); }
