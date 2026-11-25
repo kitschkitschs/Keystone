@@ -1766,8 +1766,8 @@ const clearOwn = (k) => { ['dayTime', 'dayMove', 'dayTack', 'dayAfter'].forEach(
 // Two stand-ins for the same generic item (two workouts in the Workout generic's place) just swap their order.
 // the row of items right in front of the one I drop behind, as it is on that day, nearest first: on a day the item I
 // dropped it behind is missing, it follows the next one up that row, and so on (the owner, 2026-11-25)
-function backRun(PD, lead, self) { const out = []; let cur = lead && PD.find((o) => o.id === lead && !o.cont);
-  for (let k = 0; cur && k < 12; k++) { const pv = PD.filter((o) => !o.appt && !o.cont && o.id !== self && o.id !== lead && !out.includes(o.id) && Math.abs(o.b - cur.a) < 1).pop(); if (!pv) break; out.push(pv.id); cur = pv; } return out; }
+function backRun(PD, lead, self) { const out = []; let cur = lead && PD.find((o) => o.id === lead && !o.cont); const blk = cur && cur.blk;
+  for (let k = 0; cur && k < 12; k++) { const pv = PD.filter((o) => !o.appt && !o.cont && o.id !== self && o.id !== lead && !out.includes(o.id) && o.blk === blk && Math.abs(o.b - cur.a) < 1).pop(); /* only inside the same day block */ if (!pv) break; out.push(pv.id); cur = pv; } return out; }
 function editSnap(id, day, lead, front, nb, chain, back) { let xid = standIn(id, day); const it0 = I(xid); let L = lead ? standIn(lead, day) : null, F = front ? standIn(front, day) : null;
   if (L && L === xid) { xid = id; L = lead; } if (F && F === xid) { xid = id; F = front; }
   const it = I(xid); const ref = L || F; if (!ref || ref === xid || !I(ref) || !it0) return false;
@@ -1777,7 +1777,7 @@ function editSnap(id, day, lead, front, nb, chain, back) { let xid = standIn(id,
     if (I(ref).stick) { I(ref).stick = stickOf(ref).filter((k) => k !== xid && k !== id); if (!I(ref).stick.length) delete I(ref).stick; } // no going round in circles
     blockIds().forEach((b) => { const ks = G(b).kids; const i = ks.indexOf(xid); if (i >= 0) ks.splice(i, 1); });
     const tb = blkOf(ref) || nb; const ks = G(tb).kids; const ri = ks.indexOf(ref);
-    if (L) { const row = [lead].concat(back || []); it.stick = [...new Set(row.concat(row.map((k) => standIn(k, day))))].filter((k) => k && I(k) && k !== xid && k !== id); /* the row as it was that day first, the generic items they stood in for last */ ks.splice(ri >= 0 ? ri + 1 : ks.length, 0, xid); }
+    if (L) { const row = [lead].concat(back || []); it.stick = [...new Set(row.concat(row.map((k) => standIn(k, day))))].filter((k, i) => k && I(k) && k !== xid && k !== id); /* the row as it was that day first, the generic items they stood in for last */ ks.splice(ri >= 0 ? ri + 1 : ks.length, 0, xid); }
     else { if (I(F).time) it.before = F; ks.splice(ri >= 0 ? ri : ks.length, 0, xid); }
     /* what follows it comes along, in a row right behind it */
     chain.forEach((o) => { const fid = standIn(o.id, day); if (!I(fid) || I(fid).time || fid === xid || (afterSrc()[o.id] || []).some((k) => k === id || k === xid)) return; blockIds().forEach((b) => { const k2 = G(b).kids; const i = k2.indexOf(fid); if (i >= 0) k2.splice(i, 1); }); ks.splice(Math.min(ks.indexOf(xid) + 1 + chain.indexOf(o), ks.length), 0, fid); });
@@ -2057,7 +2057,7 @@ function migrate(m) {
   tMigrate(m); cMigrate(m); sSessMigrate(m); hMigrate(m); nMigrate(m); shMigrate(m); wMigrate(m); wMigrate2(m); wMigrate3(m); oeMigrate(m); hyperMigrate(m); oeMigrate2(m); remMigrate(m); // Training and Expeditions folders (2026-11-04)
   ciRepair(m);
   // 2026-11-11: snack day = the first snack logged in a week; training extras link to a training item, not a kind and distance
-  snackFix(m); afterFix(m); latteGone(m); halfRoll(m); m.seen = m.seen || {}; m.seen[T0] = 1;
+  snackFix(m); afterFix(m); stickFix(m); latteGone(m); halfRoll(m); m.seen = m.seen || {}; m.seen[T0] = 1;
   // a third kind of appointment, Travel (2026-11-14); added once, so removing it in edit mode sticks
   // Stone (2026-11-23): Notebook is called Notes, and my palette gets quiet colours that sit on the putty paper; both once
   if (m.settings && !m.settings.stone1) { m.settings.stone1 = true; if (m.areas && m.areas.notebook && m.areas.notebook.name === 'Notebook') m.areas.notebook.name = 'Notes'; }
@@ -2325,6 +2325,14 @@ const mealKind = (p) => (p.kind && p.kind !== 'latte' ? p.kind : '') || ((p.tags
 function PLAN0() { return { week: [0, 1, 2, 3, 4, 5, 6].map(() => ({ meal: 2, snack: 2, treat: 0 })), extras: [{ id: 'x-snackday', name: 'Snack day', meal: 0, snack: 0, any: 0, treat: 1, weekly: true }, { id: 'x-sugar', name: 'Low blood sugar', meal: 0, snack: 0, any: 1 }, { id: 'x-light', name: 'Light hike', meal: 0, snack: 1, any: 0 }, { id: 'x-hike', name: 'Proper hike', meal: 1, snack: 1, any: 0 }], days: {} }; }
 // "After every workout" on a task became "Always after" on the workout items (2026-11-11): each workout (not general
 // movement) names the tasks that had the switch on
+// a blocked item's row in front of it stays inside its own day block (the owner, 2026-11-25: a workout blocked at the top of
+// the Day block followed the Morning routine into the Morning block on days its item was missing); earlier rows lose the rest
+function stickFix(m) { if (!m.settings || m.settings.stick2) return; m.settings.stick2 = true; const its = m.items || {}, gs = m.groups || {};
+  const home = (k) => Object.keys(gs).find((g) => gs[g].style === 'dayblock' && (gs[g].kids || []).includes(k));
+  const tr = new Set(((gs['g-train'] || {}).kids || []).flatMap((c) => (gs[c] || {}).kids || [])); /* training items show wherever their generic item is, so they don't count */
+  Object.keys(its).forEach((k) => { const st = its[k].stick; if (!Array.isArray(st) || st.length < 2) return; const hs = st.filter((t) => its[t] && !tr.has(t)).map(home).filter(Boolean); if (!hs.length) return;
+    const n = {}; hs.forEach((h) => { n[h] = (n[h] || 0) + 1; }); const main = st[0] && !tr.has(st[0]) && home(st[0]) ? home(st[0]) : Object.keys(n).sort((a, b) => n[b] - n[a])[0];
+    const keep = st.filter((t, i) => i === 0 || !its[t] || tr.has(t) || home(t) === main); if (keep.length !== st.length) its[k].stick = keep; }); }
 function afterFix(m) { if (!m.settings || m.settings.after2) return; m.settings.after2 = true; const g = (m.groups || {})['g-train']; const its = m.items || {};
   const W = g ? g.kids.filter((c) => c !== 'tc-move' && m.groups[c]).flatMap((c) => m.groups[c].kids.filter((k) => its[k])) : [];
   Object.keys(its).forEach((t) => { if (!its[t].afterTrain) return; delete its[t].afterTrain; W.forEach((k) => { if (k === t) return; const a = its[k].then = its[k].then || []; if (!a.includes(t)) a.push(t); }); }); }
