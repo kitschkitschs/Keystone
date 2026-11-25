@@ -467,7 +467,7 @@ button.wkn.sel{color:var(--ink)}
 .fdh .lbl{flex:1;display:flex;flex-direction:column;gap:3px;text-align:left}
 .fdh small{font-size:12.5px;color:var(--quiet)}
 .chip:disabled{opacity:.4;cursor:default}
-.pgrid.x{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+.pgrid.x{grid-template-columns:repeat(4,minmax(0,1fr))!important}.pgrid.pcnt{grid-template-columns:repeat(3,minmax(0,1fr))!important;margin-top:6px}
 .pgrid.x .stp button{width:24px}
 .xsw{margin-bottom:8px}
 .sw.xsw{gap:8px}
@@ -1240,7 +1240,7 @@ html.dark .feelcard.empty{background:var(--card)}html.dark .jcard .jct,html.dark
 .inp.wsel{margin-top:6px;font-size:14px;color:var(--ink2)}
 .wxrow{padding:6px 0 10px;border-bottom:1px solid var(--line2)}.wxtop{display:flex;align-items:center;gap:2px}.wxtop .lbl{flex:1;min-width:0}.wxtop .lbl .sub{display:block}.wxtop .rm{width:30px;height:34px;display:grid;place-items:center;color:var(--quiet)}.wxtop .rm:disabled{opacity:.3}
 .wxnums{display:flex;gap:8px;margin-top:4px}.stp.wstp{border-radius:0;height:32px;min-width:0;gap:0;background:transparent;border:1px solid var(--line)}.stp.wstp b{font-weight:400;padding:0 8px;font-size:14px;white-space:nowrap}.stp.wstp button{height:30px}
-.cifull.wfull{background:var(--page)}.wfull .sb>*{flex-shrink:0}.wgo.wdn{display:inline-flex;align-items:center;background:var(--tc);border-color:var(--tc);color:var(--page)}.wnum .wrcd{font-size:84px;min-width:2.6em;text-align:center}.wfull .sb{padding:6px 16px 18px}
+.cifull.wfull{background:var(--page)}.wfull .sb>*{flex-shrink:0}.wrow>.wgo{min-width:74px;box-sizing:border-box}.wgo.wdn{display:inline-flex;align-items:center;justify-content:center;background:var(--tc);border-color:var(--tc);color:var(--page)}.wnum .wrcd{font-size:84px;min-width:2.6em;text-align:center}.wfull .sb{padding:6px 16px 18px}
 .wsh{display:flex;align-items:center;justify-content:center;gap:12px;min-height:30px;margin-top:14px}.wsh::before,.wsh::after{content:"";flex:1;border-top:1px solid var(--line)}
 .wsh b{font:500 10.5px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--ink)}.wsh span{font:400 10.5px var(--sans);letter-spacing:.14em;color:var(--quiet);margin-left:-6px}
 .wfull .row{display:flex;align-items:center;gap:10px;min-height:44px}.wfull .row .lbl{flex:1;min-width:0;font-size:15.5px}.wfull .row .sub{display:block;font-size:12.5px;color:var(--quiet);margin-top:1px}
@@ -3588,7 +3588,7 @@ function hSummary(gid, d) {
 const mealsOn = (d) => M.photos[d] || [];
 const mealSrc = (p) => p.asset ? blobUrl(p.asset) : p.src;
 function mealTile(p, d) {
-  const kw = p.nocount ? '' : KINDS3.find((k) => k[0] === mealKind(p))[1]; const sub = kw; // a meal's tags are data only and never show on it (2026-11-13)
+  const kw = p.nocount ? '' : mealCntText(p); const sub = kw; // a meal's tags are data only and never show on it (2026-11-13)
   const lab = [sub, p.text].filter(Boolean).join(' · ');
   return `<button class="photo${mealSrc(p) ? '' : ' txt'}" data-a="${mealSrc(p) ? 'mealview' : 'meal'}" data-ref="${p.id}" data-v="${d}" aria-label="Meal${lab ? ': ' + esc(lab) : ''}">${mealSrc(p) ? `<img src="${esc(mealSrc(p))}" alt="">${p.text ? `<span>${esc(p.text)}</span>` : ''}` : `<em>${esc(p.text || kw)}</em><span>${esc(sub)}</span>`}</button>`;
 }
@@ -3614,7 +3614,11 @@ function isLatte(p) { return (p.tags || []).some((t) => String(t).toLowerCase() 
 function latteGone(m) { if (!m.settings || m.settings.latte4) return; m.settings.latte4 = true; m.settings.foodTags = (m.settings.foodTags || []).filter((t) => t.toLowerCase() !== 'latte');
   Object.keys(m.photos || {}).forEach((d) => { m.photos[d] = (m.photos[d] || []).filter((p) => { if (!isLatte(p) && p.kind !== 'latte') return true;
     p.tags = (p.tags || []).filter((t) => t.toLowerCase() !== 'latte'); const keep = p.src || p.asset || (p.text && !/^\s*latte\s*$/i.test(p.text)); if (keep) { p.nocount = true; delete p.kind; } return !!keep; }); }); }
-const mealKind = (p) => (p.kind && p.kind !== 'latte' ? p.kind : '') || ((p.tags || []).includes('Snacks') ? 'snack' : (p.tags || []).includes('Treat') ? 'treat' : 'meal');
+const mealKind0 = (p) => (p.kind && p.kind !== 'latte' ? p.kind : '') || ((p.tags || []).includes('Snacks') ? 'snack' : (p.tags || []).includes('Treat') ? 'treat' : 'meal');
+// one entry can count as several (the owner, 2026-11-25): a big meal = 2 meals, or a meal and a bite. p.cnt = { meal, snack, treat }
+const mealCnt = (p) => p.cnt ? Object.assign({ meal: 0, snack: 0, treat: 0 }, p.cnt) : Object.assign({ meal: 0, snack: 0, treat: 0 }, { [mealKind0(p)]: 1 });
+const mealKind = (p) => { if (!p.cnt) return mealKind0(p); const c = mealCnt(p); return KINDS3.map((k) => k[0]).sort((a, b) => c[b] - c[a])[0]; };
+const mealCntText = (p) => { const c = mealCnt(p); const t = KINDS3.filter(([k]) => c[k] > 0).map(([k, one, many]) => c[k] === 1 ? one.toLowerCase() : c[k] + ' ' + many.toLowerCase()).join(' + '); return t ? t[0].toUpperCase() + t.slice(1) : 'Not counted'; };
 function PLAN0() { return { week: [0, 1, 2, 3, 4, 5, 6].map(() => ({ meal: 2, snack: 2, treat: 0 })), extras: [{ id: 'x-snackday', name: 'Snack day', meal: 0, snack: 0, any: 0, treat: 1, weekly: true }, { id: 'x-sugar', name: 'Low blood sugar', meal: 0, snack: 0, any: 1 }, { id: 'x-light', name: 'Light hike', meal: 0, snack: 1, any: 0 }, { id: 'x-hike', name: 'Proper hike', meal: 1, snack: 1, any: 0 }], days: {} }; }
 // "After every workout" on a task became "Always after" on the workout items (2026-11-11): each workout (not general
 // movement) names the tasks that had the switch on
@@ -3666,7 +3670,7 @@ function whenLabel(w) {
   if (!w) return ''; if (w.src === 'sym') return ((I(w.id) || {}).name || 'a') + ' symptom';
   if (w.src === 'tag') return (w.opt || (I(w.id) || {}).name || 'a') + ' tag'; if (w.src === 'treat') return 'the first snack of the week'; if (w.src === 'train' && w.id) return ((I(w.id) || {}).name || 'a training session') + ' done'; if (w.src === 'train') return (w.kind || 'Training') + ' of ' + (w.km || 0) + ' km or more'; return '';
 }
-function dayCounts(d) { const c = { meal: 0, snack: 0, treat: 0 }; mealsOn(d).filter((p) => !p.nocount).forEach((p) => { const k = mealKind(p); c[k] = (c[k] || 0) + 1; }); return c; }
+function dayCounts(d) { const c = { meal: 0, snack: 0, treat: 0 }; mealsOn(d).filter((p) => !p.nocount).forEach((p) => { const n = mealCnt(p); KINDS3.forEach(([k]) => { c[k] += n[k] || 0; }); }); return c; }
 function dayCheck(d) {
   const base = mealPlan().week[wdOf(d)]; const ex = dayExtras(d).reduce((a, x) => ({ meal: a.meal + (x.meal || 0), snack: a.snack + (x.snack || 0), any: a.any + (x.any || 0), treat: a.treat + (x.treat || 0) }), { meal: 0, snack: 0, any: 0, treat: 0 });
   const c = dayCounts(d); const overMeal = Math.max(0, c.meal - base.meal - ex.meal); const anyLeft = ex.any - overMeal;
@@ -3945,7 +3949,7 @@ function photoSheet(s) {
   const tags = M.settings.foodTags || []; const mk = mealKind(p);
   return (mealSrc(p) ? `<button class="mealpic" data-a="mealview" data-ref="${p.id}" data-v="${d}" aria-label="View the photo"><img src="${esc(mealSrc(p))}" alt="" style="width:100%;border-radius:14px;max-height:260px;object-fit:cover;display:block"></button>` : `<label class="addbtn" style="cursor:pointer">${icon('camera', 20)} Add a photo<input type="file" accept="image/*" id="photoin2" hidden></label>`) +
     `<div class="fld" style="margin-top:12px"><span class="mono">What was it</span><textarea class="inp" id="mealtxt" rows="2" placeholder="Like pasta with pesto" ${s.isNew ? 'data-autofocus' : ''}>${esc(p.text || '')}</textarea></div>
-    <div class="fld"><span class="mono">Counts as</span><div class="chips">${KINDS3.map(([k, l]) => `<button class="chip" data-a="pkind" data-v="${k}" aria-pressed="${mk === k}">${l}</button>`).join('')}</div></div>
+    <div class="fld"><span class="mono">Counts as</span><div class="pgrid pcnt">${KINDS3.map(([, , l]) => `<span class="mono">${l}</span>`).join('')}${KINDS3.map(([k]) => stepper('pcnt', p.id, k, mealCnt(p)[k])).join('')}</div></div>
     <div class="fld"><span class="mono">Tags</span><div class="chips">${tags.map((t) => `<button class="hchip" data-a="ptag" data-v="${esc(t)}" aria-pressed="${(p.tags || []).includes(t)}" style="${(p.tags || []).includes(t) ? 'background:' + pale('#6FA24A') + ';border-color:#6FA24A' : ''}">${esc(t)}</button>`).join('')}</div>
     ${addOpen('ptagnew') ? `<div class="inrow"><input class="inp" id="ptagnew" placeholder="New tag"><button class="btn" data-a="ptagadd">Add</button></div>` : `<div class="chips">${addChip('ptagnew', 'New tag')}</div>`}</div>
     <div class="btns"><button class="btn dark" data-a="mealdone">Done</button><button class="btn danger" data-a="photodel">Delete meal</button></div>`;
@@ -4055,6 +4059,7 @@ function healthAction(act, a, ref, v) {
     case 'fdextra': { const d = S.fd.day; const xx = mealPlan().extras.find((e) => e.id === v); if (!xx || (usedElsewhere(xx, d) && !isOn(xx, d))) return true; change(() => { const mp = mealPlan(); const o = mp.days[d] = mp.days[d] || {}; const ex = (o.extras || []).slice(); const off = (o.off || []).slice(); const on = isOn(xx, d);
       if (on) { if (ex.includes(v)) ex.splice(ex.indexOf(v), 1); if (autoOn(xx, d)) off.push(v); } else { if (off.includes(v)) off.splice(off.indexOf(v), 1); if (!autoOn(xx, d)) ex.push(v); }
       o.extras = ex; o.off = off; }); render(); return true; }
+    case 'pcnt': { mcapture(); const p = curMeal(); if (!p) return true; const f0 = a.dataset.f; change(() => { const c = mealCnt(p); c[f0] = Math.max(0, Math.min(9, (c[f0] || 0) + +v)); p.cnt = c; p.kind = mealKind(p); p.tags = (p.tags || []).filter((t) => !['Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Treat'].includes(t)); }); render(); return true; }
     case 'pkind': { mcapture(); const p = curMeal(); change(() => { p.kind = v; p.tags = (p.tags || []).filter((t) => !['Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Treat'].includes(t)); }); render(); return true; }
     case 'xstep': { xcapture(); change(() => { const x = mealPlan().extras.find((e) => e.id === a.dataset.k); if (x) x[a.dataset.f] = Math.max(0, Math.min(9, (x[a.dataset.f] || 0) + +v)); }); render(); return true; }
     case 'xcolor': { xcapture(); change(() => { const x = mealPlan().extras.find((e) => e.id === a.dataset.k); if (x) x.color = v; }); renderLayer(); return true; }
