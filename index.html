@@ -1629,7 +1629,8 @@ function folChain(id, S0, on) { const out = [], seen = new Set([id]); const walk
 function afterWork(out, d, extra) { const src = folSrc(), X = extra || {}; const S0 = (id) => X[id] ? [X[id]].concat(src[id] || []) : (src[id] || []);
   const on0 = new Set(out.flatMap((x) => x.items));
   const C = {}; on0.forEach((id) => { if (I(id) && S0(id).length) C[id] = folChain(id, S0, on0); });
-  const after = Object.keys(C).filter((id) => C[id].some((k) => on0.has(k) || onDay0(k, d))); if (!after.length) return;
+  const hand = Object.assign({}, (M.dayMove || {})[d] || {}, (M.dayTime || {})[d] || {}); /* moved by hand that day: it stays where I put it (the owner, 2026-11-25) */
+  const after = Object.keys(C).filter((id) => !hand[id] && C[id].some((k) => on0.has(k) || onDay0(k, d))); if (!after.length) return;
   const orig = out.map((x) => x.items.slice());
   out.forEach((x) => { x.items = x.items.filter((id) => !after.includes(id)); });
   // each one goes right behind what it follows, at the end of the row already there; a row (shower after workout, stretch after
@@ -2137,7 +2138,7 @@ function placeDay(d) {
   const SW = DL.swapT || {}; const tAt = (id, dd) => ((M.dayTime || {})[dd] || {})[id] || SW[id] || I(id).time; /* a stand-in takes its generic item's time */
   const fixedT = (id) => !!(dT[id] || SW[id]) || (!!I(id).time && !carried.has(id)); /* moved to a time on this day (2026-11-24) */
   const allFixed = []; DL.forEach(({ b, items, appts }) => { const g = G(b);
-    items.filter(fixedT).forEach((id) => { const t = hm(tAt(id, d)); allFixed.push({ id, a: t, b: t + durOn(id, d), blk: b }); });
+    items.filter(fixedT).forEach((id) => { const t = hm(tAt(id, d)); allFixed.push({ id, a: t, b: t + durOn(id, d), blk: dT[id] ? blockAtTime(dT[id]) : b }); }); /* moved to a time on one day: it belongs to the block that time is in */
     (appts || []).forEach((id) => { const t = hm(tAt(id, d) || g.start); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), appt: true, blk: b }); }); });
   /* two items with a set time never sit on top of each other: the later one (or a stand-in that took a generic item's time)
      goes right behind the other (the owner, 2026-11-25: workouts hid under the Movement generic) */
