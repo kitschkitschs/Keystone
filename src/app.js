@@ -328,18 +328,23 @@ function slotReal(sid, k) { const it = I(sid), r = I(k); if (!it || it.type !== 
   if (it.opens === 'chores') return typeof choreIds === 'function' && choreIds().includes(k);
   if (it.opens === 'hobbies') return typeof hobArea === 'function' && !!hobArea(k);
   return false; }
+// what an item follows, nearest first: one that isn't on the day hands over to what it follows in turn, and so on up the
+// chain (the owner, 2026-11-25: blocked behind an item that's only on some days, it follows the item before that one)
+function folChain(id, S0, on) { const out = [], seen = new Set([id]); const walk = (l) => l.forEach((s) => { if (seen.has(s) || !I(s)) return; seen.add(s); out.push(s); if (!on.has(s)) walk(S0(s)); }); walk(S0(id)); return out; }
 function afterWork(out, d, extra) { const src = folSrc(), X = extra || {}; const S0 = (id) => X[id] ? [X[id]].concat(src[id] || []) : (src[id] || []);
   const on0 = new Set(out.flatMap((x) => x.items));
-  const after = [...on0].filter((id) => I(id) && S0(id).some((k) => on0.has(k) || onDay0(k, d))); if (!after.length) return;
+  const C = {}; on0.forEach((id) => { if (I(id) && S0(id).length) C[id] = folChain(id, S0, on0); });
+  const after = Object.keys(C).filter((id) => C[id].some((k) => on0.has(k) || onDay0(k, d))); if (!after.length) return;
   const orig = out.map((x) => x.items.slice());
   out.forEach((x) => { x.items = x.items.filter((id) => !after.includes(id)); });
   // each one goes right behind what it follows, at the end of the row already there; a row (shower after workout, stretch after
   // shower) builds up in order. A generic item that gave way to real work that day hands its followers to that work (the owner, 2026-11-24)
-  const hit = (id, k) => S0(id).includes(k) || S0(id).some((s) => !on0.has(s) && slotReal(s, k));
   const placed = new Set(); let left = after.slice();
+  const find = (id) => { for (const c of C[id]) { if (left.includes(c) && !placed.has(c)) return null; let r = null;
+    out.some((x, bi) => { if (x.items.includes(c)) { r = [bi, c]; return true; } return false; }); if (r) return r;
+    if (!on0.has(c) && I(c).type === 'slot') { out.some((x, bi) => x.items.some((k) => { if (k !== id && slotReal(c, k)) { r = [bi, k]; return true; } return false; })); if (r) return r; } } return null; };
   for (let pass = 0; pass < 12 && left.length; pass++) { const nx = [];
-    left.forEach((id) => { let at = null; out.some((x, bi) => x.items.some((k) => { if (k !== id && hit(id, k)) { at = [bi, k]; return true; } return false; }));
-      if (!at || (S0(id).some((s) => left.includes(s) && s !== id) && !S0(id).includes(at[1]))) { nx.push(id); return; }
+    left.forEach((id) => { const at = find(id); if (!at) { nx.push(id); return; }
       const x = out[at[0]]; const st = stickOf(id).includes(at[1]); let wi = x.items.indexOf(at[1]); while (wi + 1 < x.items.length && placed.has(x.items[wi + 1]) && (!st || stickOf(x.items[wi + 1]).includes(at[1]))) wi++; /* blocked right behind it comes before what always follows it */
       const g = G(x.b); const len = g && g.start && g.end ? hm(g.end) - hm(g.start) : 1e9; const used = x.items.filter((q) => !I(q).time).reduce((t, q) => t + (I(q).dur || 30), 0) + (I(id).dur || 30);
       if (used <= len || at[0] === out.length - 1 || stickOf(id).length || placed.has(at[1])) x.items.splice(wi + 1, 0, id); else out[at[0] + 1].items.unshift(id);
@@ -836,8 +841,8 @@ function placeDay(d) {
     // moved behind a set-time item for every day: it.behind names that item (a day's own order wins)
     /* an item that follows another (Always after, blocked behind it, a row of stand-ins) goes right behind it wherever it lands,
        timed or not, and the rest keep their places (2026-11-24, 2026-11-25) */
-    const anc = {}; items.forEach((id, i) => { if (fixedT(id)) return; const S0 = fsrcOf(id); if (!S0.length) return; const hitk = (k) => k !== id && (S0.includes(k) || S0.some((s) => !onDL.has(s) && slotReal(s, k)));
-      const pre = items.slice(0, i).reverse().find(hitk) || fixed.map((f) => f.id).find(hitk); if (pre) anc[id] = pre; });
+    const anc = {}; items.forEach((id, i) => { if (fixedT(id) || !fsrcOf(id).length) return; const pool = items.slice(0, i).reverse().concat(fixed.map((f) => f.id));
+      for (const c of folChain(id, fsrcOf, onDL)) { const pre = pool.find((k) => k === c) || (!onDL.has(c) && I(c).type === 'slot' ? pool.find((k) => k !== id && slotReal(c, k)) : null); if (pre) { anc[id] = pre; break; } } });
     const pl = new Set(); const putFol = (q) => items.filter((f) => anc[f] === q.id && !pl.has(f) && !fixedT(f)).sort((f1, f2) => (stickOf(f1).includes(q.id) ? 0 : 1) - (stickOf(f2).includes(q.id) ? 0 : 1)).forEach((f) => { pl.add(f); const len = I(f).dur || 30; let a0 = q.b, mv2 = true;
       while (mv2) { mv2 = false; busy.forEach((z) => { if (a0 < z.b && a0 + len > z.a) { a0 = z.b; mv2 = true; } }); } const r = { id: f, a: a0, b: a0 + len, blk: b }; out.push(r); busy.push(r); putFol(r); });
     items.forEach((id) => { const bh = I(id).behind; if (!bh || o.includes(id)) return; const f = fixed.find((q) => q.id === bh); if (f) after[id] = Math.max(after[id] || 0, f.b); });
@@ -916,13 +921,13 @@ function renderSchedule() {
   // past days don't fade (2026-11-04); only done items do
   const faded = () => false; // nothing on the Schedule fades, not past days and not done items (2026-11-12)
   days.forEach((d, di) => {
-    h += `<div class="col" data-day="${d}" style="height:${H}px">` + PD[di].map((o) => { const it = I(o.id); const c = o.appt ? G(catOf(o.id)).color : colorOf(o.id); const top0 = yIn(o.a, o.blk), flush = !o.appt && (OV[o.blk] ? o.b >= ends[o.blk] + OV[o.blk] : o.b >= ends[o.blk]); const top = top0 + (o.late ? 5 : 1), ht = Math.max(5, yIn(o.b - 0.01, o.blk) - top0 - (flush ? 1 : 2)); /* true height, so a short box never covers the next one (2026-11-24) */ // 1px in from the lines above and below, so boxes sit evenly on the hour lines (2026-11-11) // the last box of a block (or of its red stretch) sits flush on the next block's border (2026-11-03/04)
+    h += `<div class="col" data-day="${d}" style="height:${H}px">` + PD[di].map((o) => { const it = I(o.id); const c = o.appt ? G(catOf(o.id)).color : colorOf(o.id); const top0 = yIn(o.a, o.blk), flush = !o.appt && (OV[o.blk] ? o.b >= ends[o.blk] + OV[o.blk] : o.b >= ends[o.blk]); const top = top0 + 1, ht = Math.max(5, yIn(o.b - 0.01, o.blk) - top0 - (flush ? 1 : 2)); /* true height, so a short box never covers the next one (2026-11-24) */ // 1px in from the lines above and below, so boxes sit evenly on the hour lines (2026-11-11) // the last box of a block (or of its red stretch) sits flush on the next block's border (2026-11-03/04)
       // Stone (2026-11-23): the week shows plain coloured boxes, no names or icons; the day view names each box and its start
       const bk = !o.appt && it.brk;
       const inner = !dayV ? '' : bk ? `<span class="bkt"><span>${inm(it)}</span></span>` : `<span class="bn">${inm(it)}</span><span class="bt">${estHM((o.b - o.a) / 60)}</span>`; // the time it takes, not when it starts (2026-11-23)
       const fd = faded(di, o);
       const mv = it.type !== 'checkin' && d >= T0 && !o.two && !o.cont; // set-time items and appointments move too, snapping to what's around them (2026-11-13)
-      return `<button class="box ${dayV ? 'wide' : ''} ${ht < 20 ? 'xs' : ht < 30 ? 'sm' : ''} ${mv ? 'mv' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && it.brk ? ' brk' : ''}${S.edit && !o.appt && !it.brk && I(standIn(o.id, d)) && I(standIn(o.id, d)).time ? ' pin' : ''}" style="top:${top}px;height:${ht}px;--fs:${Math.max(5, Math.min(9.5, ht - 1.5)).toFixed(1)}px;--c:${c};--bg:${fd ? mix(c, TH.page, 0.5) : c};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" data-from="${o.a}" data-to="${o.b}" aria-label="${esc(tnm(it))}, ${fmtHM(o.a)}">${inner}</button>`; }).join('') + '</div>';
+      return `<button class="box ${dayV ? 'wide' : ''} ${ht < 20 ? 'xs' : ht < 30 ? 'sm' : ''} ${mv ? 'mv' : ''} ${!o.appt && o.b > ends[o.blk] ? 'spill' : ''} ${fd ? 'fd' : ''}${!o.appt && it.brk ? ' brk' : ''}${o.flows ? ' fl1' : o.cont ? ' fl2' : ''}${S.edit && !o.appt && !it.brk && I(standIn(o.id, d)) && I(standIn(o.id, d)).time ? ' pin' : ''}" style="top:${top}px;height:${ht}px;--fs:${Math.max(5, Math.min(9.5, ht - 1.5)).toFixed(1)}px;--c:${c};--bg:${fd ? mix(c, TH.page, 0.5) : c};--deep:${fd ? mix(mix(c, TH.ink, 0.35), TH.page, 0.5) : mix(c, TH.ink, 0.35)}" data-a="peek" data-ref="${o.id}" data-d="${d}" data-from="${o.a}" data-to="${o.b}" aria-label="${esc(tnm(it))}, ${fmtHM(o.a)}">${inner}</button>`; }).join('') + '</div>';
   });
   S.ymap = { y, h0, h1, zones: blockIds().filter((b) => OV[b]).map((b) => ({ b, top: yIn(ends[b], b), h: OV[b] / 60 * PX, e: ends[b], ov: OV[b] })) };
   h += '</div>';
