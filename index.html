@@ -1862,7 +1862,7 @@ function tickCircle(id, d, live) { const k = isMulti(id) ? TK : null;
   const circ = `<span class="circ ${much ? 'much' : done ? 'done' : d === T0 && halfOf(id) ? 'half' : ''}${optOn(id, d) ? ' opt' : ''}" style="--c:${c}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : 'aria-hidden="true"'}>${inner}</span>`;
   if (!live || S.edit) return S.edit ? circ : `<span class="tickbtn">${circ}</span>`;
   // a workout on Today starts its follow-along instead of a tick; finishing it ticks it (the owner, 2026-11-25)
-  { const w = I(id) && I(id).wo; if (w && !done && d === T0 && (w.ex || []).some((e) => typeof exOf === 'function' && exOf(e.x))) { const R = M.wrun; return `<button class="wgo wgot" data-a="wostart" data-ref="${id}" aria-label="Start ${esc(tnm(id))}">${R && R.item === id ? 'Resume' : 'Start'}</button>`; } }
+  { const w = I(id) && I(id).wo; if (w && !done && d === T0 && !(S.sheet && S.sheet.kind === 'checkin') /* a check-in ticks it like any item (the owner, 2026-11-25) */ && (w.ex || []).some((e) => typeof exOf === 'function' && exOf(e.x))) { const R = M.wrun; return `<button class="wgo wgot" data-a="wostart" data-ref="${id}" aria-label="Start ${esc(tnm(id))}">${R && R.item === id ? 'Resume' : 'Start'}</button>`; } }
   return `<button class="tickbtn" data-a="tick" data-ref="${id}"${k != null ? ` data-k="${k}"` : ''} aria-label="Tick ${esc(tnm(id))}">${circ}</button>`;
 }
 // A check-in is a step of its routine (2026-11-02): morning check-in in Morning routine, evening in Evening routine.
