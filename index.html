@@ -2003,6 +2003,8 @@ function renderToday() {
   if (d > T0) h += `<div class="mono" style="margin:8px 2px">Coming up on ${fmtDate(d)}</div>`; // past days: the calendar shows the date (2026-11-08)
   if (d < T0 && !S.edit) return h + pastDay(d);
   const PD = placeDay(d); const at = {}; PD.forEach((o) => { at[o.id] = o.a; });
+  /* a waiting part two sits on Today where it sits on the Schedule: in that block, at that time (the owner, 2026-11-25) */
+  if (live) PD.filter((o) => o.two).forEach((o) => { at[o.id] = o.a; const src = DL.find((x) => x.items.includes(o.id)), dst = DL.find((x) => x.b === o.blk); if (src && dst && src !== dst) { src.items = src.items.filter((k) => k !== o.id); dst.items.push(o.id); } });
   const instK = (b, id) => DL.slice(0, DL.findIndex((x) => x.b === b)).filter((x) => x.items.includes(id)).length;
   const blocksH = DL.map(({ b, items, appts }) => {
     const g = G(b); const shown = live ? items.filter((id) => S.edit || !instDone(id, d, instK(b, id))) : items;
