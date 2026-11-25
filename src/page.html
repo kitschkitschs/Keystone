@@ -1013,7 +1013,7 @@ nav.areas button{font-size:10px;letter-spacing:.12em;padding:0}
 /* block titles like Today's (name and time) in a band with top and bottom lines, over the day columns only; no hour lines in the hour column */
 .bl{left:22px;border:0;border-top:1px solid var(--line2);border-bottom:1px solid var(--line2);background:var(--page);z-index:1;align-items:center;gap:12px}
 .bl::before,.bl::after{content:"";flex:1;border-top:1px solid var(--line)}
-.bl.first{border-top:0} /* nothing over the first block title */
+.bl.first{border-top:0}.tl .blend{position:absolute;left:22px;right:0;height:0;border-top:1px solid var(--line2);z-index:1;pointer-events:none} /* nothing over the first block title */
 .wkr{position:relative}.wkr>.wkn.sel{position:relative}.wkr>.wkn.sel::after{content:'';position:absolute;inset:-1px;border:1px solid var(--quiet);pointer-events:none;z-index:2} /* a picked week boxes only its week cell, like a picked day */
 .bl b,.bl em{font:500 10.5px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--ink);white-space:nowrap}
 .bl em{font:400 9.5px var(--mono);letter-spacing:.14em;font-style:normal;color:var(--quiet);margin-left:-6px}.bl em::before{content:"· "}
