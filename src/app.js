@@ -862,10 +862,10 @@ function renderSchedule() {
   const shiftBefore = (m, skip) => blockIds().filter((b) => b !== skip && ends[b] <= m).reduce((t, b) => t + OV[b] / 60 * PX, 0);
   const y = (m) => base(m) + shiftBefore(m);
   const yIn = (m, b) => b && m >= ends[b] ? base(ends[b] - 0.001) + shiftBefore(ends[b], b) + (m - ends[b]) / 60 * PX : base(m) + shiftBefore(m, b);
-  const LATE = Math.max(0, ...PDs.flat().filter((o) => o.late).map((o) => o.b - ends[o.blk])); const H = y(h1 * 60) + Math.max(0, LATE / 60 * PX - (y(h1 * 60) - yIn(ends[blockIds()[blockIds().length - 1]], blockIds()[blockIds().length - 1]))) + (LATE ? 4 : 0); // room under the last block for a late part two
+  const LATE = Math.max(0, ...PDs.flat().filter((o) => o.late).map((o) => o.b - ends[o.blk])); const H = y(h1 * 60); const lateRoom = LATE ? LATE / 60 * PX + 8 : 0; // a late part two hangs below the last block; the block itself doesn't stretch for it (the owner, 2026-11-25)
   const cols = `grid-template-columns:22px repeat(${days.length},minmax(0,1fr))`;
   let h = renderCal('s') + calEdit();
-  h += `<div class="tl" style="height:${H}px;margin-top:4px;${cols}">`;
+  h += `<div class="tl" style="height:${H}px;margin-top:4px;${lateRoom ? `margin-bottom:${lateRoom}px;` : ''}${cols}">`;
   for (let k = h0; k < h1; k++) h += `<div class="hr ${starts.includes(k * 60) ? 'bs' : ''}" style="top:${y(k * 60)}px"><span>${pad(k)}</span></div>`;
   // block lines, like the old Daybook: a dashed line at each block's start with its name (day view: time used of its length)
   const P = placeDay(dayV ? S.sday : days.includes(T0) ? T0 : days[0]); // week view counts today's (or the week's first) day, like Today's block titles
@@ -877,6 +877,7 @@ function renderSchedule() {
     // previous block's last box, so there's no stray gap (2026-11-02)
     h += `<div class="bl ${over ? 'over' : ''}${bi ? '' : ' first'}" style="top:${y(hm(g.start)) - GAP}px;height:${GAP}px">${lbl}</div>`;
     if (overB[b]) h += `<div class="ovz" style="top:${yIn(ends[b], b)}px;height:${overB[b] / 60 * PX}px"></div>`; });
+  { const lb = blockIds()[blockIds().length - 1]; h += `<div class="blend" style="top:${yIn(ends[lb], lb) + (OV[lb] ? OV[lb] / 60 * PX : 0) - 1}px"></div>`; } // the last block closes with a line, like the others (the owner, 2026-11-25)
   h += '<span></span>';
   // Stone (2026-11-23): every day keeps its own boxes; nothing joins across days
   const PD = PDs;
@@ -884,7 +885,7 @@ function renderSchedule() {
   // past days don't fade (2026-11-04); only done items do
   const faded = () => false; // nothing on the Schedule fades, not past days and not done items (2026-11-12)
   days.forEach((d, di) => {
-    h += `<div class="col" data-day="${d}" style="height:${H}px">` + PD[di].map((o) => { const it = I(o.id); const c = o.appt ? G(catOf(o.id)).color : colorOf(o.id); const top0 = yIn(o.a, o.blk), flush = !o.appt && (OV[o.blk] ? o.b >= ends[o.blk] + OV[o.blk] : o.b >= ends[o.blk]); const top = top0 + 1, ht = Math.max(5, yIn(o.b - 0.01, o.blk) - top0 - (flush ? 1 : 2)); /* true height, so a short box never covers the next one (2026-11-24) */ // 1px in from the lines above and below, so boxes sit evenly on the hour lines (2026-11-11) // the last box of a block (or of its red stretch) sits flush on the next block's border (2026-11-03/04)
+    h += `<div class="col" data-day="${d}" style="height:${H}px">` + PD[di].map((o) => { const it = I(o.id); const c = o.appt ? G(catOf(o.id)).color : colorOf(o.id); const top0 = yIn(o.a, o.blk), flush = !o.appt && (OV[o.blk] ? o.b >= ends[o.blk] + OV[o.blk] : o.b >= ends[o.blk]); const top = top0 + (o.late ? 5 : 1), ht = Math.max(5, yIn(o.b - 0.01, o.blk) - top0 - (flush ? 1 : 2)); /* true height, so a short box never covers the next one (2026-11-24) */ // 1px in from the lines above and below, so boxes sit evenly on the hour lines (2026-11-11) // the last box of a block (or of its red stretch) sits flush on the next block's border (2026-11-03/04)
       // Stone (2026-11-23): the week shows plain coloured boxes, no names or icons; the day view names each box and its start
       const bk = !o.appt && it.brk;
       const inner = !dayV ? '' : bk ? `<span class="bkt"><span>${inm(it)}</span></span>` : `<span class="bn">${inm(it)}</span><span class="bt">${estHM((o.b - o.a) / 60)}</span>`; // the time it takes, not when it starts (2026-11-23)
