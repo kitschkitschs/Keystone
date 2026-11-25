@@ -340,9 +340,9 @@ function afterWork(out, d, extra) { const src = folSrc(), X = extra || {}; const
   // each one goes right behind what it follows, at the end of the row already there; a row (shower after workout, stretch after
   // shower) builds up in order. A generic item that gave way to real work that day hands its followers to that work (the owner, 2026-11-24)
   const placed = new Set(); let left = after.slice();
-  const find = (id) => { for (const c of C[id]) { if (left.includes(c) && !placed.has(c)) return null; let r = null;
-    out.some((x, bi) => { if (x.items.includes(c)) { r = [bi, c]; return true; } return false; }); if (r) return r;
-    if (!on0.has(c) && I(c).type === 'slot') { out.some((x, bi) => x.items.some((k) => { if (k !== id && slotReal(c, k)) { r = [bi, k]; return true; } return false; })); if (r) return r; } } return null; };
+  // it goes behind the last one of what it follows on that day: a shower after every workout waits for the whole row (the owner, 2026-11-25)
+  const find = (id) => { if (C[id].some((c) => left.includes(c) && !placed.has(c) && c !== id)) return null; let r = null;
+    out.forEach((x, bi) => x.items.forEach((k) => { if (k !== id && (C[id].includes(k) || C[id].some((c) => !on0.has(c) && I(c).type === 'slot' && slotReal(c, k)))) r = [bi, k]; })); return r; };
   for (let pass = 0; pass < 12 && left.length; pass++) { const nx = [];
     left.forEach((id) => { const at = find(id); if (!at) { nx.push(id); return; }
       const x = out[at[0]]; const st = stickOf(id).includes(at[1]); let wi = x.items.indexOf(at[1]); while (wi + 1 < x.items.length && placed.has(x.items[wi + 1]) && (!st || stickOf(x.items[wi + 1]).includes(at[1]))) wi++; /* blocked right behind it comes before what always follows it */
@@ -846,7 +846,7 @@ function placeDay(d) {
     /* an item that follows another (Always after, blocked behind it, a row of stand-ins) goes right behind it wherever it lands,
        timed or not, and the rest keep their places (2026-11-24, 2026-11-25) */
     const anc = {}; items.forEach((id, i) => { if (fixedT(id) || !fsrcOf(id).length) return; const pool = items.slice(0, i).reverse().concat(fixed.map((f) => f.id));
-      for (const c of folChain(id, fsrcOf, onDL)) { const pre = pool.find((k) => k === c) || (!onDL.has(c) && I(c).type === 'slot' ? pool.find((k) => k !== id && slotReal(c, k)) : null); if (pre) { anc[id] = pre; break; } } });
+      const cs = folChain(id, fsrcOf, onDL); const pre = pool.find((k) => k !== id && (cs.includes(k) || cs.some((c) => !onDL.has(c) && I(c).type === 'slot' && slotReal(c, k)))); if (pre) anc[id] = pre; });
     const pl = new Set(); const putFol = (q) => items.filter((f) => anc[f] === q.id && !pl.has(f) && !fixedT(f)).sort((f1, f2) => (stickOf(f1).includes(q.id) ? 0 : 1) - (stickOf(f2).includes(q.id) ? 0 : 1)).forEach((f) => { pl.add(f); const len = I(f).dur || 30; let a0 = q.b, mv2 = true;
       while (mv2) { mv2 = false; busy.forEach((z) => { if (a0 < z.b && a0 + len > z.a) { a0 = z.b; mv2 = true; } }); } const r = { id: f, a: a0, b: a0 + len, blk: b }; out.push(r); busy.push(r); putFol(r); });
     items.forEach((id) => { const bh = I(id).behind; if (!bh || o.includes(id)) return; const f = fixed.find((q) => q.id === bh); if (f) after[id] = Math.max(after[id] || 0, f.b); });
