@@ -562,11 +562,15 @@ const multiN = (id) => Math.max(1, blockIds().filter((b) => G(b).kids.includes(i
 const mcount = (id, d) => val(d, id) ? multiN(id) : (((M.multi || {})[d] || {})[id] || 0);
 const instDone = (id, d, k) => isMulti(id) && k != null ? mcount(id, d) > k : isDone(id, d);
 let TK = null; // the block instance being drawn
+// optional on every day, or only on the weekdays I pick (the owner, 2026-11-25: Movement optional on some days)
+const optOn = (id, d) => { const it = I(id); if (!it || !it.optional) return false; const o = it.optDays; return !o || !o.length || o.includes(wd(d)); };
+const optText = (it) => !it.optional ? '' : it.optDays && it.optDays.length ? 'Optional ' + it.optDays.slice().sort().map((k) => WD[k]).join(', ') : 'Optional';
+const optDaysUI = (D) => !D.optional ? '' : `<div class="fld"><span class="mono">Optional on</span><div class="chips"><button class="chip" data-a="doptday" data-v="all" aria-pressed="${!(D.optDays && D.optDays.length)}">Every day</button>${WD.map((n, k) => `<button class="chip" data-a="doptday" data-v="${k}" aria-pressed="${!!(D.optDays && D.optDays.includes(k))}">${n}</button>`).join('')}</div></div>`;
 function tickCircle(id, d, live) { const k = isMulti(id) ? TK : null;
   const st = val(d, id); const done = instDone(id, d, k); const much = typeof st === 'string' && st.startsWith('much');
   const c = colorOf(id);
   const inner = ''; // a done task is just a dot filled with its colour (2026-11-20)
-  const circ = `<span class="circ ${much ? 'much' : done ? 'done' : d === T0 && halfOf(id) ? 'half' : ''}${I(id) && I(id).optional ? ' opt' : ''}" style="--c:${c}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : 'aria-hidden="true"'}>${inner}</span>`;
+  const circ = `<span class="circ ${much ? 'much' : done ? 'done' : d === T0 && halfOf(id) ? 'half' : ''}${optOn(id, d) ? ' opt' : ''}" style="--c:${c}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : 'aria-hidden="true"'}>${inner}</span>`;
   if (!live || S.edit) return S.edit ? circ : `<span class="tickbtn">${circ}</span>`;
   return `<button class="tickbtn" data-a="tick" data-ref="${id}"${k != null ? ` data-k="${k}"` : ''} aria-label="Tick ${esc(tnm(id))}">${circ}</button>`;
 }
@@ -607,7 +611,7 @@ function itemRow(id, list, d) {
   const late = live ? lateBy(id) : 0;
   const sub0 = much ? 'Too much' + (val(d, id) === 'much:hyper' ? ' · hyperfixation' : val(d, id) === 'much:inert' ? ' · inertia' : '') : late ? (late === 1 ? '1 day late' : late + ' days late') : '';
   // Today keeps to names (2026-11-11: no grey text about how an item is set up); an optional item gets a small icon instead
-  const onToday = S.area === 'plan' && S.page === 'today'; const sub = onToday ? '' : [whereOf(id), it.optional ? 'Optional' : '', sub0].filter(Boolean).join(' · '); // a chore shows its room, a study task its subject
+  const onToday = S.area === 'plan' && S.page === 'today'; const sub = onToday ? '' : [whereOf(id), optOn(id, d) ? 'Optional' : '', sub0].filter(Boolean).join(' · '); // a chore shows its room, a study task its subject
   if (it.type === 'routine') {
     const open = S.edit || routineOpen(id, d); const steps = S.edit ? rStepsAll(id) : rSteps(id, d);
     return `<div data-ref="${id}"><div class="row">${grip()}${tickCircle(id, d, live)}
@@ -682,7 +686,7 @@ const uiIc = (key, def) => ((M.settings || {}).uiIcons || {})[key] || def;
 // (a chore page, the + sheet, Studies), not only while Today is on screen, so yesterday's mark is always right (2026-11-10)
 // a started two-part chore stands in for the generic chore on Today (not on Schedule, which is for planning)
 function halfDrop(DL) { return DL; } // a started two-part chore no longer stands in for the day's chore (2026-11-14: unfinished doesn't count)
-function snapDay(d, DL) { DL = DL || slotDrop(dayList(d), d); const opt = (id) => !!(I(id) && I(id).optional); let due = missedOn(d).filter((id) => !opt(id)).length, done = 0; const seenK = {}; DL.forEach((x) => x.items.concat(x.appts || []).forEach((id) => { if (I(id) && I(id).brk) return; const kk = isMulti(id) && !(x.appts || []).includes(id) ? (seenK[id] = (seenK[id] ?? -1) + 1) : null; const dn = I(id) && I(id).type === 'routine' ? isDone(id, d) && rComplete(id, d) : instDone(id, d, kk); if (opt(id) && !dn) return; due++; if (dn) done++; })); /* an optional item only counts once it's done */ M.snap[d] = { due, done };
+function snapDay(d, DL) { DL = DL || slotDrop(dayList(d), d); const opt = (id) => optOn(id, d); let due = missedOn(d).filter((id) => !opt(id)).length, done = 0; const seenK = {}; DL.forEach((x) => x.items.concat(x.appts || []).forEach((id) => { if (I(id) && I(id).brk) return; const kk = isMulti(id) && !(x.appts || []).includes(id) ? (seenK[id] = (seenK[id] ?? -1) + 1) : null; const dn = I(id) && I(id).type === 'routine' ? isDone(id, d) && rComplete(id, d) : instDone(id, d, kk); if (opt(id) && !dn) return; due++; if (dn) done++; })); /* an optional item only counts once it's done */ M.snap[d] = { due, done };
   // a bad day is finished when its own list and the day's appointments are done (2026-11-10: an empty Bad day list never finished)
   if (isBad(d)) { const bl = badList().concat(DL.flatMap((x) => x.appts || [])).filter((id, i, A) => A.indexOf(id) === i); Object.assign(M.snap[d], { bad: 1, bdue: bl.length, bdone: bl.filter((id) => isDone(id, d)).length }); }
   return M.snap[d]; }
@@ -968,7 +972,7 @@ function renderPlan() {
   const GO = [['study', 'Studies'], ['chores', 'Chores'], ['hobbies', 'Hobbies'], ['training', 'Movement'], ['workouts', 'Workouts'], ['mobility', 'Mobility']];
   const slots = Object.keys(M.items).filter((id) => I(id).type === 'slot' && placements(id).some((p) => G(p) && G(p).style === 'dayblock'));
   const slotRow = (id) => { const blk = placements(id).find((p) => G(p) && G(p).style === 'dayblock');
-    return `<div class="row" data-ref="${id}"><span class="circ" style="--c:${colorOf(id)}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : ''}></span><button class="lbl" data-a="open" data-ref="${id}" style="text-align:left">${esc(I(id).name)}<span class="sub">${esc([blk ? G(blk).name : '', whenText(I(id))].filter(Boolean).join(' · '))}</span></button><span class="mono" style="font-size:10px;color:var(--quiet)">Optional</span><button class="swt" role="switch" aria-checked="${!!I(id).optional}" data-a="slotopt" data-ref="${id}" aria-label="${esc(tnm(id))} is optional"></button>${S.edit ? `<button class="rm" data-a="slotrm" data-ref="${id}" aria-label="Remove ${esc(tnm(id))}">${icon('x', 14)}</button>` : ''}</div>`; };
+    return `<div class="row" data-ref="${id}"><span class="circ" style="--c:${colorOf(id)}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : ''}></span><button class="lbl" data-a="open" data-ref="${id}" style="text-align:left">${esc(I(id).name)}<span class="sub">${esc([blk ? G(blk).name : '', whenText(I(id)), I(id).optional && I(id).optDays ? optText(I(id)) : ''].filter(Boolean).join(' · '))}</span></button><span class="mono" style="font-size:10px;color:var(--quiet)">Optional</span><button class="swt" role="switch" aria-checked="${!!I(id).optional}" data-a="slotopt" data-ref="${id}" aria-label="${esc(tnm(id))} is optional"></button>${S.edit ? `<button class="rm" data-a="slotrm" data-ref="${id}" aria-label="Remove ${esc(tnm(id))}">${icon('x', 14)}</button>` : ''}</div>`; };
   const abar = `<span class="vsortw"><button class="fbtn" data-a="planaddopen" aria-label="Add" aria-haspopup="menu" aria-expanded="${!!S.planAddOpen}" aria-pressed="${!!S.planAddOpen}">${icon('plus', 18)}</button>${S.planAddOpen ? `<span class="vsortx" data-a="planaddopen"></span><span class="vdrop vsortm vaddm" role="menu">${AO.map(([k, l]) => `<button role="menuitem" data-a="new" data-v="${k}">${l}</button>`).join('')}</span>` : ''}</span>`;
   if (S.open['p:Repeat'] === undefined) S.open['p:Repeat'] = false; // Repeat starts folded
   // an add icon on the left balances the filter icon (2026-11-08)
@@ -1266,9 +1270,9 @@ function itemSheet(s) {
   } else if (D.type !== 'checkin' && D.type !== 'step') {
     h += schedUI(s, D);
     if (D.brk) { if (s.ref && !s.isNew) h += `<div class="btns"><button class="btn danger" data-a="ddelete">Delete</button></div>`; return h; } // a break: a name, its time and length, its days
-    if (D.type === 'slot') h += afterField(D); // generic items take followers too: a shower after the Workout generic (the owner, 2026-11-24)
+    if (D.type === 'slot') h += afterField(D) + sw('optional', 'Optional', D.optional) + optDaysUI(D); // generic items take followers too: a shower after the Workout generic (the owner, 2026-11-24)
     if (D.type === 'task' || D.type === 'routine') h += ((D.when || {}).mode === 'once' ? `<div class="fld"><span class="mono">Type</span><div class="chips">${[['1', 'Task', 'stays after a tick'], ['0', 'One-off', 'gone once ticked']].map(([v, l, sub]) => `<button class="chip" data-a="dpersist" data-v="${v}" aria-pressed="${!!D.persist === (v === '1')}">${l}<span class="sub" style="font-size:11.5px;color:var(--quiet)">· ${sub}</span></button>`).join('')}</div></div>` : '') // Task or One-off replaces the Persistent switch; a repeat is always a task (2026-11-24)
-      + (isTrainSheet(s) ? afterField(D) : '') + sw('optional', 'Optional', D.optional) + sw('flow', 'Can run into the next block', D.flow) // a slow weekend morning routine carries on into the next block instead of spilling over (the owner, 2026-11-24)
+      + (isTrainSheet(s) ? afterField(D) : '') + sw('optional', 'Optional', D.optional) + optDaysUI(D) + sw('flow', 'Can run into the next block', D.flow) // a slow weekend morning routine carries on into the next block instead of spilling over (the owner, 2026-11-24)
       + (D.type === 'task' && isChoreSheet(s) ? sw('two', 'Two parts', D.two) + (D.two ? `<div class="fld"><span class="mono">Second part after</span><div class="inrow"><input class="inp" id="dtwo" inputmode="decimal" value="${typeof D.two === 'number' ? D.two : 2}" style="width:80px"><span class="note" style="margin:0">hours</span></div></div>` : '') : '');
     // study items: everything under Estimate waits behind More settings too (2026-11-06)
     if (isStudyItem(s, D)) s._more = h.length;
@@ -1548,6 +1552,7 @@ document.addEventListener('click', (e) => {
     case 'dday': { capture(); const ds = S.sheet.draft.when.days; const i = +v; const k = ds.indexOf(i); if (k >= 0) ds.splice(k, 1); else ds.push(i); ds.sort(); renderLayer(); break; }
     case 'dcolor': capture(); if (v) S.sheet.draft.color = v; else delete S.sheet.draft.color; renderLayer(); break;
     case 'dpersist': capture(); if (v === '1') S.sheet.draft.persist = true; else delete S.sheet.draft.persist; renderLayer(); break;
+    case 'doptday': { capture(); tcapture(); const D = S.sheet.draft; if (v === 'all') delete D.optDays; else { const k = +v; const o = (D.optDays || []).filter((x) => x !== k); if (o.length === (D.optDays || []).length) o.push(k); if (o.length && o.length < 7) D.optDays = o.sort(); else delete D.optDays; } renderLayer(); break; }
     case 'dflag': capture(); tcapture(); S.sheet.draft[v] = v === 'insight' ? S.sheet.draft.insight === false : !S.sheet.draft[v]; renderLayer(); break;
     case 'dtag': { capture(); const tg = S.sheet.draft.tags = S.sheet.draft.tags || []; const k = tg.indexOf(v); if (k >= 0) tg.splice(k, 1); else tg.push(v); renderLayer(); break; }
     case 'tagedit': { capture(); tcapture(); if (S.tagEdit) { const before = JSON.stringify(M.tags); tagNames(); if (JSON.stringify(M.tags) !== before) save(); } S.tagEdit = !S.tagEdit; renderLayer(); break; }
