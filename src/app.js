@@ -1107,8 +1107,9 @@ function openSheet(s) { S.openAdd = null; S.tagEdit = false; if (!s.back && S.sh
 function closeSheet() { if (S.sheet && S.sheet.kind === 'note' && typeof nAuto === 'function') { nAuto(); S.nTagOpen = false; } S.sheet = S.sheet && S.sheet.back || null; render(); }
 const swRow = (cur, act, extra = '') => `<div class="sw">${extra}${PAL.map(([n, c]) => `<button style="--c:${c}" data-a="${act}" data-v="${c}" aria-label="${n}" title="${n}" aria-pressed="${(cur || '').toLowerCase() === c.toLowerCase()}"></button>`).join('')}</div>`;
 // a step's own options in the routine sheet: optional, which days it's part of the routine, its tags (2026-11-11)
+// Tasks that stay after a tick (done once already) can be linked too; hobby project tasks can't (the owner, 2026-11-25)
 function partPick(s) { const have = (s.steps || []).map((x) => x.id).filter(Boolean); const self = s.ref;
-  const all = Object.keys(M.items).filter((k) => k !== self && !have.includes(k) && (I(k).type === 'checkin' || (I(k).type === 'task' && !I(k).part && !I(k).brk && !(!repeatable(I(k)) && everDone(k))))).sort((a, b) => I(a).name.localeCompare(I(b).name));
+  const all = Object.keys(M.items).filter((k) => k !== self && !have.includes(k) && (I(k).type === 'checkin' || (I(k).type === 'task' && !I(k).part && !I(k).brk && !(!repeatable(I(k)) && !I(k).persist && everDone(k)) && !placements(k).some((p) => G(p) && G(p).style === 'project')))).sort((a, b) => I(a).name.localeCompare(I(b).name));
   return all.length ? `<select class="inp" data-partadd="1" aria-label="Add one of my items as a step" style="margin-top:8px"><option value="">+ Add one of my items</option>${all.map((k) => `<option value="${k}">${esc(tnm(k))}</option>`).join('')}</select>` : ''; }
 function stepOpts(x, i) { const ch = (a, v, on, l) => `<button class="chip" data-a="${a}" data-ref="${i}" data-v="${v}" aria-pressed="${!!on}">${esc(l)}</button>`;
   return `<div class="stepopts"><div class="tg"><span class="l">Optional</span><button class="swt" role="switch" aria-checked="${!!x.optional}" data-a="dstep-opt" data-ref="${i}" aria-label="Optional"></button></div>
