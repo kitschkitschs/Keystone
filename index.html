@@ -3604,26 +3604,22 @@ function famRank(words) { const count = {}; const fam = {}; Object.entries(FEELI
 // Other words (own words, in-between, Dysregulated) count as the middle step.
 const intensity = (w) => wheelRing(w); // the feeling wheel: core strongest, outer ring softest (2026-11-06)
 const stepTone = (c, L) => L === 1 ? mix(c, '#FFFFFF', 0.38) : L === 3 ? mix(c, '#3A2A2A', 0.16) : c;
-// Feelings block colours (2026-11-02): soft blobs like a grainy retro gradient, never washed out or grey.
-// Under the blobs sits a full-colour base blended in OKLCH, so where blobs fade they fade into colour, not grey.
-// Each family gets a blob sized by how many of its words you picked; the strongest family is the biggest.
+// Feelings block colours (2026-11-26, Null: no random spots, each colour comes in from the sides and stays in its own blob):
+// every family is a soft shape anchored on the edge of the block, firm at the edge and fading toward the middle.
+// The two strongest come in from the left and right, the rest from the top and bottom edges and then the corners.
+// Size follows how many of its words were picked; the stronger family is painted on top so it keeps its shape.
+// Under the blobs sits a pale ground of the strongest colour, so the middle is never grey.
+const FEEL_EDGES = [[0, 50], [100, 50], [30, 0], [70, 100], [100, 0], [0, 100], [70, 0], [30, 100]];
 function fieldBg(words) {
   const { count, lvl, fams } = famRank(words); if (!fams.length) return null;
   const colOf = (f) => stepTone(f[0] === '~' ? wordCol(f.slice(1)) : (feelSet().find((x) => x[0] === f) || [])[1] || '#9A9387', lvl[f]);
-  const total = fams.reduce((n, f) => n + count[f], 0);
-  const spots = [[0.82, 0.7], [0.12, 0.2], [0.25, 0.95], [0.95, 0.05], [0.5, 0.45], [0.6, 1], [0.38, 0.08], [0.05, 0.6], [0.7, 0.25]];
-  // the base runs along the same diagonal as the blobs, so each blob sits on its own colour
-  const proj = (i) => { const [x, y] = spots[i % spots.length]; return (x * 0.866 + y * 0.5) / 1.366; };
-  // colour shares follow how many feelings were picked in each family (2026-11-03): along the diagonal each family
-  // gets a stretch as wide as its share, solid in the middle and blending only at the edges
-  const order = fams.map((f, i) => [colOf(f), proj(i), count[f] / total]).sort((p, q) => p[1] - q[1]);
-  let cum = 0; const base = order.length === 1 ? [order[0][0] + ' 0%', mix(order[0][0], '#FFFFFF', 0.16) + ' 100%'] : order.flatMap(([c, , sh]) => { const a = cum, b = cum + sh; cum = b; const pad = sh * 0.3;
-    return [c + ' ' + Math.round((a === 0 ? 0 : a + pad) * 100) + '%', c + ' ' + Math.round((b >= 0.999 ? 1 : b - pad) * 100) + '%']; });
-  const lin = (sp) => 'linear-gradient(120deg' + sp + ', ' + base.join(', ') + ')';
-  const blobs = fams.map((f, i) => { const share = count[f] / total; const [x, y] = spots[i % spots.length]; const r = Math.round(18 + 85 * share);
-    return 'radial-gradient(ellipse ' + r + '% ' + Math.round(r * 1.5) + '% at ' + Math.round(x * 100) + '% ' + Math.round(y * 100) + '%, ' + colOf(f) + ' 0%, ' + colOf(f) + 'C0 30%, ' + colOf(f) + '00 100%)'; });
-  const layers = blobs.slice(1).reverse().concat(blobs.length > 1 ? [blobs[0]] : []);
-  return { old: layers.concat([lin('')]).join(', '), ok: layers.concat([lin(' in oklch')]).join(', ') };
+  const total = fams.reduce((n, f) => n + count[f], 0); const cols = fams.map(colOf);
+  if (fams.length === 1) { const g = 'linear-gradient(90deg, ' + cols[0] + ', ' + mix(cols[0], '#FFFFFF', 0.16) + ')'; return { old: g, ok: g }; }
+  const blobs = fams.map((f, i) => { const share = count[f] / total; const [x, y] = FEEL_EDGES[i % FEEL_EDGES.length]; const side = x === 0 || x === 100;
+    const rx = Math.round((side ? 40 : 32) + 60 * share), ry = Math.round((side ? 95 : 70) + 50 * share); const c = cols[i];
+    return 'radial-gradient(ellipse ' + rx + '% ' + ry + '% at ' + x + '% ' + y + '%, ' + c + ' 0%, ' + c + ' 30%, ' + c + 'A6 62%, ' + c + '00 100%)'; });
+  const g = blobs.join(', ') + ', ' + mix(cols[0], '#F4EFE6', 0.45);
+  return { old: g, ok: g };
 }
 const feelOf = (d) => (M.feel[d] || []);
 function feelCard(d) {
