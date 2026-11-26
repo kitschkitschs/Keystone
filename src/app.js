@@ -1796,11 +1796,13 @@ document.addEventListener('keydown', (e) => {
   if (n && e.key === 'Enter') { e.preventDefault(); n.blur(); }
   if (e.target.id === 'hcond' && e.key === 'Enter') { e.preventDefault(); healthAction('hcondadd'); }
   if (/^shop(q$|-)/.test(e.target.id) && e.key === 'Enter') { e.preventDefault(); shopAdd(e.target.id); }
+  if (/^shed-/.test(e.target.id) && (e.key === 'Enter' || e.key === 'Escape')) { e.preventDefault(); e.stopPropagation(); shopRename(e.target.id.slice(5), e.key === 'Escape'); return; }
   if (e.target.id === 'shlname' && e.key === 'Enter') { e.preventDefault(); shopListSave(); }
   if (n && e.key === 'Escape') { n.textContent = nameOf(n.dataset.nm); n.blur(); }
   if (!n && e.key === 'Escape') { if (S.sheet) closeSheet(); else if (S.menu) { S.menu = false; renderLayer(); } else if (S.edit) { S.edit = false; render(); } }
 });
 const nameOf = (ref) => ref.startsWith('p:') ? M.pages[ref.slice(2)].name : (I(ref) || G(ref) || {}).name || '';
+document.addEventListener('focusout', (e) => { if (e.target.id && /^shed-/.test(e.target.id)) shopRename(e.target.id.slice(5)); });
 document.addEventListener('focusout', (e) => { const n = e.target.closest && e.target.closest('[data-nm]'); if (!n) return; const v = n.textContent.replace(/\s+/g, ' ').trim(); const ref = n.dataset.nm;
   if (v && v !== nameOf(ref)) { const old = nameOf(ref); change(() => setProp(ref, 'name', v), 'Renamed ' + old); } else if (!v) n.textContent = nameOf(ref); });
 
