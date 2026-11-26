@@ -3,8 +3,8 @@
 //  Movement: needed every day; a day with a workout counts as kept; a recovery day is done in the recovery colour.
 //  Workouts: n a week (Mon-Sun); once n is hit the rest of the week is kept; a recovery day is kept and the week needs one less.
 //  Expedition training: n a week like Workouts, only while Expedition mode is on.
-// Marks: done = faded square with a full-colour frame, kept = faded square, skipped = dashed grey frame, missed = grey dot.
-// Today shows the dashed frame until it's done, unless the streak already covers it. Skipped and missed days both break a streak;
+// Marks: done = faded square with a full-colour frame, kept = faded square, skipped = dotted grey frame, missed = grey dot.
+// Today shows the dotted frame until it's done, unless the streak already covers it. Skipped and missed days both break a streak;
 // the number is the current streak in days.
 // recovery days have their own colour but no list of their own: any Movement item counts (the owner, 2026-11-26)
 const recCol = () => (M.settings || {}).recCol || '#A877C4';
