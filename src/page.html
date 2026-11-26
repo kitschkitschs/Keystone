@@ -952,7 +952,7 @@ nav.areas.two{justify-content:space-evenly} /* study mode: its two icons spaced 
 
 /* dark mode (2026-11-08, from the cleaning-system reference): warm near-black page, soft charcoal cards with a faint light edge */
 /* ===== Stone (2026-11-23): the look over the whole app. Square corners, hairlines, small spaced caps, one ink. ===== */
-#phone *:not(.dot,.fdd,.cfmark,.hdot,.ovdot,.badot,.xdot,.dd,.d,.xdots i,.ci-ic,.whl *,.ihz i,.ihzm i,.isuns i){border-radius:0!important} /* every corner square; dots and the wheel stay round */
+#phone *:not(.srm.miss i,.dot,.fdd,.cfmark,.hdot,.ovdot,.badot,.xdot,.dd,.d,.xdots i,.ci-ic,.whl *,.ihz i,.ihzm i,.isuns i){border-radius:0!important} /* every corner square; dots and the wheel stay round */
 .card,.lcard,.hsec{background:transparent;box-shadow:none;border:0}
 .btn,.chip,.fbtn,.scale button,.tag,.hchip,.pick,.menu{box-shadow:none}
 header.top{padding-right:16px}#plusbtn,#menubtn{width:22px}#menubtn{margin:0 0 0 18px}#donebtn{margin-left:12px} /* the top bar icons keep the same 16px from the edge as the title (2026-11-23) */
@@ -1262,6 +1262,38 @@ html.dark .feelcard.empty{background:var(--card)}html.dark .jcard .jct,html.dark
 .wlast{font-size:12.5px;color:var(--quiet);line-height:1.45;margin:12px 0 0}
 .tl .box.msel{outline:2px solid var(--ink);outline-offset:1px;z-index:3}
 .mselbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:10px;margin:8px 0 0;padding:8px 10px;background:var(--page);border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:12.5px;color:var(--quiet)}.mselbar span{flex:1}.mselbar .btn{padding:6px 12px;min-height:0}
+/* Training streaks (2026-11-26): the last 14 days per tracker under the Training calendar; recovery days in their own colour */
+.srs{margin-top:6px}
+.sr .srh{display:flex;align-items:center;gap:8px;padding:12px 0 6px}
+.srsq{width:9px;height:9px;flex:0 0 9px;background:var(--c)}
+.sr .srn{font:500 10.5px var(--sans,inherit);letter-spacing:.14em;text-transform:uppercase;color:var(--ink)}
+.sr .srw{font:400 9.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--quiet,var(--ink2))}
+.sr .srnum{margin-left:auto;font:400 20px/1 var(--serif);color:var(--ink)}
+.sr .srnum small{font-size:12px;font-family:inherit;color:var(--ink2);margin-left:3px;font-family:var(--sans,inherit)}
+.srg{display:grid;grid-template-columns:repeat(14,minmax(0,1fr));height:24px}
+.srm{display:grid;place-items:center}
+.srm.srwk{border-right:1px solid var(--line)}
+.srm i{display:block;box-sizing:border-box;width:13px;height:13px}
+.srm.done i{background:var(--cf);border:1.5px solid var(--c)}
+.srm.kept i{background:var(--cf)}
+.srm.skip i,.srm.wait i{border:1.2px dashed var(--faint)}
+.srm.miss i{width:5px;height:5px;border-radius:50%;background:var(--faint)}
+.srm.none i{width:0;height:0}
+.srax{display:flex;justify-content:space-between;font:400 9px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-top:6px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.srrec{display:flex;align-items:center;gap:8px;width:100%;min-height:40px;font-size:14px;color:var(--ink);text-align:left}
+.srrec .srch{margin-left:auto;font:400 9.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--quiet,var(--ink2))}
+.srdot{display:inline-block;width:8px;height:8px}
+.srbtns{display:grid;grid-template-columns:1fr 1.5fr;gap:8px;margin-top:10px}
+.srbtns .btn{min-height:46px}
+.srcol{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;text-align:left;border-bottom:1px solid var(--line)}
+.srcol .l{flex:1;font-size:14px}
+.srcol .srch,.srrec .srch{margin-left:auto;font:400 9.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink2)}
+.srstep{display:flex;align-items:center;gap:10px;min-height:44px}
+.srstep .l{flex:1;font-size:14px}
+.srstep .btn{flex:none;width:36px;padding:0}
+.srstep .srv{min-width:18px;text-align:center;font:400 18px var(--serif)}
+#view .row>.wrec{order:8;margin-left:8px;border-color:var(--line);color:var(--ink2)}
+#view .wrow>.wrec{order:0;margin-right:6px;border-color:var(--line);color:var(--ink2);height:30px}
 </style>
 <div class="phone" id="phone">
   <header class="top"><div class="ttl" id="ttl"></div><button class="hb" id="plusbtn" aria-label="Add something"><svg width="22" height="22" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M457.31-457.31H220v-45.38h237.31V-740h45.38v237.31H740v45.38H502.69V-220h-45.38v-237.31Z"/></svg></button><button class="hb donebtn2" id="donebtn" aria-label="Done editing" hidden>Done</button><button class="hb" id="menubtn" aria-label="Menu"><svg width="22" height="22" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M225.55-443.54q-15.1 0-25.71-10.75-10.61-10.74-10.61-25.83 0-15.09 10.75-25.72 10.74-10.62 25.83-10.62 15.09 0 25.91 10.75 10.82 10.74 10.82 25.83 0 15.09-10.87 25.72-10.86 10.62-26.12 10.62Zm254.33 0q-15.09 0-25.72-10.75-10.62-10.74-10.62-25.83 0-15.09 10.75-25.72 10.74-10.62 25.83-10.62 15.09 0 25.72 10.75 10.62 10.74 10.62 25.83 0 15.09-10.75 25.72-10.74 10.62-25.83 10.62Zm254.31 0q-15.09 0-25.91-10.75-10.82-10.74-10.82-25.83 0-15.09 10.87-25.72 10.86-10.62 26.12-10.62 15.1 0 25.71 10.75 10.61 10.74 10.61 25.83 0 15.09-10.75 25.72-10.74 10.62-25.83 10.62Z"/></svg></button></header>

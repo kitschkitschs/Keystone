@@ -127,7 +127,7 @@ function blank() { const m = seed(); m.example = false; m.items = {}; m.log = {}
   Object.values(m.groups).forEach((g) => { g.kids = g.kids.filter((k) => m.groups[k] || m.items[k]); });
   // Empty means EMPTY (2026-11-10/11): no symptoms, tags, social trackers, slots, rooms, subjects or hobbies either.
   // What stays: the day blocks, the two routines with their check-ins, and the check-in questions.
-  const keep = ['ci-m', 'ci-e', 'r-morning', 'r-evening', 'tr-sleep', 'tr-mmood', 'tr-mmot', 'tr-mood', 'tr-mot', 'tr-energy', 'tr-prod'];
+  const keep = ['ci-m', 'ci-e', 'r-morning', 'r-evening', 'tr-sleep', 'tr-mmood', 'tr-mmot', 'tr-mood', 'tr-mot', 'tr-energy', 'tr-prod', 'tr-gentle']; // Recovery keeps its one session (2026-11-26)
   Object.keys(m.items).forEach((k) => { if (!keep.includes(k)) delete m.items[k]; });
   Object.keys(m.groups).forEach((k) => { if (['room', 'subject', 'sgroup', 'hobby'].includes(m.groups[k].style)) delete m.groups[k]; });
   Object.values(m.groups).forEach((g) => { g.kids = g.kids.filter((k) => m.groups[k] || m.items[k]); });
@@ -154,19 +154,21 @@ function homeOf(ref) { return placements(ref)[0]; }
 // the colour comes from where the item lives (a room, a subject group, a project), not from the day block it was put in; only an item that
 // lives in a day block alone takes the block's colour (2026-11-11: circles changed colour when a chore went into a block)
 // a generic item without its own colour wears its section's (2026-11-11)
-const slotCol = (it) => { const o = it.opens; const A = M.areas || {}, P = M.pages || {}; return o === 'study' ? secCol('study') : o === 'chores' ? secCol('chores') : o === 'hobbies' ? (A.hobbies || {}).color : o === 'training' || o === 'move' ? (P.training || {}).color : null; };
+const slotCol = (it) => { const o = it.opens; const A = M.areas || {}, P = M.pages || {}; if ((o === 'training' || o === 'move') && typeof mvCat === 'function') { const c = it.tcat && G(it.tcat) ? it.tcat : mvCat(); if (c && G(c).color) return G(c).color; } return o === 'study' ? secCol('study') : o === 'chores' ? secCol('chores') : o === 'hobbies' ? (A.hobbies || {}).color : o === 'training' || o === 'move' ? (P.training || {}).color : null; };
+// Movement, Workouts, Recovery and Expedition training each wear their own category colour on Today, the Schedule and the calendars (the owner, 2026-11-26)
+function tcatOf(id) { const g = G('g-train'); return g ? g.kids.find((c) => G(c) && (G(c).kids || []).includes(id)) || null : null; }
 // Patch 3 (the owner, 2026-11-24): Studies, Chores, Homemaking and Cooking each have ONE colour; their items, rooms, subjects and
 // task groups wear it everywhere (Today, Schedule, calendars) and can't have their own
 const SEC_ROOT = { 'g-subjects': 'study', 'g-rooms': 'chores', 'g-oneoff': 'chores', 'g-tend': 'homemaking', 'g-prep': 'cooking', 'g-train': 'training' }; /* Training too: every training item wears the Training colour (the owner, 2026-11-24) */
 function secRootOf(k, n = 0) { if (!k || n > 8) return null; if (SEC_ROOT[k]) return SEC_ROOT[k]; const g = G(k); if (!g || g.style === 'dayblock') return null; return secRootOf(parentGrp(k), n + 1); }
 const secCol = (sec) => { const A = M.areas || {}, P = M.pages || {}; return (sec === 'study' ? (A.study || {}).color : sec === 'chores' ? (P.chores || {}).color || (A.home || {}).color : ((P[sec] || {}).color || (sec === 'training' ? '#3FAFA6' : (A.home || {}).color))) || '#9A9387'; };
 const itemSec = (id) => { for (const p of placements(id)) { const r = secRootOf(p); if (r) return r; } return null; };
-function colorOf(id) { const it = I(id); if (!it && G(id)) return grpCol(id); if (it && it.type !== 'slot') { const sc = itemSec(id); if (sc) return secCol(sc); } if (it && it.type === 'slot' && slotCol(it)) return slotCol(it); if (it && it.color) return it.color; /* generic items wear their parent colour (the owner, 2026-11-24) */ const P = placements(id); const pl = P.find((p) => !(G(p) && (G(p).style === 'dayblock' || G(p).holds === 'slot'))) || P[0]; if (!pl) return '#9A9387'; if (pl.startsWith('s:')) return colorOf(pl.slice(2)); return grpCol(pl); }
+function colorOf(id) { const it = I(id); if (!it && G(id)) return grpCol(id); if (it && it.type !== 'slot') { const tc = tcatOf(id); if (tc) return grpCol(tc); const sc = itemSec(id); if (sc) return secCol(sc); } if (it && it.type === 'slot' && slotCol(it)) return slotCol(it); if (it && it.color) return it.color; /* generic items wear their parent colour (the owner, 2026-11-24) */ const P = placements(id); const pl = P.find((p) => !(G(p) && (G(p).style === 'dayblock' || G(p).holds === 'slot'))) || P[0]; if (!pl) return '#9A9387'; if (pl.startsWith('s:')) return colorOf(pl.slice(2)); return grpCol(pl); }
 // a group without its own colour wears its parent's, up to the page or area it sits in (2026-11-11: items take their parent colour everywhere)
 // Home's sections keep their colour on their tab (2026-11-11): Homemaking, Cooking, Chores; a room without its own colour wears Chores'
 const ROOTCOL = { 'g-tend': ['pages', 'homemaking'], 'g-prep': ['pages', 'cooking'], 'g-oneoff': ['pages', 'chores'], 'g-rooms': ['pages', 'chores'], 'g-subjects': ['areas', 'study'], 'g-hobbies': ['areas', 'hobbies'], 'g-train': ['pages', 'training'], 'g-appts': ['pages', 'appts'], 'g-health': ['areas', 'health'], 'g-blocks': ['areas', 'plan'], 'g-slots': ['areas', 'plan'] };
 function parentGrp(k) { return Object.keys(M.groups).find((p) => (M.groups[p].kids || []).includes(k)) || null; }
-function grpCol(k, n) { const g = G(k); if (!g || (n || 0) > 8) return '#9A9387'; { const sr = secRootOf(k); if (sr && !ROOTCOL[k]) return secCol(sr); } const R = ROOTCOL[k]; const rc = R && ((M[R[0]] || {})[R[1]] || {}).color;
+function grpCol(k, n) { const g = G(k); if (!g || (n || 0) > 8) return '#9A9387'; { const sr = secRootOf(k); if (sr && !ROOTCOL[k] && !(sr === 'training' && g.color)) return secCol(sr); } const R = ROOTCOL[k]; const rc = R && ((M[R[0]] || {})[R[1]] || {}).color;
   if (R && R[0] === 'pages' && rc) return rc; if (g.color) return g.color; if (rc) return rc;
   if (g.style === 'sgroup' || g.style === 'subject') { const p = parentGrp(k); return p && p !== 'g-subjects' && G(p).color ? G(p).color : ((M.areas || {}).study || {}).color || '#9A9387'; }
   if (g.style === 'project' && typeof hobOf === 'function' && G(hobOf(k))) return grpCol(hobOf(k), (n || 0) + 1);
@@ -276,6 +278,9 @@ function woSim(d) { const W = woIds(); let st = WKC.get('_wosim');
       const late = (id) => (x === T0 ? lateBy(id) : 0), picked = (id) => { const w = I(id).when || {}; return w.date === x ? 1 : 0; };
       nat.sort((a, b) => (late(b) - late(a)) || (picked(b) - picked(a)));
       const cand = st.q.concat(nat); const miss = (id) => isMissed(id, x);
+      const rcv = typeof recOf === 'function' ? recOf(x) : null;
+      if (rcv && !isBad(x)) { const keep2 = []; cand.forEach((id) => { const w = I(id).when || {}; if (rcv.drop && w.mode !== 'once') { if (w.mode === 'every') st.next[id] = addDays(x, Math.max(1, w.n || 1)); return; } keep2.push(id); });
+        st.q = keep2; st.on[x] = new Set(done); st.x = addDays(x, 1); continue; }
       const on = done.slice(); const keep = [];
       cand.forEach((id) => { if (miss(id)) { const m = (I(id).when || {}).mode; if (m === 'once' || m === 'every') keep.push(id); return; } // a missed one I'd still owe comes back the next day
         if (!on.length) { on.push(id); return; } keep.push(id); }); // one a day: the rest move on to the next day
@@ -410,6 +415,7 @@ function dayList(d) { const out = dayListRaw(d); if (frozenOf(d)) return out;
     // it goes back in its usual spot: after the item it normally follows, or before the one it normally comes before (the owner, 2026-11-24)
     const prev = x.items.slice(0, i).reverse().find((k) => y.items.includes(k)), next = x.items.slice(i + 1).find((k) => y.items.includes(k));
     if (prev) y.items.splice(y.items.indexOf(prev) + 1, 0, id); else if (next) y.items.splice(y.items.indexOf(next), 0, id); else y.items.push(id); })));
+  if (typeof recSwap === 'function') recSwap(out, d); // a recovery day: gentle movement instead of the workout (the owner, 2026-11-26)
   return out; }
 // A task set to follow every workout (a shower) goes right after the workout, in the same block when there's room for it, otherwise
 // first thing in the next block (2026-11-11). Room = the block's length against the minutes already in it.
@@ -671,8 +677,8 @@ function tickCircle(id, d, live) { const k = isMulti(id) ? TK : null;
   const circ = `<span class="circ ${much ? 'much' : done ? 'done' : d === T0 && halfOf(id) ? 'half' : ''}${optOn(id, d) ? ' opt' : ''}" style="--c:${c}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : 'aria-hidden="true"'}>${inner}</span>`;
   if (!live || S.edit) return S.edit ? circ : `<span class="tickbtn">${circ}</span>`;
   // a workout on Today starts its follow-along instead of a tick; finishing it ticks it (the owner, 2026-11-25)
-  { const w = I(id) && I(id).wo; if (w && !done && d === T0 && !(S.sheet && S.sheet.kind === 'checkin') /* a check-in ticks it like any item (the owner, 2026-11-25) */ && (w.ex || []).some((e) => typeof exOf === 'function' && exOf(e.x))) { const R = M.wrun; return `<button class="wgo wgot" data-a="wostart" data-ref="${id}" aria-label="Start ${esc(tnm(id))}">${R && R.item === id ? 'Resume' : 'Start'}</button>`; } }
-  return `<button class="tickbtn" data-a="tick" data-ref="${id}"${k != null ? ` data-k="${k}"` : ''} aria-label="Tick ${esc(tnm(id))}">${circ}</button>`;
+  { const w = I(id) && I(id).wo; if (w && !done && d === T0 && !(S.sheet && S.sheet.kind === 'checkin') /* a check-in ticks it like any item (the owner, 2026-11-25) */ && (w.ex || []).some((e) => typeof exOf === 'function' && exOf(e.x))) { const R = M.wrun; return recBtn(id, d) + `<button class="wgo wgot" data-a="wostart" data-ref="${id}" aria-label="Start ${esc(tnm(id))}">${R && R.item === id ? 'Resume' : 'Start'}</button>`; } }
+  return recBtn(id, d) + `<button class="tickbtn" data-a="tick" data-ref="${id}"${k != null ? ` data-k="${k}"` : ''} aria-label="Tick ${esc(tnm(id))}">${circ}</button>`;
 }
 // A check-in is a step of its routine (2026-11-02): morning check-in in Morning routine, evening in Evening routine.
 // Its circle shows if it's done; tapping the row opens the check-in.
@@ -700,7 +706,7 @@ function whereOf(id) { const it = I(id); const src = it && it.part && I(it.part)
   if (typeof subjIds === 'function') { const sj = subjIds().find((s) => sIds(s).includes(src)); if (sj) return G(sj).name; } return ''; }
 function itemRow(id, list, d) {
   const it = I(id); const live = d === T0;
-  if (it.type === 'slot') return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, false)}<span class="lbl">${S.edit ? nm(id, it.name) : `<button data-a="${live ? 'slot' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left;display:flex;align-items:center;gap:8px"><span style="flex:1">${inm(it)}${live && it.opens === 'study' && minOn(null, T0) + supMin(T0) < sessLen() ? `<span class="tdur">${estHM((minOn(null, T0) + supMin(T0)) / 60)} of ${estHM(sessLen() / 60)}</span>` : ''}${live && slotSub(it) ? `<span class="sub">${esc(slotSub(it))}</span>` : ''}</span>${live ? '<span class="chev" aria-hidden="true">' + icon('chevron-right', 16) + '</span>' : ''}</button>`}</span>${tail(id, list)}</div>`;
+  if (it.type === 'slot') return `<div class="row" data-ref="${id}">${grip()}${S.edit ? '' : recBtn(id, d)}${tickCircle(id, d, false)}<span class="lbl">${S.edit ? nm(id, it.name) : `<button data-a="${live ? 'slot' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left;display:flex;align-items:center;gap:8px"><span style="flex:1">${inm(it)}${live && it.opens === 'study' && minOn(null, T0) + supMin(T0) < sessLen() ? `<span class="tdur">${estHM((minOn(null, T0) + supMin(T0)) / 60)} of ${estHM(sessLen() / 60)}</span>` : ''}${live && slotSub(it) ? `<span class="sub">${esc(slotSub(it))}</span>` : ''}</span>${live ? '<span class="chev" aria-hidden="true">' + icon('chevron-right', 16) + '</span>' : ''}</button>`}</span>${tail(id, list)}</div>`;
   // a break looks like a day block's title (2026-11-11): its icon, its name in small capitals, its length on the right
   if (it.brk) { const ln = `${it.time ? esc(it.time) + ' · ' : ''}${estHM(durOn(id, d, 15) / 60)}`;
     // outside edit mode it's a minimal title like the block titles on Schedule (2026-11-11): dashed lines, small capitals
@@ -1143,7 +1149,7 @@ function renderAppts() {
 
 // ---------- layer: menu, sheets, toast ----------
 // clear everything logged before today, keeping every item, note and setting (the owner, 2026-11-24)
-const LOG_KEYS = ['log', 'snap', 'frozen', 'feel', 'photos', 'study', 'support', 'missed', 'badDays', 'dayMove', 'dayOrder', 'dayTime', 'dayTack', 'dayAfter', 'dayDur', 'twoDone', 'mTick', 'foodMark', 'rOpen', 'training', 'multi'];
+const LOG_KEYS = ['recov', 'log', 'snap', 'frozen', 'feel', 'photos', 'study', 'support', 'missed', 'badDays', 'dayMove', 'dayOrder', 'dayTime', 'dayTack', 'dayAfter', 'dayDur', 'twoDone', 'mTick', 'foodMark', 'rOpen', 'training', 'multi'];
 function clearOldLogs() { LOG_KEYS.forEach((k) => { const o = M[k]; if (!o || typeof o !== 'object' || Array.isArray(o)) return; Object.keys(o).forEach((d) => { if (/^\d{4}-\d\d-\d\d$/.test(d) && d < T0) delete o[d]; }); });
   if (Array.isArray(M.events)) M.events = M.events.filter((e) => !e.day || e.day >= T0); }
 // Every delete asks first (2026-11-02). Returns the question, or null when the action needs none.
@@ -1240,6 +1246,7 @@ function sheetBody() {
   const s = S.sheet;
   if (s.kind[0] === 'v') return vSheet(s);
   if (s.kind === 'trip') return tripSheet(s);
+  if (s.kind === 'recov') return recSheet(s);
   if (s.kind === 'wo') return woSheet(s);
   if (s.kind === 'wx') return wxSheet(s);
   if (s.kind === 'word') return wordSheet(s);
@@ -1266,7 +1273,7 @@ function sheetBody() {
       ${g.style === 'sgroup' ? `<div class="fld"><span class="mono">Deadline</span><div class="inrow"><input class="inp" type="date" id="gdl" value="${g.deadline || ''}"><span class="note">optional</span></div></div>` : ''}
       ${g.style === 'project' && typeof hobOf === 'function' && hobOf(s.ref) && hobActs(hobOf(s.ref)).length ? `<div class="fld"><span class="mono">Activity it covers</span><div class="chips">${[['', 'None']].concat(hobActs(hobOf(s.ref)).map((k) => [k, inm(k)])).map(([k, l]) => `<button class="chip" data-a="projact" data-ref="${s.ref}" data-v="${k}" aria-pressed="${(g.act || '') === k}">${l}</button>`).join('')}</div></div>` : ''}
       ${g.style === 'dayblock' ? `<div class="fld"><span class="mono">Time</span><div class="inrow"><input class="inp" type="time" id="gstart" value="${g.start}"><span>to</span><input class="inp" type="time" id="gend" value="${g.end}"></div></div>` : ''}
-      ${secRootOf(s.ref) ? '' : ROOTCOL[s.ref] && ROOTCOL[s.ref][0] === 'pages' ? `<div class="fld"><span class="mono">Colour</span>${colorField('p:' + ROOTCOL[s.ref][1], grpCol(s.ref))}</div>` : `<div class="fld"><span class="mono">Colour</span>${colorField(s.ref, g.color)}</div>`}
+      ${secRootOf(s.ref) && !(G('g-train') && G('g-train').kids.includes(s.ref)) ? '' : ROOTCOL[s.ref] && ROOTCOL[s.ref][0] === 'pages' ? `<div class="fld"><span class="mono">Colour</span>${colorField('p:' + ROOTCOL[s.ref][1], grpCol(s.ref))}</div>` : `<div class="fld"><span class="mono">Colour</span>${colorField(s.ref, g.color)}</div>`}
       ${g.style === 'hgroup' && g.special !== 'checkins' ? `<div class="fld"><span class="mono">Asked in a check-in</span><div class="chips">${[['', 'No'], ['morning', 'Morning'], ['evening', 'Evening']].map(([k, l]) => `<button class="chip" data-a="gci" data-ref="${s.ref}" data-v="${k}" aria-pressed="${(g.ci || '') === k}">${l}</button>`).join('')}</div></div>` : ''}
       ${g.style === 'acat' ? `<div class="fld"><span class="mono">Icon</span><div><button class="btn" data-a="iconfor" data-v="${s.ref}" style="display:inline-flex;gap:8px;align-items:center">${icon(g.icon || 'circle', 18)} Change icon</button></div></div>` : ''}`; }
   if (s.kind === 'area') { const a = M.areas[s.ref];
@@ -1586,6 +1593,7 @@ document.addEventListener('click', (e) => {
   if (remAction(act, a, ref, v)) return;
   if (insightAction(act, a, ref, v)) return;
   if (trainingAction(act, a, ref, v)) return;
+  if (typeof streakAction === 'function' && streakAction(act, a, ref, v)) return;
   if (workoutAction(act, a, ref, v)) return;
     if (calAction(act, a, ref, v)) return;
     if (condAction(act, a, ref, v)) return;
