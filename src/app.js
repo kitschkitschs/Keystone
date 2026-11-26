@@ -248,12 +248,43 @@ const stickOf = (id) => { const s = (I(id) || {}).stick; return (Array.isArray(s
 function folSrc() { if (WKC.has('_fsrc')) return WKC.get('_fsrc'); const a = afterSrc(), m = {}; Object.keys(a).forEach((k) => { m[k] = a[k].slice(); });
   Object.keys(M.items).forEach((k) => { const st = stickOf(k); if (st.length) m[k] = st.concat((m[k] || []).filter((t) => !st.includes(t))); }); /* nearest first, in the order I blocked it */ WKC.set('_fsrc', m); return m; }
 function workoutOn(d, id) { const key = d + '|' + id; if (WKC.has(key)) return WKC.get(key); let r = false;
-  try { r = (afterSrc()[id] || []).some((k) => onDay0(k, d)); } catch (e) { r = false; }
+  try { r = (afterSrc()[id] || []).some((k) => (!WOSIM && d >= T0 && woIds().has(k) ? onDay(k, d) : onDay0(k, d))); } catch (e) { r = false; }
   WKC.set(key, r); return r; }
 // a repeat from Home or Studies that I've never done stays off my days: I get through everything once first, from its own page
 const firstRound = (id, upto) => { const it = I(id); if (!it || !it.when || it.when.mode === 'once' || it.type !== 'task') return false; if (it.when.set && it.when.date) return false; // a day I picked myself always counts (2026-11-11)
   if (!placements(id).some((p) => p === 'g-tend' || (G(p) && (G(p).style === 'room' || G(p).style === 'sgroup')))) return false; return !Object.keys(M.log).some((k) => (!upto || k <= upto) && val(k, id)); };
-function onDay(id, d) { const it = I(id); if (!it) return false;
+// ONE WORKOUT A DAY (the owner, 2026-11-26): workouts that stand in for the Workout generic never stack on a day. When one
+// is rescheduled onto a day that already has one (late, missed, carried from a bad day), it keeps that day and pushes the other
+// one on to the next day, and so on down the days. Ticked ones always stay on their day. Workouts set apart (nogen) are free.
+function woIds() { if (WKC.has('_woids')) return WKC.get('_woids'); let r = new Set();
+  try { const c = typeof woCat === 'function' ? woCat() : null; if (c) r = new Set(kidsOf(c).filter((k) => !I(k).nogen && (I(k).type === 'task' || I(k).type === 'routine'))); } catch (e) { r = new Set(); }
+  WKC.set('_woids', r); return r; }
+let WOSIM = false;
+function woSim(d) { const W = woIds(); let st = WKC.get('_wosim');
+  if (!st) { const q = []; // what bad days just before today left undone comes first
+    for (let p = addDays(T0, -1), n = 0; n < 30 && isBad(p) && M.badDays[p] !== 'skip'; p = addDays(p, -1), n++) W.forEach((id) => { if (!q.includes(id) && onDayBase(id, p) && !doneSince(id, p, addDays(T0, -1))) q.unshift(id); });
+    st = { x: T0, q, next: {}, on: {} }; WKC.set('_wosim', st); }
+  if (d < T0) return new Set();
+  WOSIM = true;
+  try { while (st.x <= d && diff(T0, st.x) < 800) { const x = st.x; const ids = [...W];
+      const done = ids.filter((id) => isDone(id, x));
+      const nat = ids.filter((id) => !done.includes(id) && !st.q.includes(id) && (I(id).when && I(id).when.mode === 'every' && st.next[id] ? x >= st.next[id] : onDayBase(id, x)));
+      const late = (id) => (x === T0 ? lateBy(id) : 0), picked = (id) => { const w = I(id).when || {}; return w.date === x ? 1 : 0; };
+      nat.sort((a, b) => (late(b) - late(a)) || (picked(b) - picked(a)));
+      const cand = st.q.concat(nat); const miss = (id) => isMissed(id, x);
+      const on = done.slice(); const keep = [];
+      cand.forEach((id) => { if (miss(id)) { const m = (I(id).when || {}).mode; if (m === 'once' || m === 'every') keep.push(id); return; } // a missed one I'd still owe comes back the next day
+        if (!on.length) { on.push(id); return; } keep.push(id); }); // one a day: the rest move on to the next day
+      const bad = isBad(x); const shown = on.filter((id) => !done.includes(id));
+      // a bad day shows what it moved on (Rescheduled), but the workout still waits for the next normal day, first in line
+      st.q = bad ? shown.concat(keep) : keep;
+      if (!bad) shown.forEach((id) => { const w = I(id).when || {}; if (w.mode === 'every') st.next[id] = addDays(x, Math.max(1, w.n || 1)); });
+      done.forEach((id) => { const w = I(id).when || {}; if (w.mode === 'every') st.next[id] = addDays(x, Math.max(1, w.n || 1)); });
+      st.on[x] = new Set(on); st.x = addDays(x, 1); } }
+  finally { WOSIM = false; }
+  return st.on[d] || new Set(); }
+function onDay(id, d) { if (d >= T0 && !WOSIM && woIds().has(id) && !frozenOf(d)) { const on = woSim(d); return on.has(id); } return onDayBase(id, d); }
+function onDayBase(id, d) { const it = I(id); if (!it) return false;
   if (d >= T0 ? firstRound(id) : firstRound(id, d) && !isDone(id, d)) return false; // a past day never shows a repeat I hadn't done once yet by then (2026-11-12)
   if (!afterSrc()[id] || d < T0 || it.type === 'checkin') return onDay0(id, d);
   if (it.made && d < it.made) return false; if (it.end && d > it.end) return false;
@@ -348,7 +379,7 @@ function dayList(d) { const out = dayListRaw(d); if (frozenOf(d)) return out;
   if (isBad(d)) { out.forEach((x) => { x.items = []; }); return out; }
   const run = []; for (let p = addDays(d, -1); run.length < 30 && isBad(p) && M.badDays[p] !== 'skip'; p = addDays(p, -1)) run.push(p); // a skipped day made bad excuses the day, its work doesn't pile onto today
   run.forEach((p) => dayListRaw(p, true).forEach((x) => x.items.forEach((id) => {
-    if (I(id).type === 'checkin' || run.some((q) => isDone(id, q)) || out.some((z) => z.items.includes(id))) return;
+    if (I(id).type === 'checkin' || run.some((q) => isDone(id, q)) || out.some((z) => z.items.includes(id)) || woIds().has(id)) return; // workouts: woSim carries them, one a day
     const y = out.find((z) => z.b === x.b); if (!y) return; const i = x.items.indexOf(id);
     // it goes back in its usual spot: after the item it normally follows, or before the one it normally comes before (the owner, 2026-11-24)
     const prev = x.items.slice(0, i).reverse().find((k) => y.items.includes(k)), next = x.items.slice(i + 1).find((k) => y.items.includes(k));
