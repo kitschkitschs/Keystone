@@ -182,7 +182,9 @@ function twoFinishOn(id, d) { if (d === T0) { twoFinish(id); return; } const h =
     snapDay(d); }, I(id).name + ' done'); if (typeof remSync === 'function') remSync(); }
 // a finished two-parter is remembered for that day, so the Schedule keeps both parts and its generic item stays replaced (the owner, 2026-11-26)
 const twoKeep = (id, d) => { const h = halfOf(id); if (h) ((M.twoDone = M.twoDone || {})[d] = M.twoDone[d] || {})[id] = { at: h.at }; };
-const twoDoneOn = (id, d) => !!(((M.twoDone || {})[d] || {})[id]) && isDone(id, d);
+/* also one finished before that was remembered: any two-part item logged done on the day (the owner, 2026-11-26: still lost) */
+const twoDoneOn = (id, d) => !!(I(id) && I(id).two) && isDone(id, d);
+const twoDoneIds = (d) => [...new Set(Object.keys((M.twoDone || {})[d] || {}).concat(Object.keys((M.log || {})[d] || {})))].filter((id) => twoDoneOn(id, d));
 function twoFinish(id) { change(() => { twoKeep(id, T0); if (M.half) delete M.half[id]; M.reminders = (M.reminders || []).filter((r) => r.two !== id); L(T0)[id] = 'done'; }, I(id).name + ' done'); if (typeof remSync === 'function') remSync(); }
 // a two-part chore still waiting when its day ends counts as missed that day (2026-11-14); it keeps showing at the
 // earliest free spot of the next days until I finish it, and never counts as the day's chore
@@ -373,7 +375,7 @@ function dayListRaw(d, raw) {
   // a day with real study tasks (or study sessions) drops the generic Study session slot; a day with real chores (rooms and
   // one-off chores, not Homemaking or Cooking) drops the Daily chore slot (2026-11-06)
   // a started two-part chore waits on Today, and counts as a real chore there, the generic chore slot drops on Today only, Schedule keeps it (2026-11-12)
-  { const has = new Set(out.flatMap((x) => x.items)); Object.keys((M.twoDone || {})[d] || {}).forEach((id) => { if (!I(id) || has.has(id) || !twoDoneOn(id, d)) return; const x = at(blockOfItem(id)) || out[out.length - 1]; if (x) x.items.push(id); }); } // a finished two-parter stays on its day (the owner, 2026-11-26)
+  { const has = new Set(out.flatMap((x) => x.items)); twoDoneIds(d).forEach((id) => { if (has.has(id)) return; const x = at(blockOfItem(id)) || out[out.length - 1]; if (x) x.items.push(id); }); } // a finished two-parter stays on its day (the owner, 2026-11-26)
   if (d === T0) { const has = new Set(out.flatMap((x) => x.items)); Object.keys(M.half || {}).forEach((id) => { if (!I(id)) return; const old = halfOld(id); if (has.has(id) && !old) return;
     if (old) out.forEach((x) => { x.items = x.items.filter((k) => k !== id); }); const x = at(blockOfItem(id)) || out[out.length - 1]; if (x) { if (old) x.items.unshift(id); else x.items.push(id); } }); }
   afterWork(out, d);
@@ -901,6 +903,8 @@ function placeDay(d) {
     items.filter((id) => !fixedT(id) && !tacked.has(id) && anc[id]).forEach(seq); // what follows something that never got placed here
   });
   mShift(out, d, allFixed);
+  /* a finished two-parter with no start time remembered: part two sits its hours after part one's spot */
+  twoDoneIds(d).forEach((id) => { if (twoAt[id] != null) return; const o = out.find((q) => q.id === id && !q.two && !q.cont); if (o) twoAt[id] = o.a + (+I(id).two || 2) * 60; });
   // second parts go in last, into the first free spot from when they're due, so nothing else moves for them
   /* counted from the moment part one was ticked (the owner, 2026-11-24) */
   Object.keys(twoAt).sort((p, q) => twoAt[p] - twoAt[q]).forEach((id) => { const len = I(id).dur || 30; let a0 = twoAt[id], moved = true;
