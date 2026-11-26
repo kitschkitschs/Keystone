@@ -1618,8 +1618,9 @@ function whenText(it) {
   if (w.mode === 'once') return w.date ? relDay(w.date) : ''; // no 'No date' note anywhere (2026-11-06)
   if (w.mode === 'every') return w.n === 1 ? 'Every day' : 'Every ' + w.n + ' days';
   if (w.mode === 'days') { const n = Math.max(1, w.n || 1); const ds = (w.days || []).length === 7 ? 'every day' : (w.days || []).map((x) => WD[x]).join(', ') || 'no days picked'; return n === 1 ? ds[0].toUpperCase() + ds.slice(1) : 'Every ' + n + ' weeks · ' + ds; }
-  if (w.mode === 'month') { const n = Math.max(1, w.n || 1); return (n === 1 ? 'Monthly' : 'Every ' + n + ' months') + ' on the ' + ord(parse(w.date || T0).getDate()); }
-  if (w.mode === 'year') { const a = parse(w.date || T0); return 'Every year on ' + a.getDate() + ' ' + MONTHS[a.getMonth()].slice(0, 3); }
+  // the repeat label names only how often, never the date (the owner, 2026-11-26)
+  if (w.mode === 'month') { const n = Math.max(1, w.n || 1); return n === 1 ? 'Monthly' : 'Every ' + n + ' months'; }
+  if (w.mode === 'year') { const n = Math.max(1, w.n || 1); return n === 1 ? 'Yearly' : 'Every ' + n + ' years'; }
   return '';
 }
 // BAD DAYS (2026-11-08): a bad day (M.badDays[day]) keeps only its appointments and its own Bad day list;
