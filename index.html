@@ -2151,6 +2151,12 @@ let TWO_IN = false; const TWO_LATE = (d) => d < T0; /* a past day keeps it where
 function placeDay(d) {
   const fz = frozenOf(d); if (fz) { return fz.filter((o) => !isMissed(o.id, d) && !halfWait(o.id, d)).map((o) => Object.assign({}, o)); }
   const out = []; const DL = choreSwap(dayList(d), d); STOOD[d] = DL.stood || {};
+  // a bad day's own list sits on the Schedule too (the owner, 2026-11-26): each item in the block it usually lives in, at its set time's block,
+  // or where I moved it that day; anything else goes in the first block
+  if (isBad(d)) { const mv = (M.dayMove || {})[d] || {}, dT = (M.dayTime || {})[d] || {}; const BI = blockIds(); const on = new Set(DL.flatMap((x) => x.items));
+    badList().forEach((id) => { const it = I(id); if (!it || it.type === 'appt' || on.has(id)) return; on.add(id);
+      const b = mv[id] && G(mv[id]) ? mv[id] : dT[id] ? blockAtTime(dT[id]) : BI.find((k) => (G(k).kids || []).includes(id)) || (it.time ? blockAtTime(it.time) : BI[0]);
+      const x = DL.find((z) => z.b === b); if (x) x.items.push(id); }); }
   // what each item sits right behind: Always after, blocked behind in edit mode, or the stand-ins for one generic item in a row (2026-11-25)
   const FS = folSrc(), CF = DL.chainFol || {}; const fsrcOf = (id) => CF[id] ? [CF[id]].concat(FS[id] || []) : (FS[id] || []); const onDL = new Set(DL.flatMap((x) => x.items));
   // items with a set time (and appointments) are fixed for the whole day; untimed items flow around ALL of them, and a block
