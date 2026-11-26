@@ -6,7 +6,7 @@
 function wheelDef() { return [
   ['Mad', '#D9868B', [['hurt', 'distant'], ['hostile', 'sarcastic'], ['angry', 'frustrated'], ['selfish', 'jealous'], ['hateful', 'irritated'], ['critical', 'skeptical']]],
   ['Scared', '#6FAF86', [['confused', 'bewildered'], ['rejected', 'discouraged'], ['helpless', 'insignificant'], ['submissive', 'inadequate'], ['insecure', 'embarrassed'], ['anxious', 'overwhelmed']]],
-  ['Joyful', '#EDBE68', [['excited', 'daring'], ['sensuous', 'fascinating'], ['energetic', 'stimulating'], ['cheerful', 'amused'], ['creative', 'playful'], ['hopeful', 'optimistic']]],
+  ['Joyful', '#EDBE68', [['excited', 'daring'], ['sensuous', 'fascinated'], ['energetic', 'stimulated'], ['cheerful', 'amused'], ['creative', 'playful'], ['hopeful', 'optimistic']]],
   ['Powerful', '#E9A16C', [['aware', 'surprised'], ['proud', 'successful'], ['respected', 'worthwhile'], ['appreciated', 'valuable'], ['important', 'discerning'], ['faithful', 'confident']]],
   ['Peaceful', '#A9C47F', [['nurturing', 'thankful'], ['trusting', 'secure'], ['loving', 'serene'], ['intimate', 'responsive'], ['thoughtful', 'pensive'], ['content', 'relaxed']]],
   ['Sad', '#7F92AB', [['tired', 'sleepy'], ['bored', 'apathetic'], ['lonely', 'isolated'], ['depressed', 'inferior'], ['ashamed', 'stupid'], ['guilty', 'remorseful']]]]; }

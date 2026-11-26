@@ -2233,12 +2233,16 @@ function migrate(m) {
   // the feeling wheel replaces Plutchik (2026-11-06); symptom feelings (Dysregulation) stay. Example days get wheel words.
   if (!m.settings.wheel1) { m.settings.wheel1 = true; const dys = (m.settings.feelings || []).find((x) => SYMNAMES.includes(x[0]));
     m.settings.feelings = wheelSet().concat(dys ? [dys] : []);
-    const MAP = { serenity: 'content', joy: 'joyful', ecstasy: 'excited', acceptance: 'trusting', trust: 'secure', admiration: 'appreciated', apprehension: 'anxious', fear: 'scared', terror: 'overwhelmed', distraction: 'confused', surprise: 'surprised', amazement: 'fascinating', pensiveness: 'pensive', sadness: 'sad', grief: 'depressed', boredom: 'bored', disgust: 'critical', loathing: 'hateful', annoyance: 'irritated', anger: 'angry', rage: 'hostile', interest: 'hopeful', anticipation: 'excited', vigilance: 'aware', love: 'loving', optimism: 'optimistic', submission: 'submissive', awe: 'fascinating', disapproval: 'critical', remorse: 'remorseful', contempt: 'skeptical', aggressiveness: 'hostile' };
+    const MAP = { serenity: 'content', joy: 'joyful', ecstasy: 'excited', acceptance: 'trusting', trust: 'secure', admiration: 'appreciated', apprehension: 'anxious', fear: 'scared', terror: 'overwhelmed', distraction: 'confused', surprise: 'surprised', amazement: 'fascinated', pensiveness: 'pensive', sadness: 'sad', grief: 'depressed', boredom: 'bored', disgust: 'critical', loathing: 'hateful', annoyance: 'irritated', anger: 'angry', rage: 'hostile', interest: 'hopeful', anticipation: 'excited', vigilance: 'aware', love: 'loving', optimism: 'optimistic', submission: 'submissive', awe: 'fascinated', disapproval: 'critical', remorse: 'remorseful', contempt: 'skeptical', aggressiveness: 'hostile' };
     const keep = new Set(m.settings.feelings.flatMap((x) => x[2]));
     Object.keys(m.feel || {}).forEach((d) => { m.feel[d] = [...new Set((m.feel[d] || []).map((w) => keep.has(w) ? w : MAP[w]).filter(Boolean))]; }); }
   // the wheel takes the earlier feeling colours (2026-11-06)
   // make sure the wheel families are the stored set (some saved states still held the Plutchik families)
   if (!(m.settings.feelings || []).some((x) => x[0] === 'Mad')) { const dys = (m.settings.feelings || []).find((x) => SYMNAMES.includes(x[0])); m.settings.feelings = wheelSet().concat(dys ? [dys] : []); }
+  // 'fascinating' and 'stimulating' read like typos: they become 'fascinated' and 'stimulated' (2026-11-26)
+  if (!m.settings.feelWords1) { m.settings.feelWords1 = true; const RN = { fascinating: 'fascinated', stimulating: 'stimulated' }; const rn = (w) => RN[w] || w;
+    (m.settings.feelings || []).forEach((x) => { if (Array.isArray(x[2])) x[2] = [...new Set(x[2].map((p) => Array.isArray(p) ? p.map(rn) : rn(p)))]; });
+    Object.keys(m.feel || {}).forEach((d) => { if (Array.isArray(m.feel[d])) m.feel[d] = [...new Set(m.feel[d].map(rn))]; }); }
   if (!m.settings.wheel2) { m.settings.wheel2 = true; const cols = Object.fromEntries(wheelDef().map((x) => [x[0], x[1]])); (m.settings.feelings || []).forEach((x) => { if (cols[x[0]]) x[1] = cols[x[0]]; }); }
   if (m.example && !m.settings.food5) { m.settings.food5 = true; foodSampleMore(m); }
   if (m.example && !m.settings.food3) { m.settings.food1 = m.settings.food3 = true; foodSample(m); }
