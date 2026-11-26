@@ -1284,7 +1284,7 @@ html.dark .feelcard.empty{background:var(--card)}html.dark .jcard .jct,html.dark
 .srm{display:grid;place-items:center}
 .srm.srwk{border-right:1px solid var(--line)}
 .srm i{display:block;box-sizing:border-box;width:13px;height:13px}
-.srm.done i{background:var(--cf);border:1.5px solid var(--c)}
+.srm.done i{background:var(--c);border:1.2px solid var(--c);box-shadow:inset 0 0 0 2.5px var(--page)}
 .srm.kept i{background:var(--cf)}
 .srm.skip i,.srm.wait i{border:1.6px dotted var(--faint)}
 .srm.miss i{width:5px;height:5px;border-radius:50%;background:var(--faint)}
@@ -6241,7 +6241,7 @@ document.addEventListener('change', (e) => { const ds = e.target.dataset || {};
 //  Movement: needed every day; a day with a workout counts as kept; a recovery day is done in the recovery colour.
 //  Workouts: n a week (Mon-Sun); once n is hit the rest of the week is kept; a recovery day is kept and the week needs one less.
 //  Expedition training: n a week like Workouts, only while Expedition mode is on.
-// Marks: done = faded square with a full-colour frame, kept = faded square, skipped = dotted grey frame, missed = grey dot.
+// Marks: done = a ticked tick box (as on Today), kept = faded square, skipped = dotted grey frame, missed = grey dot.
 // Today shows the dotted frame until it's done, unless the streak already covers it. Skipped and missed days both break a streak;
 // the number is the current streak in days.
 // recovery days have their own colour but no list of their own: any Movement item counts (the owner, 2026-11-26)
