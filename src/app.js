@@ -1306,6 +1306,7 @@ function sheetBody() {
     else { if (s.from) lines.push(['Time', fmtHM(+s.from) + '–' + fmtHM(+s.to) + (it.time ? '' : ' · fills its block')]); if (it.type !== 'checkin') lines.push(['Day block', G(blockOfItem(s.ref)).name]); const wt = whenText(it); if (wt) lines.push(['Repeats', wt]);
       if (it.type === 'routine') lines.push(['Steps', rSteps(s.ref, d).map((x) => (sVal(s.ref, x, d) ? '✓ ' : stepMissed(x, d, s.ref) ? '✕ ' : '') + I(x).name + (I(x).optional ? ' (optional)' : '')).join(', ')]); }
     if (it.note) lines.push(['Note', it.note]);
+    if (it.detail) lines.push(['Details', it.detail]);
     lines.push(['Status', done ? (String(val(d, s.ref)).startsWith('much') ? 'Too much' : 'Done') : d < T0 ? 'Not done' : d === T0 ? 'Not done yet' : 'Coming up']);
     return `<dl class="peek">${lines.map(([k, v]) => `<dt class="mono">${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>${it.brk && d >= T0 ? brkDayUI(s.ref, d) : ''}
       <div class="btns">${d === T0 && it.type !== 'checkin' && it.type !== 'routine' ? `<button class="btn dark" data-a="peektick">${it.type === 'slot' ? 'Open ' + (it.opens === 'study' ? 'Study' : it.opens === 'training' ? 'Training' : it.opens === 'hobbies' ? 'Hobbies' : 'Chores') : done ? 'Untick' : 'Tick as done'}</button>` : ''}${d <= T0 && !done && it.type !== 'checkin' ? `<button class="btn" data-a="miss" data-ref="${s.ref}" data-d="${d}">Missed</button>` : ''}<button class="btn" data-a="peekedit">Edit</button></div>`; }
@@ -1399,6 +1400,7 @@ function sessList(s, D) { const P = s.parts || (s.parts = []); if (!P.length) re
   return `<div class="sesslist">${P.slice().map((x, i) => [x, i]).sort((a, b) => (a[0].date || '').localeCompare(b[0].date || '') || (a[0].time || '').localeCompare(b[0].time || '')).map(([x, i]) => `<div class="sessrow"><span class="l">${esc(fmtDate(x.date))}${x.time ? ' · ' + esc(x.time) : ''}</span><span class="m">${estHM((+x.min || 0) / 60)}</span><button class="rm" data-a="dpart-rm" data-v="${i}" aria-label="Remove the session on ${esc(fmtDate(x.date))}">${icon('x', 14)}</button></div>`).join('')}<small class="note">${note}</small></div>`; }
 // planned prep can have sub-tasks, like Pizza › Dough (2026-11-06); they're stored like a routine's steps
 const isChoreSheet = (s) => !!((s.home && (s.home === 'g-oneoff' || (G(s.home) && G(s.home).style === 'room'))) || (s.ref && typeof choreIds === 'function' && choreIds().includes(s.ref)));
+const isHomeSheet = (s) => ['homemaking', 'chores', 'cooking'].includes(s.ref && I(s.ref) ? itemSec(s.ref) : secRootOf(s.home));
 const isPrep = (s) => s.home === 'g-prep' || !!(s.ref && G('g-prep') && G('g-prep').kids.includes(s.ref));
 const subField = (s) => `<div class="fld"><span class="mono">Sub-tasks</span>${(s.steps || []).map((x, i) => `<div class="inrow"><input class="inp" data-step="${i}" value="${esc(x.name)}" placeholder="Like making the dough"><button class="rm" data-a="dstep-rm" data-v="${i}" aria-label="Remove sub-task">${icon('x', 14)}</button></div>`).join('')}<button class="addbtn" data-a="dstep-add">+ Add sub-task</button></div>`;
 function itemSheet(s) {
@@ -1406,6 +1408,8 @@ function itemSheet(s) {
   if (s.quick && areaItem(s.ref)) return `<div class="qhead"><p class="note">${esc(D.name)}<span style="display:block;font-size:13px;color:var(--quiet)">${esc(areaItem(s.ref))}${whenText(D) ? ' · ' + esc(whenText(D)) : ''}</span></p>${isStudyItem(s, D) ? estIn(D) : ''}</div>` + schedUI(s, D) + (s.ref && I(s.ref) ? whenDidI() : '') + `<div class="btns"><button class="btn" data-a="dmore">More settings</button></div>`;
   if (s.quick) return `<div class="qhead"><p class="note">${esc(D.name)}</p>${isStudyItem(s, D) ? estIn(D) : ''}</div>` + schedUI(s, D) + (isPrep(s) ? subField(s) : '') + (s.ref && I(s.ref) && !s.isNew ? whenDidI() : '') + `<div class="btns"><button class="btn" data-a="dmore">More settings</button></div>`;
   let h = `<div class="fld"><span class="mono">Name</span>${D.type !== 'appt' && D.type !== 'checkin' && D.type !== 'step' && (D.est != null || isStudyItem(s, D)) ? `<div class="inrow"><input class="inp" id="dname" value="${esc(D.name)}" ${s.isNew ? 'data-autofocus' : ''}>${estIn(D)}</div>` : `<input class="inp" id="dname" value="${esc(D.name)}" ${s.isNew ? 'data-autofocus' : ''}>`}</div>`;
+  // Home items (homemaking, chores, cooking) can carry a longer detail text, shown quietly under them (the owner, 2026-11-26)
+  if (isHomeSheet(s)) h += `<div class="fld"><span class="mono">Details</span><textarea class="inp" id="ddetail" rows="3" placeholder="What I want to remember about it">${esc(D.detail || '')}</textarea></div>`;
   if (isHobAct(s) || (s.ref && I(s.ref) && I(s.ref).wo)) h += `<div class="fld"><span class="mono">Details</span><input class="inp" id="dextra" value="${esc(D.extra || '')}" maxlength="40"></div>`; // small grey caps beside the name (the owner, 2026-11-12)
   if (D.type === 'appt') {
     h += `<div class="fld"><span class="mono">When</span><input class="inp" type="date" id="ddate" value="${D.date || T0}"><div class="inrow" style="margin-top:8px;align-items:center"><input class="inp" type="time" id="dtime" value="${D.time || ''}" aria-label="From" style="flex:1;min-width:0"><span class="mono" aria-hidden="true">–</span><input class="inp" type="time" id="dend" value="${apEnd(D)}" aria-label="Until" style="flex:1;min-width:0"></div></div>
@@ -1492,6 +1496,7 @@ function capture() { const s = S.sheet; if (!s || s.kind !== 'item') return; con
   if (g('dn') && D.when) D.when.n = Math.max(1, parseInt(g('dn').value) || 1);
   if (g('dtime')) { if (g('dtime').value) D.time = g('dtime').value; else delete D.time; }
   if (g('dnote')) D.note = g('dnote').value.trim();
+  if (g('ddetail')) { const t = g('ddetail').value.trim(); if (t) D.detail = t; else delete D.detail; }
   if (g('drepn') && D.rep) D.rep.n = Math.max(1, parseInt(g('drepn').value) || 1);
   if (g('dtwo') && D.two) { const n = parseFloat(g('dtwo').value.replace(',', '.')); D.two = n > 0 ? n : 2; }
   if (g('dend')) { const e = g('dend').value; if (D.time && e) { let m = hm(e) - hm(D.time); if (m <= 0) m += 1440; D.dur = m; } else delete D.dur; }
