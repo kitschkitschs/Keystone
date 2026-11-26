@@ -1924,7 +1924,8 @@ const instDone = (id, d, k) => isMulti(id) && k != null ? mcount(id, d) > k : is
 let TK = null; // the block instance being drawn
 // optional on every day, or only on the weekdays I pick (the owner, 2026-11-25: Movement optional on some days)
 // optional only on days with a workout that stands in for the Workout generic (the owner, 2026-11-26)
-const woDay = (d) => [...woIds()].some((k) => isDone(k, d) || onDay(k, d));
+// a bad day counts only the workouts really on it (its Bad day list or ticked), not the ones it moved on (the owner, 2026-11-26)
+const woDay = (d) => { const bl = isBad(d) ? new Set(badList()) : null; return [...woIds()].some((k) => isDone(k, d) || (bl ? bl.has(k) : onDay(k, d))); };
 const optOn = (id, d) => { const it = I(id); if (!it || !it.optional) return false; if (it.optWo) return woDay(d); const o = it.optDays; return !o || !o.length || o.includes(wd(d)); };
 const optText = (it) => !it.optional ? '' : it.optWo ? 'Optional on workout days' : it.optDays && it.optDays.length ? 'Optional ' + it.optDays.slice().sort().map((k) => WD[k]).join(', ') : 'Optional';
 const optDaysUI = (D) => !D.optional ? '' : `<div class="fld"><span class="mono">Optional on</span><div class="chips"><button class="chip" data-a="doptday" data-v="all" aria-pressed="${!D.optWo && !(D.optDays && D.optDays.length)}">Every day</button><button class="chip" data-a="doptday" data-v="wo" aria-pressed="${!!D.optWo}">Workout days</button>${WD.map((n, k) => `<button class="chip" data-a="doptday" data-v="${k}" aria-pressed="${!!(D.optDays && D.optDays.includes(k))}">${n}</button>`).join('')}</div></div>`;
