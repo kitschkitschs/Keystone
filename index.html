@@ -1273,12 +1273,12 @@ html.dark .feelcard.empty{background:var(--card)}html.dark .jcard .jct,html.dark
 .tl .box.msel{outline:2px solid var(--ink);outline-offset:1px;z-index:3}
 .mselbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:10px;margin:8px 0 0;padding:8px 10px;background:var(--page);border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:12.5px;color:var(--quiet)}.mselbar span{flex:1}.mselbar .btn{padding:6px 12px;min-height:0}
 /* Training streaks (2026-11-26): the last 14 days per tracker under the Training calendar; recovery days in their own colour */
-.srs{margin-top:6px}
-.sr .srh{display:flex;align-items:center;gap:8px;padding:12px 0 6px}
+.srs{margin-top:2px}
+.sr .srh{display:flex;align-items:center;gap:8px;padding:7px 0 3px}
 .srsq{width:9px;height:9px;flex:0 0 9px;background:var(--c)}
 .sr .srn{font:500 10.5px var(--sans,inherit);letter-spacing:.14em;text-transform:uppercase;color:var(--ink)}
 .sr .srw{font:400 9.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--quiet,var(--ink2))}
-.sr .srnum{margin-left:auto;font:400 20px/1 var(--serif);color:var(--ink)}
+.sr .srnum{margin-left:auto;font:400 17px/1 var(--serif);color:var(--ink)}
 .sr .srnum small{font-size:12px;font-family:inherit;color:var(--ink2);margin-left:3px;font-family:var(--sans,inherit)}
 .srg{display:grid;grid-template-columns:repeat(14,minmax(0,1fr));height:24px}
 .srm{display:grid;place-items:center}
@@ -1289,7 +1289,7 @@ html.dark .feelcard.empty{background:var(--card)}html.dark .jcard .jct,html.dark
 .srm.skip i,.srm.wait i{border:1.2px dashed var(--faint)}
 .srm.miss i{width:5px;height:5px;border-radius:50%;background:var(--faint)}
 .srm.none i{width:0;height:0}
-.srax{display:flex;justify-content:space-between;font:400 9px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-top:6px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.srax{display:flex;justify-content:space-between;font:400 9px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-top:4px}
 .srrec{display:flex;align-items:center;gap:8px;width:100%;min-height:40px;font-size:14px;color:var(--ink);text-align:left}
 .srrec .srch{margin-left:auto;font:400 9.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--quiet,var(--ink2))}
 .srdot{display:inline-block;width:8px;height:8px}
@@ -1453,7 +1453,7 @@ function blank() { const m = seed(); m.example = false; m.items = {}; m.log = {}
   Object.values(m.groups).forEach((g) => { g.kids = g.kids.filter((k) => m.groups[k] || m.items[k]); });
   // Empty means EMPTY (2026-11-10/11): no symptoms, tags, social trackers, slots, rooms, subjects or hobbies either.
   // What stays: the day blocks, the two routines with their check-ins, and the check-in questions.
-  const keep = ['ci-m', 'ci-e', 'r-morning', 'r-evening', 'tr-sleep', 'tr-mmood', 'tr-mmot', 'tr-mood', 'tr-mot', 'tr-energy', 'tr-prod', 'tr-gentle']; // Recovery keeps its one session (2026-11-26)
+  const keep = ['ci-m', 'ci-e', 'r-morning', 'r-evening', 'tr-sleep', 'tr-mmood', 'tr-mmot', 'tr-mood', 'tr-mot', 'tr-energy', 'tr-prod'];
   Object.keys(m.items).forEach((k) => { if (!keep.includes(k)) delete m.items[k]; });
   Object.keys(m.groups).forEach((k) => { if (['room', 'subject', 'sgroup', 'hobby'].includes(m.groups[k].style)) delete m.groups[k]; });
   Object.values(m.groups).forEach((g) => { g.kids = g.kids.filter((k) => m.groups[k] || m.items[k]); });
@@ -2693,8 +2693,8 @@ function pageAdds(ab) { if (S.insOn) return null; const fileIn = (id, ref, ic, l
   if (S.area === 'health') { if (S.page === 'expeds') return ab('tripnew', 'mountain', 'Expedition', 'data-v="planned"') + ab('tripnew', 'star', 'Wish', 'data-v="wish"'); }
   return null; }
 // Star colours, one per calendar kind (plan = Today + Schedule, train, food), set in edit mode (2026-11-05)
-function getProp(ref, k) { if (ref.startsWith('pdc:')) return k === 'color' ? pdGetCol(ref.slice(4)) : undefined; if (ref.startsWith('ic:')) return k === 'color' ? insColOf(ref.slice(3)) : undefined; if (ref.startsWith('ui:')) return k === 'icon' ? uiIc(ref.slice(3), 'circle') : undefined; if (ref.startsWith('fc:')) return k === 'color' ? feelCol(ref.slice(3), '#9A9387') : undefined; if (ref.startsWith('ctag:')) return k === 'color' ? ctagCol(ref.slice(5)) : undefined; if (ref.startsWith('dot:')) return k === 'color' ? dotCol(ref.slice(4)) : undefined; if (ref.startsWith('tk:')) return k === 'color' ? tripCol(ref.slice(3)) : undefined; if (ref === 'cc:fit') return k === 'color' ? condCol() : undefined; if (ref.startsWith('x:')) return (mealPlan().extras.find((x) => x.id === ref.slice(2)) || {})[k] || (k === 'color' ? xcol({ id: ref.slice(2) }) : k === 'icon' ? xicon({ id: ref.slice(2) }) : undefined); if (ref.startsWith('a:')) return M.areas[ref.slice(2)][k]; if (ref.startsWith('p:')) return M.pages[ref.slice(2)][k]; if (ref === 'draft') return S.sheet && S.sheet.back && S.sheet.back.draft && S.sheet.back.draft[k]; return (I(ref) || G(ref) || {})[k]; }
-function setProp(ref, k, v) { if (ref.startsWith('pdc:')) { if (k === 'color' && v) pdSetCol(ref.slice(4), v); return; } if (ref.startsWith('ic:')) { if (k === 'color') insSetCol(ref.slice(3), v); return; } if (ref.startsWith('ui:')) { if (k === 'icon') (M.settings.uiIcons = M.settings.uiIcons || {})[ref.slice(3)] = v; return; } if (ref.startsWith('fc:')) { const x = (M.settings.feelings || []).find((y) => y[0] === ref.slice(3)); if (x && k === 'color' && v) x[1] = v; return; } if (ref.startsWith('ctag:')) { const t = ctag(ref.slice(5)); if (t && k === 'color' && v) t.color = v; return; } if (ref === 'cc:fit') { if (k === 'color') { if (v) M.settings.fitCondCol = v; else delete M.settings.fitCondCol; } return; } if (ref.startsWith('tk:')) { if (k === 'color') { M.settings.tripCols = M.settings.tripCols || {}; if (v) M.settings.tripCols[ref.slice(3)] = v; else delete M.settings.tripCols[ref.slice(3)]; } return; } if (ref.startsWith('dot:')) { if (k === 'color') { M.settings.dotCols = M.settings.dotCols || {}; if (v) M.settings.dotCols[ref.slice(4)] = v; else delete M.settings.dotCols[ref.slice(4)]; } return; } if (ref.startsWith('x:')) { const x = mealPlan().extras.find((e) => e.id === ref.slice(2)); if (x) x[k] = v; return; } if (ref.startsWith('a:')) M.areas[ref.slice(2)][k] = v; else if (ref.startsWith('p:')) { M.pages = M.pages || {}; (M.pages[ref.slice(2)] = M.pages[ref.slice(2)] || {})[k] = v; } else { const o = I(ref) || G(ref); if (!o) return; if (v === '' || v == null) delete o[k]; else o[k] = v; } }
+function getProp(ref, k) { if (ref === 'rc:rec') return k === 'color' ? recCol() : undefined; if (ref.startsWith('pdc:')) return k === 'color' ? pdGetCol(ref.slice(4)) : undefined; if (ref.startsWith('ic:')) return k === 'color' ? insColOf(ref.slice(3)) : undefined; if (ref.startsWith('ui:')) return k === 'icon' ? uiIc(ref.slice(3), 'circle') : undefined; if (ref.startsWith('fc:')) return k === 'color' ? feelCol(ref.slice(3), '#9A9387') : undefined; if (ref.startsWith('ctag:')) return k === 'color' ? ctagCol(ref.slice(5)) : undefined; if (ref.startsWith('dot:')) return k === 'color' ? dotCol(ref.slice(4)) : undefined; if (ref.startsWith('tk:')) return k === 'color' ? tripCol(ref.slice(3)) : undefined; if (ref === 'cc:fit') return k === 'color' ? condCol() : undefined; if (ref.startsWith('x:')) return (mealPlan().extras.find((x) => x.id === ref.slice(2)) || {})[k] || (k === 'color' ? xcol({ id: ref.slice(2) }) : k === 'icon' ? xicon({ id: ref.slice(2) }) : undefined); if (ref.startsWith('a:')) return M.areas[ref.slice(2)][k]; if (ref.startsWith('p:')) return M.pages[ref.slice(2)][k]; if (ref === 'draft') return S.sheet && S.sheet.back && S.sheet.back.draft && S.sheet.back.draft[k]; return (I(ref) || G(ref) || {})[k]; }
+function setProp(ref, k, v) { if (ref === 'rc:rec') { if (k === 'color') { if (v) M.settings.recCol = v; else delete M.settings.recCol; } return; } if (ref.startsWith('pdc:')) { if (k === 'color' && v) pdSetCol(ref.slice(4), v); return; } if (ref.startsWith('ic:')) { if (k === 'color') insSetCol(ref.slice(3), v); return; } if (ref.startsWith('ui:')) { if (k === 'icon') (M.settings.uiIcons = M.settings.uiIcons || {})[ref.slice(3)] = v; return; } if (ref.startsWith('fc:')) { const x = (M.settings.feelings || []).find((y) => y[0] === ref.slice(3)); if (x && k === 'color' && v) x[1] = v; return; } if (ref.startsWith('ctag:')) { const t = ctag(ref.slice(5)); if (t && k === 'color' && v) t.color = v; return; } if (ref === 'cc:fit') { if (k === 'color') { if (v) M.settings.fitCondCol = v; else delete M.settings.fitCondCol; } return; } if (ref.startsWith('tk:')) { if (k === 'color') { M.settings.tripCols = M.settings.tripCols || {}; if (v) M.settings.tripCols[ref.slice(3)] = v; else delete M.settings.tripCols[ref.slice(3)]; } return; } if (ref.startsWith('dot:')) { if (k === 'color') { M.settings.dotCols = M.settings.dotCols || {}; if (v) M.settings.dotCols[ref.slice(4)] = v; else delete M.settings.dotCols[ref.slice(4)]; } return; } if (ref.startsWith('x:')) { const x = mealPlan().extras.find((e) => e.id === ref.slice(2)); if (x) x[k] = v; return; } if (ref.startsWith('a:')) M.areas[ref.slice(2)][k] = v; else if (ref.startsWith('p:')) { M.pages = M.pages || {}; (M.pages[ref.slice(2)] = M.pages[ref.slice(2)] || {})[k] = v; } else { const o = I(ref) || G(ref); if (!o) return; if (v === '' || v == null) delete o[k]; else o[k] = v; } }
 
 // The item sheet edits a draft; Save writes it back (and places a new item).
 // STUDY SESSIONS (2026-11-06): a study task's estimate can be split into dated sessions (2 h = 1 h Monday, 30 min twice).
@@ -5750,9 +5750,14 @@ function tMigrate(m) {
   if (!m.settings.conds2) { m.settings.conds2 = true; (m.conds || []).forEach((x) => { if (x.id === 'cs-shin' || x.id === 'cs-knee') x.fit = true; }); }
   // every training item is persistent, like hobby activities: a one-off session stays after its tick (the owner, 2026-11-24)
   if (!m.settings.trpersist1 && m.groups['g-train']) { m.settings.trpersist1 = true; m.groups['g-train'].kids.forEach((c) => ((m.groups[c] || {}).kids || []).forEach((k) => { const it = m.items[k]; if (it && it.type === 'task' && (!it.when || it.when.mode === 'once')) it.persist = true; })); }
-  // RECOVERY (the owner, 2026-11-26): its own category and colour; a recovery day swaps the day's workout for gentle movement
-  if (!m.settings.rec1 && m.groups['g-train']) { m.settings.rec1 = true; if (!m.groups['tc-rec']) { m.groups['tc-rec'] = { name: 'Recovery', style: 'tcat', holds: 'task', color: '#A877C4', icon: 'heart-pulse', kids: [] }; m.groups['g-train'].kids.push('tc-rec'); }
-    if (!m.items['tr-gentle']) { m.items['tr-gentle'] = { name: 'Gentle movement', type: 'task', made: T0, tags: [], insight: true, kind: 'behaviour', dur: 30, persist: true, when: { mode: 'once', date: null }, icon: 'heart-pulse' }; m.groups['tc-rec'].kids.push('tr-gentle'); } }
+  // RECOVERY has no list of its own any more (the owner, 2026-11-26): Movement items count on a recovery day. The Recovery category
+  // from the first build goes; its colour stays as the recovery colour, sessions I added move to Movement, the unused starter goes
+  if (!m.settings.rec2) { m.settings.rec2 = true; const g = m.groups['tc-rec'];
+    if (g) { if (g.color && g.color.toLowerCase() !== '#a877c4') m.settings.recCol = g.color; const mv = m.groups['tc-move'] ? 'tc-move' : (m.groups['g-train'] || { kids: [] }).kids.find((c) => c !== 'tc-rec' && c !== 'tc-work' && c !== 'tc-exp');
+      (g.kids || []).forEach((k) => { const used = Object.values(m.log || {}).some((L) => L && L[k]);
+        if (k === 'tr-gentle' && !used) { Object.values(m.groups).forEach((x) => { x.kids = (x.kids || []).filter((y) => y !== k); }); delete m.items[k]; return; }
+        if (mv && m.groups[mv] && !m.groups[mv].kids.includes(k)) m.groups[mv].kids.push(k); });
+      delete m.groups['tc-rec']; Object.values(m.groups).forEach((x) => { x.kids = (x.kids || []).filter((y) => y !== 'tc-rec'); }); } }
   if (m.settings.train1) return; m.settings.train1 = true; const ex = !!m.example; m.log = m.log || {};
   m.groups['g-train'] = m.groups['g-train'] || { name: 'Training', holds: 'tcats', kids: [] };
   TCATS.forEach(([id, name, color, ic]) => { if (!m.groups[id]) { m.groups[id] = { name, style: 'tcat', holds: 'task', color, icon: ic, kids: [] }; m.groups['g-train'].kids.push(id); } });
@@ -6239,13 +6244,15 @@ document.addEventListener('change', (e) => { const ds = e.target.dataset || {};
 // Marks: done = faded square with a full-colour frame, kept = faded square, skipped = dashed grey frame, missed = grey dot.
 // Today shows the dashed frame until it's done, unless the streak already covers it. Skipped and missed days both break a streak;
 // the number is the current streak in days.
-const recCat = () => (G('tc-rec') ? 'tc-rec' : null);
+// recovery days have their own colour but no list of their own: any Movement item counts (the owner, 2026-11-26)
+const recCol = () => (M.settings || {}).recCol || '#A877C4';
 const expCat = () => { const c = G('tc-exp') ? 'tc-exp' : tcatNamed(/expedition/i); return c && trainCats().includes(c) ? c : null; };
 const mvCat = () => { const tc = typeof trainCats === 'function' ? trainCats() : []; const w = typeof woCat === 'function' ? woCat() : null;
-  return (tc.includes('tc-move') ? 'tc-move' : null) || tc.find((c) => c !== w && c !== recCat() && c !== 'tc-exp') || null; };
+  return (tc.includes('tc-move') ? 'tc-move' : null) || tc.find((c) => c !== w && c !== 'tc-exp') || null; };
 const recs = () => (M.recov = M.recov || {});
 const recOf = (d) => (M.recov || {})[d] || null;
-const recItems = () => (recCat() ? kidsOf(recCat()) : []);
+// the generic Movement item: a generic training item that isn't the Workout one
+const mvGen = () => Object.keys(M.items).find((k) => { const it = I(k); return it.type === 'slot' && (it.opens === 'training' || it.opens === 'move') && !(it.tcat && it.tcat === woCat()) && placements(k).some((p) => G(p) && G(p).style === 'dayblock'); }) || null;
 const stSet = () => Object.assign({ wo: 3, ex: 2 }, (M.settings || {}).streak || {});
 const catDone = (c, d) => !!c && kidsOf(c).some((k) => isDone(k, d));
 const mvDone = (d) => trainCats().filter((c) => c !== woCat()).some((c) => catDone(c, d));
@@ -6256,7 +6263,7 @@ function srFirst() { if (WKC.has('_srfirst')) return WKC.get('_srfirst'); const 
   const f = Object.keys(M.log || {}).filter((d) => /^\d{4}-\d\d-\d\d$/.test(d)).sort().find((d) => Object.keys(M.log[d] || {}).some((k) => ks.has(k) && isDone(k, d))) || T0;
   WKC.set('_srfirst', f); return f; }
 function srMove(d, f, C) { if (d < f) return { s: 'none' };
-  if (mvDone(d)) return { s: 'done', c: recOf(d) || catDone(recCat(), d) ? C.rec : C.mv };
+  if (mvDone(d)) return { s: 'done', c: recOf(d) ? C.rec : C.mv };
   if (catDone(woCat(), d)) return { s: 'kept', c: C.wo };
   return d === T0 ? { s: 'wait' } : { s: 'miss' }; }
 function srNeed(n, d, wo) { if (!wo) return n; const m = weekStart(d); let r = 0; for (let i = 0; i < 7; i++) if (recOf(addDays(m, i))) r++; return Math.max(0, n - r); }
@@ -6271,7 +6278,7 @@ function srFreq(c, n, d, f, wo, col, C) { if (d < f) return { s: 'none' };
   return { s: 'skip' }; }
 function srStreak(fn, f) { let n = 0, d = T0; if (fn(d).s === 'wait') d = addDays(d, -1);
   while (d >= f && n < 3660) { const s = fn(d).s; if (s !== 'done' && s !== 'kept') break; n++; d = addDays(d, -1); } return n; }
-function srTrackers() { const C = { mv: srCol(mvCat(), '#7DBE9A'), wo: srCol(woCat(), '#3FAFA6'), rec: srCol(recCat(), '#A877C4'), ex: srCol(expCat(), '#6FA24A') }; const f = srFirst(), S2 = stSet(); const out = [];
+function srTrackers() { const C = { mv: srCol(mvCat(), '#7DBE9A'), wo: srCol(woCat(), '#3FAFA6'), rec: recCol(), ex: srCol(expCat(), '#6FA24A') }; const f = srFirst(), S2 = stSet(); const out = [];
   if (mvCat()) out.push({ id: 'mv', cat: mvCat(), name: 'Movement', col: C.mv, fn: (d) => srMove(d, f, C) });
   if (woCat()) out.push({ id: 'wo', cat: woCat(), name: 'Workouts', col: C.wo, n: S2.wo, wo: true, fn: (d) => srFreq(woCat(), S2.wo, d, f, true, C.wo, C) });
   if (expOn() && expCat()) out.push({ id: 'ex', cat: expCat(), name: 'Expedition', col: C.ex, n: S2.ex, fn: (d) => srFreq(expCat(), S2.ex, d, f, false, C.ex, C) });
@@ -6283,6 +6290,7 @@ function streakRows() {
   const start = addDays(T0, -13);
   let h = '<div class="srs">';
   list.forEach((t) => { const n = srStreak(t.fn, f); let wk = '';
+    if (t.n == null) { const m = weekStart(T0); let c = 0; for (let x = m; x <= T0; x = addDays(x, 1)) { const st = t.fn(x).s; if (st === 'done' || st === 'kept') c++; } wk = `${c} of 7`; }
     if (t.n != null) { const m = weekStart(T0), need = srNeed(t.n, T0, t.wo), c = srCount(t.cat, m); wk = c >= need ? `${c} of ${need} · kept` : `${c} of ${need}`; }
     h += `<div class="sr" style="--c:${t.col}"><div class="srh"><span class="srsq"></span><span class="srn">${esc(t.name)}</span><span class="srw">${wk}</span><span class="srnum">${n}<small>${n === 1 ? 'day' : 'days'}</small></span></div><div class="srg" role="img" aria-label="${esc(t.name)}, last 14 days, streak ${n} ${n === 1 ? 'day' : 'days'}">`;
     for (let i = 0; i < 14; i++) { const d = addDays(start, i), x = t.fn(d); h += `<span class="srm ${x.s}${i === 6 ? ' srwk' : ''}"${x.c ? ` style="--c:${x.c};--cf:${SR_FADE(x.c)}"` : ''}><i></i></span>`; }
@@ -6292,40 +6300,38 @@ function streakRows() {
   return h + '</div>'; }
 // edit mode: the tracker colours (their categories' colours, the same on Today, the Schedule and the calendar) and the weekly numbers
 function streakEdit() {
-  const cats = [[mvCat(), 'Movement'], [woCat(), 'Workouts'], [recCat(), 'Recovery'], [expOn() ? expCat() : null, 'Expedition training']].filter((x) => x[0]);
+  const cats = [[mvCat(), 'Movement'], [woCat(), 'Workouts'], ['rc:rec', 'Recovery'], [expOn() ? expCat() : null, 'Expedition training']].filter((x) => x[0]);
   const step = (k, l) => `<div class="srstep"><span class="l">${l}</span><button class="btn" data-a="srn" data-ref="${k}" data-v="-1" aria-label="One less">−</button><span class="srv">${stSet()[k]}</span><button class="btn" data-a="srn" data-ref="${k}" data-v="1" aria-label="One more">+</button></div>`;
-  return `<div style="margin-top:14px">${lcard(null, 'Streaks', '', cats.map(([c, l]) => `<button class="srcol" data-col="${c}" aria-label="Change the ${esc(l)} colour"><span class="srsq" style="--c:${G(c).color || grpCol(c)}"></span><span class="l">${esc(l)}</span><span class="srch">Colour</span></button>`).join('') + step('wo', 'Workouts a week') + (expOn() && expCat() ? step('ex', 'Expedition training a week') : ''))}</div>`; }
+  return `<div style="margin-top:14px">${lcard(null, 'Streaks', '', cats.map(([c, l]) => `<button class="srcol" data-col="${c}" aria-label="Change the ${esc(l)} colour"><span class="srsq" style="--c:${c === 'rc:rec' ? recCol() : G(c).color || grpCol(c)}"></span><span class="l">${esc(l)}</span><span class="srch">Colour</span></button>`).join('') + step('wo', 'Workouts a week') + (expOn() && expCat() ? step('ex', 'Expedition training a week') : ''))}</div>`; }
 
 // RECOVERY DAY: on a day with a workout, if something hurts, the workout comes off and a recovery session takes its place
 const recWoToday = () => [...woIds()].filter((k) => onDay(k, T0) && !isDone(k, T0));
 const woGenOn = (id) => { const it = I(id); return !!it && it.type === 'slot' && !!it.tcat && it.tcat === woCat(); };
-function recBtn(id, d) { if (S.edit || d !== T0 || !recCat() || !recItems().length || recOf(T0) || isBad(T0) || isDone(id, d)) return '';
+function recBtn(id, d) { if (S.edit || d !== T0 || recOf(T0) || isBad(T0) || isDone(id, d)) return '';
   if (!(woIds().has(id) || woGenOn(id)) || !onDay(id, T0)) return ''; return `<button class="wgo wgot wrec" data-a="recopen" data-ref="${id}">Recovery</button>`; }
-// Today: the generic Workout item becomes the recovery session (the workout itself is already off the day, see woSim)
-function recSwap(out, d) { const r = recOf(d); if (!r) return; const rid = r.item && I(r.item) ? r.item : recItems()[0]; if (!rid) return;
-  let put = out.some((x) => x.items.includes(rid));
+// Today: the workout is already off the day (see woSim); the generic Workout item gives way to the generic Movement item, so the day asks for movement
+function recSwap(out, d) { if (!recOf(d)) return; const rid = mvGen();
+  let put = !rid || out.some((x) => x.items.includes(rid));
   out.forEach((x) => { x.items = x.items.flatMap((id) => { if (!woGenOn(id) && !(woIds().has(id) && !isDone(id, d))) return [id]; if (put) return []; put = true; return [rid]; }); });
   if (put) return;
-  // the workout sat in a day block itself: the recovery session takes its spot there
+  // the workout sat in a day block itself: the Movement item takes its spot there
   const w = [...woIds()].find((k) => onDayBase(k, d)); const wb = w ? placements(w).find((p) => G(p) && G(p).style === 'dayblock') : null; const x = wb && out.find((z) => z.b === wb);
   if (x) { const ord = G(wb).kids; const at = x.items.findIndex((k) => ord.indexOf(k) > ord.indexOf(w)); if (at < 0) x.items.push(rid); else x.items.splice(at, 0, rid); return; }
-  const b = typeof defBlock === 'function' ? defBlock('training') : null; const y = out.find((z) => z.b === b) || out[0]; if (y) y.items.push(rid); }
+  const y = out.find((z) => G(rid) ? false : placements(rid).includes(z.b)) || out[0]; if (y) y.items.push(rid); }
 function recSheet(s) { const D = s.draft; const chip = (act, v, l, on, c) => `<button class="chip" data-a="${act}" data-v="${v}" aria-pressed="${!!on}">${c ? `<span class="srdot" style="background:${c}"></span>` : ''}${esc(l)}</button>`;
   const aches = G('hg-aches') ? kidsOf('hg-aches') : []; const conds = typeof condsOn === 'function' ? condsOn(T0) : [];
-  return `<p class="sub" style="margin:0 0 4px">${D.woName ? esc(D.woName) + ' comes off today. ' : ''}I'll do gentle movement instead, and my workout streak holds.</p>
+  return `<p class="sub" style="margin:0 0 4px">${D.woName ? esc(D.woName) + ' comes off today. ' : ''}Any movement counts instead, and my workout streak holds.</p>
     <div class="fld"><span class="mono">What hurts</span><div class="chips">${aches.map((k) => chip('rechurt', k, I(k).name, D.hurt.includes(k), grpCol('hg-aches'))).join('')}${conds.map((x) => chip('rechurt', 'c:' + x.id, x.name + ' · day ' + (diff(x.start, T0) + 1), D.hurt.includes('c:' + x.id), condCol())).join('')}</div></div>
-    <div class="fld"><span class="mono">Instead</span><div class="chips">${recItems().map((k) => chip('recitem', k, I(k).name, D.item === k, srCol(recCat(), '#A877C4'))).join('')}</div></div>
     <div class="fld"><span class="mono">The workout</span><div class="chips">${chip('recmode', 'drop', 'Let it go this week', D.drop)}${chip('recmode', 'move', 'Move it to tomorrow', !D.drop)}</div>
       <span class="sub">${D.drop ? `This week needs ${Math.max(0, stSet().wo - 1)} instead of ${stSet().wo}.` : 'It comes back tomorrow, first in line.'}</span></div>
     <div class="srbtns"><button class="btn" data-a="${s.isNew ? 'closesheet' : 'recundo'}">${s.isNew ? 'Cancel' : 'Back to the workout'}</button><button class="btn dark" data-a="recsave">${s.isNew ? 'Make it a recovery day' : 'Save'}</button></div>`; }
 function streakAction(act, a, ref, v) {
   switch (act) {
     case 'recopen': { const r = recOf(T0); const ws = recWoToday(); const nm = r ? r.woName : ws.length ? ws.map((k) => I(k).name).join(', ') : (I(ref) && I(ref).name) || '';
-      openSheet({ kind: 'recov', isNew: !r, title: 'Recovery day', draft: r ? Object.assign({ hurt: [] }, JSON.parse(JSON.stringify(r))) : { woName: nm, hurt: [], item: recItems()[0], drop: true } }); return true; }
+      openSheet({ kind: 'recov', isNew: !r, title: 'Recovery day', draft: r ? Object.assign({ hurt: [] }, JSON.parse(JSON.stringify(r))) : { woName: nm, hurt: [], drop: true } }); return true; }
     case 'rechurt': { const D = S.sheet.draft; D.hurt = D.hurt.includes(v) ? D.hurt.filter((x) => x !== v) : D.hurt.concat(v); renderLayer(); return true; }
-    case 'recitem': S.sheet.draft.item = v; renderLayer(); return true;
     case 'recmode': S.sheet.draft.drop = v === 'drop'; renderLayer(); return true;
-    case 'recsave': { const D = S.sheet.draft; S.sheet = null; change(() => { recs()[T0] = { woName: D.woName || '', hurt: D.hurt, item: D.item, drop: !!D.drop }; }, 'Recovery day'); render(); return true; }
+    case 'recsave': { const D = S.sheet.draft; S.sheet = null; change(() => { recs()[T0] = { woName: D.woName || '', hurt: D.hurt, drop: !!D.drop }; }, 'Recovery day'); render(); return true; }
     case 'recundo': { S.sheet = null; change(() => { delete recs()[T0]; }, 'Back to the workout'); render(); return true; }
     case 'srn': { change(() => { M.settings.streak = Object.assign(stSet(), { [ref]: Math.max(1, Math.min(7, stSet()[ref] + Number(v))) }); }); render(); return true; }
   }
@@ -6342,8 +6348,8 @@ const dayDotHtml = (k, big) => `<i class="dd" style="width:${big ? DOT_LG : DOT_
 // ---------- calendar settings (2026-11-06): one menu in edit mode for every calendar ----------
 // Each calendar picks which lines and condition lines it shows.
 const CAL_LIST = [['plan', 'Today'], ['sched', 'Schedule'], ['train', 'Training'], ['food', 'Meal plan']];
-const CAL_DOTS = [['appts', 'Plans', 'Coming days, in the category colour'], ['dl', 'Study deadlines', 'Coming days'], ['study', 'Studies', 'Days I studied, one line per subject'], ['home', 'Home', 'Chores, homemaking and cooking done, or one-offs planned'], ['train', 'Training', 'Planned, not yet done'], ['extras', 'Meal-plan extras', 'Days with an extra switched on']];
-const CAL_DEF = { plan: { appts: 1, dl: 1, gen: 1, fit: 1, away: 1 }, sched: { appts: 1, dl: 1, away: 1 }, train: { train: 1, fit: 1, away: 1 }, food: { extras: 1, away: 1 } };
+const CAL_DOTS = [['appts', 'Plans', 'Coming days, in the category colour'], ['dl', 'Study deadlines', 'Coming days'], ['study', 'Studies', 'Days I studied, one line per subject'], ['home', 'Home', 'Chores, homemaking and cooking done, or one-offs planned'], ['tmv', 'Movement', 'Planned, not yet done'], ['two', 'Workouts', 'Planned, not yet done'], ['tex', 'Expedition training', 'Planned, not yet done'], ['extras', 'Meal-plan extras', 'Days with an extra switched on']];
+const CAL_DEF = { plan: { appts: 1, dl: 1, gen: 1, fit: 1, away: 1, tmv: 1, two: 1, tex: 1 }, sched: { appts: 1, dl: 1, away: 1, tmv: 1, two: 1, tex: 1 }, train: { tmv: 1, two: 1, tex: 1, fit: 1, away: 1 }, food: { extras: 1, away: 1 } };
 const calOn = (k, f) => { const o = ((M.settings || {}).calShow || {})[k] || {}; return f in o ? !!o[f] : !!(CAL_DEF[k] || {})[f]; };
 function calDots(k, d) { const out = [];
   if (calOn(k, 'appts') && d > T0) [...new Set(apptsOn(d).map((id) => catOf(id)))].forEach((c) => G(c) && out.push(G(c).color));
@@ -6352,7 +6358,11 @@ function calDots(k, d) { const out = [];
   if (calOn(k, 'home')) { const hc = (M.areas.home || {}).color || '#EDBB3A'; const sec = [[roomIds().flatMap(kidsOf).concat(kidsOf('g-oneoff')), hc], [kidsOf('g-tend'), (G('g-tend') || {}).color || hc], [kidsOf('g-prep'), (G('g-prep') || {}).color || hc]];
     sec.forEach(([ks, col]) => { if (d <= T0 ? ks.some((x) => isDone(x, d)) : ks.some((x) => ((I(x) || {}).when || {}).mode === 'once' && I(x).when.date === d && !everDone(x))) out.push(col); }); }
   // training lines only show what's planned and not done yet (the owner, 2026-11-24)
-  if (calOn(k, 'train') && d >= T0) trainCats().filter((c) => G(c) && kidsOf(c).some((x) => onDay(x, d) && !isDone(x, d))).forEach((c) => out.push(G(c).color));
+  // one line each for Movement, Workouts and Expedition training, in their own colours, on every calendar (the owner, 2026-11-26)
+  if (d >= T0 && typeof mvCat === 'function') { const due = (c) => G(c) && kidsOf(c).some((x) => onDay(x, d) && !isDone(x, d)); const w = woCat(), e = expCat();
+    if (calOn(k, 'tmv') && mvCat() && trainCats().some((c) => c !== w && c !== e && due(c))) out.push(G(mvCat()).color || '#7DBE9A');
+    if (calOn(k, 'two') && w && !recOf(d) && due(w)) out.push(G(w).color || '#3FAFA6');
+    if (calOn(k, 'tex') && e && due(e)) out.push(G(e).color || '#6FA24A'); }
   if (calOn(k, 'extras')) dayExtras(d).forEach((x) => out.push(xcol(x)));
   return out.slice(0, 4); } // up to four short lines beside the date, stacked from the top (2026-11-23)
 const calDotsHtml = (k, d) => { const c = calDots(k, d); return c.length ? `<span class="cdots" aria-hidden="true">${c.map((x) => `<i style="background:${x}"></i>`).join('')}</span>` : ''; };

@@ -15,9 +15,14 @@ function tMigrate(m) {
   if (!m.settings.conds2) { m.settings.conds2 = true; (m.conds || []).forEach((x) => { if (x.id === 'cs-shin' || x.id === 'cs-knee') x.fit = true; }); }
   // every training item is persistent, like hobby activities: a one-off session stays after its tick (the owner, 2026-11-24)
   if (!m.settings.trpersist1 && m.groups['g-train']) { m.settings.trpersist1 = true; m.groups['g-train'].kids.forEach((c) => ((m.groups[c] || {}).kids || []).forEach((k) => { const it = m.items[k]; if (it && it.type === 'task' && (!it.when || it.when.mode === 'once')) it.persist = true; })); }
-  // RECOVERY (the owner, 2026-11-26): its own category and colour; a recovery day swaps the day's workout for gentle movement
-  if (!m.settings.rec1 && m.groups['g-train']) { m.settings.rec1 = true; if (!m.groups['tc-rec']) { m.groups['tc-rec'] = { name: 'Recovery', style: 'tcat', holds: 'task', color: '#A877C4', icon: 'heart-pulse', kids: [] }; m.groups['g-train'].kids.push('tc-rec'); }
-    if (!m.items['tr-gentle']) { m.items['tr-gentle'] = { name: 'Gentle movement', type: 'task', made: T0, tags: [], insight: true, kind: 'behaviour', dur: 30, persist: true, when: { mode: 'once', date: null }, icon: 'heart-pulse' }; m.groups['tc-rec'].kids.push('tr-gentle'); } }
+  // RECOVERY has no list of its own any more (the owner, 2026-11-26): Movement items count on a recovery day. The Recovery category
+  // from the first build goes; its colour stays as the recovery colour, sessions I added move to Movement, the unused starter goes
+  if (!m.settings.rec2) { m.settings.rec2 = true; const g = m.groups['tc-rec'];
+    if (g) { if (g.color && g.color.toLowerCase() !== '#a877c4') m.settings.recCol = g.color; const mv = m.groups['tc-move'] ? 'tc-move' : (m.groups['g-train'] || { kids: [] }).kids.find((c) => c !== 'tc-rec' && c !== 'tc-work' && c !== 'tc-exp');
+      (g.kids || []).forEach((k) => { const used = Object.values(m.log || {}).some((L) => L && L[k]);
+        if (k === 'tr-gentle' && !used) { Object.values(m.groups).forEach((x) => { x.kids = (x.kids || []).filter((y) => y !== k); }); delete m.items[k]; return; }
+        if (mv && m.groups[mv] && !m.groups[mv].kids.includes(k)) m.groups[mv].kids.push(k); });
+      delete m.groups['tc-rec']; Object.values(m.groups).forEach((x) => { x.kids = (x.kids || []).filter((y) => y !== 'tc-rec'); }); } }
   if (m.settings.train1) return; m.settings.train1 = true; const ex = !!m.example; m.log = m.log || {};
   m.groups['g-train'] = m.groups['g-train'] || { name: 'Training', holds: 'tcats', kids: [] };
   TCATS.forEach(([id, name, color, ic]) => { if (!m.groups[id]) { m.groups[id] = { name, style: 'tcat', holds: 'task', color, icon: ic, kids: [] }; m.groups['g-train'].kids.push(id); } });
