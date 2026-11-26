@@ -737,7 +737,9 @@ function renderToday() {
     // the day just got completed by a tick: confetti from that row, and the day's mark flies up to the calendar (2026-11-09)
     { const s0 = M.snap[T0]; const comp = s0.bad ? s0.bdue > 0 && s0.bdone >= s0.bdue : s0.due > 0 && s0.done >= s0.due; if (comp && S.dayComp === false && lastTick && Date.now() - lastTick.t < 2000) requestAnimationFrame(() => celebrate(s0.bad ? 'bad' : 'plan')); S.dayComp = comp; } }
   const bad = isBad(d) && d >= T0;
-  const badCard = () => { const g = G('g-bad'); if (!g) return ''; const bl = badList(); const shownB = live && !S.edit ? bl.filter((id) => !isDone(id, d)) : bl;
+  const badCard = () => { const g = G('g-bad'); if (!g) return ''; const bl = badList();
+    // outside edit mode the list runs in the Schedule's order for that day (the owner, 2026-11-26)
+    if (!S.edit) { const PD = placeDay(d), at = {}; PD.forEach((o, i) => { if (at[o.id] == null) at[o.id] = [o.a, i]; }); const ix = (id) => at[id] || [1e9, 1e9]; bl.sort((p, q) => ix(p)[0] - ix(q)[0] || ix(p)[1] - ix(q)[1]); } const shownB = live && !S.edit ? bl.filter((id) => !isDone(id, d)) : bl;
     if (!S.edit && !shownB.length) return bl.length ? '' : `<p class="empty">Nothing on my bad day list yet.</p>`;
     return `<section class="card badcard" data-ref="g-bad"><div class="bhead">${S.edit ? `<span class="circ" style="--c:${g.color};width:14px;height:14px;background:${g.color}" data-col="g-bad" role="button" aria-label="Change colour"></span><span class="nm mono" style="font-size:11px;flex:1">${nm('g-bad', g.name)}</span>` : `<span class="nm mono" style="flex:1">${esc(g.name)}</span>`}<span class="cnt">${bl.filter((id) => !isDone(id, d)).length} left</span></div>
       <div class="list" data-list="g-bad">${shownB.map((id) => itemRow(id, 'g-bad', d)).join('')}${S.edit ? `<button class="addrow" data-a="addtask" data-in="g-bad"><span class="plus">+</span>Add to ${esc(g.name)}</button><button class="addrow" data-a="badpick"><span class="plus">+</span>Add one of my items</button>` : ''}</div></section>`; };
