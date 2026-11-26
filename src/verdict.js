@@ -211,7 +211,7 @@ function jobRow(j, place, plain) { const it = I(j.id); const late = j.left < 0;
   // Patch 2 (the owner, 2026-11-24): no tick box; a tap opens the logging pop-up, editing only in edit mode
   if (!plain) return jobRow(j, place + (isDone(j.id, T0) ? ' · done today' : ''), true);
   const unit = late ? (j.left === -1 ? 'day overdue' : 'days overdue') : j.left === 1 ? 'day left' : 'days left';
-  return `<button class="vjob" data-a="vjob" data-ref="${j.id}"><span class="vjh"><span class="vjt"><b>${inm(it)}</b></span><span class="vbig">${!j.last ? 'Not done yet' : `<em ${late ? 'class="late"' : ''}>${Math.abs(j.left)}</em> ${unit}`}</span></span><span class="mono vjm">${esc(place)}</span>${it.detail ? `<span class="vjd">${esc(it.detail)}</span>` : ''}${segBar(jobSegs(j))}</button>`; }
+  return `<button class="vjob" data-a="vjob" data-ref="${j.id}"><span class="vjh"><span class="vjt"><b>${inm(it)}</b></span><span class="vbig">${!j.last ? 'Not done yet' : `<em ${late ? 'class="late"' : ''}>${Math.abs(j.left)}</em> ${unit}`}</span></span><span class="mono vjm">${esc(place)}</span>${segBar(jobSegs(j))}</button>`; }
 // tick: the subject page's version, with a circle on the left in the urgency bar's colour; the rest of the card opens the timer (2026-11-04)
 function taskRow(t, tick) { const it = I(t.id);
   // Patch 2 (the owner, 2026-11-24): no tick box or timer icon; a tap opens the logging pop-up, which can start study mode
@@ -516,7 +516,7 @@ function vMenu() {
 // ---------- sheets ----------
 function vSheet(s) {
   if (s.kind === 'vwhen') { const it = I(s.ref); const f = freshOf(s.ref); const dn = isDone(s.ref, T0);
-    return `<p class="note" style="font-size:14px;margin-top:-6px">${esc(whenText(it))}${f.last ? ' · last done ' + lowDay(f.last) : ' · not done yet'}</p>${it.detail ? `<p class="vjd vjds">${esc(it.detail)}</p>` : ''}
+    return `<p class="note" style="font-size:14px;margin-top:-6px">${esc(whenText(it))}${f.last ? ' · last done ' + lowDay(f.last) : ' · not done yet'}</p>
       ${whenDidI()}
       ${dn ? '<div class="btns"><button class="btn" data-a="vunlog">Untick today</button></div>' : ''}`; } // editing only in edit mode (2026-11-24)
   if (s.kind === 'vtlog') { const t = I(s.ref); const dn = !!val(T0, s.ref); const sj = subjIds().find((x) => sIds(x).includes(s.ref));
