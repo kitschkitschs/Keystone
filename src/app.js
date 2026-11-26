@@ -316,8 +316,34 @@ function skipList() { const stop = M.settings.skipAsk || ''; const out = []; for
 const foodPend = () => ((M.settings || {}).foodPend || []).filter((x) => !(M.foodMark || {})[x]);
 function skipCheck() { if (S.sheet || S.edit) return; if (skipList().length || foodPend().length) openSheet({ kind: 'skipped', title: 'Welcome back' }); else if (!M.settings.skipAsk || M.settings.skipAsk < addDays(T0, -1)) { M.settings.skipAsk = addDays(T0, -1); save(); } }
 const badList = () => ((G('g-bad') || {}).kids || []).filter((id) => I(id));
+// add things I already have to the Bad day list, picked rather than typed again (the owner, 2026-11-26). One item, shared:
+// ticking it on a bad day ticks it everywhere. Grouped by area; things that live only on the Bad day list stay out (their × removes them).
+function badPickAll() { const on = new Set(badList()); const AR = M.areas || {}; const an = (k, f) => (AR[k] || {}).name || f;
+  const SEC = { study: ['study', 'Studies'], chores: ['home', 'Home'], homemaking: ['home', 'Home'], cooking: ['home', 'Home'], training: ['health', 'Training'] };
+  const top = (g) => { let c = g, n = 0; while (parentGrp(c) && n++ < 9) c = parentGrp(c); return c; };
+  return Object.keys(M.items).map((k) => { const it = I(k); if (!it || it.arch || !['task', 'routine', 'checkin', 'slot'].includes(it.type) || it.part || it.brk) return null;
+    if (it.type === 'task' && !repeatable(it) && !it.persist && everDone(k) && !on.has(k)) return null;
+    const pl = placements(k).filter((p) => p !== 'g-bad'); if (!pl.length) return null;
+    if (pl.some((p) => G(p) && G(p).style === 'project')) return null; // hobby project tasks stay in their project, as in routines
+    const sec = itemSec(k); let area, where;
+    const own = pl.find((p) => !p.startsWith('s:') && G(p) && G(p).style !== 'dayblock' && top(p) !== 'g-slots');
+    if (sec && SEC[sec]) { area = sec === 'training' ? 'Training' : an(SEC[sec][0], SEC[sec][1]); }
+    else if (own && top(own) === 'g-hobbies') area = an('hobbies', 'Hobbies');
+    else if (own && top(own) === 'g-health') area = an('health', 'Health');
+    else area = an('plan', 'Planner');
+    if (own) where = G(own).name; else { const p = pl[0]; where = p.startsWith('s:') ? (I(p.slice(2)) || {}).name || '' : (G(p) || {}).name || ''; }
+    return { k, area, where, on: on.has(k) }; }).filter(Boolean); }
+function badPickUI(s) { const q = (s.q || '').trim().toLowerCase(); const all = badPickAll().filter((x) => !q || (I(x.k).name || '').toLowerCase().includes(q));
+  const order = []; all.forEach((x) => { if (!order.includes(x.area)) order.push(x.area); });
+  const AR = M.areas || {}; const rank = (n) => { const i = (M.areaOrder || []).findIndex((a) => (AR[a] || {}).name === n); return n === 'Training' ? (M.areaOrder || []).indexOf('health') + 0.5 : i < 0 ? 99 : i; };
+  order.sort((a, b) => rank(a) - rank(b));
+  const row = (x) => `<button class="arow" data-a="badtog" data-ref="${x.k}" aria-pressed="${x.on}" style="text-align:left;width:100%"><span class="an">${inm(x.k)}<span class="sub">${esc(x.where)}</span></span><span class="circ${x.on ? ' done' : ''}" style="--c:${colorOf(x.k)};width:20px;height:20px" aria-hidden="true"></span></button>`;
+  let h = `<input class="inp" id="badq" placeholder="Search my items" value="${esc(s.q || '')}" autocomplete="off" enterkeyhint="search">`;
+  if (!all.length) return h + `<p class="empty">${q ? 'Nothing by that name.' : 'Nothing to add yet.'}</p>`;
+  return h + order.map((n) => `<div class="fld"><span class="mono">${esc(n)}</span><div class="afind" style="margin-top:0">${all.filter((x) => x.area === n).sort((a, b) => (I(a.k).name || '').localeCompare(I(b.k).name || '')).map(row).join('')}</div></div>`).join(''); }
 // what a bad day moves on: the day as it would be on Today (generic items give way to specific ones), without breaks or doubles (the owner, 2026-11-24)
-const badMoved = (d) => { const seen = new Set(); return slotDrop(dayListRaw(d, true), d).flatMap((x) => x.items.map((id) => ({ id, b: x.b }))).filter((o) => { const it = I(o.id); if (!it || it.type === 'checkin' || it.brk || seen.has(o.id)) return false; seen.add(o.id); return true; }); };
+// things that are on the Bad day list too stay there, not under Rescheduled as well (2026-11-26)
+const badMoved = (d) => { const seen = new Set(badList()); return slotDrop(dayListRaw(d, true), d).flatMap((x) => x.items.map((id) => ({ id, b: x.b }))).filter((o) => { const it = I(o.id); if (!it || it.type === 'checkin' || it.brk || seen.has(o.id)) return false; seen.add(o.id); return true; }); };
 function dayList(d) { const out = dayListRaw(d); if (frozenOf(d)) return out;
   if (isBad(d)) { out.forEach((x) => { x.items = []; }); return out; }
   const run = []; for (let p = addDays(d, -1); run.length < 30 && isBad(p) && M.badDays[p] !== 'skip'; p = addDays(p, -1)) run.push(p); // a skipped day made bad excuses the day, its work doesn't pile onto today
@@ -714,7 +740,7 @@ function renderToday() {
   const badCard = () => { const g = G('g-bad'); if (!g) return ''; const bl = badList(); const shownB = live && !S.edit ? bl.filter((id) => !isDone(id, d)) : bl;
     if (!S.edit && !shownB.length) return bl.length ? '' : `<p class="empty">Nothing on my bad day list yet.</p>`;
     return `<section class="card badcard" data-ref="g-bad"><div class="bhead">${S.edit ? `<span class="circ" style="--c:${g.color};width:14px;height:14px;background:${g.color}" data-col="g-bad" role="button" aria-label="Change colour"></span><span class="nm mono" style="font-size:11px;flex:1">${nm('g-bad', g.name)}</span>` : `<span class="nm mono" style="flex:1">${esc(g.name)}</span>`}<span class="cnt">${bl.filter((id) => !isDone(id, d)).length} left</span></div>
-      <div class="list" data-list="g-bad">${shownB.map((id) => itemRow(id, 'g-bad', d)).join('')}${S.edit ? `<button class="addrow" data-a="addtask" data-in="g-bad"><span class="plus">+</span>Add to ${esc(g.name)}</button>` : ''}</div></section>`; };
+      <div class="list" data-list="g-bad">${shownB.map((id) => itemRow(id, 'g-bad', d)).join('')}${S.edit ? `<button class="addrow" data-a="addtask" data-in="g-bad"><span class="plus">+</span>Add to ${esc(g.name)}</button><button class="addrow" data-a="badpick"><span class="plus">+</span>Add one of my items</button>` : ''}</div></section>`; };
   let h = renderCal() + calEdit(); // the calendar stays in edit mode so calendar changes show live (2026-11-06)
   if (d > T0) h += `<div class="mono" style="margin:8px 2px">Coming up on ${fmtDate(d)}</div>`; // past days: the calendar shows the date (2026-11-08)
   if (d < T0 && !S.edit) return h + pastDay(d);
@@ -1112,7 +1138,7 @@ function renderLayer() { setTimeout(navTrack, 0);
   if (S.toast && S.sheet) { const hd = [...document.querySelectorAll('#layer > .scrim > .sheet > header, #layer > .cifull > header, #layer > .cifull .cihd')].pop(); if (hd) { const m = document.createElement('div'); m.className = 'shmsg'; m.setAttribute('role', 'alert'); m.textContent = S.toast.msg; hd.after(m); } }
   { const nt = document.getElementById('ntext'); if (nt) { nt.style.height = 'auto'; nt.style.height = Math.max(nt.scrollHeight, 224) + 'px'; } } // a long note opens at its full height, so the pop-up can scroll through it
   // the + sheet keeps the size it opened at while I search (2026-11-08)
-  if (S.sheet && S.sheet.kind === 'add') { const sh = [...document.querySelectorAll('#layer .sheet')].pop(); if (sh) { if (!(S.sheet.q || '').trim()) S.sheet.h = sh.offsetHeight; else if (S.sheet.h) sh.style.height = S.sheet.h + 'px'; } }
+  if (S.sheet && (S.sheet.kind === 'add' || S.sheet.kind === 'badpick')) { const sh = [...document.querySelectorAll('#layer .sheet')].pop(); if (sh) { if (!(S.sheet.q || '').trim()) S.sheet.h = sh.offsetHeight; else if (S.sheet.h) sh.style.height = S.sheet.h + 'px'; } }
 }
 function openSheet(s) { S.openAdd = null; S.tagEdit = false; if (!s.back && S.sheet && S.sheet.kind === 'checkin' && s.kind !== 'checkin') s.back = S.sheet; // anything I add from a check-in comes back to it (2026-11-10)
   if (s.kind === 'checkin' && !s.feel0) s.feel0 = (M.feel[T0] || []).slice(); S.sheet = s; S.menu = false; renderLayer(); const f = [...document.querySelectorAll('#layer [data-autofocus]')].pop(); if (f) f.focus(); }
@@ -1168,6 +1194,7 @@ function sheetBody() {
       ${g.style === 'acat' ? `<div class="fld"><span class="mono">Icon</span><div><button class="btn" data-a="iconfor" data-v="${s.ref}" style="display:inline-flex;gap:8px;align-items:center">${icon(g.icon || 'circle', 18)} Change icon</button></div></div>` : ''}`; }
   if (s.kind === 'area') { const a = M.areas[s.ref];
     return `<div class="fld"><span class="mono">Name</span><input class="inp" id="aname" value="${esc(a.name)}"></div><div class="fld"><span class="mono">Colour</span>${colorField('a:' + s.ref, a.color)}</div>`; }
+  if (s.kind === 'badpick') return badPickUI(s);
   if (s.kind === 'remove') { const pl = placements(s.ref);
     return `<p class="note" style="font-size:14px">“${inm(s.ref)}” is in ${pl.length} places: ${pl.map((p) => esc(placeName(p))).join(', ')}. It is one item, so its history is shared.</p><div class="btns"><button class="btn" data-a="rmhere">Remove from here</button><button class="btn danger" data-a="rmall">Delete everywhere</button></div>`; }
   if (s.kind === 'hyper') { const pk = hval(T0, 'pt:' + s.ref) || []; const c = hcolor(s.ref); const chip = ([h, l]) => `<button class="hchip" data-a="hpart" data-ref="${s.ref}" data-v="${esc(h)}" aria-pressed="${pk.includes(h)}" style="${pk.includes(h) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(l)}</button>`; const HB = hyperHobs(s.ref), DT = (I(s.ref).parts || []).map((w) => [w, w]); const hobOn = HB.some(([h]) => pk.includes(h));
@@ -1554,6 +1581,8 @@ document.addEventListener('click', (e) => {
     case 'rm': { const list = a.dataset.in; if (I(ref) && placements(ref).length > 1 && !list.startsWith('s:')) { openSheet({ kind: 'remove', ref, list, title: 'Remove' }); break; }
       if (list === 'g-blocks' && blockIds().length <= 1) { flash('Keep at least one day block'); break; }
       removeRef(ref, list, false); break; }
+    case 'badpick': openSheet({ kind: 'badpick', title: 'Add to ' + ((G('g-bad') || {}).name || 'Bad day') }); break;
+    case 'badtog': { const g = G('g-bad'); if (!g || !I(ref)) break; change(() => { const i = g.kids.indexOf(ref); if (i < 0) g.kids.push(ref); else g.kids.splice(i, 1); }); break; }
     case 'rmhere': { const s = S.sheet; S.sheet = null; removeRef(s.ref, s.list, false); break; }
     case 'rmall': { const s = S.sheet; S.sheet = null; removeRef(s.ref, s.list, true); break; }
     case 'addtask': { const id = uid('i'); change(() => { M.items[id] = { name: 'New task', type: 'task', when: { mode: 'once', date: T0 }, kind: 'behaviour', tags: [], insight: false, made: T0, dur: 30 }; G(a.dataset.in).kids.push(id); }); focusName(id); break; }
@@ -1674,6 +1703,7 @@ function tick(id) {
 }
 document.addEventListener('input', (e) => {
   if (e.target.id === 'iconq') { S.sheet.q = e.target.value; const pos = e.target.selectionStart; renderLayer(); const q = $('#iconq'); q.focus(); q.setSelectionRange(pos, pos); }
+  if (e.target.id === 'badq') { S.sheet.q = e.target.value; const pos = e.target.selectionStart; renderLayer(); const q = $('#badq'); q.focus(); q.setSelectionRange(pos, pos); }
   if (e.target.id === 'addq') { S.sheet.q = e.target.value; const pos = e.target.selectionStart; renderLayer(); const q = $('#addq'); q.focus(); q.setSelectionRange(pos, pos); }
   if (e.target.id === 'cust') $('#hex').value = e.target.value;
 });
