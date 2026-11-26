@@ -1306,7 +1306,6 @@ function sheetBody() {
     else { if (s.from) lines.push(['Time', fmtHM(+s.from) + '–' + fmtHM(+s.to) + (it.time ? '' : ' · fills its block')]); if (it.type !== 'checkin') lines.push(['Day block', G(blockOfItem(s.ref)).name]); const wt = whenText(it); if (wt) lines.push(['Repeats', wt]);
       if (it.type === 'routine') lines.push(['Steps', rSteps(s.ref, d).map((x) => (sVal(s.ref, x, d) ? '✓ ' : stepMissed(x, d, s.ref) ? '✕ ' : '') + I(x).name + (I(x).optional ? ' (optional)' : '')).join(', ')]); }
     if (it.note) lines.push(['Note', it.note]);
-    if (it.detail) lines.push(['Details', it.detail]);
     lines.push(['Status', done ? (String(val(d, s.ref)).startsWith('much') ? 'Too much' : 'Done') : d < T0 ? 'Not done' : d === T0 ? 'Not done yet' : 'Coming up']);
     return `<dl class="peek">${lines.map(([k, v]) => `<dt class="mono">${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>${it.brk && d >= T0 ? brkDayUI(s.ref, d) : ''}
       <div class="btns">${d === T0 && it.type !== 'checkin' && it.type !== 'routine' ? `<button class="btn dark" data-a="peektick">${it.type === 'slot' ? 'Open ' + (it.opens === 'study' ? 'Study' : it.opens === 'training' ? 'Training' : it.opens === 'hobbies' ? 'Hobbies' : 'Chores') : done ? 'Untick' : 'Tick as done'}</button>` : ''}${d <= T0 && !done && it.type !== 'checkin' ? `<button class="btn" data-a="miss" data-ref="${s.ref}" data-d="${d}">Missed</button>` : ''}<button class="btn" data-a="peekedit">Edit</button></div>`; }
@@ -1408,9 +1407,7 @@ function itemSheet(s) {
   if (s.quick && areaItem(s.ref)) return `<div class="qhead"><p class="note">${esc(D.name)}<span style="display:block;font-size:13px;color:var(--quiet)">${esc(areaItem(s.ref))}${whenText(D) ? ' · ' + esc(whenText(D)) : ''}</span></p>${isStudyItem(s, D) ? estIn(D) : ''}</div>` + schedUI(s, D) + (s.ref && I(s.ref) ? whenDidI() : '') + `<div class="btns"><button class="btn" data-a="dmore">More settings</button></div>`;
   if (s.quick) return `<div class="qhead"><p class="note">${esc(D.name)}</p>${isStudyItem(s, D) ? estIn(D) : ''}</div>` + schedUI(s, D) + (isPrep(s) ? subField(s) : '') + (s.ref && I(s.ref) && !s.isNew ? whenDidI() : '') + `<div class="btns"><button class="btn" data-a="dmore">More settings</button></div>`;
   let h = `<div class="fld"><span class="mono">Name</span>${D.type !== 'appt' && D.type !== 'checkin' && D.type !== 'step' && (D.est != null || isStudyItem(s, D)) ? `<div class="inrow"><input class="inp" id="dname" value="${esc(D.name)}" ${s.isNew ? 'data-autofocus' : ''}>${estIn(D)}</div>` : `<input class="inp" id="dname" value="${esc(D.name)}" ${s.isNew ? 'data-autofocus' : ''}>`}</div>`;
-  // Home items (homemaking, chores, cooking) can carry a longer detail text, shown quietly under them (the owner, 2026-11-26)
-  if (isHomeSheet(s)) h += `<div class="fld"><span class="mono">Details</span><textarea class="inp" id="ddetail" rows="3" placeholder="What I want to remember about it">${esc(D.detail || '')}</textarea></div>`;
-  if (isHobAct(s) || (s.ref && I(s.ref) && I(s.ref).wo)) h += `<div class="fld"><span class="mono">Details</span><input class="inp" id="dextra" value="${esc(D.extra || '')}" maxlength="40"></div>`; // small grey caps beside the name (the owner, 2026-11-12)
+  if (isHobAct(s) || isHomeSheet(s) || (s.ref && I(s.ref) && I(s.ref).wo)) h += `<div class="fld"><span class="mono">Details</span><input class="inp" id="dextra" value="${esc(D.extra || '')}" maxlength="40"></div>`; // small grey caps beside the name (the owner, 2026-11-12)
   if (D.type === 'appt') {
     h += `<div class="fld"><span class="mono">When</span><input class="inp" type="date" id="ddate" value="${D.date || T0}"><div class="inrow" style="margin-top:8px;align-items:center"><input class="inp" type="time" id="dtime" value="${D.time || ''}" aria-label="From" style="flex:1;min-width:0"><span class="mono" aria-hidden="true">–</span><input class="inp" type="time" id="dend" value="${apEnd(D)}" aria-label="Until" style="flex:1;min-width:0"></div></div>
       ${freqUI(s, D)}
@@ -1496,7 +1493,6 @@ function capture() { const s = S.sheet; if (!s || s.kind !== 'item') return; con
   if (g('dn') && D.when) D.when.n = Math.max(1, parseInt(g('dn').value) || 1);
   if (g('dtime')) { if (g('dtime').value) D.time = g('dtime').value; else delete D.time; }
   if (g('dnote')) D.note = g('dnote').value.trim();
-  if (g('ddetail')) { const t = g('ddetail').value.trim(); if (t) D.detail = t; else delete D.detail; }
   if (g('drepn') && D.rep) D.rep.n = Math.max(1, parseInt(g('drepn').value) || 1);
   if (g('dtwo') && D.two) { const n = parseFloat(g('dtwo').value.replace(',', '.')); D.two = n > 0 ? n : 2; }
   if (g('dend')) { const e = g('dend').value; if (D.time && e) { let m = hm(e) - hm(D.time); if (m <= 0) m += 1440; D.dur = m; } else delete D.dur; }
@@ -2245,7 +2241,7 @@ function migrate(m) {
   tMigrate(m); cMigrate(m); sSessMigrate(m); hMigrate(m); nMigrate(m); shMigrate(m); wMigrate(m); wMigrate2(m); wMigrate3(m); oeMigrate(m); hyperMigrate(m); oeMigrate2(m); remMigrate(m); // Training and Expeditions folders (2026-11-04)
   ciRepair(m);
   // 2026-11-11: snack day = the first snack logged in a week; training extras link to a training item, not a kind and distance
-  badRoutines(m); snackFix(m); afterFix(m); stickFix(m); latteGone(m); halfRoll(m); m.seen = m.seen || {}; m.seen[T0] = 1;
+  badRoutines(m); detailFix(m); snackFix(m); afterFix(m); stickFix(m); latteGone(m); halfRoll(m); m.seen = m.seen || {}; m.seen[T0] = 1;
   // a third kind of appointment, Travel (2026-11-14); added once, so removing it in edit mode sticks
   // Stone (2026-11-23): Notebook is called Notes, and my palette gets quiet colours that sit on the putty paper; both once
   if (m.settings && !m.settings.stone1) { m.settings.stone1 = true; if (m.areas && m.areas.notebook && m.areas.notebook.name === 'Notebook') m.areas.notebook.name = 'Notes'; }
@@ -2532,6 +2528,8 @@ function afterFix(m) { if (!m.settings || m.settings.after2) return; m.settings.
 function badRoutines(m) { const st = m.settings = m.settings || {}; if (st.badR) return; st.badR = true; const g = (m.groups || {})['g-bad'], bl = ((m.groups || {})['g-blocks'] || {}).kids || []; if (!g) return;
   const rt = (b) => (((m.groups || {})[b] || {}).kids || []).find((k) => m.items[k] && m.items[k].type === 'routine');
   const mo = rt(bl[0]), ev = rt(bl[bl.length - 1]); if (mo && !g.kids.includes(mo)) g.kids.unshift(mo); if (ev && ev !== mo && !g.kids.includes(ev)) g.kids.push(ev); }
+// Home items' details look like hobby activities' (the owner, 2026-11-26): the short text in grey caps beside the name, Today included
+function detailFix(m) { Object.values(m.items || {}).forEach((it) => { if (it && it.detail) { if (!it.extra) it.extra = it.detail.replace(/\s+/g, ' ').slice(0, 40); delete it.detail; } }); }
 function snackFix(m) { if (!(m.settings && m.settings.plan3) || m.settings.snack2) return; m.settings.snack2 = true; const p3 = m.settings.plan3; const sd = (p3.extras || []).find((x) => x.id === 'x-snackday'); if (sd) { sd.when = { src: 'treat' }; sd.weekly = true; }
     const tri = (m.groups['g-train'] ? m.groups['g-train'].kids : []).flatMap((c) => (m.groups[c] ? m.groups[c].kids : [])).filter((k) => m.items[k]);
     (p3.extras || []).forEach((x) => { if (x.when && x.when.src === 'train' && !x.when.id) { const k = tri.find((t) => (m.items[t].name || '').toLowerCase().includes((x.when.kind || '').toLowerCase())); if (k) x.when = { src: 'train', id: k }; else delete x.when; } }); }
