@@ -305,7 +305,9 @@ function onDay0(id, d) {
   let w = it.when || { mode: 'once', date: null };
   if (d < T0) w = whenOn(it, d);
   if (it.made && d < it.made && !isDone(id, d)) return false;
-  if (it.end && d > it.end && !isDone(id, d)) return false; // an experiment's task stops with it (2026-11-08)
+  if (it.end && d > it.end && !isDone(id, d)) return false;
+  // a repeating chore waits until I've logged it once before it schedules itself (the owner, 2026-11-26)
+  if (d >= T0 && repeatable(it) && roomIds().some((r) => kidsOf(r).includes(id)) && !everDone(id)) return false; // an experiment's task stops with it (2026-11-08)
   // Past days show what was planned, done or not (not done fades like the rest), not only what got done (2026-11-03)
   if (d < T0) { if (isDone(id, d)) return true; if (w.mode === 'once') return w.date === d;
     if (w.mode === 'every') { if (w.date && d < w.date) return false; const last = lastDoneBefore(id, d); return !last || diff(last, d) >= Math.max(1, w.n || 1); }

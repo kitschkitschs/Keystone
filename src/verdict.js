@@ -79,10 +79,11 @@ const sLastDone = (k) => isDone(k, T0) ? T0 : lastDoneBefore(k, T0);
 function period(it) { const w = (it && it.when) || {}; const n = Math.max(1, w.n || 1);
   if (w.mode === 'every') return n; if (w.mode === 'days') return Math.max(1, Math.round(7 * n / Math.max(1, (w.days || []).length)));
   if (w.mode === 'month') return 30 * n; if (w.mode === 'year') return 365 * n; return 0; }
-// Freshness, like Tend: full when done, fading toward the due date. Never done counts as due today.
+// Freshness, like Tend: full when done, fading toward the due date.
 function freshOf(id, place) { const n = period(I(id)) || 7; const last = isDone(id, T0) ? T0 : lastDoneBefore(id, T0);
   const w = (I(id) || {}).when; const exact = last && fromDone(id, w); const n2 = exact ? diff(last, nextAfter(w, last)) : n;
-  const since = last ? diff(last, T0) : n; const left = exact ? diff(T0, nextAfter(w, last)) : n - since;
+  // a repeat I've never done stays neutral, not due (the owner, 2026-11-26); a job with no frequency still needs doing
+  const since = last ? diff(last, T0) : repeatable(I(id) || {}) ? 0 : n; const left = exact ? diff(T0, nextAfter(w, last)) : n - since;
   return { id, place, n: n2, last, since, left, fresh: Math.max(0, Math.min(1, left / n2)), urg: since / n2 }; }
 // a job with no frequency still belongs to its room: it needs doing until it has been done once
 const jobsIn = (gid) => kidsOf(gid).filter((k) => period(I(k)) || (!repeatable(I(k)) && (keeps(k) || !lastDoneBefore(k, T0) || isDone(k, T0)))).map((k) => freshOf(k, gid));
@@ -195,7 +196,7 @@ function vCard(o) {
   const tag = o.go ? 'button' : 'div';
   return `<${tag} class="vcard" ${o.go || ''} style="background:${bg};border-color:${mix(t, TH.line, 0.55)}"><span class="mono">${esc(o.eyebrow)}</span>${o.go && !o.nochev ? '<span class="vchev" aria-hidden="true">' + icon('chevron-right', 16) + '</span>' : ''}<span class="vword">${esc(o.word)}</span>${o.sub ? `<span class="vsub">${esc(o.sub)}</span>` : ''}${segBar(o.segs)}<span class="mono vfoot">${esc(o.foot)}</span></${tag}>`;
 }
-function choreCard(eyebrow, J, W, go, nochev) { const v = verdict(J, W); const late = J.filter((j) => j.left < 0).length; const soon = J.filter((j) => j.left >= 0 && j.left <= 7).length;
+function choreCard(eyebrow, J, W, go, nochev) { const v = verdict(J, W); const late = J.filter((j) => j.left < 0).length; const soon = J.filter((j) => j.left >= 0 && j.left <= 7 && (j.last || !repeatable(I(j.id)))).length;
   return vCard({ eyebrow, word: J.length ? v.word : 'Nothing yet', lvl: v.lvl, go, nochev, sub: J.length ? (late ? late + ' overdue, ' : '') + soon + ' coming up this week.' : 'Add the jobs that keep coming back.',
     segs: J.length ? J.slice().sort((a, b) => b.fresh - a.fresh).map(jobInk) : [SEG0],
     foot: J.filter((j) => j.fresh >= 0.34).length + ' fresh · ' + J.filter((j) => j.fresh < 0.34 && j.left >= 0).length + ' coming due · ' + late + ' overdue' }); }
