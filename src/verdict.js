@@ -90,7 +90,8 @@ const allJobs = () => roomIds().flatMap(jobsIn);
 function verdict(jobs, W) { if (!jobs.length) return { lvl: 0, word: W[0] };
   const avg = jobs.reduce((a, j) => a + j.fresh, 0) / jobs.length; let lvl = avg >= 0.75 ? 0 : avg >= 0.5 ? 1 : avg >= 0.25 ? 2 : 3;
   if (jobs.some((j) => j.left < 0)) lvl = Math.max(lvl, 2); return { lvl, word: W[lvl] }; }
-const jobInk = (j) => j.left < 0 ? SEGLATE : j.fresh < 0.34 ? SEGDUE : SEGOK;
+// a job's colour follows the verdict gradient by its freshness: fresh, tidy, coming due, overdue (the owner, 2026-11-26)
+const jobInk = (j) => j.left < 0 ? VDOT[3] : j.fresh >= 0.75 ? VDOT[0] : j.fresh >= 0.5 ? VDOT[1] : VDOT[2];
 const roomRank = (r) => { const J = jobsIn(r); return verdict(J, CHORE_W).lvl * 100 + Math.max(0, ...J.map((j) => j.urg)); };
 const choreIds = () => roomIds().flatMap(kidsOf).concat(kidsOf('g-oneoff'));
 const prepsOpen = () => kidsOf('g-prep').filter((k) => !everDone(k)).sort((a, b) => ((I(a).when || {}).date || '9999').localeCompare((I(b).when || {}).date || '9999') || (I(a).time || '').localeCompare(I(b).time || ''));
@@ -206,7 +207,7 @@ function cookCard(go) { const P = prepsOpen(); const nx = P[0] && I(P[0]); const
 const stripCard = (id, name, lvl, word, segs, on) => `<div class="vroomw"><button class="vroom ${on ? 'on' : ''}" data-a="vpick" data-ref="${id}" aria-pressed="${on}"${on ? ` style="border-color:${VDOT[lvl]}"` : ''}><b>${esc(name)}</b><span class="vv"><i style="background:${VDOT[lvl]}"></i>${esc(word)}</span>${segBar(segs, 'sm')}</button>${S.edit ? '' : `<button class="vgo" data-a="vopen" data-ref="${id}" aria-label="Open ${esc(name)}">${icon('arrow-up-right', 14, 1.6)}</button>`}</div>`;
 // the bar counts down to the next repeat (the owner, 2026-11-13): one segment per day up to 14 days, then one per week, past ten weeks one per month
 function jobSegs(j) { const n = Math.max(1, j.n || 7); const u = n <= 14 ? 1 : n <= 70 ? 7 : 30; const segs = Math.min(12, Math.max(1, Math.round(n / u))); const late = j.left < 0;
-  const filled = late ? segs : Math.min(segs, Math.ceil(Math.max(0, j.left) / u)); return Array.from({ length: segs }, (_, i) => i < filled ? jobInk(j) : SEG0); } // fresh jobs in the calm colour, like the room card (the owner, 2026-11-26)
+  const filled = late ? segs : Math.min(segs, Math.ceil(Math.max(0, j.left) / u)); return Array.from({ length: segs }, (_, i) => i < filled ? jobInk(j) : 'var(--line)'); } // one tile per day left; empty tiles stay faint in both themes // fresh jobs in the calm colour, like the room card (the owner, 2026-11-26)
 function jobRow(j, place, plain) { const it = I(j.id); const late = j.left < 0;
   // Patch 2 (the owner, 2026-11-24): no tick box; a tap opens the logging pop-up, editing only in edit mode
   if (!plain) return jobRow(j, place + (isDone(j.id, T0) ? ' · done today' : ''), true);
