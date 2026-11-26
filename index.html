@@ -962,7 +962,7 @@ nav.areas.two{justify-content:space-evenly} /* study mode: its two icons spaced 
 
 /* dark mode (2026-11-08, from the cleaning-system reference): warm near-black page, soft charcoal cards with a faint light edge */
 /* ===== Stone (2026-11-23): the look over the whole app. Square corners, hairlines, small spaced caps, one ink. ===== */
-#phone *:not(.dot,.fdd,.cfmark,.hdot,.ovdot,.badot,.xdot,.dd,.d,.xdots i,.ci-ic,.whl *,.ihz i,.ihzm i,.isuns i){border-radius:0!important} /* every corner square; dots and the wheel stay round */
+#phone *:not(.srm.miss i,.dot,.fdd,.cfmark,.hdot,.ovdot,.badot,.xdot,.dd,.d,.xdots i,.ci-ic,.whl *,.ihz i,.ihzm i,.isuns i){border-radius:0!important} /* every corner square; dots and the wheel stay round */
 .card,.lcard,.hsec{background:transparent;box-shadow:none;border:0}
 .btn,.chip,.fbtn,.scale button,.tag,.hchip,.pick,.menu{box-shadow:none}
 header.top{padding-right:16px}#plusbtn,#menubtn{width:22px}#menubtn{margin:0 0 0 18px}#donebtn{margin-left:12px} /* the top bar icons keep the same 16px from the edge as the title (2026-11-23) */
@@ -1272,6 +1272,38 @@ html.dark .feelcard.empty{background:var(--card)}html.dark .jcard .jct,html.dark
 .wlast{font-size:12.5px;color:var(--quiet);line-height:1.45;margin:12px 0 0}
 .tl .box.msel{outline:2px solid var(--ink);outline-offset:1px;z-index:3}
 .mselbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:10px;margin:8px 0 0;padding:8px 10px;background:var(--page);border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:12.5px;color:var(--quiet)}.mselbar span{flex:1}.mselbar .btn{padding:6px 12px;min-height:0}
+/* Training streaks (2026-11-26): the last 14 days per tracker under the Training calendar; recovery days in their own colour */
+.srs{margin-top:6px}
+.sr .srh{display:flex;align-items:center;gap:8px;padding:12px 0 6px}
+.srsq{width:9px;height:9px;flex:0 0 9px;background:var(--c)}
+.sr .srn{font:500 10.5px var(--sans,inherit);letter-spacing:.14em;text-transform:uppercase;color:var(--ink)}
+.sr .srw{font:400 9.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--quiet,var(--ink2))}
+.sr .srnum{margin-left:auto;font:400 20px/1 var(--serif);color:var(--ink)}
+.sr .srnum small{font-size:12px;font-family:inherit;color:var(--ink2);margin-left:3px;font-family:var(--sans,inherit)}
+.srg{display:grid;grid-template-columns:repeat(14,minmax(0,1fr));height:24px}
+.srm{display:grid;place-items:center}
+.srm.srwk{border-right:1px solid var(--line)}
+.srm i{display:block;box-sizing:border-box;width:13px;height:13px}
+.srm.done i{background:var(--cf);border:1.5px solid var(--c)}
+.srm.kept i{background:var(--cf)}
+.srm.skip i,.srm.wait i{border:1.2px dashed var(--faint)}
+.srm.miss i{width:5px;height:5px;border-radius:50%;background:var(--faint)}
+.srm.none i{width:0;height:0}
+.srax{display:flex;justify-content:space-between;font:400 9px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-top:6px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.srrec{display:flex;align-items:center;gap:8px;width:100%;min-height:40px;font-size:14px;color:var(--ink);text-align:left}
+.srrec .srch{margin-left:auto;font:400 9.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--quiet,var(--ink2))}
+.srdot{display:inline-block;width:8px;height:8px}
+.srbtns{display:grid;grid-template-columns:1fr 1.5fr;gap:8px;margin-top:10px}
+.srbtns .btn{min-height:46px}
+.srcol{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;text-align:left;border-bottom:1px solid var(--line)}
+.srcol .l{flex:1;font-size:14px}
+.srcol .srch,.srrec .srch{margin-left:auto;font:400 9.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink2)}
+.srstep{display:flex;align-items:center;gap:10px;min-height:44px}
+.srstep .l{flex:1;font-size:14px}
+.srstep .btn{flex:none;width:36px;padding:0}
+.srstep .srv{min-width:18px;text-align:center;font:400 18px var(--serif)}
+#view .row>.wrec{order:8;margin-left:8px;border-color:var(--line);color:var(--ink2)}
+#view .wrow>.wrec{order:0;margin-right:6px;border-color:var(--line);color:var(--ink2);height:30px}
 </style>
 <div class="phone" id="phone">
   <header class="top"><div class="ttl" id="ttl"></div><button class="hb" id="plusbtn" aria-label="Add something"><svg width="22" height="22" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M457.31-457.31H220v-45.38h237.31V-740h45.38v237.31H740v45.38H502.69V-220h-45.38v-237.31Z"/></svg></button><button class="hb donebtn2" id="donebtn" aria-label="Done editing" hidden>Done</button><button class="hb" id="menubtn" aria-label="Menu"><svg width="22" height="22" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M225.55-443.54q-15.1 0-25.71-10.75-10.61-10.74-10.61-25.83 0-15.09 10.75-25.72 10.74-10.62 25.83-10.62 15.09 0 25.91 10.75 10.82 10.74 10.82 25.83 0 15.09-10.87 25.72-10.86 10.62-26.12 10.62Zm254.33 0q-15.09 0-25.72-10.75-10.62-10.74-10.62-25.83 0-15.09 10.75-25.72 10.74-10.62 25.83-10.62 15.09 0 25.72 10.75 10.62 10.74 10.62 25.83 0 15.09-10.75 25.72-10.74 10.62-25.83 10.62Zm254.31 0q-15.09 0-25.91-10.75-10.82-10.74-10.82-25.83 0-15.09 10.87-25.72 10.86-10.62 26.12-10.62 15.1 0 25.71 10.75 10.61 10.74 10.61 25.83 0 15.09-10.75 25.72-10.74 10.62-25.83 10.62Z"/></svg></button></header>
@@ -1421,7 +1453,7 @@ function blank() { const m = seed(); m.example = false; m.items = {}; m.log = {}
   Object.values(m.groups).forEach((g) => { g.kids = g.kids.filter((k) => m.groups[k] || m.items[k]); });
   // Empty means EMPTY (2026-11-10/11): no symptoms, tags, social trackers, slots, rooms, subjects or hobbies either.
   // What stays: the day blocks, the two routines with their check-ins, and the check-in questions.
-  const keep = ['ci-m', 'ci-e', 'r-morning', 'r-evening', 'tr-sleep', 'tr-mmood', 'tr-mmot', 'tr-mood', 'tr-mot', 'tr-energy', 'tr-prod'];
+  const keep = ['ci-m', 'ci-e', 'r-morning', 'r-evening', 'tr-sleep', 'tr-mmood', 'tr-mmot', 'tr-mood', 'tr-mot', 'tr-energy', 'tr-prod', 'tr-gentle']; // Recovery keeps its one session (2026-11-26)
   Object.keys(m.items).forEach((k) => { if (!keep.includes(k)) delete m.items[k]; });
   Object.keys(m.groups).forEach((k) => { if (['room', 'subject', 'sgroup', 'hobby'].includes(m.groups[k].style)) delete m.groups[k]; });
   Object.values(m.groups).forEach((g) => { g.kids = g.kids.filter((k) => m.groups[k] || m.items[k]); });
@@ -1448,19 +1480,21 @@ function homeOf(ref) { return placements(ref)[0]; }
 // the colour comes from where the item lives (a room, a subject group, a project), not from the day block it was put in; only an item that
 // lives in a day block alone takes the block's colour (2026-11-11: circles changed colour when a chore went into a block)
 // a generic item without its own colour wears its section's (2026-11-11)
-const slotCol = (it) => { const o = it.opens; const A = M.areas || {}, P = M.pages || {}; return o === 'study' ? secCol('study') : o === 'chores' ? secCol('chores') : o === 'hobbies' ? (A.hobbies || {}).color : o === 'training' || o === 'move' ? (P.training || {}).color : null; };
+const slotCol = (it) => { const o = it.opens; const A = M.areas || {}, P = M.pages || {}; if ((o === 'training' || o === 'move') && typeof mvCat === 'function') { const c = it.tcat && G(it.tcat) ? it.tcat : mvCat(); if (c && G(c).color) return G(c).color; } return o === 'study' ? secCol('study') : o === 'chores' ? secCol('chores') : o === 'hobbies' ? (A.hobbies || {}).color : o === 'training' || o === 'move' ? (P.training || {}).color : null; };
+// Movement, Workouts, Recovery and Expedition training each wear their own category colour on Today, the Schedule and the calendars (the owner, 2026-11-26)
+function tcatOf(id) { const g = G('g-train'); return g ? g.kids.find((c) => G(c) && (G(c).kids || []).includes(id)) || null : null; }
 // Patch 3 (the owner, 2026-11-24): Studies, Chores, Homemaking and Cooking each have ONE colour; their items, rooms, subjects and
 // task groups wear it everywhere (Today, Schedule, calendars) and can't have their own
 const SEC_ROOT = { 'g-subjects': 'study', 'g-rooms': 'chores', 'g-oneoff': 'chores', 'g-tend': 'homemaking', 'g-prep': 'cooking', 'g-train': 'training' }; /* Training too: every training item wears the Training colour (the owner, 2026-11-24) */
 function secRootOf(k, n = 0) { if (!k || n > 8) return null; if (SEC_ROOT[k]) return SEC_ROOT[k]; const g = G(k); if (!g || g.style === 'dayblock') return null; return secRootOf(parentGrp(k), n + 1); }
 const secCol = (sec) => { const A = M.areas || {}, P = M.pages || {}; return (sec === 'study' ? (A.study || {}).color : sec === 'chores' ? (P.chores || {}).color || (A.home || {}).color : ((P[sec] || {}).color || (sec === 'training' ? '#3FAFA6' : (A.home || {}).color))) || '#9A9387'; };
 const itemSec = (id) => { for (const p of placements(id)) { const r = secRootOf(p); if (r) return r; } return null; };
-function colorOf(id) { const it = I(id); if (!it && G(id)) return grpCol(id); if (it && it.type !== 'slot') { const sc = itemSec(id); if (sc) return secCol(sc); } if (it && it.type === 'slot' && slotCol(it)) return slotCol(it); if (it && it.color) return it.color; /* generic items wear their parent colour (the owner, 2026-11-24) */ const P = placements(id); const pl = P.find((p) => !(G(p) && (G(p).style === 'dayblock' || G(p).holds === 'slot'))) || P[0]; if (!pl) return '#9A9387'; if (pl.startsWith('s:')) return colorOf(pl.slice(2)); return grpCol(pl); }
+function colorOf(id) { const it = I(id); if (!it && G(id)) return grpCol(id); if (it && it.type !== 'slot') { const tc = tcatOf(id); if (tc) return grpCol(tc); const sc = itemSec(id); if (sc) return secCol(sc); } if (it && it.type === 'slot' && slotCol(it)) return slotCol(it); if (it && it.color) return it.color; /* generic items wear their parent colour (the owner, 2026-11-24) */ const P = placements(id); const pl = P.find((p) => !(G(p) && (G(p).style === 'dayblock' || G(p).holds === 'slot'))) || P[0]; if (!pl) return '#9A9387'; if (pl.startsWith('s:')) return colorOf(pl.slice(2)); return grpCol(pl); }
 // a group without its own colour wears its parent's, up to the page or area it sits in (2026-11-11: items take their parent colour everywhere)
 // Home's sections keep their colour on their tab (2026-11-11): Homemaking, Cooking, Chores; a room without its own colour wears Chores'
 const ROOTCOL = { 'g-tend': ['pages', 'homemaking'], 'g-prep': ['pages', 'cooking'], 'g-oneoff': ['pages', 'chores'], 'g-rooms': ['pages', 'chores'], 'g-subjects': ['areas', 'study'], 'g-hobbies': ['areas', 'hobbies'], 'g-train': ['pages', 'training'], 'g-appts': ['pages', 'appts'], 'g-health': ['areas', 'health'], 'g-blocks': ['areas', 'plan'], 'g-slots': ['areas', 'plan'] };
 function parentGrp(k) { return Object.keys(M.groups).find((p) => (M.groups[p].kids || []).includes(k)) || null; }
-function grpCol(k, n) { const g = G(k); if (!g || (n || 0) > 8) return '#9A9387'; { const sr = secRootOf(k); if (sr && !ROOTCOL[k]) return secCol(sr); } const R = ROOTCOL[k]; const rc = R && ((M[R[0]] || {})[R[1]] || {}).color;
+function grpCol(k, n) { const g = G(k); if (!g || (n || 0) > 8) return '#9A9387'; { const sr = secRootOf(k); if (sr && !ROOTCOL[k] && !(sr === 'training' && g.color)) return secCol(sr); } const R = ROOTCOL[k]; const rc = R && ((M[R[0]] || {})[R[1]] || {}).color;
   if (R && R[0] === 'pages' && rc) return rc; if (g.color) return g.color; if (rc) return rc;
   if (g.style === 'sgroup' || g.style === 'subject') { const p = parentGrp(k); return p && p !== 'g-subjects' && G(p).color ? G(p).color : ((M.areas || {}).study || {}).color || '#9A9387'; }
   if (g.style === 'project' && typeof hobOf === 'function' && G(hobOf(k))) return grpCol(hobOf(k), (n || 0) + 1);
@@ -1570,6 +1604,9 @@ function woSim(d) { const W = woIds(); let st = WKC.get('_wosim');
       const late = (id) => (x === T0 ? lateBy(id) : 0), picked = (id) => { const w = I(id).when || {}; return w.date === x ? 1 : 0; };
       nat.sort((a, b) => (late(b) - late(a)) || (picked(b) - picked(a)));
       const cand = st.q.concat(nat); const miss = (id) => isMissed(id, x);
+      const rcv = typeof recOf === 'function' ? recOf(x) : null;
+      if (rcv && !isBad(x)) { const keep2 = []; cand.forEach((id) => { const w = I(id).when || {}; if (rcv.drop && w.mode !== 'once') { if (w.mode === 'every') st.next[id] = addDays(x, Math.max(1, w.n || 1)); return; } keep2.push(id); });
+        st.q = keep2; st.on[x] = new Set(done); st.x = addDays(x, 1); continue; }
       const on = done.slice(); const keep = [];
       cand.forEach((id) => { if (miss(id)) { const m = (I(id).when || {}).mode; if (m === 'once' || m === 'every') keep.push(id); return; } // a missed one I'd still owe comes back the next day
         if (!on.length) { on.push(id); return; } keep.push(id); }); // one a day: the rest move on to the next day
@@ -1704,6 +1741,7 @@ function dayList(d) { const out = dayListRaw(d); if (frozenOf(d)) return out;
     // it goes back in its usual spot: after the item it normally follows, or before the one it normally comes before (the owner, 2026-11-24)
     const prev = x.items.slice(0, i).reverse().find((k) => y.items.includes(k)), next = x.items.slice(i + 1).find((k) => y.items.includes(k));
     if (prev) y.items.splice(y.items.indexOf(prev) + 1, 0, id); else if (next) y.items.splice(y.items.indexOf(next), 0, id); else y.items.push(id); })));
+  if (typeof recSwap === 'function') recSwap(out, d); // a recovery day: gentle movement instead of the workout (the owner, 2026-11-26)
   return out; }
 // A task set to follow every workout (a shower) goes right after the workout, in the same block when there's room for it, otherwise
 // first thing in the next block (2026-11-11). Room = the block's length against the minutes already in it.
@@ -1965,8 +2003,8 @@ function tickCircle(id, d, live) { const k = isMulti(id) ? TK : null;
   const circ = `<span class="circ ${much ? 'much' : done ? 'done' : d === T0 && halfOf(id) ? 'half' : ''}${optOn(id, d) ? ' opt' : ''}" style="--c:${c}" ${S.edit ? `data-col="${id}" role="button" aria-label="Change colour"` : 'aria-hidden="true"'}>${inner}</span>`;
   if (!live || S.edit) return S.edit ? circ : `<span class="tickbtn">${circ}</span>`;
   // a workout on Today starts its follow-along instead of a tick; finishing it ticks it (the owner, 2026-11-25)
-  { const w = I(id) && I(id).wo; if (w && !done && d === T0 && !(S.sheet && S.sheet.kind === 'checkin') /* a check-in ticks it like any item (the owner, 2026-11-25) */ && (w.ex || []).some((e) => typeof exOf === 'function' && exOf(e.x))) { const R = M.wrun; return `<button class="wgo wgot" data-a="wostart" data-ref="${id}" aria-label="Start ${esc(tnm(id))}">${R && R.item === id ? 'Resume' : 'Start'}</button>`; } }
-  return `<button class="tickbtn" data-a="tick" data-ref="${id}"${k != null ? ` data-k="${k}"` : ''} aria-label="Tick ${esc(tnm(id))}">${circ}</button>`;
+  { const w = I(id) && I(id).wo; if (w && !done && d === T0 && !(S.sheet && S.sheet.kind === 'checkin') /* a check-in ticks it like any item (the owner, 2026-11-25) */ && (w.ex || []).some((e) => typeof exOf === 'function' && exOf(e.x))) { const R = M.wrun; return recBtn(id, d) + `<button class="wgo wgot" data-a="wostart" data-ref="${id}" aria-label="Start ${esc(tnm(id))}">${R && R.item === id ? 'Resume' : 'Start'}</button>`; } }
+  return recBtn(id, d) + `<button class="tickbtn" data-a="tick" data-ref="${id}"${k != null ? ` data-k="${k}"` : ''} aria-label="Tick ${esc(tnm(id))}">${circ}</button>`;
 }
 // A check-in is a step of its routine (2026-11-02): morning check-in in Morning routine, evening in Evening routine.
 // Its circle shows if it's done; tapping the row opens the check-in.
@@ -1994,7 +2032,7 @@ function whereOf(id) { const it = I(id); const src = it && it.part && I(it.part)
   if (typeof subjIds === 'function') { const sj = subjIds().find((s) => sIds(s).includes(src)); if (sj) return G(sj).name; } return ''; }
 function itemRow(id, list, d) {
   const it = I(id); const live = d === T0;
-  if (it.type === 'slot') return `<div class="row" data-ref="${id}">${grip()}${tickCircle(id, d, false)}<span class="lbl">${S.edit ? nm(id, it.name) : `<button data-a="${live ? 'slot' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left;display:flex;align-items:center;gap:8px"><span style="flex:1">${inm(it)}${live && it.opens === 'study' && minOn(null, T0) + supMin(T0) < sessLen() ? `<span class="tdur">${estHM((minOn(null, T0) + supMin(T0)) / 60)} of ${estHM(sessLen() / 60)}</span>` : ''}${live && slotSub(it) ? `<span class="sub">${esc(slotSub(it))}</span>` : ''}</span>${live ? '<span class="chev" aria-hidden="true">' + icon('chevron-right', 16) + '</span>' : ''}</button>`}</span>${tail(id, list)}</div>`;
+  if (it.type === 'slot') return `<div class="row" data-ref="${id}">${grip()}${S.edit ? '' : recBtn(id, d)}${tickCircle(id, d, false)}<span class="lbl">${S.edit ? nm(id, it.name) : `<button data-a="${live ? 'slot' : 'peek'}" data-ref="${id}" data-d="${d}" style="width:100%;text-align:left;display:flex;align-items:center;gap:8px"><span style="flex:1">${inm(it)}${live && it.opens === 'study' && minOn(null, T0) + supMin(T0) < sessLen() ? `<span class="tdur">${estHM((minOn(null, T0) + supMin(T0)) / 60)} of ${estHM(sessLen() / 60)}</span>` : ''}${live && slotSub(it) ? `<span class="sub">${esc(slotSub(it))}</span>` : ''}</span>${live ? '<span class="chev" aria-hidden="true">' + icon('chevron-right', 16) + '</span>' : ''}</button>`}</span>${tail(id, list)}</div>`;
   // a break looks like a day block's title (2026-11-11): its icon, its name in small capitals, its length on the right
   if (it.brk) { const ln = `${it.time ? esc(it.time) + ' · ' : ''}${estHM(durOn(id, d, 15) / 60)}`;
     // outside edit mode it's a minimal title like the block titles on Schedule (2026-11-11): dashed lines, small capitals
@@ -2437,7 +2475,7 @@ function renderAppts() {
 
 // ---------- layer: menu, sheets, toast ----------
 // clear everything logged before today, keeping every item, note and setting (the owner, 2026-11-24)
-const LOG_KEYS = ['log', 'snap', 'frozen', 'feel', 'photos', 'study', 'support', 'missed', 'badDays', 'dayMove', 'dayOrder', 'dayTime', 'dayTack', 'dayAfter', 'dayDur', 'twoDone', 'mTick', 'foodMark', 'rOpen', 'training', 'multi'];
+const LOG_KEYS = ['recov', 'log', 'snap', 'frozen', 'feel', 'photos', 'study', 'support', 'missed', 'badDays', 'dayMove', 'dayOrder', 'dayTime', 'dayTack', 'dayAfter', 'dayDur', 'twoDone', 'mTick', 'foodMark', 'rOpen', 'training', 'multi'];
 function clearOldLogs() { LOG_KEYS.forEach((k) => { const o = M[k]; if (!o || typeof o !== 'object' || Array.isArray(o)) return; Object.keys(o).forEach((d) => { if (/^\d{4}-\d\d-\d\d$/.test(d) && d < T0) delete o[d]; }); });
   if (Array.isArray(M.events)) M.events = M.events.filter((e) => !e.day || e.day >= T0); }
 // Every delete asks first (2026-11-02). Returns the question, or null when the action needs none.
@@ -2534,6 +2572,7 @@ function sheetBody() {
   const s = S.sheet;
   if (s.kind[0] === 'v') return vSheet(s);
   if (s.kind === 'trip') return tripSheet(s);
+  if (s.kind === 'recov') return recSheet(s);
   if (s.kind === 'wo') return woSheet(s);
   if (s.kind === 'wx') return wxSheet(s);
   if (s.kind === 'word') return wordSheet(s);
@@ -2560,7 +2599,7 @@ function sheetBody() {
       ${g.style === 'sgroup' ? `<div class="fld"><span class="mono">Deadline</span><div class="inrow"><input class="inp" type="date" id="gdl" value="${g.deadline || ''}"><span class="note">optional</span></div></div>` : ''}
       ${g.style === 'project' && typeof hobOf === 'function' && hobOf(s.ref) && hobActs(hobOf(s.ref)).length ? `<div class="fld"><span class="mono">Activity it covers</span><div class="chips">${[['', 'None']].concat(hobActs(hobOf(s.ref)).map((k) => [k, inm(k)])).map(([k, l]) => `<button class="chip" data-a="projact" data-ref="${s.ref}" data-v="${k}" aria-pressed="${(g.act || '') === k}">${l}</button>`).join('')}</div></div>` : ''}
       ${g.style === 'dayblock' ? `<div class="fld"><span class="mono">Time</span><div class="inrow"><input class="inp" type="time" id="gstart" value="${g.start}"><span>to</span><input class="inp" type="time" id="gend" value="${g.end}"></div></div>` : ''}
-      ${secRootOf(s.ref) ? '' : ROOTCOL[s.ref] && ROOTCOL[s.ref][0] === 'pages' ? `<div class="fld"><span class="mono">Colour</span>${colorField('p:' + ROOTCOL[s.ref][1], grpCol(s.ref))}</div>` : `<div class="fld"><span class="mono">Colour</span>${colorField(s.ref, g.color)}</div>`}
+      ${secRootOf(s.ref) && !(G('g-train') && G('g-train').kids.includes(s.ref)) ? '' : ROOTCOL[s.ref] && ROOTCOL[s.ref][0] === 'pages' ? `<div class="fld"><span class="mono">Colour</span>${colorField('p:' + ROOTCOL[s.ref][1], grpCol(s.ref))}</div>` : `<div class="fld"><span class="mono">Colour</span>${colorField(s.ref, g.color)}</div>`}
       ${g.style === 'hgroup' && g.special !== 'checkins' ? `<div class="fld"><span class="mono">Asked in a check-in</span><div class="chips">${[['', 'No'], ['morning', 'Morning'], ['evening', 'Evening']].map(([k, l]) => `<button class="chip" data-a="gci" data-ref="${s.ref}" data-v="${k}" aria-pressed="${(g.ci || '') === k}">${l}</button>`).join('')}</div></div>` : ''}
       ${g.style === 'acat' ? `<div class="fld"><span class="mono">Icon</span><div><button class="btn" data-a="iconfor" data-v="${s.ref}" style="display:inline-flex;gap:8px;align-items:center">${icon(g.icon || 'circle', 18)} Change icon</button></div></div>` : ''}`; }
   if (s.kind === 'area') { const a = M.areas[s.ref];
@@ -2880,6 +2919,7 @@ document.addEventListener('click', (e) => {
   if (remAction(act, a, ref, v)) return;
   if (insightAction(act, a, ref, v)) return;
   if (trainingAction(act, a, ref, v)) return;
+  if (typeof streakAction === 'function' && streakAction(act, a, ref, v)) return;
   if (workoutAction(act, a, ref, v)) return;
     if (calAction(act, a, ref, v)) return;
     if (condAction(act, a, ref, v)) return;
@@ -5710,6 +5750,9 @@ function tMigrate(m) {
   if (!m.settings.conds2) { m.settings.conds2 = true; (m.conds || []).forEach((x) => { if (x.id === 'cs-shin' || x.id === 'cs-knee') x.fit = true; }); }
   // every training item is persistent, like hobby activities: a one-off session stays after its tick (the owner, 2026-11-24)
   if (!m.settings.trpersist1 && m.groups['g-train']) { m.settings.trpersist1 = true; m.groups['g-train'].kids.forEach((c) => ((m.groups[c] || {}).kids || []).forEach((k) => { const it = m.items[k]; if (it && it.type === 'task' && (!it.when || it.when.mode === 'once')) it.persist = true; })); }
+  // RECOVERY (the owner, 2026-11-26): its own category and colour; a recovery day swaps the day's workout for gentle movement
+  if (!m.settings.rec1 && m.groups['g-train']) { m.settings.rec1 = true; if (!m.groups['tc-rec']) { m.groups['tc-rec'] = { name: 'Recovery', style: 'tcat', holds: 'task', color: '#A877C4', icon: 'heart-pulse', kids: [] }; m.groups['g-train'].kids.push('tc-rec'); }
+    if (!m.items['tr-gentle']) { m.items['tr-gentle'] = { name: 'Gentle movement', type: 'task', made: T0, tags: [], insight: true, kind: 'behaviour', dur: 30, persist: true, when: { mode: 'once', date: null }, icon: 'heart-pulse' }; m.groups['tc-rec'].kids.push('tr-gentle'); } }
   if (m.settings.train1) return; m.settings.train1 = true; const ex = !!m.example; m.log = m.log || {};
   m.groups['g-train'] = m.groups['g-train'] || { name: 'Training', holds: 'tcats', kids: [] };
   TCATS.forEach(([id, name, color, ic]) => { if (!m.groups[id]) { m.groups[id] = { name, style: 'tcat', holds: 'task', color, icon: ic, kids: [] }; m.groups['g-train'].kids.push(id); } });
@@ -5803,6 +5846,7 @@ function renderTraining() {
   // the expedition countdown can sit under the Training calendar (Calendars › Training › Countdown) (2026-11-06)
   if (expOn() && calOn('train', 'count') && (S.fday || T0) === T0) h += `<div style="margin:14px 0 -4px">${xCounts()}</div>`;
   const d = S.fday || T0;
+  if (d === T0 || S.edit) h += S.edit ? streakEdit() : streakRows(); // streak rows (the owner, 2026-11-26)
   if (d !== T0) { const ids = trainCats().flatMap(kidsOf).filter((k) => d < T0 ? isDone(k, d) : onDay(k, d));
     h += `<div style="margin-top:14px">` + lcard(null, fmtDate(d), '', (ids.map((k) => `<div class="row"><span class="circ ${isDone(k, d) ? 'done' : ''}" style="--c:${G(trainCat(k)).color}">${isDone(k, d) ? '✓' : ''}</span><button class="lbl" data-a="sched" data-ref="${k}" style="text-align:left">${esc(I(k).name)}<span class="sub">${esc(G(trainCat(k)).name)}${d > T0 ? ' · planned' : ''}</span></button></div>`).join('') || `<p class="empty">${d < T0 ? 'No training that day.' : 'Nothing planned that day.'}</p>`) + condsOn(d).map((x) => `<p class="condday">${ctagMarks(x)}${esc(x.name + ', day ' + (diff(x.start, d) + 1))}</p>`).join('')) + '</div>'; }
   // another day picked: only that day's list, none of today's logging (2026-11-05); edit mode keeps the structure
@@ -5899,7 +5943,7 @@ const exList = () => (M.exercises = M.exercises || []);
 const exOf = (x) => exList().find((e) => e.id === x);
 const wlog = () => (M.wlog = M.wlog || []);
 const woItems = () => trainCats().flatMap(kidsOf).filter((k) => I(k).wo);
-const woCol = () => secCol('training');
+const woCol = () => (woCat() && G(woCat()).color) || secCol('training'); // the Workouts category's own colour (the owner, 2026-11-26)
 // a workout runs set by set, so its length in sets is the most sets any one exercise has (the owner, 2026-11-24)
 const woSets = (w) => Math.max(0, ...w.ex.filter((e) => exOf(e.x)).map((e) => e.sets));
 // the sets (rounds) finished: every exercise in that round is done
@@ -5924,7 +5968,7 @@ function woSection() {
   const ks = (woCat() ? kidsOf(woCat()) : []).filter((k) => I(k).type === 'task' || I(k).type === 'routine');
   const rows = ks.map((k) => { const w = I(k).wo || { ex: [] }; const n = w.ex.filter((e) => exOf(e.x)).length; const live = R && R.item === k; const wt = whenText(I(k));
     const sub = [n ? n + (n === 1 ? ' exercise' : ' exercises') + ' · ' + woSets(w) + ' sets' : 'No exercises yet', ed ? '' : wt].filter(Boolean).join(' · ');
-    return `<div class="row wrow" data-ref="${k}">${grip()}<button class="lbl" data-a="${ed ? 'woedit' : 'sched'}" data-ref="${k}" style="text-align:left">${inm(k)}<span class="sub">${esc(sub)}</span></button>${ed ? (live ? `<button class="rm" data-a="wodrop" data-ref="${k}" aria-label="Throw away the workout I'm in the middle of">${icon('trash-2', 15)}</button>` : '') + tail(k, woCat()) : (isDone(k, T0) && !live ? `<span class="wgo wdn" style="--tc:${woCol()}">Done</span>` : `<button class="wgo" data-a="wostart" data-ref="${k}" ${n ? '' : 'disabled'}>${live ? 'Resume' : 'Start'}</button>`)}</div>`; }).join('');
+    return `<div class="row wrow" data-ref="${k}">${grip()}<button class="lbl" data-a="${ed ? 'woedit' : 'sched'}" data-ref="${k}" style="text-align:left">${inm(k)}<span class="sub">${esc(sub)}</span></button>${ed ? (live ? `<button class="rm" data-a="wodrop" data-ref="${k}" aria-label="Throw away the workout I'm in the middle of">${icon('trash-2', 15)}</button>` : '') + tail(k, woCat()) : (isDone(k, T0) && !live ? `<span class="wgo wdn" style="--tc:${woCol()}">Done</span>` : (typeof recBtn === 'function' ? recBtn(k, T0) : '') + `<button class="wgo" data-a="wostart" data-ref="${k}" ${n ? '' : 'disabled'}>${live ? 'Resume' : 'Start'}</button>`)}</div>`; }).join('');
   const ex = exList().slice().sort((a, b) => a.name.localeCompare(b.name));
   const exRows = ex.map((e) => { const a = acheOf(e.id).map((k) => I(k).name.toLowerCase()); const bits = [e.side ? 'two sides' : '', e.timed ? 'timed' : '', a.length ? 'touches ' + a.join(', ') : ''].filter(Boolean);
     const inner = `<span class="lbl">${xnm(e)}${bits.length ? `<span class="sub">${esc(bits.join(' · '))}</span>` : ''}</span>`;
@@ -6186,6 +6230,106 @@ document.addEventListener('change', (e) => { const ds = e.target.dataset || {};
   if (ds.wogive) { const k = e.target.value; if (k && I(k)) { change(() => { I(k).wo = { follow: 'list', ex: [] }; }); openSheet({ kind: 'wo', ref: k, title: 'Workout' }); } return; }
   if (ds.woadd) { const x = e.target.value; const it = I(ds.woadd); if (!x || !it) return; if (x === '__new') { workoutAction('wxnew'); return; }
     const ex = exOf(x); change(() => { it.wo.ex.push({ x, sets: 3, n: ex && ex.timed ? 30 : 10 }); }); } });
+
+// ---------- Training streaks and recovery days (the owner, 2026-11-26) ----------
+// Under the Training calendar: one row of the last 14 days per tracker, like Loop Habit Tracker, read from the sessions I tick.
+//  Movement: needed every day; a day with a workout counts as kept; a recovery day is done in the recovery colour.
+//  Workouts: n a week (Mon-Sun); once n is hit the rest of the week is kept; a recovery day is kept and the week needs one less.
+//  Expedition training: n a week like Workouts, only while Expedition mode is on.
+// Marks: done = faded square with a full-colour frame, kept = faded square, skipped = dashed grey frame, missed = grey dot.
+// Today shows the dashed frame until it's done, unless the streak already covers it. Skipped and missed days both break a streak;
+// the number is the current streak in days.
+const recCat = () => (G('tc-rec') ? 'tc-rec' : null);
+const expCat = () => { const c = G('tc-exp') ? 'tc-exp' : tcatNamed(/expedition/i); return c && trainCats().includes(c) ? c : null; };
+const mvCat = () => { const tc = typeof trainCats === 'function' ? trainCats() : []; const w = typeof woCat === 'function' ? woCat() : null;
+  return (tc.includes('tc-move') ? 'tc-move' : null) || tc.find((c) => c !== w && c !== recCat() && c !== 'tc-exp') || null; };
+const recs = () => (M.recov = M.recov || {});
+const recOf = (d) => (M.recov || {})[d] || null;
+const recItems = () => (recCat() ? kidsOf(recCat()) : []);
+const stSet = () => Object.assign({ wo: 3, ex: 2 }, (M.settings || {}).streak || {});
+const catDone = (c, d) => !!c && kidsOf(c).some((k) => isDone(k, d));
+const mvDone = (d) => trainCats().filter((c) => c !== woCat()).some((c) => catDone(c, d));
+const srCol = (c, f) => (c && G(c) && G(c).color) || f;
+const SR_FADE = (c) => `color-mix(in oklab, ${c} 55%, var(--page))`;
+// the first day I logged any training: days before it show nothing
+function srFirst() { if (WKC.has('_srfirst')) return WKC.get('_srfirst'); const ks = new Set(trainCats().flatMap(kidsOf));
+  const f = Object.keys(M.log || {}).filter((d) => /^\d{4}-\d\d-\d\d$/.test(d)).sort().find((d) => Object.keys(M.log[d] || {}).some((k) => ks.has(k) && isDone(k, d))) || T0;
+  WKC.set('_srfirst', f); return f; }
+function srMove(d, f, C) { if (d < f) return { s: 'none' };
+  if (mvDone(d)) return { s: 'done', c: recOf(d) || catDone(recCat(), d) ? C.rec : C.mv };
+  if (catDone(woCat(), d)) return { s: 'kept', c: C.wo };
+  return d === T0 ? { s: 'wait' } : { s: 'miss' }; }
+function srNeed(n, d, wo) { if (!wo) return n; const m = weekStart(d); let r = 0; for (let i = 0; i < 7; i++) if (recOf(addDays(m, i))) r++; return Math.max(0, n - r); }
+function srCount(c, m, upto) { let k = 0; for (let i = 0; i < 7; i++) { const x = addDays(m, i); if (upto && x >= upto) break; if (catDone(c, x)) k++; } return k; }
+function srFreq(c, n, d, f, wo, col, C) { if (d < f) return { s: 'none' };
+  if (wo && recOf(d)) return { s: 'kept', c: C.rec };
+  if (catDone(c, d)) return { s: 'done', c: col };
+  const m = weekStart(d), need = srNeed(n, d, wo);
+  if (srCount(c, m, d) >= need) return { s: 'kept', c: col };
+  if (d === T0) return { s: 'wait' };
+  if (addDays(m, 6) < T0 && srCount(c, m) < need) return { s: 'miss' };
+  return { s: 'skip' }; }
+function srStreak(fn, f) { let n = 0, d = T0; if (fn(d).s === 'wait') d = addDays(d, -1);
+  while (d >= f && n < 3660) { const s = fn(d).s; if (s !== 'done' && s !== 'kept') break; n++; d = addDays(d, -1); } return n; }
+function srTrackers() { const C = { mv: srCol(mvCat(), '#7DBE9A'), wo: srCol(woCat(), '#3FAFA6'), rec: srCol(recCat(), '#A877C4'), ex: srCol(expCat(), '#6FA24A') }; const f = srFirst(), S2 = stSet(); const out = [];
+  if (mvCat()) out.push({ id: 'mv', cat: mvCat(), name: 'Movement', col: C.mv, fn: (d) => srMove(d, f, C) });
+  if (woCat()) out.push({ id: 'wo', cat: woCat(), name: 'Workouts', col: C.wo, n: S2.wo, wo: true, fn: (d) => srFreq(woCat(), S2.wo, d, f, true, C.wo, C) });
+  if (expOn() && expCat()) out.push({ id: 'ex', cat: expCat(), name: 'Expedition', col: C.ex, n: S2.ex, fn: (d) => srFreq(expCat(), S2.ex, d, f, false, C.ex, C) });
+  return { list: out, f, C }; }
+const srShort = (d) => { const x = parse(d); return x.getDate() + ' ' + MONTHS[x.getMonth()].slice(0, 3); };
+function streakRows() {
+  if (!G('g-train') || !trainCats().length) return '';
+  const { list, f, C } = srTrackers(); if (!list.length) return '';
+  const start = addDays(T0, -13);
+  let h = '<div class="srs">';
+  list.forEach((t) => { const n = srStreak(t.fn, f); let wk = '';
+    if (t.n != null) { const m = weekStart(T0), need = srNeed(t.n, T0, t.wo), c = srCount(t.cat, m); wk = c >= need ? `${c} of ${need} · kept` : `${c} of ${need}`; }
+    h += `<div class="sr" style="--c:${t.col}"><div class="srh"><span class="srsq"></span><span class="srn">${esc(t.name)}</span><span class="srw">${wk}</span><span class="srnum">${n}<small>${n === 1 ? 'day' : 'days'}</small></span></div><div class="srg" role="img" aria-label="${esc(t.name)}, last 14 days, streak ${n} ${n === 1 ? 'day' : 'days'}">`;
+    for (let i = 0; i < 14; i++) { const d = addDays(start, i), x = t.fn(d); h += `<span class="srm ${x.s}${i === 6 ? ' srwk' : ''}"${x.c ? ` style="--c:${x.c};--cf:${SR_FADE(x.c)}"` : ''}><i></i></span>`; }
+    h += '</div></div>'; });
+  h += `<div class="srax"><span>${srShort(start)}</span><span>Today</span></div>`;
+  const r = recOf(T0); if (r) h += `<button class="srrec" data-a="recopen" style="--c:${C.rec}"><span class="srsq"></span><span>Recovery day${r.woName ? ' · instead of ' + esc(r.woName) : ''}</span><span class="srch">Change</span></button>`;
+  return h + '</div>'; }
+// edit mode: the tracker colours (their categories' colours, the same on Today, the Schedule and the calendar) and the weekly numbers
+function streakEdit() {
+  const cats = [[mvCat(), 'Movement'], [woCat(), 'Workouts'], [recCat(), 'Recovery'], [expOn() ? expCat() : null, 'Expedition training']].filter((x) => x[0]);
+  const step = (k, l) => `<div class="srstep"><span class="l">${l}</span><button class="btn" data-a="srn" data-ref="${k}" data-v="-1" aria-label="One less">−</button><span class="srv">${stSet()[k]}</span><button class="btn" data-a="srn" data-ref="${k}" data-v="1" aria-label="One more">+</button></div>`;
+  return `<div style="margin-top:14px">${lcard(null, 'Streaks', '', cats.map(([c, l]) => `<button class="srcol" data-col="${c}" aria-label="Change the ${esc(l)} colour"><span class="srsq" style="--c:${G(c).color || grpCol(c)}"></span><span class="l">${esc(l)}</span><span class="srch">Colour</span></button>`).join('') + step('wo', 'Workouts a week') + (expOn() && expCat() ? step('ex', 'Expedition training a week') : ''))}</div>`; }
+
+// RECOVERY DAY: on a day with a workout, if something hurts, the workout comes off and a recovery session takes its place
+const recWoToday = () => [...woIds()].filter((k) => onDay(k, T0) && !isDone(k, T0));
+const woGenOn = (id) => { const it = I(id); return !!it && it.type === 'slot' && !!it.tcat && it.tcat === woCat(); };
+function recBtn(id, d) { if (S.edit || d !== T0 || !recCat() || !recItems().length || recOf(T0) || isBad(T0) || isDone(id, d)) return '';
+  if (!(woIds().has(id) || woGenOn(id)) || !onDay(id, T0)) return ''; return `<button class="wgo wgot wrec" data-a="recopen" data-ref="${id}">Recovery</button>`; }
+// Today: the generic Workout item becomes the recovery session (the workout itself is already off the day, see woSim)
+function recSwap(out, d) { const r = recOf(d); if (!r) return; const rid = r.item && I(r.item) ? r.item : recItems()[0]; if (!rid) return;
+  let put = out.some((x) => x.items.includes(rid));
+  out.forEach((x) => { x.items = x.items.flatMap((id) => { if (!woGenOn(id) && !(woIds().has(id) && !isDone(id, d))) return [id]; if (put) return []; put = true; return [rid]; }); });
+  if (put) return;
+  // the workout sat in a day block itself: the recovery session takes its spot there
+  const w = [...woIds()].find((k) => onDayBase(k, d)); const wb = w ? placements(w).find((p) => G(p) && G(p).style === 'dayblock') : null; const x = wb && out.find((z) => z.b === wb);
+  if (x) { const ord = G(wb).kids; const at = x.items.findIndex((k) => ord.indexOf(k) > ord.indexOf(w)); if (at < 0) x.items.push(rid); else x.items.splice(at, 0, rid); return; }
+  const b = typeof defBlock === 'function' ? defBlock('training') : null; const y = out.find((z) => z.b === b) || out[0]; if (y) y.items.push(rid); }
+function recSheet(s) { const D = s.draft; const chip = (act, v, l, on, c) => `<button class="chip" data-a="${act}" data-v="${v}" aria-pressed="${!!on}">${c ? `<span class="srdot" style="background:${c}"></span>` : ''}${esc(l)}</button>`;
+  const aches = G('hg-aches') ? kidsOf('hg-aches') : []; const conds = typeof condsOn === 'function' ? condsOn(T0) : [];
+  return `<p class="sub" style="margin:0 0 4px">${D.woName ? esc(D.woName) + ' comes off today. ' : ''}I'll do gentle movement instead, and my workout streak holds.</p>
+    <div class="fld"><span class="mono">What hurts</span><div class="chips">${aches.map((k) => chip('rechurt', k, I(k).name, D.hurt.includes(k), grpCol('hg-aches'))).join('')}${conds.map((x) => chip('rechurt', 'c:' + x.id, x.name + ' · day ' + (diff(x.start, T0) + 1), D.hurt.includes('c:' + x.id), condCol())).join('')}</div></div>
+    <div class="fld"><span class="mono">Instead</span><div class="chips">${recItems().map((k) => chip('recitem', k, I(k).name, D.item === k, srCol(recCat(), '#A877C4'))).join('')}</div></div>
+    <div class="fld"><span class="mono">The workout</span><div class="chips">${chip('recmode', 'drop', 'Let it go this week', D.drop)}${chip('recmode', 'move', 'Move it to tomorrow', !D.drop)}</div>
+      <span class="sub">${D.drop ? `This week needs ${Math.max(0, stSet().wo - 1)} instead of ${stSet().wo}.` : 'It comes back tomorrow, first in line.'}</span></div>
+    <div class="srbtns"><button class="btn" data-a="${s.isNew ? 'closesheet' : 'recundo'}">${s.isNew ? 'Cancel' : 'Back to the workout'}</button><button class="btn dark" data-a="recsave">${s.isNew ? 'Make it a recovery day' : 'Save'}</button></div>`; }
+function streakAction(act, a, ref, v) {
+  switch (act) {
+    case 'recopen': { const r = recOf(T0); const ws = recWoToday(); const nm = r ? r.woName : ws.length ? ws.map((k) => I(k).name).join(', ') : (I(ref) && I(ref).name) || '';
+      openSheet({ kind: 'recov', isNew: !r, title: 'Recovery day', draft: r ? Object.assign({ hurt: [] }, JSON.parse(JSON.stringify(r))) : { woName: nm, hurt: [], item: recItems()[0], drop: true } }); return true; }
+    case 'rechurt': { const D = S.sheet.draft; D.hurt = D.hurt.includes(v) ? D.hurt.filter((x) => x !== v) : D.hurt.concat(v); renderLayer(); return true; }
+    case 'recitem': S.sheet.draft.item = v; renderLayer(); return true;
+    case 'recmode': S.sheet.draft.drop = v === 'drop'; renderLayer(); return true;
+    case 'recsave': { const D = S.sheet.draft; S.sheet = null; change(() => { recs()[T0] = { woName: D.woName || '', hurt: D.hurt, item: D.item, drop: !!D.drop }; }, 'Recovery day'); render(); return true; }
+    case 'recundo': { S.sheet = null; change(() => { delete recs()[T0]; }, 'Back to the workout'); render(); return true; }
+    case 'srn': { change(() => { M.settings.streak = Object.assign(stSet(), { [ref]: Math.max(1, Math.min(7, stSet()[ref] + Number(v))) }); }); render(); return true; }
+  }
+  return false; }
 
 // ---------- day dots (Stone, 2026-11-23) ----------
 // Every calendar marks a day with one round dot in full colour: large = the day is complete, small = not complete.

@@ -15,6 +15,9 @@ function tMigrate(m) {
   if (!m.settings.conds2) { m.settings.conds2 = true; (m.conds || []).forEach((x) => { if (x.id === 'cs-shin' || x.id === 'cs-knee') x.fit = true; }); }
   // every training item is persistent, like hobby activities: a one-off session stays after its tick (the owner, 2026-11-24)
   if (!m.settings.trpersist1 && m.groups['g-train']) { m.settings.trpersist1 = true; m.groups['g-train'].kids.forEach((c) => ((m.groups[c] || {}).kids || []).forEach((k) => { const it = m.items[k]; if (it && it.type === 'task' && (!it.when || it.when.mode === 'once')) it.persist = true; })); }
+  // RECOVERY (the owner, 2026-11-26): its own category and colour; a recovery day swaps the day's workout for gentle movement
+  if (!m.settings.rec1 && m.groups['g-train']) { m.settings.rec1 = true; if (!m.groups['tc-rec']) { m.groups['tc-rec'] = { name: 'Recovery', style: 'tcat', holds: 'task', color: '#A877C4', icon: 'heart-pulse', kids: [] }; m.groups['g-train'].kids.push('tc-rec'); }
+    if (!m.items['tr-gentle']) { m.items['tr-gentle'] = { name: 'Gentle movement', type: 'task', made: T0, tags: [], insight: true, kind: 'behaviour', dur: 30, persist: true, when: { mode: 'once', date: null }, icon: 'heart-pulse' }; m.groups['tc-rec'].kids.push('tr-gentle'); } }
   if (m.settings.train1) return; m.settings.train1 = true; const ex = !!m.example; m.log = m.log || {};
   m.groups['g-train'] = m.groups['g-train'] || { name: 'Training', holds: 'tcats', kids: [] };
   TCATS.forEach(([id, name, color, ic]) => { if (!m.groups[id]) { m.groups[id] = { name, style: 'tcat', holds: 'task', color, icon: ic, kids: [] }; m.groups['g-train'].kids.push(id); } });
@@ -108,6 +111,7 @@ function renderTraining() {
   // the expedition countdown can sit under the Training calendar (Calendars › Training › Countdown) (2026-11-06)
   if (expOn() && calOn('train', 'count') && (S.fday || T0) === T0) h += `<div style="margin:14px 0 -4px">${xCounts()}</div>`;
   const d = S.fday || T0;
+  if (d === T0 || S.edit) h += S.edit ? streakEdit() : streakRows(); // streak rows (the owner, 2026-11-26)
   if (d !== T0) { const ids = trainCats().flatMap(kidsOf).filter((k) => d < T0 ? isDone(k, d) : onDay(k, d));
     h += `<div style="margin-top:14px">` + lcard(null, fmtDate(d), '', (ids.map((k) => `<div class="row"><span class="circ ${isDone(k, d) ? 'done' : ''}" style="--c:${G(trainCat(k)).color}">${isDone(k, d) ? '✓' : ''}</span><button class="lbl" data-a="sched" data-ref="${k}" style="text-align:left">${esc(I(k).name)}<span class="sub">${esc(G(trainCat(k)).name)}${d > T0 ? ' · planned' : ''}</span></button></div>`).join('') || `<p class="empty">${d < T0 ? 'No training that day.' : 'Nothing planned that day.'}</p>`) + condsOn(d).map((x) => `<p class="condday">${ctagMarks(x)}${esc(x.name + ', day ' + (diff(x.start, d) + 1))}</p>`).join('')) + '</div>'; }
   // another day picked: only that day's list, none of today's logging (2026-11-05); edit mode keeps the structure
