@@ -461,7 +461,12 @@ function dayListRaw(d, raw) {
   const mv = (M.dayMove || {})[d] || {}, ord = (M.dayOrder || {})[d] || {};
   blockIds().forEach((b) => G(b).kids.forEach((id) => { if (I(id) && onDay(id, d)) at(mv[id] && G(mv[id]) ? mv[id] : b).items.push(id); }));
   // a move made on one day only changes that day
-  out.forEach((x) => { const o = ord[x.b]; if (!o) return; const base = x.items.slice(); const key = (id) => o.indexOf(id) >= 0 ? o.indexOf(id) : 1000 + base.indexOf(id); x.items.sort((p, q) => key(p) - key(q)); });
+  // something that wasn't on the day when I set its order (rescheduled onto it later) goes in its usual spot between the same
+  // neighbours, not at the end (the owner, 2026-11-26)
+  out.forEach((x) => { const o = ord[x.b]; if (!o) return; const base = x.items.slice(); const L = base.filter((id) => o.includes(id)).sort((p, q) => o.indexOf(p) - o.indexOf(q));
+    base.forEach((id, i) => { if (o.includes(id)) return; const prev = base.slice(0, i).reverse().find((k) => L.includes(k)), next = base.slice(i + 1).find((k) => L.includes(k));
+      if (prev) L.splice(L.indexOf(prev) + 1, 0, id); else if (next) L.splice(L.indexOf(next), 0, id); else L.push(id); });
+    x.items = L; });
   // a day with real study tasks (or study sessions) drops the generic Study session slot; a day with real chores (rooms and
   // one-off chores, not Homemaking or Cooking) drops the Daily chore slot (2026-11-06)
   // a started two-part chore waits on Today, and counts as a real chore there, the generic chore slot drops on Today only, Schedule keeps it (2026-11-12)
@@ -927,7 +932,8 @@ function mShift(out, d, fixedL) { const at = ((M.mTick || {})[d]); const mid = m
     if (fl && nb && a < en(blk) && a + l > en(blk)) { const s0 = Math.max(st(nb), en(blk)); o.a = a; o.b = en(blk); o.blk = blk; o.flows = true; const c = { id: o.id, a: s0, b: s0 + a + l - en(blk), blk: nb, cont: true }; out.push(c); cur = c.b; return; }
     o.a = a; o.b = a + l; o.blk = blk; cur = o.b; }); }
 let TWO_IN = false; const TWO_LATE = (d) => d < T0; /* a past day keeps it where it was */
-function placeDay(d) {
+let NAT_IN = false;
+function placeDay(d, nat) {
   const fz = frozenOf(d); if (fz) { return fz.filter((o) => !isMissed(o.id, d) && !halfWait(o.id, d)).map((o) => Object.assign({}, o)); }
   const out = []; const DL = choreSwap(dayList(d), d); STOOD[d] = DL.stood || {};
   // a bad day's own list sits on the Schedule too (the owner, 2026-11-26): each item in the block it usually lives in, at its set time's block,
@@ -953,7 +959,7 @@ function placeDay(d) {
   // the first part stays where it was; the second part fits itself in after it's due (the owner, 2026-11-24)
   // missed items that come back on their own (an overdue repeat, a task past its date, one moved on from a bad day, an unfinished
   // two-part chore) don't keep their set time: they take the first free spot at the top of their block (2026-11-14)
-  const dT = (M.dayTime || {})[d] || {}; const carried = new Set(d < T0 ? [] : DL.flatMap((x) => x.items).filter((id) => { const it = I(id); if (!it || it.type === 'checkin' || it.brk || dT[id]) return false;
+  const dT = (M.dayTime || {})[d] || {}; const carried = new Set(d < T0 || nat ? [] : DL.flatMap((x) => x.items).filter((id) => { const it = I(id); if (!it || it.type === 'checkin' || it.brk || dT[id]) return false;
     if (fsrcOf(id).some((k) => onDL.has(k)) || (afterSrc()[id] && workoutOn(d, id))) return false; // a shower that follows today's workout stays behind it (2026-11-20)
     return (M.half || {})[id] ? halfOld(id) : (d === T0 && lateBy(id) > 0) || !onDay(id, d); }));
   // repeats keep the order they always have unless I move them (2026-11-20); only an unfinished two-part chore goes to the top
@@ -961,6 +967,18 @@ function placeDay(d) {
   if (topped.size) DL.forEach((x) => { const c = x.items.filter((id) => topped.has(id)); x.items = c.concat(x.items.filter((id) => !topped.has(id))); });
   const SW = DL.swapT || {}; const tAt = (id, dd) => ((M.dayTime || {})[dd] || {})[id] || SW[id] || I(id).time; /* a stand-in takes its generic item's time */
   const fixedT = (id) => !!(dT[id] || SW[id]) || (!!I(id).time && !carried.has(id)); /* moved to a time on this day (2026-11-24) */
+  // A RESCHEDULED ITEM KEEPS ITS SPOT IN THE CHAIN (the owner, 2026-11-26): an overdue repeat, a task past its date, work moved
+  // on from a bad day or a workout pushed on a day lands where it would sit on a usual day, after the same items, and whatever
+  // comes after it moves down. It still lets go of a set time, so it never clips an appointment.
+  const natAft = {};
+  if (!NAT_IN && [...carried].some((id) => !topped.has(id))) { let P0 = []; NAT_IN = true; try { P0 = placeDay(d, true); } finally { NAT_IN = false; }
+    const na = {}; P0.forEach((o, i) => { if (o.cont || o.two || na[o.id]) return; na[o.id] = [o.a, i]; });
+    const pre = (k, id) => na[k] && (na[k][0] < na[id][0] || (na[k][0] === na[id][0] && na[k][1] < na[id][1]));
+    DL.forEach((x) => { const mine = x.items.filter((id) => carried.has(id) && !topped.has(id) && na[id]); if (!mine.length) return;
+      const L = x.items.filter((id) => !mine.includes(id));
+      mine.sort((p, q) => na[p][0] - na[q][0] || na[p][1] - na[q][1]).forEach((id) => { let j = -1; L.forEach((k, ix) => { if (!fixedT(k) && pre(k, id)) j = ix; }); L.splice(j + 1, 0, id);
+        natAft[id] = P0.filter((o) => !o.cont && !o.two && o.id !== id && o.blk === x.b && (o.appt || fixedT(o.id)) && pre(o.id, id)).map((o) => o.id); }); /* set-time items and appointments before it: it waits for them */
+      x.items = L; }); }
   const allFixed = []; DL.forEach(({ b, items, appts }) => { const g = G(b);
     items.filter(fixedT).forEach((id) => { const t = hm(tAt(id, d)); allFixed.push({ id, a: t, b: t + durOn(id, d), blk: dT[id] ? blockAtTime(dT[id]) : b }); }); /* moved to a time on one day: it belongs to the block that time is in */
     (appts || []).forEach((id) => { const t = hm(tAt(id, d) || g.start); allFixed.push({ id, a: t, b: t + (I(id).dur || 30), appt: true, blk: b }); }); });
@@ -989,6 +1007,7 @@ function placeDay(d) {
       const cs = folChain(id, fsrcOf, onDL); const pre = pool.find((k) => k !== id && (cs.includes(k) || cs.some((c) => !onDL.has(c) && ((I(c).type === 'slot' && slotReal(c, k)) || (I(k) && I(k).type === 'slot' && slotReal(k, c)))))); if (pre) anc[id] = pre; });
     const pl = new Set(); const putFol = (q) => items.filter((f) => anc[f] === q.id && !pl.has(f) && !fixedT(f)).sort((f1, f2) => (stickOf(f1).includes(q.id) ? 0 : 1) - (stickOf(f2).includes(q.id) ? 0 : 1)).forEach((f) => { pl.add(f); const len = I(f).dur || 30; let a0 = q.b, mv2 = true;
       while (mv2) { mv2 = false; busy.forEach((z) => { if (a0 < z.b && a0 + len > z.a) { a0 = z.b; mv2 = true; } }); } const r = { id: f, a: a0, b: a0 + len, blk: b }; out.push(r); busy.push(r); putFol(r); });
+    items.forEach((id) => { (natAft[id] || []).forEach((k) => { const f = fixed.find((q) => q.id === k); if (f) after[id] = Math.max(after[id] || 0, f.b); }); });
     items.forEach((id) => { const bh = I(id).behind; if (!bh || o.includes(id)) return; const f = fixed.find((q) => q.id === bh); if (f) after[id] = Math.max(after[id] || 0, f.b); });
     // tacked in front of a set-time item (2026-11-11): it ends right where that item starts, several in a row stack up
     // backwards; a day's own choice wins over the every-day one (it.before)
