@@ -349,29 +349,45 @@ function skipCheck() { if (S.sheet || S.edit) return; if (skipList().length || f
 const badList = () => ((G('g-bad') || {}).kids || []).filter((id) => I(id));
 // add things I already have to the Bad day list, picked rather than typed again (the owner, 2026-11-26). One item, shared:
 // ticking it on a bad day ticks it everywhere. Grouped by area; things that live only on the Bad day list stay out (their × removes them).
-function badPickAll() { const on = new Set(badList()); const AR = M.areas || {}; const an = (k, f) => (AR[k] || {}).name || f;
+// ---------- one picker for adding things I already have (the owner, 2026-11-26) ----------
+// The Bad day picker, used everywhere I add from a list: a search box on top, the things grouped (by area, unless the place
+// has its own groups), where each one lives under its name, and a box on the right in its colour, filled when it's in.
+// openPick({ title, rows: () => [{ k, name, sub, area, c, on }], pick(k), one, none, order }) — rows are worked out each time
+// it draws, so a tap shows straight away. one: picking closes it (none = the label of the row for nothing at all).
+// order 'given' keeps the groups in the order the rows come in; otherwise areas follow the bottom bar.
+const pickTop = (g) => { let c = g, n = 0; while (parentGrp(c) && n++ < 9) c = parentGrp(c); return c; };
+function itemWhere(k, skip = []) { const AR = M.areas || {}; const an = (x, f) => (AR[x] || {}).name || f;
   const SEC = { study: ['study', 'Studies'], chores: ['home', 'Home'], homemaking: ['home', 'Home'], cooking: ['home', 'Home'], training: ['health', 'Training'] };
-  const top = (g) => { let c = g, n = 0; while (parentGrp(c) && n++ < 9) c = parentGrp(c); return c; };
-  return Object.keys(M.items).map((k) => { const it = I(k); if (!it || it.arch || !['task', 'routine', 'checkin', 'slot'].includes(it.type) || it.part || it.brk) return null;
-    if (it.type === 'task' && !repeatable(it) && !it.persist && everDone(k) && !on.has(k)) return null;
-    const pl = placements(k).filter((p) => p !== 'g-bad'); if (!pl.length) return null;
-    if (pl.some((p) => G(p) && G(p).style === 'project')) return null; // hobby project tasks stay in their project, as in routines
-    const sec = itemSec(k); let area, where;
-    const own = pl.find((p) => !p.startsWith('s:') && G(p) && G(p).style !== 'dayblock' && top(p) !== 'g-slots');
-    if (sec && SEC[sec]) { area = sec === 'training' ? 'Training' : an(SEC[sec][0], SEC[sec][1]); }
-    else if (own && top(own) === 'g-hobbies') area = an('hobbies', 'Hobbies');
-    else if (own && top(own) === 'g-health') area = an('health', 'Health');
-    else area = an('plan', 'Planner');
-    if (own) where = G(own).name; else { const p = pl[0]; where = p.startsWith('s:') ? (I(p.slice(2)) || {}).name || '' : (G(p) || {}).name || ''; }
-    return { k, area, where, on: on.has(k) }; }).filter(Boolean); }
-function badPickUI(s) { const q = (s.q || '').trim().toLowerCase(); const all = badPickAll().filter((x) => !q || (I(x.k).name || '').toLowerCase().includes(q));
-  const order = []; all.forEach((x) => { if (!order.includes(x.area)) order.push(x.area); });
-  const AR = M.areas || {}; const rank = (n) => { const i = (M.areaOrder || []).findIndex((a) => (AR[a] || {}).name === n); return n === 'Training' ? (M.areaOrder || []).indexOf('health') + 0.5 : i < 0 ? 99 : i; };
-  order.sort((a, b) => rank(a) - rank(b));
-  const row = (x) => `<button class="arow" data-a="badtog" data-ref="${x.k}" aria-pressed="${x.on}" style="text-align:left;width:100%"><span class="an">${inm(x.k)}<span class="sub">${esc(x.where)}</span></span><span class="circ${x.on ? ' done' : ''}" style="--c:${colorOf(x.k)};width:20px;height:20px" aria-hidden="true"></span></button>`;
-  let h = `<input class="inp" id="badq" placeholder="Search my items" value="${esc(s.q || '')}" autocomplete="off" enterkeyhint="search">`;
+  const pl = placements(k).filter((p) => !skip.includes(p)); const sec = itemSec(k); let area, where = '';
+  const own = pl.find((p) => !p.startsWith('s:') && G(p) && G(p).style !== 'dayblock' && pickTop(p) !== 'g-slots');
+  if (sec && SEC[sec]) area = sec === 'training' ? 'Training' : an(SEC[sec][0], SEC[sec][1]);
+  else if (own && pickTop(own) === 'g-hobbies') area = an('hobbies', 'Hobbies');
+  else if (own && pickTop(own) === 'g-health') area = an('health', 'Health');
+  else area = an('plan', 'Planner');
+  if (own) where = G(own).name; else if (pl.length) { const p = pl[0]; where = p.startsWith('s:') ? (I(p.slice(2)) || {}).name || '' : (G(p) || {}).name || ''; }
+  return { area, where }; }
+// my items as picker rows; on = the ones already in
+const pickItems = (keys, on, skip) => keys.filter((k) => I(k)).map((k) => Object.assign({ k, name: I(k).name || '', html: inm(k), c: colorOf(k), on: on.includes(k) }, itemWhere(k, skip)));
+function openPick(o) { const back = S.sheet || null; if (back) { const sb = [...document.querySelectorAll('#layer .sb')].pop(); if (sb) back._sc = sb.scrollTop; }
+  openSheet(Object.assign({ kind: 'pick', q: '' }, o, { back })); }
+function pickUI(s) { const q = (s.q || '').trim().toLowerCase(); const rows = s.rows(); const all = rows.filter((x) => !q || (x.name || '').toLowerCase().includes(q) || (x.sub || x.where || '').toLowerCase().includes(q));
+  const order = []; all.forEach((x) => { if (!order.includes(x.area || '')) order.push(x.area || ''); });
+  if (s.order !== 'given') { const AR = M.areas || {}; const rank = (n) => { const i = (M.areaOrder || []).findIndex((a) => (AR[a] || {}).name === n); return n === 'Training' ? (M.areaOrder || []).indexOf('health') + 0.5 : i < 0 ? 99 : i; }; order.sort((a, b) => rank(a) - rank(b)); }
+  const row = (x) => `<button class="arow" data-a="picktog" data-v="${esc(x.k)}" aria-pressed="${!!x.on}" style="text-align:left;width:100%"><span class="an">${x.html || esc(x.name)}${(x.sub || x.where) ? `<span class="sub">${esc(x.sub || x.where)}</span>` : ''}</span><span class="circ${x.on ? ' done' : ''}" style="--c:${x.c || 'var(--quiet)'};width:20px;height:20px" aria-hidden="true"></span></button>`;
+  let h = `<input class="inp" id="pickq" placeholder="${esc(s.ph || 'Search my items')}" value="${esc(s.q || '')}" autocomplete="off" enterkeyhint="search">`;
+  if (s.one && s.none && !q) h += `<div class="afind">${row({ k: '', name: s.none, on: !rows.some((x) => x.on) })}</div>`;
   if (!all.length) return h + `<p class="empty">${q ? 'Nothing by that name.' : 'Nothing to add yet.'}</p>`;
-  return h + order.map((n) => `<div class="fld"><span class="mono">${esc(n)}</span><div class="afind" style="margin-top:0">${all.filter((x) => x.area === n).sort((a, b) => (I(a.k).name || '').localeCompare(I(b.k).name || '')).map(row).join('')}</div></div>`).join(''); }
+  const sort = (L) => s.keep ? L : L.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  return h + order.map((n) => `<div class="fld">${n ? `<span class="mono">${esc(n)}</span>` : ''}<div class="afind" style="margin-top:0">${sort(all.filter((x) => (x.area || '') === n)).map(row).join('')}</div></div>`).join(''); }
+// the row that opens it, where a list used to be
+const pickBtn = (act, label, ref = '') => `<button class="addbtn" data-a="${act}"${ref ? ` data-ref="${esc(ref)}"` : ''}><span class="plus">+</span>${esc(label)}</button>`;
+function badPickAll() { const on = new Set(badList());
+  return Object.keys(M.items).filter((k) => { const it = I(k); if (!it || it.arch || !['task', 'routine', 'checkin', 'slot'].includes(it.type) || it.part || it.brk) return false;
+    if (it.type === 'task' && !repeatable(it) && !it.persist && everDone(k) && !on.has(k)) return false;
+    const pl = placements(k).filter((p) => p !== 'g-bad'); if (!pl.length) return false;
+    return !pl.some((p) => G(p) && G(p).style === 'project'); }); } // hobby project tasks stay in their project, as in routines
+const badPick = () => openPick({ title: 'Add to ' + ((G('g-bad') || {}).name || 'Bad day'), rows: () => pickItems(badPickAll(), badList(), ['g-bad']),
+  pick: (k) => { const g = G('g-bad'); if (!g || !I(k)) return; change(() => { const i = g.kids.indexOf(k); if (i < 0) g.kids.push(k); else g.kids.splice(i, 1); }); } });
 // what a bad day moves on: the day as it would be on Today (generic items give way to specific ones), without breaks or doubles (the owner, 2026-11-24)
 // things that are on the Bad day list too stay there, not under Rescheduled as well (2026-11-26)
 const badMoved = (d) => { const seen = new Set(badList()); return slotDrop(dayListRaw(d, true), d).flatMap((x) => x.items.map((id) => ({ id, b: x.b }))).filter((o) => { const it = I(o.id); if (!it || it.type === 'checkin' || it.brk || seen.has(o.id)) return false; seen.add(o.id); return true; }); };
@@ -1179,12 +1195,12 @@ function renderLayer() { setTimeout(navTrack, 0);
     chain.forEach((x) => { S.sheet = x; const one = sheetLayer(); h += x === top ? one : `<div class="under" inert aria-hidden="true">${one.replace(/ id="/g, ' data-oid="')}</div>`; }); S.sheet = top; }
   if (S.ask) h += `<div class="askwrap" data-a="askno"><div class="ask" role="alertdialog" aria-label="Am I sure?"><b>Am I sure?</b><p>${esc(S.ask.q)}</p><div class="btns"><button class="btn" data-a="askno">Cancel</button><button class="btn danger" data-a="askyes">${esc(S.ask.yes)}</button></div></div></div>`;
   if (S.toast && !S.sheet) h += `<div class="toast" role="status"><span>${esc(S.toast.msg)}</span>${S.toast.undo ? '<button data-a="undo">Undo</button>' : ''}</div>`;
-  const lastSb = () => [...document.querySelectorAll('#layer .sb')].pop(); const sb0 = lastSb(); const keep = sb0 && S.sheet && S._lastSheet === S.sheet ? sb0.scrollTop : 0; $('#layer').innerHTML = h; S._lastSheet = S.sheet; if (keep) { const sb1 = lastSb(); if (sb1) sb1.scrollTop = keep; }
+  const lastSb = () => [...document.querySelectorAll('#layer .sb')].pop(); const sb0 = lastSb(); const keep = sb0 && S.sheet && S._lastSheet === S.sheet ? sb0.scrollTop : S.sheet && S.sheet._sc || 0; if (S.sheet) delete S.sheet._sc; $('#layer').innerHTML = h; S._lastSheet = S.sheet; if (keep) { const sb1 = lastSb(); if (sb1) sb1.scrollTop = keep; } // back from a picker, the pop-up under it is where I left it
   // a message while a pop-up is open shows inside that pop-up, under its title (never hidden behind it)
   if (S.toast && S.sheet) { const hd = [...document.querySelectorAll('#layer > .scrim > .sheet > header, #layer > .cifull > header, #layer > .cifull .cihd')].pop(); if (hd) { const m = document.createElement('div'); m.className = 'shmsg'; m.setAttribute('role', 'alert'); m.textContent = S.toast.msg; hd.after(m); } }
   { const nt = document.getElementById('ntext'); if (nt) { nt.style.height = 'auto'; nt.style.height = Math.max(nt.scrollHeight, 224) + 'px'; } } // a long note opens at its full height, so the pop-up can scroll through it
   // the + sheet keeps the size it opened at while I search (2026-11-08)
-  if (S.sheet && (S.sheet.kind === 'add' || S.sheet.kind === 'badpick')) { const sh = [...document.querySelectorAll('#layer .sheet')].pop(); if (sh) { if (!(S.sheet.q || '').trim()) S.sheet.h = sh.offsetHeight; else if (S.sheet.h) sh.style.height = S.sheet.h + 'px'; } }
+  if (S.sheet && (S.sheet.kind === 'add' || S.sheet.kind === 'pick')) { const sh = [...document.querySelectorAll('#layer .sheet')].pop(); if (sh) { if (!(S.sheet.q || '').trim()) S.sheet.h = sh.offsetHeight; else if (S.sheet.h) sh.style.height = S.sheet.h + 'px'; } }
 }
 function openSheet(s) { S.openAdd = null; S.tagEdit = false; if (!s.back && S.sheet && S.sheet.kind === 'checkin' && s.kind !== 'checkin') s.back = S.sheet; // anything I add from a check-in comes back to it (2026-11-10)
   if (s.kind === 'checkin' && !s.feel0) s.feel0 = (M.feel[T0] || []).slice(); S.sheet = s; S.menu = false; renderLayer(); const f = [...document.querySelectorAll('#layer [data-autofocus]')].pop(); if (f) f.focus(); }
@@ -1192,9 +1208,14 @@ function closeSheet() { if (S.sheet && S.sheet.kind === 'note' && typeof nAuto =
 const swRow = (cur, act, extra = '') => `<div class="sw">${extra}${PAL.map(([n, c]) => `<button style="--c:${c}" data-a="${act}" data-v="${c}" aria-label="${n}" title="${n}" aria-pressed="${(cur || '').toLowerCase() === c.toLowerCase()}"></button>`).join('')}</div>`;
 // a step's own options in the routine sheet: optional, which days it's part of the routine, its tags (2026-11-11)
 // Tasks that stay after a tick (done once already) can be linked too; hobby project tasks can't (the owner, 2026-11-25)
-function partPick(s) { const have = (s.steps || []).map((x) => x.id).filter(Boolean); const self = s.ref;
-  const all = Object.keys(M.items).filter((k) => k !== self && !have.includes(k) && (I(k).type === 'checkin' || (I(k).type === 'task' && !I(k).part && !I(k).brk && !(!repeatable(I(k)) && !I(k).persist && everDone(k)) && !placements(k).some((p) => G(p) && G(p).style === 'project')))).sort((a, b) => I(a).name.localeCompare(I(b).name));
-  return all.length ? `<select class="inp" data-partadd="1" aria-label="Add one of my items as a step" style="margin-top:8px"><option value="">+ Add one of my items</option>${all.map((k) => `<option value="${k}">${esc(tnm(k))}</option>`).join('')}</select>` : ''; }
+function partCands(s) { const self = s.ref;
+  return Object.keys(M.items).filter((k) => k !== self && (I(k).type === 'checkin' || (I(k).type === 'task' && !I(k).part && !I(k).brk && !(!repeatable(I(k)) && !I(k).persist && everDone(k)) && !placements(k).some((p) => G(p) && G(p).style === 'project')))); }
+// picked in the shared picker (2026-11-26): tapping one adds it as a step, tapping it again takes it off
+function partPick(s) { return partCands(s).length ? pickBtn('partpick', 'Add one of my items') : ''; }
+function partPickOpen() { capture(); const s = S.sheet; if (!s) return;
+  openPick({ title: 'Add steps', rows: () => pickItems(partCands(s), (s.steps || []).map((x) => x.id).filter(Boolean)),
+    pick: (k) => { if (!I(k)) return; s.steps = s.steps || []; const i = s.steps.findIndex((x) => x.id === k); s.stepOpen = null;
+      if (i >= 0) s.steps.splice(i, 1); else s.steps.push({ id: k, name: I(k).name, link: true, optional: false, only: '', days: [], tags: [] }); } }); }
 function stepOpts(x, i) { const ch = (a, v, on, l) => `<button class="chip" data-a="${a}" data-ref="${i}" data-v="${v}" aria-pressed="${!!on}">${esc(l)}</button>`;
   return `<div class="stepopts"><div class="tg"><span class="l">Optional</span><button class="swt" role="switch" aria-checked="${!!x.optional}" data-a="dstep-opt" data-ref="${i}" aria-label="Optional"></button></div>
     <span class="mono">Part of the routine</span><div class="chips">${[['', 'Every time'], ['rest', 'Days without a workout'], ['train', 'Days with a workout'], ['days', 'Certain days']].map(([v, l]) => ch('dstep-only', v, (x.only || '') === v, l)).join('')}</div>
@@ -1240,7 +1261,7 @@ function sheetBody() {
       ${g.style === 'acat' ? `<div class="fld"><span class="mono">Icon</span><div><button class="btn" data-a="iconfor" data-v="${s.ref}" style="display:inline-flex;gap:8px;align-items:center">${icon(g.icon || 'circle', 18)} Change icon</button></div></div>` : ''}`; }
   if (s.kind === 'area') { const a = M.areas[s.ref];
     return `<div class="fld"><span class="mono">Name</span><input class="inp" id="aname" value="${esc(a.name)}"></div><div class="fld"><span class="mono">Colour</span>${colorField('a:' + s.ref, a.color)}</div>`; }
-  if (s.kind === 'badpick') return badPickUI(s);
+  if (s.kind === 'pick') return pickUI(s);
   if (s.kind === 'remove') { const pl = placements(s.ref);
     return `<p class="note" style="font-size:14px">“${inm(s.ref)}” is in ${pl.length} places: ${pl.map((p) => esc(placeName(p))).join(', ')}. It is one item, so its history is shared.</p><div class="btns"><button class="btn" data-a="rmhere">Remove from here</button><button class="btn danger" data-a="rmall">Delete everywhere</button></div>`; }
   if (s.kind === 'hyper') { const pk = hval(T0, 'pt:' + s.ref) || []; const c = hcolor(s.ref); const chip = ([h, l]) => `<button class="hchip" data-a="hpart" data-ref="${s.ref}" data-v="${esc(h)}" aria-pressed="${pk.includes(h)}" style="${pk.includes(h) ? `background:${pale(c)};border-color:${c}` : ''}">${esc(l)}</button>`; const HB = hyperHobs(s.ref), DT = (I(s.ref).parts || []).map((w) => [w, w]); const hobOn = HB.some(([h]) => pk.includes(h));
@@ -1627,8 +1648,16 @@ document.addEventListener('click', (e) => {
     case 'rm': { const list = a.dataset.in; if (I(ref) && placements(ref).length > 1 && !list.startsWith('s:')) { openSheet({ kind: 'remove', ref, list, title: 'Remove' }); break; }
       if (list === 'g-blocks' && blockIds().length <= 1) { flash('Keep at least one day block'); break; }
       removeRef(ref, list, false); break; }
-    case 'badpick': openSheet({ kind: 'badpick', title: 'Add to ' + ((G('g-bad') || {}).name || 'Bad day') }); break;
-    case 'badtog': { const g = G('g-bad'); if (!g || !I(ref)) break; change(() => { const i = g.kids.indexOf(ref); if (i < 0) g.kids.push(ref); else g.kids.splice(i, 1); }); break; }
+    case 'badpick': badPick(); break;
+    case 'partpick': partPickOpen(); break;
+    case 'xcondpick': { xcapture(); const x = mealPlan().extras.find((y) => y.id === ref); if (!x) break;
+      openPick({ title: 'Switches ' + x.name + ' on', order: 'given', rows: () => xcondRows(x), pick: (k) => change(() => xcondTog(x, k)) }); break; }
+    case 'xcondrm': { xcapture(); const x = mealPlan().extras.find((y) => y.id === ref); if (x) change(() => xcondTog(x, v)); renderLayer(); break; }
+    case 'afterpick': draftPick('then', 'Always after', afterCands); break;
+    case 'linkpick': draftPick('links', 'Also ticks', linkCands); break;
+    case 'brkpick': openPick({ title: 'Breaks the day', rows: () => pickItems(Object.keys(M.items).filter(BREAKABLE), (mealPlan().breaks || []).map((b) => b.id)),
+      pick: (k) => change(() => { const mp = mealPlan(); const L = mp.breaks = mp.breaks || []; const i = L.findIndex((b) => b.id === k); if (i >= 0) L.splice(i, 1); else L.push({ id: k, min: 1 }); }) }); break;
+    case 'picktog': { const s = S.sheet; if (!s || s.kind !== 'pick') break; s.pick(v); if (s.one) closeSheet(); else if (S.sheet === s) renderLayer(); break; }
     case 'rmhere': { const s = S.sheet; S.sheet = null; removeRef(s.ref, s.list, false); break; }
     case 'rmall': { const s = S.sheet; S.sheet = null; removeRef(s.ref, s.list, true); break; }
     case 'addtask': { const id = uid('i'); change(() => { M.items[id] = { name: 'New task', type: 'task', when: { mode: 'once', date: T0 }, kind: 'behaviour', tags: [], insight: false, made: T0, dur: 30 }; G(a.dataset.in).kids.push(id); }); focusName(id); break; }
@@ -1749,7 +1778,7 @@ function tick(id) {
 }
 document.addEventListener('input', (e) => {
   if (e.target.id === 'iconq') { S.sheet.q = e.target.value; const pos = e.target.selectionStart; renderLayer(); const q = $('#iconq'); q.focus(); q.setSelectionRange(pos, pos); }
-  if (e.target.id === 'badq') { S.sheet.q = e.target.value; const pos = e.target.selectionStart; renderLayer(); const q = $('#badq'); q.focus(); q.setSelectionRange(pos, pos); }
+  if (e.target.id === 'pickq') { S.sheet.q = e.target.value; const pos = e.target.selectionStart; renderLayer(); const q = $('#pickq'); q.focus(); q.setSelectionRange(pos, pos); }
   if (e.target.id === 'addq') { S.sheet.q = e.target.value; const pos = e.target.selectionStart; renderLayer(); const q = $('#addq'); q.focus(); q.setSelectionRange(pos, pos); }
   if (e.target.id === 'cust') $('#hex').value = e.target.value;
 });
@@ -2548,7 +2577,7 @@ function breaksUI() {
   return `<div class="fld" style="margin-top:16px"><span class="mono">Breaks the day</span>
     ${bs.filter((b) => I(b.id)).map((b) => { const it = I(b.id); const sc = SCALES[it.scale];
       return `<div class="inrow brk"><span style="flex:1">${inm(it)}</span>${sc ? `<select class="inp" data-bmin="${b.id}" aria-label="From which answer">${sc.map((w, i) => `<option value="${i + 1}" ${(b.min || 1) === i + 1 ? 'selected' : ''}>${i === 0 ? 'Any answer' : 'From ' + w}</option>`).join('')}</select>` : `<span class="note" style="margin:0">${it.scale === 'avoid' ? 'When avoided' : 'When ticked'}</span>`}<button class="rm" data-a="brkrm" data-v="${b.id}" aria-label="Remove ${esc(tnm(it))}">${icon('x', 14)}</button></div>`; }).join('')}
-    ${all.length ? `<select class="inp" data-badd="1" aria-label="Add an item that breaks the day"><option value="">+ Add an item</option>${all.map((k) => `<option value="${k}">${esc(tnm(k))}</option>`).join('')}</select>` : ''}</div>`;
+    ${all.length ? pickBtn('brkpick', 'Add an item') : ''}</div>`;
 }
 function foodCal() { return foodCal0() + calEdit(); }
 function foodCal0() {
@@ -2565,21 +2594,22 @@ function foodCal0() {
 const stepper = (act, k, f, v) => `<span class="stp"><button data-a="${act}" data-k="${k}" data-f="${f}" data-v="-1" aria-label="Less">−</button><b>${v}</b><button data-a="${act}" data-k="${k}" data-f="${f}" data-v="1" aria-label="More">+</button></span>`;
 const wKey = (w) => !w ? '' : w.src === 'sym' ? 'sym:' + w.id : w.src === 'tag' ? 'tag:' + w.id + (w.opt ? ':' + w.opt : '') : w.src === 'treat' ? 'treat' : w.src === 'train' ? 'train:' + (w.id || '') : '';
 const wParse = (v) => !v ? null : v === 'treat' ? { src: 'treat' } : v.startsWith('train:') ? { src: 'train', id: v.slice(6) } : (([src, id, ...o]) => o.length ? { src, id, opt: o.join(':') } : { src, id })(v.split(':'));
-function linkField(x) {
-  const tri = typeof trainCats === 'function' ? trainCats().flatMap(kidsOf).filter((k) => I(k)) : [];
+// what can switch an extra on: a symptom, a nutrition tag, a training session, or the food diary's first snack of the week
+function xcondRows(x) { const tri = typeof trainCats === 'function' ? trainCats().flatMap(kidsOf).filter((k) => I(k)) : [];
   const syms = (G('hg-sym') ? G('hg-sym').kids : []).flatMap((t) => (G(t) || { kids: [] }).kids).filter((k) => I(k));
   const tags = (G(foodGroup()) ? G(foodGroup()).kids : []).filter((k) => I(k) && I(k).scale === 'yesno');
-  const sel = (cur, attr, first, label) => { const opt = (v, l) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(l)}</option>`;
-    return `<select class="inp" ${attr} aria-label="${esc(label)}" style="margin-top:6px">${opt('', first)}
-    <optgroup label="Symptom">${syms.map((k) => opt('sym:' + k, I(k).name)).join('')}</optgroup>
-    <optgroup label="Nutrition tag">${tags.map((k) => opt('tag:' + k, I(k).name)).join('')}</optgroup>
-    <optgroup label="Training">${tri.map((k) => opt('train:' + k, I(k).name)).join('')}</optgroup>
-    <optgroup label="Food diary">${opt('treat', 'The first snack of the week')}</optgroup></select>`; };
-  // any one of the conditions switches it on; a second one is added under the first
-  return `<div class="fld" style="margin-top:8px"><span class="mono">Switches on by itself</span>${sel(wKey(x.when), `data-xwhen="${x.id}"`, 'Not linked', 'What switches ' + x.name + ' on')}
-    ${(x.more || []).map((w, i) => `<span class="mono" style="display:block;margin-top:6px">or</span>${sel(wKey(w), `data-xmore="${x.id}" data-i="${i}"`, 'Remove this one', 'Another thing that switches ' + x.name + ' on')}`).join('')}
-    ${x.when ? sel('', `data-xmore="${x.id}" data-i="new"`, '+ Add another condition', 'Add another thing that switches ' + x.name + ' on') : ''}</div>`;
+  const on = [x.when].concat(x.more || []).filter(Boolean).map(wKey);
+  const r = (key, k, area) => Object.assign({ k: key, name: I(k).name || '', html: inm(k), c: colorOf(k), on: on.includes(key) }, itemWhere(k), { area });
+  return syms.map((k) => r('sym:' + k, k, 'Symptom')).concat(tags.map((k) => r('tag:' + k, k, 'Nutrition tag')), tri.map((k) => r('train:' + k, k, 'Training')),
+    [{ k: 'treat', name: 'The first snack of the week', area: 'Food diary', on: on.includes('treat') }]); }
+const xcondName = (w) => { const k = wKey(w); if (k === 'treat') return 'The first snack of the week'; return w.id && I(w.id) ? I(w.id).name + (w.opt ? ' · ' + w.opt : '') : w.kind || 'Training'; };
+// any one of the conditions switches it on: picked in the shared picker (2026-11-26), each a chip to take off again
+function linkField(x) { const L = [x.when].concat(x.more || []).filter(Boolean);
+  return `<div class="fld" style="margin-top:8px"><span class="mono">Switches on by itself${L.length > 1 ? ' · any of these' : ''}</span>${L.length ? `<div class="chips">${L.map((w) => `<button class="chip" data-a="xcondrm" data-ref="${x.id}" data-v="${esc(wKey(w))}" aria-label="Stop ${esc(xcondName(w))} switching ${esc(x.name)} on">${esc(xcondName(w))} ${icon('x', 12)}</button>`).join('')}</div>` : ''}${pickBtn('xcondpick', L.length ? 'Add another' : 'Link it to something', x.id)}</div>`;
 }
+// takes one condition off (the next one moves up), or puts it on as the first or as another
+function xcondTog(x, key) { const L = [x.when].concat(x.more || []).filter(Boolean); const i = L.findIndex((w) => wKey(w) === key);
+  if (i >= 0) L.splice(i, 1); else L.push(wParse(key)); if (L.length) x.when = L[0]; else delete x.when; if (L.length > 1) x.more = L.slice(1); else delete x.more; }
 function mealWeekSheet() {
   const mp = mealPlan();
   let h = `<div class="pgrid"><span></span>${PLANK.map((k) => `<span class="mono">${k[2]}</span>`).join('')}${WD.map((w, i) => `<span class="pd">${w}</span>${PLANK.map(([k]) => stepper('mwstep', i, k, mp.week[i][k] || 0)).join('')}`).join('')}</div>`;
@@ -2817,11 +2847,16 @@ function tcapture() { const s = S.sheet; if (!s || s.kind !== 'tracker') return;
   document.querySelectorAll('[data-opt]').forEach((el) => { s.draft.options[+el.dataset.opt] = el.value; }); document.querySelectorAll('#layer [data-part]').forEach((el) => { s.draft.parts[+el.dataset.part] = el.value; }); }
 // the items this one ticks with it, in its editor: chips to take off, a list to add from
 const isTrainSheet = (s) => typeof trainCats === 'function' && ((s.home && trainCats().includes(s.home)) || (s.ref && trainCats().some((c) => kidsOf(c).includes(s.ref))));
-function afterField(D) { const L = (D.then || []).filter(I); const self = S.sheet && S.sheet.ref; const tr = new Set(trainCats().flatMap(kidsOf));
-  const all = Object.keys(M.items).filter((k) => k !== self && !L.includes(k) && !tr.has(k) && (I(k).type === 'task' || I(k).type === 'routine') && !I(k).part && !I(k).brk && !(!repeatable(I(k)) && everDone(k)) && placements(k).some((p) => G(p) && G(p).style === 'dayblock')).sort((a, b) => I(a).name.localeCompare(I(b).name));
-  return `<div class="fld"><span class="mono">Always after</span>${L.length ? `<div class="chips">${L.map((k) => `<button class="chip" data-a="afterrm" data-v="${k}" aria-label="Stop putting ${esc(tnm(k))} after it">${inm(k)} ${icon('x', 12)}</button>`).join('')}</div>` : ''}<select class="inp" data-afteradd="1" aria-label="Add a task that always comes after it" style="margin-top:6px"><option value="">+ Add a task</option>${all.map((k) => `<option value="${k}">${esc(tnm(k))}</option>`).join('')}</select></div>`; }
-function linkField2(D) { const L = (D.links || []).filter(I); const self = S.sheet && S.sheet.ref; const all = Object.keys(M.items).filter((k) => LINKABLE(k) && k !== self && !L.includes(k) && !(I(k).type === 'task' && !repeatable(I(k)) && everDone(k))).sort((a, b) => I(a).name.localeCompare(I(b).name));
-  return `<div class="fld"><span class="mono">Also ticks</span>${L.length ? `<div class="chips">${L.map((k) => `<button class="chip" data-a="linkrm" data-v="${k}" aria-label="Stop ticking ${esc(tnm(k))}">${inm(k)} ${icon('x', 12)}</button>`).join('')}</div>` : ''}<select class="inp" data-linkadd="1" aria-label="Add an item it ticks" style="margin-top:6px"><option value="">+ Add an item</option>${all.map((k) => `<option value="${k}">${esc(tnm(k))}${I(k).type === 'tracker' ? ' · tag' : ''}</option>`).join('')}</select></div>`; }
+const afterCands = (self) => { const tr = new Set(trainCats().flatMap(kidsOf));
+  return Object.keys(M.items).filter((k) => k !== self && !tr.has(k) && (I(k).type === 'task' || I(k).type === 'routine') && !I(k).part && !I(k).brk && !(!repeatable(I(k)) && everDone(k)) && placements(k).some((p) => G(p) && G(p).style === 'dayblock')); };
+function afterField(D) { const L = (D.then || []).filter(I); const self = S.sheet && S.sheet.ref; const all = afterCands(self).filter((k) => !L.includes(k));
+  return `<div class="fld"><span class="mono">Always after</span>${L.length ? `<div class="chips">${L.map((k) => `<button class="chip" data-a="afterrm" data-v="${k}" aria-label="Stop putting ${esc(tnm(k))} after it">${inm(k)} ${icon('x', 12)}</button>`).join('')}</div>` : ''}${all.length ? pickBtn('afterpick', 'Add a task') : ''}</div>`; }
+const linkCands = (self) => Object.keys(M.items).filter((k) => LINKABLE(k) && k !== self && !(I(k).type === 'task' && !repeatable(I(k)) && everDone(k)));
+function linkField2(D) { const L = (D.links || []).filter(I); const self = S.sheet && S.sheet.ref; const all = linkCands(self).filter((k) => !L.includes(k));
+  return `<div class="fld"><span class="mono">Also ticks</span>${L.length ? `<div class="chips">${L.map((k) => `<button class="chip" data-a="linkrm" data-v="${k}" aria-label="Stop ticking ${esc(tnm(k))}">${inm(k)} ${icon('x', 12)}</button>`).join('')}</div>` : ''}${all.length ? pickBtn('linkpick', 'Add an item') : ''}</div>`; }
+// the item or tracker editor's lists (Always after, Also ticks) fill from the shared picker; the draft changes, Save keeps it
+function draftPick(field, title, cands) { const s = S.sheet; if (!s || !s.draft) return; if (s.kind === 'item') capture(); else tcapture(); const D = s.draft;
+  openPick({ title, rows: () => pickItems(cands(s.ref), (D[field] || []).filter(I)), pick: (k) => { const L = (D[field] || []).slice(); const i = L.indexOf(k); if (i >= 0) L.splice(i, 1); else L.push(k); D[field] = L; } }); }
 
 // photos: kept as artifact assets when that is available, otherwise as a small picture inside the saved data
 let assetsNS;
@@ -2854,13 +2889,7 @@ document.addEventListener('change', (e) => { if (e.target.dataset && e.target.da
   if (e.target.id === 'dtime' && document.getElementById('dend')) { const en = document.getElementById('dend'); const st = e.target.value; if (st && (!en.value || hm(en.value) <= hm(st))) en.value = fmtHM((hm(st) + 60) % 1440); }
   const ds = e.target.dataset || {};
   if (ds.fadd != null) { const w = e.target.value.trim().toLowerCase(); if (w && !feelSet().some((x) => x[2].includes(w))) change(() => { const set = JSON.parse(JSON.stringify(feelSet())); set[+ds.fadd][2].push(w); M.settings.feelings = set; }); renderLayer(); return; }
-  if (ds.partadd) { const k = e.target.value; const s = S.sheet; if (k && s && I(k)) { capture(); (s.steps = s.steps || []).push({ id: k, name: I(k).name, link: true, optional: false, only: '', days: [], tags: [] }); } renderLayer(); return; }
-  if (ds.afteradd) { const k = e.target.value; const s = S.sheet; if (k && s && s.draft) { capture(); s.draft.then = (s.draft.then || []).concat(k); } renderLayer(); return; }
-  if (ds.linkadd) { const k = e.target.value; const s = S.sheet; if (k && s && s.draft) { if (s.kind === 'item') capture(); else tcapture(); s.draft.links = (s.draft.links || []).concat(k); } renderLayer(); return; }
-  if (ds.badd) { const k = e.target.value; if (k) change(() => { const mp = mealPlan(); (mp.breaks = mp.breaks || []).push({ id: k, min: 1 }); }); renderLayer(); return; }
   if (ds.bmin) { const b = (mealPlan().breaks || []).find((x) => x.id === ds.bmin); if (b) change(() => { b.min = +e.target.value; }); renderLayer(); return; }
-  if (ds.xwhen) { xcapture(); const x = mealPlan().extras.find((y) => y.id === ds.xwhen); const v = e.target.value; change(() => { if (!v) { delete x.when; const m0 = (x.more || []).shift(); if (m0) x.when = m0; if (x.more && !x.more.length) delete x.more; } else x.when = wParse(v); }); renderLayer(); return; }
-  if (ds.xmore) { xcapture(); const x = mealPlan().extras.find((y) => y.id === ds.xmore); const v = e.target.value; if (x) change(() => { const L = x.more = x.more || []; if (ds.i === 'new') { if (v) L.push(wParse(v)); } else if (!v) L.splice(+ds.i, 1); else L[+ds.i] = wParse(v); if (!L.length) delete x.more; }); renderLayer(); return; }
   if (ds.xkm || ds.xkind) { const x = mealPlan().extras.find((y) => y.id === (ds.xkm || ds.xkind)); if (x && x.when) change(() => { if (ds.xkm) x.when.km = Math.max(0, +e.target.value || 0); else x.when.kind = e.target.value.trim() || 'Hike'; }); return; }
   // several photos can be picked at once (2026-11-11): each one is added in turn
   if (e.target.id === 'photoin' && e.target.files[0]) addPhotos(e.target.files); if (e.target.id === 'photoin2' && e.target.files[0]) addPhoto(e.target.files[0], true); if (e.target.id === 'jimgin' && e.target.files[0]) addPhotos(e.target.files, 'jimg'); });
