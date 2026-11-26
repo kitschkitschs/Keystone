@@ -74,28 +74,44 @@ const woGenOn = (id) => { const it = I(id); return !!it && it.type === 'slot' &&
 function recBtn(id, d) { if (S.edit || d !== T0 || recOf(T0) || isBad(T0) || isDone(id, d)) return '';
   if (!(woIds().has(id) || woGenOn(id)) || !onDay(id, T0)) return ''; return `<button class="wgo wgot wrec" data-a="recopen" data-ref="${id}">Recovery</button>`; }
 // Today: the workout is already off the day (see woSim); the generic Workout item gives way to the generic Movement item, so the day asks for movement
-function recSwap(out, d) { if (!recOf(d)) return; const rid = mvGen();
-  let put = !rid || out.some((x) => x.items.includes(rid));
-  out.forEach((x) => { x.items = x.items.flatMap((id) => { if (!woGenOn(id) && !(woIds().has(id) && !isDone(id, d))) return [id]; if (put) return []; put = true; return [rid]; }); });
+function recSwap(out, d) { const r = recOf(d); if (!r) return; const rid = mvGen(); const pk = r.pick || {};
+  // things I picked to reschedule or skip leave the day (workouts are already off, see woSim)
+  out.forEach((x) => { x.items = x.items.filter((id) => woIds().has(id) || isDone(id, d) || !(pk[id] === 'skip' || pk[id] === 'move')); });
+  // a workout I kept stays, and then the day needs no Movement item in its place
+  let put = !rid || out.some((x) => x.items.includes(rid)) || out.some((x) => x.items.some((id) => woIds().has(id) && recPick(r, id) === 'keep'));
+  out.forEach((x) => { x.items = x.items.flatMap((id) => { if (!woGenOn(id) && !(woIds().has(id) && !isDone(id, d))) return [id]; if (woIds().has(id) && recPick(r, id) === 'keep') return [id]; if (put) return []; put = true; return [rid]; }); });
   if (put) return;
   // the workout sat in a day block itself: the Movement item takes its spot there
   const w = [...woIds()].find((k) => onDayBase(k, d)); const wb = w ? placements(w).find((p) => G(p) && G(p).style === 'dayblock') : null; const x = wb && out.find((z) => z.b === wb);
   if (x) { const ord = G(wb).kids; const at = x.items.findIndex((k) => ord.indexOf(k) > ord.indexOf(w)); if (at < 0) x.items.push(rid); else x.items.splice(at, 0, rid); return; }
   const y = out.find((z) => G(rid) ? false : placements(rid).includes(z.b)) || out[0]; if (y) y.items.push(rid); }
-function recSheet(s) { const D = s.draft; const chip = (act, v, l, on, c) => `<button class="chip" data-a="${act}" data-v="${v}" aria-pressed="${!!on}">${c ? `<span class="srdot" style="background:${c}"></span>` : ''}${esc(l)}</button>`;
+// what I picked for a scheduled thing on a recovery day: move (to tomorrow), skip, or keep. Older days had one choice for the workout.
+const recPick = (r, id) => ((r && r.pick) || {})[id] || (r && r.drop === false ? 'move' : 'skip');
+// the training things on today a recovery day decides about: workouts and expedition training as they'd be without it
+// (not Movement, not recovery workouts)
+function recCands() { const keep = recOf(T0); if (keep) { delete M.recov[T0]; WKC.clear(); }
+  try { const mc = mvCat(); return trainCats().filter((c) => c !== mc).flatMap(kidsOf).filter((k, i, A) => A.indexOf(k) === i && I(k) && !I(k).recov && (I(k).type === 'task' || I(k).type === 'routine') && onDay(k, T0) && !isDone(k, T0)); }
+  finally { if (keep) { M.recov[T0] = keep; WKC.clear(); } } }
+// the pop-up: what hurts, then each scheduled workout and training item with Reschedule, Skip or Keep (the owner, 2026-11-26)
+function recSheet(s) { const D = s.draft; const chip = (act, v, l, on, c, ref) => `<button class="chip" data-a="${act}" data-v="${v}"${ref ? ` data-ref="${ref}"` : ''} aria-pressed="${!!on}">${c ? `<span class="srdot" style="background:${c}"></span>` : ''}${esc(l)}</button>`;
   const aches = G('hg-aches') ? kidsOf('hg-aches') : []; const conds = typeof condsOn === 'function' ? condsOn(T0) : [];
-  return `<p class="sub" style="margin:0 0 4px">${D.woName ? esc(D.woName) + ' comes off today. ' : ''}Any movement counts instead, and my workout streak holds.</p>
-    <div class="fld"><span class="mono">What hurts</span><div class="chips">${aches.map((k) => chip('rechurt', k, I(k).name, D.hurt.includes(k), grpCol('hg-aches'))).join('')}${conds.map((x) => chip('rechurt', 'c:' + x.id, x.name + ' · day ' + (diff(x.start, T0) + 1), D.hurt.includes('c:' + x.id), condCol())).join('')}</div></div>
-    <div class="fld"><span class="mono">The workout</span><div class="chips">${chip('recmode', 'drop', 'Let it go this week', D.drop)}${chip('recmode', 'move', 'Move it to tomorrow', !D.drop)}</div>
-      <span class="sub">${D.drop ? `This week needs ${Math.max(0, stSet().wo - 1)} instead of ${stSet().wo}.` : 'It comes back tomorrow, first in line.'}</span></div>
-    <div class="srbtns"><button class="btn" data-a="${s.isNew ? 'closesheet' : 'recundo'}">${s.isNew ? 'Cancel' : 'Back to the workout'}</button><button class="btn dark" data-a="recsave">${s.isNew ? 'Make it a recovery day' : 'Save'}</button></div>`; }
+  const rows = D.ids.map((id) => { const m = D.pick[id]; return `<div class="rcrow"><span class="srsq" style="--c:${colorOf(id)}"></span><span class="l">${esc(I(id).name)}</span><div class="rcch">${chip('recpick', 'move', 'Reschedule', m === 'move', null, id)}${chip('recpick', 'skip', 'Skip', m === 'skip', null, id)}${chip('recpick', 'keep', 'Keep', m === 'keep', null, id)}</div></div>`; }).join('');
+  const nSkip = D.ids.filter((id) => woIds().has(id) && D.pick[id] === 'skip').length;
+  return `<p class="sub" style="margin:0 0 4px">Any movement counts today, and my workout streak holds.</p>
+    ${aches.length || conds.length ? `<div class="fld"><span class="mono">What hurts</span><div class="chips">${aches.map((k) => chip('rechurt', k, I(k).name, D.hurt.includes(k), grpCol('hg-aches'))).join('')}${conds.map((x) => chip('rechurt', 'c:' + x.id, x.name + ' · day ' + (diff(x.start, T0) + 1), D.hurt.includes('c:' + x.id), condCol())).join('')}</div></div>` : ''}
+    <div class="fld"><span class="mono">Scheduled today</span>${rows || '<span class="sub">No workouts or training scheduled today.</span>'}
+      ${rows ? `<span class="sub">Reschedule moves it to tomorrow. Skip lets it go${nSkip ? `; this week needs ${Math.max(0, stSet().wo - 1)} workouts instead of ${stSet().wo}` : ''}. Keep leaves it on today.</span>` : ''}</div>
+    <div class="srbtns"><button class="btn" data-a="${s.isNew ? 'closesheet' : 'recundo'}">${s.isNew ? 'Cancel' : 'End recovery day'}</button><button class="btn dark" data-a="recsave">${s.isNew ? 'Make it a recovery day' : 'Save'}</button></div>`; }
 function streakAction(act, a, ref, v) {
   switch (act) {
-    case 'recopen': { const r = recOf(T0); const ws = recWoToday(); const nm = r ? r.woName : ws.length ? ws.map((k) => I(k).name).join(', ') : (I(ref) && I(ref).name) || '';
-      openSheet({ kind: 'recov', isNew: !r, title: 'Recovery day', draft: r ? Object.assign({ hurt: [] }, JSON.parse(JSON.stringify(r))) : { woName: nm, hurt: [], drop: true } }); return true; }
+    case 'recopen': case 'recmenu': { if (act === 'recmenu') S.menu = false;
+      const r = recOf(T0); if (act === 'recmenu' && r) { change(() => { delete recs()[T0]; }, 'Recovery day over'); render(); return true; }
+      const ids = recCands(); const pick = {}; ids.forEach((id) => { pick[id] = r ? recPick(r, id) : woIds().has(id) ? 'skip' : 'move'; });
+      openSheet({ kind: 'recov', isNew: !r, title: 'Recovery day', draft: { hurt: r ? (r.hurt || []).slice() : [], ids, pick } }); return true; }
     case 'rechurt': { const D = S.sheet.draft; D.hurt = D.hurt.includes(v) ? D.hurt.filter((x) => x !== v) : D.hurt.concat(v); renderLayer(); return true; }
-    case 'recmode': S.sheet.draft.drop = v === 'drop'; renderLayer(); return true;
-    case 'recsave': { const D = S.sheet.draft; S.sheet = null; change(() => { recs()[T0] = { woName: D.woName || '', hurt: D.hurt, drop: !!D.drop }; }, 'Recovery day'); render(); return true; }
+    case 'recpick': S.sheet.draft.pick[ref] = v; renderLayer(); return true;
+    case 'recsave': { const D = S.sheet.draft; S.sheet = null; const off = D.ids.filter((id) => D.pick[id] !== 'keep');
+      change(() => { recs()[T0] = { woName: off.filter((id) => woIds().has(id)).map((id) => I(id).name).join(', '), hurt: D.hurt, pick: D.pick }; }, 'Recovery day'); render(); return true; }
     case 'recundo': { S.sheet = null; change(() => { delete recs()[T0]; }, 'Back to the workout'); render(); return true; }
     case 'srn': { change(() => { M.settings.streak = Object.assign(stSet(), { [ref]: ref === 'weeks' ? Math.max(2, Math.min(4, stSet().weeks + Number(v))) : Math.max(1, Math.min(7, stSet()[ref] + Number(v))) }); }); render(); return true; }
   }
