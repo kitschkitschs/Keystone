@@ -508,6 +508,7 @@ function vMenu() {
   // modes are switches (2026-11-06)
   h += `<span class="mono">Modes</span><button role="menuitemcheckbox" data-a="studymode" aria-checked="${!!S.studyMode}"><span style="flex:1;text-align:left">Study mode</span><span class="swt" aria-hidden="true" aria-checked="${!!S.studyMode}"></span></button>`;
   h += `<button role="menuitemcheckbox" data-a="badmode" aria-checked="${isBad(T0)}"><span style="flex:1;text-align:left">Bad day</span><span class="swt" aria-hidden="true" aria-checked="${isBad(T0)}"></span></button>`;
+  h += `<button role="menuitemcheckbox" data-a="recmenu" aria-checked="${!!recOf(T0)}"><span style="flex:1;text-align:left">Recovery</span><span class="swt" aria-hidden="true" aria-checked="${!!recOf(T0)}"></span></button>`;
   h += `<button role="menuitemcheckbox" data-a="darkmode" aria-checked="${darkOn}"><span style="flex:1;text-align:left">Dark mode</span><span class="swt" aria-hidden="true" aria-checked="${darkOn}"></span></button>`;
   // Expeditions can be hidden: the folder and Expedition training go (2026-11-06)
   h += `<button role="menuitemcheckbox" data-a="expmode" aria-checked="${expOn()}"><span style="flex:1;text-align:left">Expeditions</span><span class="swt" aria-hidden="true" aria-checked="${expOn()}"></span></button>`;

@@ -279,8 +279,11 @@ function woSim(d) { const W = woIds(); let st = WKC.get('_wosim');
       nat.sort((a, b) => (late(b) - late(a)) || (picked(b) - picked(a)));
       const cand = st.q.concat(nat); const miss = (id) => isMissed(id, x);
       const rcv = typeof recOf === 'function' ? recOf(x) : null;
-      if (rcv && !isBad(x)) { const keep2 = []; cand.forEach((id) => { const w = I(id).when || {}; if (rcv.drop && w.mode !== 'once') { if (w.mode === 'every') st.next[id] = addDays(x, Math.max(1, w.n || 1)); return; } keep2.push(id); });
-        st.q = keep2; st.on[x] = new Set(done); st.x = addDays(x, 1); continue; }
+      if (rcv && !isBad(x)) { const keep2 = [], on = done.slice(); // a recovery day: each workout as I picked it, kept, skipped or moved on (the owner, 2026-11-26)
+        cand.forEach((id) => { const w = I(id).when || {}, m = recPick(rcv, id), nx = () => { if (w.mode === 'every') st.next[id] = addDays(x, Math.max(1, w.n || 1)); };
+          if (m === 'keep' && !on.length && !miss(id)) { on.push(id); nx(); return; }
+          if (m === 'skip' && w.mode !== 'once') { nx(); return; } keep2.push(id); });
+        st.q = keep2; st.on[x] = new Set(on); st.x = addDays(x, 1); continue; }
       const on = done.slice(); const keep = [];
       cand.forEach((id) => { if (miss(id)) { const m = (I(id).when || {}).mode; if (m === 'once' || m === 'every') keep.push(id); return; } // a missed one I'd still owe comes back the next day
         if (!on.length) { on.push(id); return; } keep.push(id); }); // one a day: the rest move on to the next day
@@ -415,6 +418,10 @@ function dayList(d) { const out = dayListRaw(d); if (frozenOf(d)) return out;
     // it goes back in its usual spot: after the item it normally follows, or before the one it normally comes before (the owner, 2026-11-24)
     const prev = x.items.slice(0, i).reverse().find((k) => y.items.includes(k)), next = x.items.slice(i + 1).find((k) => y.items.includes(k));
     if (prev) y.items.splice(y.items.indexOf(prev) + 1, 0, id); else if (next) y.items.splice(y.items.indexOf(next), 0, id); else y.items.push(id); })));
+  // what I rescheduled on a recovery day comes back the next day, in the block it sat in (workouts: woSim carries them)
+  const pd = addDays(d, -1), pr = typeof recOf === 'function' ? recOf(pd) : null;
+  if (pr && pr.pick) { const raw = dayListRaw(pd, true); Object.keys(pr.pick).filter((id) => pr.pick[id] === 'move' && I(id) && !woIds().has(id) && !isDone(id, pd) && !out.some((z) => z.items.includes(id))).forEach((id) => {
+    const x = raw.find((z) => z.items.includes(id)); const y = (x && out.find((z) => z.b === x.b)) || out[0]; if (y) y.items.push(id); }); }
   if (typeof recSwap === 'function') recSwap(out, d); // a recovery day: gentle movement instead of the workout (the owner, 2026-11-26)
   return out; }
 // A task set to follow every workout (a shower) goes right after the workout, in the same block when there's room for it, otherwise
