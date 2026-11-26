@@ -1468,10 +1468,13 @@ function twoTick(id) { const it = I(id); if (!it || !it.two || isDone(id, T0)) r
   if (typeof remSync === 'function') remSync(); return true; }
 // part two done on an earlier day, when I didn't tick it then (2026-11-20): it counts on that day, not missed there
 function twoFinishOn(id, d) { if (d === T0) { twoFinish(id); return; } const h = halfOf(id);
-  change(() => { if (M.half) delete M.half[id]; M.reminders = (M.reminders || []).filter((r) => r.two !== id); (M.log[d] = M.log[d] || {})[id] = 'done'; if (M.missed && M.missed[d]) delete M.missed[d][id];
+  change(() => { twoKeep(id, d); if (M.half) delete M.half[id]; M.reminders = (M.reminders || []).filter((r) => r.two !== id); (M.log[d] = M.log[d] || {})[id] = 'done'; if (M.missed && M.missed[d]) delete M.missed[d][id];
     const fz = (M.frozen || {})[d]; if (fz && !fz.some((o) => o.id === id)) { const b = blockOfItem(id); let a0 = hm(G(b).start); if (h && halfDay(h) === d) { const due = new Date(h.at + (+I(id).two || 2) * 3600000); a0 = due.getHours() * 60 + due.getMinutes(); } fz.push({ id, a: a0, b: a0 + (I(id).dur || 30), blk: b, appt: false }); }
     snapDay(d); }, I(id).name + ' done'); if (typeof remSync === 'function') remSync(); }
-function twoFinish(id) { change(() => { if (M.half) delete M.half[id]; M.reminders = (M.reminders || []).filter((r) => r.two !== id); L(T0)[id] = 'done'; }, I(id).name + ' done'); if (typeof remSync === 'function') remSync(); }
+// a finished two-parter is remembered for that day, so the Schedule keeps both parts and its generic item stays replaced (the owner, 2026-11-26)
+const twoKeep = (id, d) => { const h = halfOf(id); if (h) ((M.twoDone = M.twoDone || {})[d] = M.twoDone[d] || {})[id] = { at: h.at }; };
+const twoDoneOn = (id, d) => !!(((M.twoDone || {})[d] || {})[id]) && isDone(id, d);
+function twoFinish(id) { change(() => { twoKeep(id, T0); if (M.half) delete M.half[id]; M.reminders = (M.reminders || []).filter((r) => r.two !== id); L(T0)[id] = 'done'; }, I(id).name + ' done'); if (typeof remSync === 'function') remSync(); }
 // a two-part chore still waiting when its day ends counts as missed that day (2026-11-14); it keeps showing at the
 // earliest free spot of the next days until I finish it, and never counts as the day's chore
 const halfDay = (h) => { if (h.d) return h.d; const x = new Date(h.at); x.setHours(x.getHours() - DAY_H); return iso(x); };
@@ -1661,6 +1664,7 @@ function dayListRaw(d, raw) {
   // a day with real study tasks (or study sessions) drops the generic Study session slot; a day with real chores (rooms and
   // one-off chores, not Homemaking or Cooking) drops the Daily chore slot (2026-11-06)
   // a started two-part chore waits on Today, and counts as a real chore there, the generic chore slot drops on Today only, Schedule keeps it (2026-11-12)
+  { const has = new Set(out.flatMap((x) => x.items)); Object.keys((M.twoDone || {})[d] || {}).forEach((id) => { if (!I(id) || has.has(id) || !twoDoneOn(id, d)) return; const x = at(blockOfItem(id)) || out[out.length - 1]; if (x) x.items.push(id); }); } // a finished two-parter stays on its day (the owner, 2026-11-26)
   if (d === T0) { const has = new Set(out.flatMap((x) => x.items)); Object.keys(M.half || {}).forEach((id) => { if (!I(id)) return; const old = halfOld(id); if (has.has(id) && !old) return;
     if (old) out.forEach((x) => { x.items = x.items.filter((k) => k !== id); }); const x = at(blockOfItem(id)) || out[out.length - 1]; if (x) { if (old) x.items.unshift(id); else x.items.push(id); } }); }
   afterWork(out, d);
@@ -2060,14 +2064,14 @@ function lateTwo(out, d) { if (d !== T0 || !out.length) return out; const lb = o
 function slotDrop(out, d = T0) {
   const all = out.flatMap((x) => x.items); const sids = typeof subjIds === 'function' ? new Set(subjIds().flatMap(sIds)) : new Set(); const cids = typeof choreIds === 'function' ? new Set(choreIds()) : new Set();
     const tids = typeof trainCats === 'function' ? new Set(trainCats().flatMap(kidsOf)) : new Set(); const hobOn = typeof hobArea === 'function' && all.some((id) => hobArea(id));
-    const studyOn = all.some((id) => sids.has(id) || (I(id) && I(id).part && sids.has(I(id).part))), choreOn = all.some((id) => cids.has(id) && ((M.half || {})[id] || schedChore(id, d))), moveOn = all.some((id) => tids.has(id));
+    const studyOn = all.some((id) => sids.has(id) || (I(id) && I(id).part && sids.has(I(id).part))), choreOn = all.some((id) => cids.has(id) && ((M.half || {})[id] || twoDoneOn(id, d) || schedChore(id, d))), moveOn = all.some((id) => tids.has(id));
     if (studyOn || choreOn || moveOn || hobOn) out.forEach((x) => { x.items = x.items.filter((id) => !(I(id) && I(id).type === 'slot' && ((I(id).opens === 'study' && studyOn) || (I(id).opens === 'chores' && choreOn) || (I(id).opens === 'training' && all.some((k) => slotTrainIds(id).has(k))) || (I(id).opens === 'hobbies' && hobOn)))); });
   afterWork(out, d); // followers of a generic item stay behind the work that replaced it
   return out; }
 // Schedule: a day with a real chore drops the generic chore item, and the chores without a set time take its place in
 // the day (its block and spot), unless I moved them myself that day (the owner, 2026-11-24)
 function choreSwap(DL, d) {
-  DL = genSwap(DL, d, 'chores', new Set(choreIds()), (id) => !!(M.half || {})[id] || schedChore(id, d)); // a started two-parter counts too (2026-11-24)
+  DL = genSwap(DL, d, 'chores', new Set(choreIds()), (id) => !!(M.half || {})[id] || twoDoneOn(id, d) || schedChore(id, d)); // a started two-parter counts too (2026-11-24)
   // scheduled training does the same to the generic movement item (the owner, 2026-11-24)
   if (typeof trainCats === 'function') [...new Set(DL.flatMap((x) => x.items).filter((id) => I(id) && I(id).type === 'slot' && I(id).opens === 'training'))].forEach((sid) => { DL = genSwap(DL, d, (id) => id === sid, slotTrainIds(sid), () => true); });
   // a workout that took the generic item's place takes its followers (a shower) along, so they stay right behind it (the owner, 2026-11-24)
@@ -2129,6 +2133,7 @@ function placeDay(d) {
     /* due too late in the evening to fit in before the day ends: it goes first thing the next day (2026-11-24) */
     if (iso(sh) === pd && pd >= T0 && !TWO_IN && halfDay(M.half[id]) <= pd) { TWO_IN = true; let fit = true; try { fit = placeDay(pd).some((o) => o.id === id && o.two); } finally { TWO_IN = false; } if (!fit) twoAt[id] = hm(G(blockIds()[0]).start); return; }
     if (iso(sh) !== d || halfDay(M.half[id]) > d) return; /* due on a later day: it shows on that day (2026-11-24) */ twoAt[id] = due.getHours() * 60 + due.getMinutes() + (iso(due) !== d ? 1440 : 0); });
+  { const td = (M.twoDone || {})[d] || {}; Object.keys(td).forEach((id) => { if (!I(id) || twoAt[id] != null || !twoDoneOn(id, d)) return; const due = new Date(td[id].at + (+I(id).two || 2) * 3600000); twoAt[id] = due.getHours() * 60 + due.getMinutes() + (iso(due) !== d ? 1440 : 0); }); } /* ticked part two stays where it was */
   // the first part stays where it was; the second part fits itself in after it's due (the owner, 2026-11-24)
   // missed items that come back on their own (an overdue repeat, a task past its date, one moved on from a bad day, an unfinished
   // two-part chore) don't keep their set time: they take the first free spot at the top of their block (2026-11-14)
@@ -2326,7 +2331,7 @@ function renderAppts() {
 
 // ---------- layer: menu, sheets, toast ----------
 // clear everything logged before today, keeping every item, note and setting (the owner, 2026-11-24)
-const LOG_KEYS = ['log', 'snap', 'frozen', 'feel', 'photos', 'study', 'support', 'missed', 'badDays', 'dayMove', 'dayOrder', 'dayTime', 'dayTack', 'dayAfter', 'dayDur', 'mTick', 'foodMark', 'rOpen', 'training', 'multi'];
+const LOG_KEYS = ['log', 'snap', 'frozen', 'feel', 'photos', 'study', 'support', 'missed', 'badDays', 'dayMove', 'dayOrder', 'dayTime', 'dayTack', 'dayAfter', 'dayDur', 'twoDone', 'mTick', 'foodMark', 'rOpen', 'training', 'multi'];
 function clearOldLogs() { LOG_KEYS.forEach((k) => { const o = M[k]; if (!o || typeof o !== 'object' || Array.isArray(o)) return; Object.keys(o).forEach((d) => { if (/^\d{4}-\d\d-\d\d$/.test(d) && d < T0) delete o[d]; }); });
   if (Array.isArray(M.events)) M.events = M.events.filter((e) => !e.day || e.day >= T0); }
 // Every delete asks first (2026-11-02). Returns the question, or null when the action needs none.
