@@ -9,8 +9,8 @@ const dayDotHtml = (k, big) => `<i class="dd" style="width:${big ? DOT_LG : DOT_
 // ---------- calendar settings (2026-11-06): one menu in edit mode for every calendar ----------
 // Each calendar picks which lines and condition lines it shows.
 const CAL_LIST = [['plan', 'Today'], ['sched', 'Schedule'], ['train', 'Training'], ['food', 'Meal plan']];
-const CAL_DOTS = [['appts', 'Plans', 'Coming days, in the category colour'], ['dl', 'Study deadlines', 'Coming days'], ['study', 'Studies', 'Days I studied, one line per subject'], ['home', 'Home', 'Chores, homemaking and cooking done, or one-offs planned'], ['tmv', 'Movement', 'Planned, not yet done'], ['two', 'Workouts', 'Planned, not yet done'], ['tex', 'Expedition training', 'Planned, not yet done'], ['extras', 'Meal-plan extras', 'Days with an extra switched on']];
-const CAL_DEF = { plan: { appts: 1, dl: 1, gen: 1, fit: 1, away: 1, tmv: 1, two: 1, tex: 1 }, sched: { appts: 1, dl: 1, away: 1, tmv: 1, two: 1, tex: 1 }, train: { tmv: 1, two: 1, tex: 1, fit: 1, away: 1 }, food: { extras: 1, away: 1 } };
+const CAL_DOTS = [['appts', 'Plans', 'Coming days, in the category colour'], ['dl', 'Study deadlines', 'Coming days'], ['study', 'Studies', 'Days I studied, one line per subject'], ['home', 'Home', 'Chores, homemaking and cooking done, or one-offs planned'], ['tmv', 'Movement', 'Planned, not yet done'], ['two', 'Workouts', 'All workouts planned, not yet done'], ['twg', 'Workouts for the Workout item', 'Only the ones that take the generic Workout item\'s place'], ['trc', 'Recovery workouts', 'Planned, not yet done'], ['tex', 'Expedition training', 'Planned, not yet done'], ['extras', 'Meal-plan extras', 'Days with an extra switched on']];
+const CAL_DEF = { plan: { appts: 1, dl: 1, gen: 1, fit: 1, away: 1, twg: 1 }, sched: { appts: 1, dl: 1, away: 1, twg: 1 }, train: { tmv: 1, two: 1, trc: 1, tex: 1, fit: 1, away: 1 }, food: { extras: 1, away: 1 } };
 const calOn = (k, f) => { const o = ((M.settings || {}).calShow || {})[k] || {}; return f in o ? !!o[f] : !!(CAL_DEF[k] || {})[f]; };
 function calDots(k, d) { const out = [];
   if (calOn(k, 'appts') && d > T0) [...new Set(apptsOn(d).map((id) => catOf(id)))].forEach((c) => G(c) && out.push(G(c).color));
@@ -20,9 +20,12 @@ function calDots(k, d) { const out = [];
     sec.forEach(([ks, col]) => { if (d <= T0 ? ks.some((x) => isDone(x, d)) : ks.some((x) => ((I(x) || {}).when || {}).mode === 'once' && I(x).when.date === d && !everDone(x))) out.push(col); }); }
   // training lines only show what's planned and not done yet (the owner, 2026-11-24)
   // one line each for Movement, Workouts and Expedition training, in their own colours, on every calendar (the owner, 2026-11-26)
-  if (d >= T0 && typeof mvCat === 'function') { const due = (c) => G(c) && kidsOf(c).some((x) => onDay(x, d) && !isDone(x, d)); const w = woCat(), e = expCat();
+  if (d >= T0 && typeof mvCat === 'function') { const due = (c) => G(c) && kidsOf(c).some((x) => !I(x).recov && onDay(x, d) && !isDone(x, d)); const w = woCat(), e = expCat();
     if (calOn(k, 'tmv') && mvCat() && trainCats().some((c) => c !== w && c !== e && due(c))) out.push(G(mvCat()).color || '#7DBE9A');
-    if (calOn(k, 'two') && w && !recOf(d) && due(w)) out.push(G(w).color || '#3FAFA6');
+    const plan = (x) => onDay(x, d) && !isDone(x, d); const wos = w ? kidsOf(w).filter((x) => !I(x).recov) : [];
+    if (calOn(k, 'two') && !recOf(d) && wos.some(plan)) out.push(G(w).color || '#3FAFA6');
+    else if (calOn(k, 'twg') && !recOf(d) && [...woIds()].some((x) => !I(x).recov && plan(x))) out.push(G(w).color || '#3FAFA6');
+    if (calOn(k, 'trc') && trainCats().flatMap(kidsOf).some((x) => I(x).recov && plan(x))) out.push(recCol());
     if (calOn(k, 'tex') && e && due(e)) out.push(G(e).color || '#6FA24A'); }
   if (calOn(k, 'extras')) dayExtras(d).forEach((x) => out.push(xcol(x)));
   return out.slice(0, 4); } // up to four short lines beside the date, stacked from the top (2026-11-23)

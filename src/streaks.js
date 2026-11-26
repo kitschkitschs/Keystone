@@ -16,7 +16,8 @@ const recOf = (d) => (M.recov || {})[d] || null;
 // the generic Movement item: a generic training item that isn't the Workout one
 const mvGen = () => Object.keys(M.items).find((k) => { const it = I(k); return it.type === 'slot' && (it.opens === 'training' || it.opens === 'move') && !(it.tcat && it.tcat === woCat()) && placements(k).some((p) => G(p) && G(p).style === 'dayblock'); }) || null;
 const stSet = () => Object.assign({ wo: 3, ex: 2, weeks: 4 }, (M.settings || {}).streak || {});
-const catDone = (c, d) => !!c && kidsOf(c).some((k) => isDone(k, d));
+const catDone = (c, d) => !!c && kidsOf(c).some((k) => !I(k).recov && isDone(k, d)); // recovery workouts aren't workouts here
+const recWoDone = (d) => trainCats().flatMap(kidsOf).some((k) => I(k).recov && isDone(k, d)); // they count as movement, in the recovery colour
 const mvDone = (d) => trainCats().filter((c) => c !== woCat()).some((c) => catDone(c, d));
 const srCol = (c, f) => (c && G(c) && G(c).color) || f;
 const SR_FADE = (c) => `color-mix(in oklab, ${c} 55%, var(--page))`;
@@ -25,7 +26,8 @@ function srFirst() { if (WKC.has('_srfirst')) return WKC.get('_srfirst'); const 
   const f = Object.keys(M.log || {}).filter((d) => /^\d{4}-\d\d-\d\d$/.test(d)).sort().find((d) => Object.keys(M.log[d] || {}).some((k) => ks.has(k) && isDone(k, d))) || T0;
   WKC.set('_srfirst', f); return f; }
 function srMove(d, f, C) { if (d < f) return { s: 'none' };
-  if (mvDone(d)) return { s: 'done', c: recOf(d) ? C.rec : C.mv };
+  const mv = mvDone(d), rw = recWoDone(d);
+  if (mv || rw) return { s: 'done', c: recOf(d) || !mv ? C.rec : C.mv };
   if (catDone(woCat(), d)) return { s: 'kept', c: C.wo };
   return d === T0 ? { s: 'wait' } : { s: 'miss' }; }
 function srNeed(n, d, wo) { if (!wo) return n; const m = weekStart(d); let r = 0; for (let i = 0; i < 7; i++) if (recOf(addDays(m, i))) r++; return Math.max(0, n - r); }
