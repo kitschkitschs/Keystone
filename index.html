@@ -1280,10 +1280,16 @@ html.dark .feelcard.empty{background:var(--card)}html.dark .jcard .jct,html.dark
 .sr .srw{font:400 9.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--quiet,var(--ink2))}
 .sr .srnum{margin-left:auto;font:400 17px/1 var(--serif);color:var(--ink)}
 .sr .srnum small{font-size:12px;font-family:inherit;color:var(--ink2);margin-left:3px;font-family:var(--sans,inherit)}
-.srg{display:grid;grid-template-columns:repeat(14,minmax(0,1fr));height:24px}
+.srg{display:grid;grid-template-columns:repeat(14,minmax(0,1fr));height:24px;--sz:13px}
+.srg.w3{--sz:11px;height:20px}
+.srg.w4{--sz:9px;height:18px}
+.srg.w3 .srm.miss i,.srg.w4 .srm.miss i{width:4px;height:4px}
+.srg.w3 .srm.done i{box-shadow:inset 0 0 0 2px var(--page)}
+.srg.w4 .srm.done i{box-shadow:inset 0 0 0 1.5px var(--page);border-width:1px}
+.srg.w4 .srm.skip i,.srg.w4 .srm.wait i{border-width:1.2px}
 .srm{display:grid;place-items:center}
 .srm.srwk{border-right:1px solid var(--line)}
-.srm i{display:block;box-sizing:border-box;width:13px;height:13px}
+.srm i{display:block;box-sizing:border-box;width:var(--sz);height:var(--sz)}
 .srm.done i{background:var(--c);border:1.2px solid var(--c);box-shadow:inset 0 0 0 2.5px var(--page)}
 .srm.kept i{background:var(--cf)}
 .srm.skip i,.srm.wait i{border:1.6px dotted var(--faint)}
@@ -6237,7 +6243,7 @@ document.addEventListener('change', (e) => { const ds = e.target.dataset || {};
     const ex = exOf(x); change(() => { it.wo.ex.push({ x, sets: 3, n: ex && ex.timed ? 30 : 10 }); }); } });
 
 // ---------- Training streaks and recovery days (the owner, 2026-11-26) ----------
-// Under the Training calendar: one row of the last 14 days per tracker, like Loop Habit Tracker, read from the sessions I tick.
+// Under the Training calendar: one row of the last 2 to 4 weeks per tracker (4 by default; hairlines between Mon-Sun weeks), like Loop Habit Tracker, read from the sessions I tick.
 //  Movement: needed every day; a day with a workout counts as kept; a recovery day is done in the recovery colour.
 //  Workouts: n a week (Mon-Sun); once n is hit the rest of the week is kept; a recovery day is kept and the week needs one less.
 //  Expedition training: n a week like Workouts, only while Expedition mode is on.
@@ -6253,7 +6259,7 @@ const recs = () => (M.recov = M.recov || {});
 const recOf = (d) => (M.recov || {})[d] || null;
 // the generic Movement item: a generic training item that isn't the Workout one
 const mvGen = () => Object.keys(M.items).find((k) => { const it = I(k); return it.type === 'slot' && (it.opens === 'training' || it.opens === 'move') && !(it.tcat && it.tcat === woCat()) && placements(k).some((p) => G(p) && G(p).style === 'dayblock'); }) || null;
-const stSet = () => Object.assign({ wo: 3, ex: 2 }, (M.settings || {}).streak || {});
+const stSet = () => Object.assign({ wo: 3, ex: 2, weeks: 4 }, (M.settings || {}).streak || {});
 const catDone = (c, d) => !!c && kidsOf(c).some((k) => isDone(k, d));
 const mvDone = (d) => trainCats().filter((c) => c !== woCat()).some((c) => catDone(c, d));
 const srCol = (c, f) => (c && G(c) && G(c).color) || f;
@@ -6287,13 +6293,13 @@ const srShort = (d) => { const x = parse(d); return x.getDate() + ' ' + MONTHS[x
 function streakRows() {
   if (!G('g-train') || !trainCats().length) return '';
   const { list, f, C } = srTrackers(); if (!list.length) return '';
-  const start = addDays(T0, -13);
+  const W = Math.max(2, Math.min(4, stSet().weeks || 4)), N = W * 7; const start = addDays(T0, -(N - 1)); // 2 to 4 weeks, set in edit mode (the owner, 2026-11-26)
   let h = '<div class="srs">';
   list.forEach((t) => { const n = srStreak(t.fn, f); let wk = '';
     if (t.n == null) { const m = weekStart(T0); let c = 0; for (let x = m; x <= T0; x = addDays(x, 1)) { const st = t.fn(x).s; if (st === 'done' || st === 'kept') c++; } wk = `${c} of 7`; }
     if (t.n != null) { const m = weekStart(T0), need = srNeed(t.n, T0, t.wo), c = srCount(t.cat, m); wk = c >= need ? `${c} of ${need} · kept` : `${c} of ${need}`; }
-    h += `<div class="sr" style="--c:${t.col}"><div class="srh"><span class="srsq"></span><span class="srn">${esc(t.name)}</span><span class="srw">${wk}</span><span class="srnum">${n}<small>${n === 1 ? 'day' : 'days'}</small></span></div><div class="srg" role="img" aria-label="${esc(t.name)}, last 14 days, streak ${n} ${n === 1 ? 'day' : 'days'}">`;
-    for (let i = 0; i < 14; i++) { const d = addDays(start, i), x = t.fn(d); h += `<span class="srm ${x.s}${i === 6 ? ' srwk' : ''}"${x.c ? ` style="--c:${x.c};--cf:${SR_FADE(x.c)}"` : ''}><i></i></span>`; }
+    h += `<div class="sr" style="--c:${t.col}"><div class="srh"><span class="srsq"></span><span class="srn">${esc(t.name)}</span><span class="srw">${wk}</span><span class="srnum">${n}<small>${n === 1 ? 'day' : 'days'}</small></span></div><div class="srg w${W}" style="grid-template-columns:repeat(${N},minmax(0,1fr))" role="img" aria-label="${esc(t.name)}, last ${N} days, streak ${n} ${n === 1 ? 'day' : 'days'}">`;
+    for (let i = 0; i < N; i++) { const d = addDays(start, i), x = t.fn(d); h += `<span class="srm ${x.s}${wd(d) === 6 && i < N - 1 ? ' srwk' : ''}"${x.c ? ` style="--c:${x.c};--cf:${SR_FADE(x.c)}"` : ''}><i></i></span>`; }
     h += '</div></div>'; });
   h += `<div class="srax"><span>${srShort(start)}</span><span>Today</span></div>`;
   const r = recOf(T0); if (r) h += `<button class="srrec" data-a="recopen" style="--c:${C.rec}"><span class="srsq"></span><span>Recovery day${r.woName ? ' · instead of ' + esc(r.woName) : ''}</span><span class="srch">Change</span></button>`;
@@ -6302,7 +6308,7 @@ function streakRows() {
 function streakEdit() {
   const cats = [[mvCat(), 'Movement'], [woCat(), 'Workouts'], ['rc:rec', 'Recovery'], [expOn() ? expCat() : null, 'Expedition training']].filter((x) => x[0]);
   const step = (k, l) => `<div class="srstep"><span class="l">${l}</span><button class="btn" data-a="srn" data-ref="${k}" data-v="-1" aria-label="One less">−</button><span class="srv">${stSet()[k]}</span><button class="btn" data-a="srn" data-ref="${k}" data-v="1" aria-label="One more">+</button></div>`;
-  return `<div style="margin-top:14px">${lcard(null, 'Streaks', '', cats.map(([c, l]) => `<button class="srcol" data-col="${c}" aria-label="Change the ${esc(l)} colour"><span class="srsq" style="--c:${c === 'rc:rec' ? recCol() : G(c).color || grpCol(c)}"></span><span class="l">${esc(l)}</span><span class="srch">Colour</span></button>`).join('') + step('wo', 'Workouts a week') + (expOn() && expCat() ? step('ex', 'Expedition training a week') : ''))}</div>`; }
+  return `<div style="margin-top:14px">${lcard(null, 'Streaks', '', cats.map(([c, l]) => `<button class="srcol" data-col="${c}" aria-label="Change the ${esc(l)} colour"><span class="srsq" style="--c:${c === 'rc:rec' ? recCol() : G(c).color || grpCol(c)}"></span><span class="l">${esc(l)}</span><span class="srch">Colour</span></button>`).join('') + step('weeks', 'Weeks shown') + step('wo', 'Workouts a week') + (expOn() && expCat() ? step('ex', 'Expedition training a week') : ''))}</div>`; }
 
 // RECOVERY DAY: on a day with a workout, if something hurts, the workout comes off and a recovery session takes its place
 const recWoToday = () => [...woIds()].filter((k) => onDay(k, T0) && !isDone(k, T0));
@@ -6333,7 +6339,7 @@ function streakAction(act, a, ref, v) {
     case 'recmode': S.sheet.draft.drop = v === 'drop'; renderLayer(); return true;
     case 'recsave': { const D = S.sheet.draft; S.sheet = null; change(() => { recs()[T0] = { woName: D.woName || '', hurt: D.hurt, drop: !!D.drop }; }, 'Recovery day'); render(); return true; }
     case 'recundo': { S.sheet = null; change(() => { delete recs()[T0]; }, 'Back to the workout'); render(); return true; }
-    case 'srn': { change(() => { M.settings.streak = Object.assign(stSet(), { [ref]: Math.max(1, Math.min(7, stSet()[ref] + Number(v))) }); }); render(); return true; }
+    case 'srn': { change(() => { M.settings.streak = Object.assign(stSet(), { [ref]: ref === 'weeks' ? Math.max(2, Math.min(4, stSet().weeks + Number(v))) : Math.max(1, Math.min(7, stSet()[ref] + Number(v))) }); }); render(); return true; }
   }
   return false; }
 
