@@ -1270,10 +1270,16 @@ html.dark .feelcard.empty{background:var(--card)}html.dark .jcard .jct,html.dark
 .sr .srw{font:400 9.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--quiet,var(--ink2))}
 .sr .srnum{margin-left:auto;font:400 17px/1 var(--serif);color:var(--ink)}
 .sr .srnum small{font-size:12px;font-family:inherit;color:var(--ink2);margin-left:3px;font-family:var(--sans,inherit)}
-.srg{display:grid;grid-template-columns:repeat(14,minmax(0,1fr));height:24px}
+.srg{display:grid;grid-template-columns:repeat(14,minmax(0,1fr));height:24px;--sz:13px}
+.srg.w3{--sz:11px;height:20px}
+.srg.w4{--sz:9px;height:18px}
+.srg.w3 .srm.miss i,.srg.w4 .srm.miss i{width:4px;height:4px}
+.srg.w3 .srm.done i{box-shadow:inset 0 0 0 2px var(--page)}
+.srg.w4 .srm.done i{box-shadow:inset 0 0 0 1.5px var(--page);border-width:1px}
+.srg.w4 .srm.skip i,.srg.w4 .srm.wait i{border-width:1.2px}
 .srm{display:grid;place-items:center}
 .srm.srwk{border-right:1px solid var(--line)}
-.srm i{display:block;box-sizing:border-box;width:13px;height:13px}
+.srm i{display:block;box-sizing:border-box;width:var(--sz);height:var(--sz)}
 .srm.done i{background:var(--c);border:1.2px solid var(--c);box-shadow:inset 0 0 0 2.5px var(--page)}
 .srm.kept i{background:var(--cf)}
 .srm.skip i,.srm.wait i{border:1.6px dotted var(--faint)}
