@@ -13,7 +13,7 @@ const shopText = () => { const L = shopLists().filter((l) => shopIn(l.id).length
 function shopBtn() { const n = shopOpen().length;
   return `<button class="vcard vmini shopcard" data-a="vgo" data-v="shopping"><span class="mono">Shopping list</span><span class="vchev" aria-hidden="true">${icon('chevron-right', 16)}</span><span class="vword">${n ? n + ' to get' : 'Nothing to get'}</span></button>`; } // neutral, not a verdict colour (2026-11-09)
 function shopRow(x) {
-  return `<div class="row${x.got ? ' shgot' : ''}"><button class="tickbtn" data-a="shoptick" data-v="${x.id}" aria-label="${x.got ? 'Put ' + esc(x.name) + ' back on the list' : 'Got ' + esc(x.name)}" aria-pressed="${!!x.got}"><span class="circ ${x.got ? 'done' : ''}" style="--c:var(--faint)">${x.got ? '✓' : ''}</span></button><button class="lbl" data-a="shoptick" data-v="${x.id}" style="text-align:left">${esc(x.name)}</button>${S.edit ? `<button class="hb" data-a="shopdel" data-v="${x.id}" aria-label="Delete ${esc(x.name)}">${icon('x', 18)}</button>` : ''}</div>`; }
+  return `<div class="row${x.got ? ' shgot' : ''}"><button class="tickbtn" data-a="shoptick" data-v="${x.id}" aria-label="${x.got ? 'Put ' + esc(x.name) + ' back on the list' : 'Got ' + esc(x.name)}" aria-pressed="${!!x.got}"><span class="circ ${x.got ? 'done' : ''}" style="--c:var(--faint)">${x.got ? '✓' : ''}</span></button>${S.shopEdit === x.id ? `<input class="lbl shname" id="shed-${x.id}" value="${esc(x.name)}" enterkeyhint="done" autocomplete="off" aria-label="Name">` : `<button class="lbl" data-a="shopname" data-v="${x.id}" style="text-align:left" aria-label="Rename ${esc(x.name)}">${esc(x.name)}</button>`}${S.edit ? `<button class="hb" data-a="shopdel" data-v="${x.id}" aria-label="Delete ${esc(x.name)}">${icon('x', 18)}</button>` : ''}</div>`; }
 const shopInput = (id, ph) => `<div class="addrow condadd"><button class="plus" data-a="shopadd" data-v="${id}" aria-label="Add to the list">+</button><input id="${id}" placeholder="${ph}" enterkeyhint="enter" autocomplete="off"></div>`;
 function shopListCard(l) { const O = shopIn(l.id), fid = 'shop-' + l.id;
   const hd = S.edit ? `<button class="nm mono" data-a="shoplistedit" data-v="${l.id}" style="flex:1;text-align:left;min-height:44px;border-bottom:1px dashed var(--quiet)" aria-label="Rename ${esc(l.name)}">${esc(l.name)}</button>${shopLists().length > 1 ? `<button class="hb" data-a="shoplistdel" data-v="${l.id}" aria-label="Delete the list ${esc(l.name)}">${icon('x', 18)}</button>` : ''}` : `<span class="nm mono" style="flex:1">${esc(l.name)}</span><span class="cnt">${O.length || ''}</span>`;
@@ -45,6 +45,14 @@ function shopAdd(fid) { const f = document.getElementById(fid); const name = f &
   if (same && !same.got) { f.value = ''; flash(same.name + ' is already on the list'); const g = document.getElementById(fid); if (g) g.focus(); return; }
   change(() => { if (same) same.got = false; else M.shop.push({ id: uid('sh'), name, list: lid }); }, 'Added ' + name);
   const g = document.getElementById(fid); if (g) g.focus(); }
+// tap a name to rename it in place; only the tick box ticks (2026-11-26). Enter or tapping away saves, Escape leaves it as it was.
+function shopNameOpen(id) { S.shopEdit = id; render(); const f = document.getElementById('shed-' + id); if (f) { f.focus(); const n = f.value.length; f.setSelectionRange(n, n); } }
+function shopRename(id, keep) { if (S.shopEdit !== id) return; S.shopEdit = null; const x = (M.shop || []).find((s) => s.id === id), f = document.getElementById('shed-' + id);
+  const name = !keep && f ? f.value.replace(/\s+/g, ' ').trim().replace(/^./, (c) => c.toUpperCase()) : '';
+  if (!x || !name || name === x.name) { render(); return; }
+  const same = M.shop.find((s) => s !== x && s.list === x.list && !s.got && s.name.toLowerCase() === name.toLowerCase());
+  if (same && !x.got) { flash(same.name + ' is already on the list'); render(); return; }
+  change(() => { x.name = name; }, 'Renamed ' + name); }
 // copy as text: the clipboard where allowed, the old way if not, and as a last resort the text in a box to copy by hand
 async function shopCopy() { const t = shopText(); if (!t) { flash('Nothing on the list to copy'); return; }
   try { await navigator.clipboard.writeText(t); return; /* no copied note, the phone shows its own (2026-11-24) */ } catch (e) {}
@@ -53,6 +61,7 @@ async function shopCopy() { const t = shopText(); if (!t) { flash('Nothing on th
 function shopAction(act, a, ref, v) {
   switch (act) {
     case 'shopnew': openSheet({ kind: 'shop', title: 'Shopping list' }); return true;
+    case 'shopname': shopNameOpen(v); return true;
     case 'shopadd': shopAdd(v || 'shopq'); return true;
     case 'shoplistpick': S.shopList = v; render(); { const el = document.getElementById('shopq'); if (el) el.focus(); } return true;
     case 'shoplistnew': openSheet({ kind: 'shoplist', title: 'New list' }); return true;
