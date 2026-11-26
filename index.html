@@ -4491,8 +4491,9 @@ const allJobs = () => roomIds().flatMap(jobsIn);
 function verdict(jobs, W) { if (!jobs.length) return { lvl: 0, word: W[0] };
   const avg = jobs.reduce((a, j) => a + j.fresh, 0) / jobs.length; let lvl = avg >= 0.75 ? 0 : avg >= 0.5 ? 1 : avg >= 0.25 ? 2 : 3;
   if (jobs.some((j) => j.left < 0)) lvl = Math.max(lvl, 2); return { lvl, word: W[lvl] }; }
-// a job's colour follows the verdict gradient by its freshness: fresh, tidy, coming due, overdue (the owner, 2026-11-26)
-const jobInk = (j) => j.left < 0 ? VDOT[3] : j.fresh >= 0.75 ? VDOT[0] : j.fresh >= 0.5 ? VDOT[1] : VDOT[2];
+// a job's colour runs from green when just done toward orange as its due day comes, red once overdue (the owner, 2026-11-26)
+const mixHex = (a, b, t) => '#' + [1, 3, 5].map((k) => Math.round(parseInt(a.substr(k, 2), 16) * (1 - t) + parseInt(b.substr(k, 2), 16) * t).toString(16).padStart(2, '0')).join('');
+const jobInk = (j) => j.left < 0 ? SEGLATE : mixHex(VDOT[0], SEGDUE, Math.max(0, Math.min(1, j.urg)));
 const roomRank = (r) => { const J = jobsIn(r); return verdict(J, CHORE_W).lvl * 100 + Math.max(0, ...J.map((j) => j.urg)); };
 const choreIds = () => roomIds().flatMap(kidsOf).concat(kidsOf('g-oneoff'));
 const prepsOpen = () => kidsOf('g-prep').filter((k) => !everDone(k)).sort((a, b) => ((I(a).when || {}).date || '9999').localeCompare((I(b).when || {}).date || '9999') || (I(a).time || '').localeCompare(I(b).time || ''));
@@ -4607,8 +4608,9 @@ function cookCard(go) { const P = prepsOpen(); const nx = P[0] && I(P[0]); const
 // a tap on the card picks it (its jobs show below); the little arrow in the corner opens it straight away (2026-11-23)
 const stripCard = (id, name, lvl, word, segs, on) => `<div class="vroomw"><button class="vroom ${on ? 'on' : ''}" data-a="vpick" data-ref="${id}" aria-pressed="${on}"${on ? ` style="border-color:${VDOT[lvl]}"` : ''}><b>${esc(name)}</b><span class="vv"><i style="background:${VDOT[lvl]}"></i>${esc(word)}</span>${segBar(segs, 'sm')}</button>${S.edit ? '' : `<button class="vgo" data-a="vopen" data-ref="${id}" aria-label="Open ${esc(name)}">${icon('arrow-up-right', 14, 1.6)}</button>`}</div>`;
 // the bar counts down to the next repeat (the owner, 2026-11-13): one segment per day up to 14 days, then one per week, past ten weeks one per month
-function jobSegs(j) { const n = Math.max(1, j.n || 7); const u = n <= 14 ? 1 : n <= 70 ? 7 : 30; const segs = Math.min(12, Math.max(1, Math.round(n / u))); const late = j.left < 0;
-  const filled = late ? segs : Math.min(segs, Math.ceil(Math.max(0, j.left) / u)); return Array.from({ length: segs }, (_, i) => i < filled ? jobInk(j) : 'var(--line)'); } // one tile per day left; empty tiles stay faint in both themes // fresh jobs in the calm colour, like the room card (the owner, 2026-11-26)
+function jobSegs(j) { const n = Math.max(1, j.n || 7); const u = n <= 14 ? 1 : n <= 70 ? 7 : 30; const segs = Math.min(12, Math.max(1, Math.round(n / u)));
+  // every line neutral when just done; each day that passes colours one more, left to right; all red once overdue (the owner, 2026-11-26)
+  const filled = j.left < 0 ? segs : Math.min(segs, Math.floor(Math.max(0, j.since) / u)); return Array.from({ length: segs }, (_, i) => i < filled ? jobInk(j) : 'var(--line)'); }
 function jobRow(j, place, plain) { const it = I(j.id); const late = j.left < 0;
   // Patch 2 (the owner, 2026-11-24): no tick box; a tap opens the logging pop-up, editing only in edit mode
   if (!plain) return jobRow(j, place + (isDone(j.id, T0) ? ' · done today' : ''), true);
@@ -4624,18 +4626,15 @@ function taskRow(t, tick) { const it = I(t.id);
 // every task has an urgency line (2026-11-06): a task with no deadline and no repeat fills over a week since I last studied it
 const SDEF = 7;
 // a task's colour for the subject cards, like a job's for the room cards
-function taskInk(t) { const it = I(t.id); let f;
-  if (t.due !== undefined) { if (t.due < 0) return SEGLATE; f = 1 - t.due / Math.max(1, diff(it.made || T0, t.dl)); }
-  else { const n = period(it) || SDEF; if (t.since > n) return SEGLATE; f = t.since / n; }
-  return f > 0.66 ? SEGDUE : SEGOK; }
+function taskInk(t) { const f = studyFrac(t); return f < 0 ? SEGLATE : mixHex(VDOT[0], SEGDUE, Math.max(0, Math.min(1, f))); }
 // the verdict line, like Chores (2026-11-06): one segment per open task in its urgency colour, calm first, overdue last; the foot counts them
-const INKR = (c) => c === SEGLATE ? 2 : c === SEGDUE ? 1 : 0;
-const taskSegs = (T) => T.length ? T.map(taskInk).sort((a, b) => INKR(a) - INKR(b)) : [SEG0];
-const taskFoot = (T) => { const c = T.map(taskInk); return c.filter((x) => INKR(x) === 0).length + ' on track · ' + c.filter((x) => INKR(x) === 1).length + ' coming due · ' + c.filter((x) => INKR(x) === 2).length + ' overdue'; };
-function studyUrg(t) { const it = I(t.id); let filled, late = false;
-  if (t.due !== undefined) { late = t.due < 0; const total = Math.max(1, diff(it.made || T0, t.dl)); filled = late ? 7 : Math.max(1, Math.min(7, Math.round((1 - t.due / total) * 7))); }
-  else { const n = period(it) || SDEF; late = t.since > n; filled = late ? 7 : Math.max(1, Math.min(7, Math.round(t.since / n * 7))); }
-  return Array.from({ length: 7 }, (_, i) => i < filled ? (late ? SEGLATE : SEGDUE) : SEG0); }
+const tRank = (t) => { const f = studyFrac(t); return f < 0 ? 2 : f > 0.66 ? 1 : 0; };
+const taskSegs = (T) => T.length ? T.slice().sort((a, b) => (studyFrac(a) < 0 ? 2 : studyFrac(a)) - (studyFrac(b) < 0 ? 2 : studyFrac(b))).map(taskInk) : [SEG0];
+const taskFoot = (T) => { const r = T.map(tRank); return r.filter((x) => x === 0).length + ' on track · ' + r.filter((x) => x === 1).length + ' coming due · ' + r.filter((x) => x === 2).length + ' overdue'; };
+// the same lines as chores (the owner, 2026-11-26): neutral when just done or just made, one more coloured per step toward the deadline or repeat, green toward orange, all red once late
+function studyFrac(t) { const it = I(t.id); if (t.due !== undefined) return t.due < 0 ? -1 : 1 - t.due / Math.max(1, diff(it.made || T0, t.dl)); const n = period(it) || SDEF; return t.since > n ? -1 : t.since / n; }
+function studyUrg(t) { const f = studyFrac(t); if (f < 0) return Array(7).fill(SEGLATE); const filled = Math.min(7, Math.floor(f * 7 + 1e-9)), c = mixHex(VDOT[0], SEGDUE, Math.max(0, Math.min(1, f)));
+  return Array.from({ length: 7 }, (_, i) => i < filled ? c : 'var(--line)'); }
 const crumbs = (parts) => `<nav class="crumbs" aria-label="Where I am">${parts.map(([l, v], i) => i < parts.length - 1 ? `<button data-a="vcrumb" data-v="${v}">${esc(l)}</button><span aria-hidden="true">${icon('chevron-right', 14)}</span>` : `<span aria-current="page">${esc(l)}</span>`).join('')}</nav>`;
 const vlab = (t, extra = '') => `<div class="vlab"><span class="mono">${esc(t)}</span>${extra}</div>`;
 const addRow = (act, v, label) => `<button class="addrow" data-a="${act}" data-v="${v}"><span class="plus">+</span>${esc(label)}</button>`;
