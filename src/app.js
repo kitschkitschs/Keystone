@@ -11,6 +11,10 @@ const parse = (s) => { const [y, m, d] = s.split('-').map(Number); return new Da
 const DAY_H = 6; const appDay = () => { const n = new Date(); n.setHours(n.getHours() - DAY_H); return iso(n); };
 let T0 = appDay(); // moves on at 6am, even while the app stays open (2026-11-10: feelings showed yesterday's colours)
 const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
+const addMonths = (s, n) => { const a = parse(s), t = new Date(a.getFullYear(), a.getMonth() + n, 1); t.setDate(Math.min(a.getDate(), new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate())); return iso(t); };
+// a chore's monthly or yearly repeat counts from the last time I did it, not from a set date (the owner, 2026-11-26)
+const fromDone = (id, w) => !!w && (w.mode === 'month' || w.mode === 'year') && roomIds().some((r) => kidsOf(r).includes(id));
+const nextAfter = (w, last) => addMonths(last, Math.max(1, w.n || 1) * (w.mode === 'year' ? 12 : 1));
 const diff = (a, b) => Math.round((parse(b) - parse(a)) / 864e5);
 const wd = (s) => (parse(s).getDay() + 6) % 7;
 const WD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -304,8 +308,11 @@ function onDay0(id, d) {
   if (it.end && d > it.end && !isDone(id, d)) return false; // an experiment's task stops with it (2026-11-08)
   // Past days show what was planned, done or not (not done fades like the rest), not only what got done (2026-11-03)
   if (d < T0) { if (isDone(id, d)) return true; if (w.mode === 'once') return w.date === d;
-    if (w.mode === 'every') { if (w.date && d < w.date) return false; const last = lastDoneBefore(id, d); return !last || diff(last, d) >= Math.max(1, w.n || 1); } }
+    if (w.mode === 'every') { if (w.date && d < w.date) return false; const last = lastDoneBefore(id, d); return !last || diff(last, d) >= Math.max(1, w.n || 1); }
+    if (fromDone(id, w)) { const last = lastDoneBefore(id, d); if (last) return nextAfter(w, last) === d; } }
   if (w.mode === 'once') { if (!w.date) return false; if (d === T0) return w.date === T0 || (w.date < T0 && !doneSince(id, w.date, addDays(T0, -1))); return w.date === d; }
+  if (d >= T0 && fromDone(id, w)) { const last = lastDoneBefore(id, T0);
+    if (last) { const nx = nextAfter(w, last), dueT = isDone(id, T0) || nx <= T0; if (d === T0) return dueT; return d === (dueT ? nextAfter(w, T0) : nx); } }
   if (w.date && d < w.date && (w.mode === 'days' || w.mode === 'month' || w.mode === 'year')) return false;
   if (w.mode === 'days') { if (!(w.days || []).includes(wd(d))) return false; const n = Math.max(1, w.n || 1); return n === 1 || !w.date || Math.round(diff(weekStart(w.date), weekStart(d)) / 7) % n === 0; }
   if (w.mode === 'month') { const a = parse(w.date || it.made || T0), b = parse(d); const m = (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth(); return sameDom(a, b) && m >= 0 && m % Math.max(1, w.n || 1) === 0; }
@@ -321,7 +328,7 @@ function onDay0(id, d) {
   }
   return false;
 }
-const lateBy = (id) => { const w = (I(id) || {}).when; if (w && w.mode === 'once' && w.date && w.date < T0) return diff(w.date, T0); if (w && w.mode === 'every') { const last = lastDoneBefore(id, T0); if (last) { const over = diff(last, T0) - w.n; return over > 0 ? over : 0; } } return 0; };
+const lateBy = (id) => { const w = (I(id) || {}).when; if (w && w.mode === 'once' && w.date && w.date < T0) return diff(w.date, T0); if (w && w.mode === 'every') { const last = lastDoneBefore(id, T0); if (last) { const over = diff(last, T0) - w.n; return over > 0 ? over : 0; } } if (fromDone(id, w)) { const last = lastDoneBefore(id, T0); if (last) { const over = diff(nextAfter(w, last), T0); return over > 0 ? over : 0; } } return 0; };
 function whenText(it) {
   const w = it.when || {}; if (it.type === 'checkin') return '';
   if (w.mode === 'once') return w.date ? relDay(w.date) : ''; // no 'No date' note anywhere (2026-11-06)

@@ -81,8 +81,9 @@ function period(it) { const w = (it && it.when) || {}; const n = Math.max(1, w.n
   if (w.mode === 'month') return 30 * n; if (w.mode === 'year') return 365 * n; return 0; }
 // Freshness, like Tend: full when done, fading toward the due date. Never done counts as due today.
 function freshOf(id, place) { const n = period(I(id)) || 7; const last = isDone(id, T0) ? T0 : lastDoneBefore(id, T0);
-  const since = last ? diff(last, T0) : n; const left = n - since;
-  return { id, place, n, last, since, left, fresh: Math.max(0, Math.min(1, left / n)), urg: since / n }; }
+  const w = (I(id) || {}).when; const exact = last && fromDone(id, w); const n2 = exact ? diff(last, nextAfter(w, last)) : n;
+  const since = last ? diff(last, T0) : n; const left = exact ? diff(T0, nextAfter(w, last)) : n - since;
+  return { id, place, n: n2, last, since, left, fresh: Math.max(0, Math.min(1, left / n2)), urg: since / n2 }; }
 // a job with no frequency still belongs to its room: it needs doing until it has been done once
 const jobsIn = (gid) => kidsOf(gid).filter((k) => period(I(k)) || (!repeatable(I(k)) && (keeps(k) || !lastDoneBefore(k, T0) || isDone(k, T0)))).map((k) => freshOf(k, gid));
 const allJobs = () => roomIds().flatMap(jobsIn);
@@ -205,7 +206,7 @@ function cookCard(go) { const P = prepsOpen(); const nx = P[0] && I(P[0]); const
 const stripCard = (id, name, lvl, word, segs, on) => `<div class="vroomw"><button class="vroom ${on ? 'on' : ''}" data-a="vpick" data-ref="${id}" aria-pressed="${on}"${on ? ` style="border-color:${VDOT[lvl]}"` : ''}><b>${esc(name)}</b><span class="vv"><i style="background:${VDOT[lvl]}"></i>${esc(word)}</span>${segBar(segs, 'sm')}</button>${S.edit ? '' : `<button class="vgo" data-a="vopen" data-ref="${id}" aria-label="Open ${esc(name)}">${icon('arrow-up-right', 14, 1.6)}</button>`}</div>`;
 // the bar counts down to the next repeat (the owner, 2026-11-13): one segment per day up to 14 days, then one per week, past ten weeks one per month
 function jobSegs(j) { const n = Math.max(1, j.n || 7); const u = n <= 14 ? 1 : n <= 70 ? 7 : 30; const segs = Math.min(12, Math.max(1, Math.round(n / u))); const late = j.left < 0;
-  const filled = late ? segs : Math.min(segs, Math.ceil(Math.max(0, j.left) / u)); return Array.from({ length: segs }, (_, i) => i < filled ? (late ? SEGLATE : SEGDUE) : SEG0); }
+  const filled = late ? segs : Math.min(segs, Math.ceil(Math.max(0, j.left) / u)); return Array.from({ length: segs }, (_, i) => i < filled ? jobInk(j) : SEG0); } // fresh jobs in the calm colour, like the room card (the owner, 2026-11-26)
 function jobRow(j, place, plain) { const it = I(j.id); const late = j.left < 0;
   // Patch 2 (the owner, 2026-11-24): no tick box; a tap opens the logging pop-up, editing only in edit mode
   if (!plain) return jobRow(j, place + (isDone(j.id, T0) ? ' · done today' : ''), true);
