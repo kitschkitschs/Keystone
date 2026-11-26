@@ -55,6 +55,7 @@ function woSheet(s) { const it = I(s.ref); if (!it || !it.wo) return ''; const w
     <div class="fld"><span class="mono">Details</span><input class="inp" id="woextra" data-woextra="${s.ref}" value="${esc(it.extra || '')}" maxlength="40" placeholder="Like gym or short"></div>
     <div class="fld"><span class="mono">Follow it as</span><div class="chips">${[['list', 'List'], ['one', 'One at a time']].map(([v, l]) => `<button class="chip" data-a="wofollow" data-ref="${s.ref}" data-v="${v}" aria-pressed="${(w.follow || 'list') === v}">${l}</button>`).join('')}</div></div>
     <div class="tg"><span class="l">Stands in for generic items<span class="sub" style="display:block;font-size:12.5px;color:var(--quiet)">Off for an extra one, like a recovery workout: Movement and Workout stay on my day beside it</span></span><button class="swt" role="switch" aria-checked="${!it.nogen}" data-a="wonogen" data-ref="${s.ref}" aria-label="Stands in for generic items"></button></div>
+    <div class="tg"><span class="l">Recovery workout<span class="sub" style="display:block;font-size:12.5px;color:var(--quiet)">One I do after an injury, often every day: it wears the recovery colour, counts as movement and leaves the generic items alone</span></span><button class="swt" role="switch" aria-checked="${!!it.recov}" data-a="worecov" data-ref="${s.ref}" aria-label="Recovery workout"></button></div>
     <div class="fld"><span class="mono">Rest between sets</span><span class="stp wstp"><button data-a="worest" data-ref="${s.ref}" data-v="-1" aria-label="Less">−</button><b>${woRest(w) ? mmss(woRest(w)) : 'None'}</b><button data-a="worest" data-ref="${s.ref}" data-v="1" aria-label="More">+</button></span></div>
     <div class="fld"><span class="mono">Exercises · done set by set</span>${rows || '<p class="empty" style="padding:4px 0">No exercises yet.</p>'}
       ${exList().length ? pickBtn('wopick', 'Add exercises', s.ref) : ''}<button class="addbtn" data-a="wxnew"><span class="plus">+</span>New exercise</button></div>
@@ -224,6 +225,7 @@ function workoutAction(act, a, ref, v) {
   switch (act) {
     case 'wonew': { let id; change(() => { id = woNewItem('New workout'); }); if (id) openSheet({ kind: 'wo', ref: id, title: 'Workout' }); else flash('Make a training category first'); return true; }
     case 'woedit': if (I(ref) && !I(ref).wo) change(() => { I(ref).wo = { follow: 'list', ex: [] }; }); openSheet({ kind: 'wo', ref, title: 'Workout' }); return true;
+    case 'worecov': change(() => { const it = I(ref); if (it.recov) delete it.recov; else { it.recov = true; it.nogen = true; } }); return true; // recovery workouts (the owner, 2026-11-26)
     case 'wonogen': change(() => { const it = I(ref); if (it.nogen) delete it.nogen; else it.nogen = true; }); return true; // an extra workout leaves the generic items alone (the owner, 2026-11-24)
     case 'wofollow': change(() => { I(ref).wo.follow = v; }); return true;
     case 'wostep': { const [f, d] = v.split('|'); const e = I(S.sheet.ref).wo.ex[+ref]; const x = exOf(e.x) || {}; const step = f === 'n' && x.timed ? 5 : 1;
