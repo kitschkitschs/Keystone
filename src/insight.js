@@ -555,6 +555,10 @@ function insightAction(act, a, ref, v) {
       const e = (M.settings.insEdit || {})[c.key]; openSheet({ kind: 'insc', target: 'built', ref: c.key, title: c.name, draft: { name: c.name, color: c.color, ids: e ? (e.ids || []).slice() : c.ids.slice(), tags: e ? (e.tags || []).slice() : c.key.startsWith('tag:') ? [c.key.slice(4)] : [] } }); return true; }
     case 'inscreset': { const s = S.sheet; S.sheet = null; change(() => { if (s.target === 'health') { delete M.settings.insHealth; delete (M.settings.insCols || {}).health; } else { delete (M.settings.insEdit || {})[s.ref]; delete (M.settings.insCols || {})['c:' + s.ref]; } }, 'Put back'); return true; }
     case 'insctag': { inscCapture(); const D0 = S.sheet.draft; D0.tags = D0.tags || []; D0.tags = D0.tags.includes(v) ? D0.tags.filter((x) => x !== v) : D0.tags.concat(v); renderLayer(); return true; }
+    case 'inscadd': { inscCapture(); const s = S.sheet; const D0 = s.draft; const seen = new Set();
+      const rows = () => inscGroups(s).flatMap(([n, ids]) => ids.filter((k) => I(k) && !seen.has(k) && seen.add(k)).map((k) => Object.assign(pickItems([k], D0.ids)[0], { area: n })));
+      openPick({ title: s.target === 'health' ? 'Health items' : 'Add to ' + (D0.name || 'my circle'), order: 'given', rows: () => { seen.clear(); return rows(); },
+        pick: (k) => { D0.ids = D0.ids.includes(k) ? D0.ids.filter((x) => x !== k) : D0.ids.concat(k); } }); return true; }
     case 'inscpick': { inscCapture(); const D0 = S.sheet.draft; D0.ids = D0.ids.includes(v) ? D0.ids.filter((x) => x !== v) : D0.ids.concat(v); renderLayer(); return true; }
     case 'inscsave': { inscCapture(); const s = S.sheet, D0 = s.draft; if (!D0.name && s.target !== 'health') { flash('Name it first'); return true; }
       change(() => { if (s.target === 'health') { M.settings.insHealth = D0.ids.slice(); insSetCol('health', D0.color); return; }
@@ -605,17 +609,20 @@ function insOrder(keys) { const want = keys.map((k) => 'T:' + k); const cur = (M
 const insMine = () => (M.settings && M.settings.insCircles) || [];
 function insName(D, k) { return { avoid: 'Avoidance', health: 'Health', feel: 'Feelings', much: 'Too much', symptoms: 'Symptoms' }[k] || ((D.circles.find((c) => 'cat:' + c.key === k) || {}).name) || k; }
 // setting up my own circle: name, colour, and the things it counts
-function inscSheet(s) { const D0 = s.draft; const Dd = insightData(); let groups;
+function inscGroups(s) { const D0 = s.draft; const Dd = insightData(); let groups;
   if (s.target === 'health') { const hs = Object.keys(M.items).filter((k) => I(k).type === 'tracker' && SCALES[I(k).scale] && I(k).scale !== 'symptom3'); groups = [['Health items', D0.ids.filter((k) => hs.includes(k)).concat(hs.filter((k) => !D0.ids.includes(k)))]]; }
   else { const own = (c) => { const ids = Object.keys(M.items).filter((k) => ITICK.includes(I(k).type) && !I(k).brk); const t = c.key; // the circle's own starting set, before my picks
       if (t.startsWith('r:')) return [t.slice(2)].concat(I(t.slice(2)) ? I(t.slice(2)).steps || [] : []).filter((k) => ids.includes(k)); return c.ids; };
     groups = Dd.circles.filter((c) => !c.mine).map((c) => [c.name, own(c)]); const seen = new Set(groups.flatMap((g) => g[1]));
     const rest = Object.keys(M.items).filter((k) => ITICK.includes(I(k).type) && !I(k).brk && !seen.has(k)); if (rest.length) groups.push(['Other', rest]);
     const trk = Object.keys(M.items).filter(insTrkOk); if (trk.length) groups.push(['Health', trk]); }
+  return groups; }
+// the things it counts beside its tags: chips to take off, the shared picker to add more (2026-11-26)
+function inscSheet(s) { const D0 = s.draft; const L = D0.ids.filter((k) => I(k));
   return `${s.target === 'health' ? '' : `<div class="fld"><span class="mono">Name</span><input class="inp" id="iscname" value="${esc(D0.name)}" placeholder="e.g. Self-care" data-autofocus></div>`}
     <div class="fld"><span class="mono">Colour</span>${colorField('draft', D0.color)}</div>
     ${s.target === 'health' ? '' : `<div class="fld"><span class="mono">Tags</span><div class="chips">${Object.entries(M.tags || {}).map(([t, n]) => `<button class="chip" data-a="insctag" data-v="${t}" aria-pressed="${(D0.tags || []).includes(t)}">${esc(n)}</button>`).join('')}</div></div><span class="mono" style="display:block;margin:6px 0 2px">And these</span>`}
-    ${groups.map(([n, ids]) => `<div class="fld"><span class="mono">${esc(n)}</span><div class="chips">${ids.map((id) => `<button class="chip" data-a="inscpick" data-v="${id}" aria-pressed="${D0.ids.includes(id)}">${esc(I(id).name)}</button>`).join('')}</div></div>`).join('')}
+    <div class="fld">${s.target === 'health' ? '<span class="mono">Health items</span>' : ''}${L.length ? `<div class="chips">${L.map((id) => `<button class="chip" data-a="inscpick" data-v="${id}" aria-label="Take ${esc(I(id).name)} out">${inm(id)} ${icon('x', 12)}</button>`).join('')}</div>` : ''}${pickBtn('inscadd', L.length ? 'Add more' : 'Add my items')}</div>
     ${s.target === 'mine' && !s.isNew ? `<button class="btn danger" style="width:100%;margin-top:8px" data-a="inscdel" data-ref="${s.ref}">Delete circle</button>` : ''}
     ${s.target === 'built' || s.target === 'health' ? `<button class="btn" style="width:100%;margin-top:8px" data-a="inscreset">Put back as it was</button>` : ''}`; }
 const inscCapture = () => { const el = $('#iscname'); if (el && S.sheet && S.sheet.kind === 'insc') S.sheet.draft.name = el.value.trim(); };

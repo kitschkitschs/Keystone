@@ -57,7 +57,7 @@ function woSheet(s) { const it = I(s.ref); if (!it || !it.wo) return ''; const w
     <div class="tg"><span class="l">Stands in for generic items<span class="sub" style="display:block;font-size:12.5px;color:var(--quiet)">Off for an extra one, like a recovery workout: Movement and Workout stay on my day beside it</span></span><button class="swt" role="switch" aria-checked="${!it.nogen}" data-a="wonogen" data-ref="${s.ref}" aria-label="Stands in for generic items"></button></div>
     <div class="fld"><span class="mono">Rest between sets</span><span class="stp wstp"><button data-a="worest" data-ref="${s.ref}" data-v="-1" aria-label="Less">−</button><b>${woRest(w) ? mmss(woRest(w)) : 'None'}</b><button data-a="worest" data-ref="${s.ref}" data-v="1" aria-label="More">+</button></span></div>
     <div class="fld"><span class="mono">Exercises · done set by set</span>${rows || '<p class="empty" style="padding:4px 0">No exercises yet.</p>'}
-      <select class="inp" data-woadd="${s.ref}" aria-label="Add an exercise"><option value="">+ Add an exercise</option>${left.map((x) => `<option value="${x.id}">${esc(xtn(x))}</option>`).join('')}<option value="__new">New exercise…</option></select></div>
+      ${exList().length ? pickBtn('wopick', 'Add exercises', s.ref) : ''}<button class="addbtn" data-a="wxnew"><span class="plus">+</span>New exercise</button></div>
     <div class="btns" style="margin-top:14px"><button class="btn" data-a="open" data-ref="${s.ref}">Schedule, block and more</button><button class="btn danger" data-a="wodel" data-ref="${s.ref}">Take the exercises off this session</button></div>`; }
 
 // an exercise's details sit beside its name everywhere, like a hobby activity's (the owner, 2026-11-24)
@@ -231,6 +231,10 @@ function workoutAction(act, a, ref, v) {
     case 'womove': { const ex = I(S.sheet.ref).wo.ex, i = +ref, j = i + (+v); if (j < 0 || j >= ex.length) return true; change(() => { [ex[i], ex[j]] = [ex[j], ex[i]]; }); return true; }
     case 'worm': change(() => { I(S.sheet.ref).wo.ex.splice(+ref, 1); }); return true;
     case 'wodel': S.sheet = null; change(() => { delete I(ref).wo; if (M.wrun && M.wrun.item === ref) delete M.wrun; }, 'Took the exercises off ' + I(ref).name); return true;
+    // exercises come from the shared picker (2026-11-26): tap to put one in, tap again to take it out
+    case 'wopick': { const it = I(ref); if (!it || !it.wo) return true; const c = colorOf(ref);
+      openPick({ title: 'Exercises', ph: 'Search my exercises', rows: () => exList().map((x) => ({ k: x.id, name: xtn(x), html: xnm(x), sub: (x.side ? 'Two sides' : 'One side') + (x.timed ? ' · timed' : ''), area: '', c, on: it.wo.ex.some((e) => e.x === x.id) })),
+        pick: (x) => { const ex = exOf(x); if (!ex) return; change(() => { const i = it.wo.ex.findIndex((e) => e.x === x); if (i >= 0) it.wo.ex = it.wo.ex.filter((e) => e.x !== x); else it.wo.ex.push({ x, sets: 3, n: ex.timed ? 30 : 10 }); }); } }); return true; }
     case 'wxnew': openSheet({ kind: 'wx', isNew: true, ref: uid('ex'), title: 'New exercise', draft: { name: '', cue: '', side: 0, timed: 0, nosug: 0, aches: [] }, back: S.sheet && S.sheet.kind === 'wo' ? S.sheet : null, addTo: S.sheet && S.sheet.kind === 'wo' ? S.sheet.ref : null }); return true;
     case 'wxedit': { const x = exOf(ref); if (x) openSheet({ kind: 'wx', ref, title: 'Exercise', draft: Object.assign({}, x, { aches: acheOf(ref) }), back: S.sheet && S.sheet.kind === 'wo' ? S.sheet : null }); return true; }
     case 'wxset': { wxCapture(); const D = S.sheet.draft; if (v === 'reps') D.timed = 0; else if (v === 'timed') D.timed = 1; else D[v] = D[v] ? 0 : 1; renderLayer(); return true; }

@@ -33,16 +33,15 @@ function remSetup() { const st = M.settings.remSync || {}; let perm = 'Not avail
   return `<div class="card lcard remset"><div class="tg"><span class="l">Notifications on this phone<small>${esc(perm)}</small></span>${on ? '' : '<button class="btn soft" data-a="remperm">Turn on</button>'}</div>
     <div class="tg"><span class="l">Last sent<small>${st.at ? esc(relDay(st.at.slice(0, 10)) + ' ' + st.at.slice(11, 16)) + (st.ok ? '' : ' · couldn’t reach the sender') : 'Never'}</small></span><button class="btn soft" data-a="remsync">Send now</button></div></div>`; }
 function remSheet(s) { const D = s.draft; const ch = (act, v, l, on) => `<button class="chip" data-a="${act}" data-v="${v}" aria-pressed="${on}">${l}</button>`;
-  const items = Object.keys(M.items).filter((k) => { const it = I(k); return it && (it.type === 'checkin' || it.type === 'task' || it.type === 'routine' || it.when); }); if (D.item && I(D.item) && !items.includes(D.item)) items.push(D.item); items.sort((a, b) => I(a).name.localeCompare(I(b).name));
   return `<div class="fld"><span class="mono">Remind me to</span><input class="inp" id="remtext" value="${esc(D.text || '')}" autocomplete="off" ${s.isNew ? 'data-autofocus' : ''}></div>
     <div class="fld"><span class="mono">At</span><input class="inp" type="time" id="remtime" value="${esc(D.time || '09:00')}"></div>
     <div class="fld"><span class="mono">When</span><div class="chips">${ch('remrep', 'once', 'Once', D.rep === 'once')}${ch('remrep', 'days', 'Repeat', D.rep !== 'once')}</div></div>
     ${D.rep === 'once' ? `<div class="fld"><span class="mono">Day</span><input class="inp" type="date" id="remdate" value="${esc(D.date || T0)}"></div>`
       : `<div class="fld"><span class="mono">Days</span><div class="chips">${WD.map((w, i) => ch('remday', i, w, (D.days || []).includes(i))).join('')}</div></div>`}
-    <div class="fld"><span class="mono">Only if this isn’t done yet</span><select class="inp" id="remitem"><option value="">Always</option>${items.map((k) => `<option value="${k}" ${D.item === k ? 'selected' : ''}>${esc(I(k).name)}</option>`).join('')}</select></div>
+    <div class="fld"><span class="mono">Only if this isn’t done yet</span><button class="inp pickin" data-a="remitem"><span>${D.item && I(D.item) ? inm(D.item) : 'Always'}</span>${icon('chevron-down', 16)}</button></div>
     ${s.isNew ? '' : `<button class="btn soft" style="width:100%;margin-top:8px;color:#B5503E" data-a="remdel" data-ref="${s.ref}">Delete this reminder</button>`}`; }
 function remCapture() { const s = S.sheet; if (!s || s.kind !== 'rem') return; const g = (id) => (document.getElementById(id) || {}).value;
-  const D = s.draft; D.text = (g('remtext') || '').trim(); D.time = g('remtime') || D.time; if (D.rep === 'once') D.date = g('remdate') || D.date; D.item = g('remitem') || ''; }
+  const D = s.draft; D.text = (g('remtext') || '').trim(); D.time = g('remtime') || D.time; if (D.rep === 'once') D.date = g('remdate') || D.date; }
 function remChange(fn) { change(fn, 'Reminders changed'); remSync(); }
 function remAction(act, a, ref, v) {
   switch (act) {
@@ -51,6 +50,10 @@ function remAction(act, a, ref, v) {
       openSheet({ kind: 'rem', title: 'New reminder', isNew: true, back, draft: { text: it ? it.name : '', time: (it && it.time) || '09:00', rep: once ? 'once' : 'days', days, date: (it && (it.date || w.date)) || T0, item: it ? v : '', on: true } }); return true; }
     case 'remopen': if (S.sheet && S.sheet.kind === 'item') { capture(); const r = remList().find((x) => x.id === ref); if (r) openSheet({ kind: 'rem', ref, title: 'Reminder', back: S.sheet, draft: JSON.parse(JSON.stringify(r)) }); return true; }
     case 'remopen': { const r = remList().find((x) => x.id === ref); if (r) openSheet({ kind: 'rem', ref, title: 'Reminder', draft: JSON.parse(JSON.stringify(r)) }); return true; }
+    // one item, picked in the shared picker (2026-11-26); Always at the top for none
+    case 'remitem': { remCapture(); const D = S.sheet.draft; const items = Object.keys(M.items).filter((k) => { const it = I(k); return it && !it.arch && (it.type === 'checkin' || it.type === 'task' || it.type === 'routine' || it.when); });
+      if (D.item && I(D.item) && !items.includes(D.item)) items.push(D.item);
+      openPick({ title: 'Only if this isn’t done yet', one: true, none: 'Always', rows: () => pickItems(items, D.item ? [D.item] : []), pick: (k) => { D.item = k || ''; } }); return true; }
     case 'remrep': remCapture(); S.sheet.draft.rep = v; renderLayer(); return true;
     case 'remday': { remCapture(); const D = S.sheet.draft.days = (S.sheet.draft.days || []).slice(); const i = D.indexOf(+v); if (i >= 0) D.splice(i, 1); else D.push(+v); D.sort(); renderLayer(); return true; }
     case 'remsave': { remCapture(); const s = S.sheet; const D = s.draft; if (!D.text) { flash('Write the reminder first'); return true; } if (D.rep !== 'once' && !(D.days || []).length) { flash('Pick at least one day'); return true; }
