@@ -2062,10 +2062,12 @@ function renderToday() {
     // the day just got completed by a tick: confetti from that row, and the day's mark flies up to the calendar (2026-11-09)
     { const s0 = M.snap[T0]; const comp = s0.bad ? s0.bdue > 0 && s0.bdone >= s0.bdue : s0.due > 0 && s0.done >= s0.due; if (comp && S.dayComp === false && lastTick && Date.now() - lastTick.t < 2000) requestAnimationFrame(() => celebrate(s0.bad ? 'bad' : 'plan')); S.dayComp = comp; } }
   const bad = isBad(d) && d >= T0;
-  const badCard = () => { const g = G('g-bad'); if (!g) return ''; const bl = badList();
+  const badCard = () => { const g = G('g-bad'); if (!g) return ''; const bl = badList(); let BK = null;
     // outside edit mode the list runs in the Schedule's order for that day (the owner, 2026-11-26)
-    if (!S.edit) { const PD = placeDay(d), at = {}; PD.forEach((o, i) => { if (at[o.id] == null) at[o.id] = [o.a, i]; }); const ix = (id) => at[id] || [1e9, 1e9]; bl.sort((p, q) => ix(p)[0] - ix(q)[0] || ix(p)[1] - ix(q)[1]); } const shownB = live && !S.edit ? bl.filter((id) => !isDone(id, d)) : bl;
-    if (!S.edit && !shownB.length) return bl.length ? '' : `<p class="empty">Nothing on my bad day list yet.</p>`;
+    if (!S.edit) { const PD = placeDay(d), at = {}; PD.forEach((o, i) => { if (at[o.id] == null) at[o.id] = [o.a, i]; }); const ix = (id) => at[id] || [1e9, 1e9]; bl.sort((p, q) => ix(p)[0] - ix(q)[0] || ix(p)[1] - ix(q)[1]);
+      /* the day's usual breaks sit between them, as on a normal day (the owner, 2026-11-26) */ const bk = Object.keys(at).filter((id) => I(id) && I(id).brk && !bl.includes(id)); BK = bk.concat(bl).sort((p, q) => ix(p)[0] - ix(q)[0] || ix(p)[1] - ix(q)[1]); }
+    const shownB = live && !S.edit ? (BK || bl).filter((id) => !isDone(id, d)) : (BK || bl);
+    if (!S.edit && !shownB.some((id) => !I(id).brk)) return bl.length ? '' : `<p class="empty">Nothing on my bad day list yet.</p>`;
     return `<section class="card badcard" data-ref="g-bad"><div class="bhead">${S.edit ? `<span class="circ" style="--c:${g.color};width:14px;height:14px;background:${g.color}" data-col="g-bad" role="button" aria-label="Change colour"></span><span class="nm mono" style="font-size:11px;flex:1">${nm('g-bad', g.name)}</span>` : `<span class="nm mono" style="flex:1">${esc(g.name)}</span>`}<span class="cnt">${bl.filter((id) => !isDone(id, d)).length} left</span></div>
       <div class="list" data-list="g-bad">${shownB.map((id) => itemRow(id, 'g-bad', d)).join('')}${S.edit ? `<button class="addrow" data-a="addtask" data-in="g-bad"><span class="plus">+</span>Add to ${esc(g.name)}</button><button class="addrow" data-a="badpick"><span class="plus">+</span>Add one of my items</button>` : ''}</div></section>`; };
   let h = renderCal() + calEdit(); // the calendar stays in edit mode so calendar changes show live (2026-11-06)
@@ -2189,7 +2191,9 @@ function placeDay(d) {
   const out = []; const DL = choreSwap(dayList(d), d); STOOD[d] = DL.stood || {};
   // a bad day's own list sits on the Schedule too (the owner, 2026-11-26): each item in the block it usually lives in, at its set time's block,
   // or where I moved it that day; anything else goes in the first block
-  if (isBad(d)) { const mv = (M.dayMove || {})[d] || {}, dT = (M.dayTime || {})[d] || {}; const BI = blockIds(); const on = new Set(DL.flatMap((x) => x.items));
+  if (isBad(d)) { const mv = (M.dayMove || {})[d] || {}, dT = (M.dayTime || {})[d] || {}; const BI = blockIds();
+    dayListRaw(d).forEach((r) => { const x = DL.find((z) => z.b === r.b); if (x) r.items.forEach((id) => { if (I(id) && I(id).brk && !x.items.includes(id)) x.items.push(id); }); }); // the usual breaks stay (the owner, 2026-11-26)
+    const on = new Set(DL.flatMap((x) => x.items));
     badList().forEach((id) => { const it = I(id); if (!it || it.type === 'appt' || on.has(id)) return; on.add(id);
       const b = mv[id] && G(mv[id]) ? mv[id] : dT[id] ? blockAtTime(dT[id]) : BI.find((k) => (G(k).kids || []).includes(id)) || (it.time ? blockAtTime(it.time) : BI[0]);
       const x = DL.find((z) => z.b === b); if (x) x.items.push(id); }); }
