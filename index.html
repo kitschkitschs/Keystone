@@ -2213,6 +2213,10 @@ const frozenOf = (d) => d < T0 && M.frozen && M.frozen[d] ? M.frozen[d].filter((
 // a started two-parter counts when its first part was scheduled on the day I started it (2026-11-24)
 function planned(id, d) { const h = (M.half || {})[id]; if (h && !isDone(id, d)) return wasOn(id, halfDay(h));
   return !isDone(id, d) || wasOn(id, d); }
+// what the day held before I ticked anything: its list worked out with that day's log set aside for a moment
+function schedSet(d) { const L0 = M.log[d]; if (!L0 || d > T0 || !Object.keys(L0).length) return null; M.log[d] = {};
+  const C = new Map(WKC); WKC.clear();
+  try { return new Set(dayList(d).flatMap((x) => x.items)); } finally { M.log[d] = L0; WKC.clear(); C.forEach((v, k) => WKC.set(k, v)); } }
 // was it on that day without my tick? Its log for that day is set aside for a moment (routine parts too)
 function wasOn(id, d) { const L0 = M.log[d]; if (!L0) return onDay(id, d); const it = I(id);
   const keys = [id].concat(it && it.type === 'routine' ? rStepsAll(id).map((s) => sKey(id, s)) : []); const keep = {};
@@ -2286,6 +2290,8 @@ let NAT_IN = false;
 function placeDay(d, nat) {
   const fz = frozenOf(d); if (fz) { return fz.filter((o) => !isMissed(o.id, d) && !halfWait(o.id, d)).map((o) => Object.assign({}, o)); }
   const out = []; const DL = choreSwap(dayList(d), d); STOOD[d] = DL.stood || {};
+  // the Schedule shows only what was scheduled: something I ticked on a day it wasn't on stays off it (the owner, 2026-11-27)
+  { const sch = schedSet(d); if (sch) DL.forEach((x) => { x.items = x.items.filter((id) => sch.has(id) || !isDone(id, d) || (M.half || {})[id]); }); }
   // a bad day's own list sits on the Schedule too (the owner, 2026-11-26): each item in the block it usually lives in, at its set time's block,
   // or where I moved it that day; anything else goes in the first block
   if (isBad(d)) { const mv = (M.dayMove || {})[d] || {}, dT = (M.dayTime || {})[d] || {}; const BI = blockIds();
