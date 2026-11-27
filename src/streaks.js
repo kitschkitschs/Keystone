@@ -60,7 +60,7 @@ function streakRows() {
     for (let i = 0; i < N; i++) { const d = addDays(start, i), x = t.fn(d); h += `<span class="srm ${x.s}${wd(d) === 6 && i < N - 1 ? ' srwk' : ''}"${x.c ? ` style="--c:${x.c};--cf:${SR_FADE(x.c)}"` : ''}><i></i></span>`; }
     h += '</div></div>'; });
   h += `<div class="srax"><span>${srShort(start)}</span><span>Today</span></div>`;
-  const r = recOf(T0); if (r) h += `<button class="srrec" data-a="recopen" style="--c:${C.rec}"><span class="srsq"></span><span>Recovery day${r.woName ? ' · instead of ' + esc(r.woName) : ''}</span><span class="srch">Change</span></button>`;
+  const r = recOf(T0); if (r) h += `<div class="srrec" style="--c:${C.rec}"><span class="srsq"></span><span>Recovery day${r.woName ? ' · instead of ' + esc(r.woName) : ''}</span></div>`;
   return h + '</div>'; }
 // edit mode: the tracker colours (their categories' colours, the same on Today, the Schedule and the calendar) and the weekly numbers
 function streakEdit() {
@@ -68,11 +68,9 @@ function streakEdit() {
   const step = (k, l) => `<div class="srstep"><span class="l">${l}</span><button class="btn" data-a="srn" data-ref="${k}" data-v="-1" aria-label="One less">−</button><span class="srv">${stSet()[k]}</span><button class="btn" data-a="srn" data-ref="${k}" data-v="1" aria-label="One more">+</button></div>`;
   return `<div style="margin-top:14px">${lcard(null, 'Streaks', '', cats.map(([c, l]) => `<button class="srcol" data-col="${c}" aria-label="Change the ${esc(l)} colour"><span class="srsq" style="--c:${c === 'rc:rec' ? recCol() : G(c).color || grpCol(c)}"></span><span class="l">${esc(l)}</span><span class="srch">Colour</span></button>`).join('') + step('weeks', 'Weeks shown') + step('wo', 'Workouts a week') + (expOn() && expCat() ? step('ex', 'Expedition training a week') : ''))}</div>`; }
 
-// RECOVERY DAY: on a day with a workout, if something hurts, the workout comes off and a recovery session takes its place
+// RECOVERY DAY: switched on only from the ⋯ Modes menu (the owner, 2026-11-27: no Recovery button on the workout rows)
 const recWoToday = () => [...woIds()].filter((k) => onDay(k, T0) && !isDone(k, T0));
 const woGenOn = (id) => { const it = I(id); return !!it && it.type === 'slot' && !!it.tcat && it.tcat === woCat(); };
-function recBtn(id, d) { if (S.edit || d !== T0 || recOf(T0) || isBad(T0) || isDone(id, d)) return '';
-  if (!(woIds().has(id) || woGenOn(id)) || !onDay(id, T0)) return ''; return `<button class="wgo wgot wrec" data-a="recopen" data-ref="${id}">Recovery</button>`; }
 // Today: the workout is already off the day (see woSim); the generic Workout item gives way to the generic Movement item, so the day asks for movement
 function recSwap(out, d) { const r = recOf(d); if (!r) return; const rid = mvGen(); const pk = r.pick || {};
   // things I picked to reschedule or skip leave the day (workouts are already off, see woSim)
