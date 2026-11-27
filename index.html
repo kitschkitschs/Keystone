@@ -1826,8 +1826,8 @@ function dayListRaw(d, raw) {
 }
 // Missed (2026-11-02): an item marked missed leaves that day's list and schedule and drops into a Missed section.
 // It counts as not done. Kept in M.missed[day][id], apart from the day log.
-const isMissed = (id, d) => { const v = ((M.missed || {})[d] || {})[id]; return !!v && v !== 'r'; };
-const missedOn = (d) => Object.entries((M.missed || {})[d] || {}).filter(([id, v]) => I(id) && v !== 'r' && I(id).type !== 'step').map(([id]) => id); // parts a ticked routine missed ('r') count in the routine, not on their own
+const isMissed = (id, d) => { if (I(id) && I(id).brk) return false; const v = ((M.missed || {})[d] || {})[id]; return !!v && v !== 'r'; };
+const missedOn = (d) => Object.entries((M.missed || {})[d] || {}).filter(([id, v]) => I(id) && !I(id).brk && v !== 'r' && I(id).type !== 'step').map(([id]) => id); // parts a ticked routine missed ('r') count in the routine, not on their own
 // a two-part chore waiting on its second part only stays on a past day's list if that's the day it got done (2026-11-20)
 function halfWait(id, d) { const it = I(id); if (!it || !it.two || d >= T0 || isDone(id, d)) return false;
   for (let x = addDays(d, -1), k = 0; k < 60; x = addDays(x, -1), k++) { if (isDone(id, x)) return false; if (((M.missed || {})[x] || {})[id] === true) return true; } return false; }
@@ -2094,7 +2094,7 @@ function pastDay(d) {
   const mins = (m) => ((m >= 60 ? Math.floor(m / 60) + 'H ' : '') + (m % 60 ? (m % 60) + 'M' : m >= 60 ? '' : '0M')).trim();
   // missed = planned that day and not done; greyed in their own category (2026-11-08)
   const mi = missedOn(d);
-  dayList(d).forEach((x) => x.items.concat(x.appts || []).forEach((id) => { const it = I(id); if (it && !['checkin', 'slot'].includes(it.type) && !isDone(id, d) && !mi.includes(id) && !tk.includes(id)) mi.push(id); }));
+  dayList(d).forEach((x) => x.items.concat(x.appts || []).forEach((id) => { const it = I(id); if (it && !it.brk /* breaks are only for time estimation, never logged (the owner, 2026-11-27) */ && !['checkin', 'slot'].includes(it.type) && !isDone(id, d) && !mi.includes(id) && !tk.includes(id)) mi.push(id); }));
   const ml0 = (id) => ln(I(id).name, '', '', `data-a="peek" data-ref="${id}" data-d="${d}"`, colorOf(id)).replace('class="pdl"', 'class="pdl pdmiss"');
   [['task', 'Tasks'], ['appt', 'Plans'], ['home', 'Home'], ['study', 'Study'], ['train', 'Training'], ['hob', 'Hobbies']].forEach(([k, t]) => {
     const ids = tk.filter((id) => kindOf(id) === k); let L = ids.map((id) => tl(id, k === 'study' && sm[id] ? mins(sm[id]) : ''));
@@ -2676,7 +2676,7 @@ function sheetBody() {
     if (it.note) lines.push(['Note', it.note]);
     lines.push(['Status', done ? (String(val(d, s.ref)).startsWith('much') ? 'Too much' : 'Done') : d < T0 ? 'Not done' : d === T0 ? 'Not done yet' : 'Coming up']);
     return `<dl class="peek">${lines.map(([k, v]) => `<dt class="mono">${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>${it.brk && d >= T0 ? brkDayUI(s.ref, d) : ''}
-      <div class="btns">${d === T0 && it.type !== 'checkin' && it.type !== 'routine' ? `<button class="btn dark" data-a="peektick">${it.type === 'slot' ? 'Open ' + (it.opens === 'study' ? 'Study' : it.opens === 'training' ? 'Training' : it.opens === 'hobbies' ? 'Hobbies' : 'Chores') : done ? 'Untick' : 'Tick as done'}</button>` : ''}${d <= T0 && !done && it.type !== 'checkin' ? `<button class="btn" data-a="miss" data-ref="${s.ref}" data-d="${d}">Missed</button>` : ''}<button class="btn" data-a="peekedit">Edit</button></div>`; }
+      <div class="btns">${d === T0 && it.type !== 'checkin' && it.type !== 'routine' ? `<button class="btn dark" data-a="peektick">${it.type === 'slot' ? 'Open ' + (it.opens === 'study' ? 'Study' : it.opens === 'training' ? 'Training' : it.opens === 'hobbies' ? 'Hobbies' : 'Chores') : done ? 'Untick' : 'Tick as done'}</button>` : ''}${d <= T0 && !done && it.type !== 'checkin' && !it.brk ? `<button class="btn" data-a="miss" data-ref="${s.ref}" data-d="${d}">Missed</button>` : ''}<button class="btn" data-a="peekedit">Edit</button></div>`; }
   if (s.kind === 'add') {
     // Add or log, redone (2026-11-08): compact, everything in reach. Always on top: a feeling, plan items, notebook items.
     // The search finds anything tickable and ticks it right there; Tick as done = everything on Today plus what I ticked lately.
@@ -2819,7 +2819,7 @@ function schedUI(s, D) {
   const cm = s.calM || (picked || T0).slice(0, 7); const [y, m] = cm.split('-').map(Number); const first = iso(new Date(y, m - 1, 1));
   let wk = weekStart(first); const weeks = []; while (weeks.length < 6 && (weeks.length === 0 || wk.slice(0, 7) <= cm)) { weeks.push(wk); wk = addDays(wk, 7); }
   // Miss (2026-11-02): a repeat counts today as not done; a one-off goes back to Not scheduled
-  const canMiss = !s.isNew && s.ref && I(s.ref) && placeDay(T0).some((o) => o.id === s.ref) && !isDone(s.ref, T0);
+  const canMiss = !s.isNew && s.ref && I(s.ref) && !I(s.ref).brk && placeDay(T0).some((o) => o.id === s.ref) && !isDone(s.ref, T0);
   let h = `<div class="fld"><div class="qd">${q.filter(([k]) => k !== 'miss' || canMiss).map(([k, l, d, ic]) => k === 'miss' ? `<button data-a="dmiss"><span>${l}</span><small>${rep ? 'Not done' : 'Unschedule'}</small></button>` : `<button data-a="dq" data-v="${d}" aria-pressed="${picked === d}"><span>${l}</span><small>${esc(fmtDate(d))}</small></button>`).join('')}</div>
     <div class="mcal"><div class="calnav"><button data-a="dcalm" data-v="-1" aria-label="Previous month">${icon('chevron-left', 16)}</button><span>${MONTHS[m - 1]} ${y}</span><button data-a="dcalm" data-v="1" aria-label="Next month">${icon('chevron-right', 16)}</button></div>
       <div class="wk wkh"><span></span>${WD.map((x) => `<span>${x.toUpperCase()}</span>`).join('')}</div>
