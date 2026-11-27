@@ -4981,7 +4981,7 @@ const studyBar = () => [['timer', 'Timer', 'timer'], ['support', 'Study support'
 function vMenu() {
   let h = '';
   // no 'This page' group in the menu any more (2026-11-06), except a project's On hold / Finished (2026-11-08)
-  if (S.area === 'hobbies' && S.proj && G(S.proj) && !S.insOn) { const x = G(S.proj); h += `<span class="mono">Project</span><button role="menuitem" data-a="projhold" data-ref="${S.proj}">${x.hold ? 'Take off hold' : 'Put on hold'}</button><button role="menuitem" data-a="projdone" data-ref="${S.proj}">Finished</button>`; }
+  if (S.area === 'hobbies' && S.proj && G(S.proj) && !S.insOn) { const x = G(S.proj); h += `<span class="mono">Project</span><button role="menuitem" data-a="projhold" data-ref="${S.proj}">${x.hold ? 'Take off hold' : 'Put on hold'}</button><button role="menuitem" data-a="pjlog" data-ref="${S.proj}">Log a day I worked on it</button><button role="menuitem" data-a="projdone" data-ref="${S.proj}">Finished</button>`; }
   // modes are switches (2026-11-06)
   h += `<span class="mono">Modes</span><button role="menuitemcheckbox" data-a="studymode" aria-checked="${!!S.studyMode}"><span style="flex:1;text-align:left">Study mode</span><span class="swt" aria-hidden="true" aria-checked="${!!S.studyMode}"></span></button>`;
   h += `<button role="menuitemcheckbox" data-a="badmode" aria-checked="${isBad(T0)}"><span style="flex:1;text-align:left">Bad day</span><span class="swt" aria-hidden="true" aria-checked="${isBad(T0)}"></span></button>`;
@@ -4995,7 +4995,8 @@ function vMenu() {
 // ---------- sheets ----------
 function vSheet(s) {
   if (s.kind === 'vwhen') { const it = I(s.ref); const f = freshOf(s.ref); const dn = isDone(s.ref, T0);
-    return `<p class="note" style="font-size:14px;margin-top:-6px">${esc(whenText(it))}${f.last ? ' · last done ' + lowDay(f.last) : ' · not done yet'}</p>
+    const top = [whenText(it), f.last ? 'last done ' + lowDay(f.last) : 'not done yet'].filter(Boolean).join(' · ');
+    return `<p class="note" style="font-size:14px;margin-top:-6px">${esc(top[0].toUpperCase() + top.slice(1))}</p>
       ${whenDidI()}
       ${dn ? '<div class="btns"><button class="btn" data-a="vunlog">Untick today</button></div>' : ''}`; } // editing only in edit mode (2026-11-24)
   if (s.kind === 'vtlog') { const t = I(s.ref); const dn = !!val(T0, s.ref); const sj = subjIds().find((x) => sIds(x).includes(s.ref));
@@ -5003,6 +5004,10 @@ function vSheet(s) {
       <div class="btns"><button class="btn dark" data-a="vtstudy" data-ref="${s.ref}">${icon('timer', 18)}Start study mode</button></div>
       ${whenDidI()}
       ${dn ? '<div class="btns"><button class="btn" data-a="vunlog">Untick today</button></div>' : ''}`; }
+  if (s.kind === 'vpjwhen') { const x = G(s.ref); const ld = projLast(s.ref); const dn = (x.worked || []).includes(T0);
+    return `<p class="note" style="font-size:14px;margin-top:-6px">${ld ? 'Last worked on ' + lowDay(ld) : 'Not started'}</p>
+      ${whenDidI()}
+      ${dn ? `<div class="btns"><button class="btn" data-a="projwork" data-ref="${s.ref}">Untick today</button></div>` : ''}`; }
   if (s.kind === 'vtmr') return tmrSheet();
   if (s.kind === 'vsess') return vMinRows();
   if (s.kind === 'vtpick') { const cur = (M.timer || {}).id || null;
@@ -5037,8 +5042,8 @@ function verdictAction(act, a, ref, v) {
     case 'vunpick': S.pick = null; render(); return true;
     case 'vopen': if (S.area === 'home') S.room = ref; else S.subj = ref; S.pick = null; render(); $('#main').scrollTop = 0; return true;
     case 'vjob': if (S.edit) { openItem(ref); return true; } openSheet({ kind: 'vwhen', ref, title: I(ref).name }); return true;
-    case 'vlog': logDone(S.sheet.ref, addDays(T0, -(+v))); return true;
-    case 'vlogd': { const d = $('#vdate').value; if (!d || d > T0) { flash('Pick a day up to today'); return true; } logDone(S.sheet.ref, d); return true; }
+    case 'vlog': if (S.sheet.kind === 'vpjwhen') { projWorkOn(S.sheet.ref, addDays(T0, -(+v))); return true; } logDone(S.sheet.ref, addDays(T0, -(+v))); return true;
+    case 'vlogd': { const d = $('#vdate').value; if (!d || d > T0) { flash('Pick a day up to today'); return true; } if (S.sheet.kind === 'vpjwhen') { projWorkOn(S.sheet.ref, d); return true; } logDone(S.sheet.ref, d); return true; }
     case 'vunlog': { const id = S.sheet.ref; S.sheet = null; change(() => { delete L(T0)[id]; }, 'Unticked ' + I(id).name); return true; }
     case 'psub': { const it = I(ref); if (!it) return true; const days = Object.keys(M.log).filter((d) => val(d, ref)); if (days.length) { change(() => { days.forEach((d) => { delete L(d)[ref]; }); }, 'Unticked ' + it.name); return true; } logDone(ref, T0); return true; }
     case 'vtick': { const was = !!val(T0, ref); if (was) { change(() => { delete L(T0)[ref]; }, 'Unticked ' + I(ref).name); return true; } logDone(ref, T0); return true; }
@@ -6766,6 +6771,10 @@ function suggestion(h) { if (!G(h)) return null; const g = G(h); const L = rollP
   const pk = L.includes(S.rollPick) ? S.rollPick : L[0]; const pj = pk && G(pk) ? pk : null; const act = pk && I(pk) ? pk : null;
   return { hobby: g.name, color: g.color, text: pj ? 'Work on ' + G(pj).name.toLowerCase() : act ? tnm(act) : 'Some ' + g.name.toLowerCase(), sub: ld ? 'Last done ' + agoText(ld) : 'Not done yet', go: pj || null, act }; }
 // Worked on it: a project gets today as a day I worked on it, and the activity it covers counts as done today
+// a day I worked on a project, today or earlier (the owner, 2026-11-27): the same as Worked on it, for that day
+function projWorkOn(p, d) { const x = G(p); if (!x) return; S.sheet = null; if ((x.worked || []).includes(d)) { flash('Already logged ' + (d === T0 ? 'today' : lowDay(d))); render(); return; }
+  if (d === T0) { projWork(p); return; }
+  change(() => { x.worked = (x.worked || []).concat(d).sort().slice(-400); if (x.act && I(x.act) && !val(d, x.act)) L(d)[x.act] = 'done'; }, 'Worked on ' + x.name + ' ' + lowDay(d)); }
 function projWork(p) { const x = G(p); if (!x) return; const was = (x.worked || []).includes(T0);
   change(() => { if (was) { x.worked = x.worked.filter((d) => d !== T0); if ((x.workAuto === T0 || x.muchAuto === T0) && x.act && M.log[T0]) { delete M.log[T0][x.act]; } delete x.workAuto; if ((x.much || []).includes(T0)) { x.much = x.much.filter((d) => d !== T0); if (x.muchK) delete x.muchK[T0]; } delete x.muchAuto; delete x.prevAct; delete x.muchWork; }
     else { x.worked = (x.worked || []).concat(T0).slice(-400); if (x.act && I(x.act) && !val(T0, x.act)) { (M.log[T0] = M.log[T0] || {})[x.act] = 'done'; x.workAuto = T0; } } }); }
@@ -6781,7 +6790,9 @@ function hobAction(act, a, ref, v) {
   switch (act) {
     case 'hobpick': if (S.hob === v && S.proj) S.proj = null; else { S.hob = v; S.proj = null; } render(); $('#main').scrollTop = 0; return true;
     case 'hobproj': S.proj = ref; render(); $('#main').scrollTop = 0; return true;
-    case 'hobact': tick(ref); return true;
+    // a tap on an activity opens the same logging pop-up as Studies and Home items, so I can log a past day (the owner, 2026-11-27)
+    case 'hobact': openSheet({ kind: 'vwhen', ref, title: I(ref).name }); return true;
+    case 'pjlog': S.menu = false; openSheet({ kind: 'vpjwhen', ref, title: G(ref).name }); return true;
     case 'hobnewact': hobNewAct(v); return true;
     case 'hobnewtask': hobNewTask(v); return true;
     case 'hobnewproj': { const id = uid('pj'); change(() => { M.groups[id] = { name: 'New project', style: 'project', kids: [], photos: [] }; G(v).kids.push(id); }, null, false); S.proj = id; render(); openSheet({ kind: 'group', ref: id, title: 'Project', isNew: true }); return true; }
@@ -6794,7 +6805,7 @@ function hobAction(act, a, ref, v) {
     case 'projback': { const x = G(ref); change(() => { delete x.done; }, 'Brought back ' + x.name); return true; }
     case 'projphrm': { const x = G(ref); change(() => { x.photos = (x.photos || []).filter((q) => q.id !== v); }, 'Photo removed'); if (VW && VW.kind === 'photo') vwPhoto(); return true; }
     case 'hobpool': { change(() => { const P = M.settings.hobPool = M.settings.hobPool || {}; if (P[v] === false) delete P[v]; else P[v] = false; }); return true; }
-    case 'projwork': projWork(ref); return true;
+    case 'projwork': if (S.sheet && S.sheet.kind === 'vpjwhen') S.sheet = null; projWork(ref); return true;
     case 'hobroll': { if (S.spinning) return true; const h = rollHobby(); if (!h) { flash('Nothing in the pool'); return true; } spinTo(h); return true; }
     case 'hobrollgo': { const r = suggestion(S.roll); if (!r) return true; S.hob = S.roll; S.proj = r.go; S.roll = null; render(); return true; }
   }
