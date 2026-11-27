@@ -1612,7 +1612,7 @@ function woSim(d) { const W = woIds(); let st = WKC.get('_wosim');
       const nat = ids.filter((id) => !done.includes(id) && !st.q.includes(id) && (I(id).when && I(id).when.mode === 'every' && st.next[id] ? x >= st.next[id] : onDayBase(id, x)));
       const late = (id) => (x === T0 ? lateBy(id) : 0), picked = (id) => { const w = I(id).when || {}; return w.date === x ? 1 : 0; };
       nat.sort((a, b) => (late(b) - late(a)) || (picked(b) - picked(a)));
-      const cand = st.q.concat(nat); const miss = (id) => isMissed(id, x);
+      const cand = st.q.filter((id) => !done.includes(id)).concat(nat); const miss = (id) => isMissed(id, x); // a carried one I ticked is done: it leaves the queue, never comes back the next day (the owner, 2026-11-27)
       const rcv = typeof recOf === 'function' ? recOf(x) : null;
       if (rcv && !isBad(x)) { const keep2 = [], on = done.slice(); // a recovery day: each workout as I picked it, kept, skipped or moved on (the owner, 2026-11-26)
         cand.forEach((id) => { const w = I(id).when || {}, m = recPick(rcv, id), nx = () => { if (w.mode === 'every') st.next[id] = addDays(x, Math.max(1, w.n || 1)); };
