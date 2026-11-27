@@ -161,6 +161,10 @@ function suggestion(h) { if (!G(h)) return null; const g = G(h); const L = rollP
   const pk = L.includes(S.rollPick) ? S.rollPick : L[0]; const pj = pk && G(pk) ? pk : null; const act = pk && I(pk) ? pk : null;
   return { hobby: g.name, color: g.color, text: pj ? 'Work on ' + G(pj).name.toLowerCase() : act ? tnm(act) : 'Some ' + g.name.toLowerCase(), sub: ld ? 'Last done ' + agoText(ld) : 'Not done yet', go: pj || null, act }; }
 // Worked on it: a project gets today as a day I worked on it, and the activity it covers counts as done today
+// a day I worked on a project, today or earlier (the owner, 2026-11-27): the same as Worked on it, for that day
+function projWorkOn(p, d) { const x = G(p); if (!x) return; S.sheet = null; if ((x.worked || []).includes(d)) { flash('Already logged ' + (d === T0 ? 'today' : lowDay(d))); render(); return; }
+  if (d === T0) { projWork(p); return; }
+  change(() => { x.worked = (x.worked || []).concat(d).sort().slice(-400); if (x.act && I(x.act) && !val(d, x.act)) L(d)[x.act] = 'done'; }, 'Worked on ' + x.name + ' ' + lowDay(d)); }
 function projWork(p) { const x = G(p); if (!x) return; const was = (x.worked || []).includes(T0);
   change(() => { if (was) { x.worked = x.worked.filter((d) => d !== T0); if ((x.workAuto === T0 || x.muchAuto === T0) && x.act && M.log[T0]) { delete M.log[T0][x.act]; } delete x.workAuto; if ((x.much || []).includes(T0)) { x.much = x.much.filter((d) => d !== T0); if (x.muchK) delete x.muchK[T0]; } delete x.muchAuto; delete x.prevAct; delete x.muchWork; }
     else { x.worked = (x.worked || []).concat(T0).slice(-400); if (x.act && I(x.act) && !val(T0, x.act)) { (M.log[T0] = M.log[T0] || {})[x.act] = 'done'; x.workAuto = T0; } } }); }
@@ -176,7 +180,9 @@ function hobAction(act, a, ref, v) {
   switch (act) {
     case 'hobpick': if (S.hob === v && S.proj) S.proj = null; else { S.hob = v; S.proj = null; } render(); $('#main').scrollTop = 0; return true;
     case 'hobproj': S.proj = ref; render(); $('#main').scrollTop = 0; return true;
-    case 'hobact': tick(ref); return true;
+    // a tap on an activity opens the same logging pop-up as Studies and Home items, so I can log a past day (the owner, 2026-11-27)
+    case 'hobact': openSheet({ kind: 'vwhen', ref, title: I(ref).name }); return true;
+    case 'pjlog': S.menu = false; openSheet({ kind: 'vpjwhen', ref, title: G(ref).name }); return true;
     case 'hobnewact': hobNewAct(v); return true;
     case 'hobnewtask': hobNewTask(v); return true;
     case 'hobnewproj': { const id = uid('pj'); change(() => { M.groups[id] = { name: 'New project', style: 'project', kids: [], photos: [] }; G(v).kids.push(id); }, null, false); S.proj = id; render(); openSheet({ kind: 'group', ref: id, title: 'Project', isNew: true }); return true; }
@@ -189,7 +195,7 @@ function hobAction(act, a, ref, v) {
     case 'projback': { const x = G(ref); change(() => { delete x.done; }, 'Brought back ' + x.name); return true; }
     case 'projphrm': { const x = G(ref); change(() => { x.photos = (x.photos || []).filter((q) => q.id !== v); }, 'Photo removed'); if (VW && VW.kind === 'photo') vwPhoto(); return true; }
     case 'hobpool': { change(() => { const P = M.settings.hobPool = M.settings.hobPool || {}; if (P[v] === false) delete P[v]; else P[v] = false; }); return true; }
-    case 'projwork': projWork(ref); return true;
+    case 'projwork': if (S.sheet && S.sheet.kind === 'vpjwhen') S.sheet = null; projWork(ref); return true;
     case 'hobroll': { if (S.spinning) return true; const h = rollHobby(); if (!h) { flash('Nothing in the pool'); return true; } spinTo(h); return true; }
     case 'hobrollgo': { const r = suggestion(S.roll); if (!r) return true; S.hob = S.roll; S.proj = r.go; S.roll = null; render(); return true; }
   }
