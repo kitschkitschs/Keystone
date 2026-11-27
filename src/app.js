@@ -875,10 +875,17 @@ function freezePast() { M.frozen = M.frozen || {}; Object.keys(M.log).forEach((k
 const frozenOf = (d) => d < T0 && M.frozen && M.frozen[d] ? M.frozen[d].filter((o) => I(o.id)) : null;
 // a day with real study tasks (or sessions) drops the generic Study session slot; real chores drop the Daily chore slot.
 // Also used on frozen past days, so old snapshots follow the rule too (2026-11-06)
-// a chore stands in for the generic chore only when it was scheduled that day, not when it's there because I ticked it (2026-11-14)
-function schedChore(id, d) { if (!isDone(id, d)) return true; const w = (I(id) || {}).when || {}; if (w.mode === 'once') return w.date === d || (w.date && w.date < d);
-  if (w.mode === 'every') { if (w.date && w.date === d) return true; const last = lastDoneBefore(id, d); return !last || diff(last, d) >= Math.max(1, w.n || 1); }
-  const L0 = M.log[d]; const v = L0[id]; delete L0[id]; try { return onDay0(id, d); } finally { L0[id] = v; } }
+// a specific item stands in for its generic item only when it was scheduled that day, never because I ticked it: the
+// Schedule follows only my scheduling (the owner, 2026-11-14 for chores, 2026-11-27 for everything: study, training, hobbies)
+// a started two-parter counts when its first part was scheduled on the day I started it (2026-11-24)
+function planned(id, d) { const h = (M.half || {})[id]; if (h && !isDone(id, d)) return wasOn(id, halfDay(h));
+  return !isDone(id, d) || wasOn(id, d); }
+// was it on that day without my tick? Its log for that day is set aside for a moment (routine parts too)
+function wasOn(id, d) { const L0 = M.log[d]; if (!L0) return onDay(id, d); const it = I(id);
+  const keys = [id].concat(it && it.type === 'routine' ? rStepsAll(id).map((s) => sKey(id, s)) : []); const keep = {};
+  keys.forEach((k) => { if (k in L0) { keep[k] = L0[k]; delete L0[k]; } });
+  const C = new Map(WKC); WKC.clear();
+  try { return onDay(id, d); } finally { Object.assign(L0, keep); WKC.clear(); C.forEach((v, k) => WKC.set(k, v)); } }
 // a part two due too late for the last block sits last in the last block on Today, like it runs past its end on the Schedule (the owner, 2026-11-24)
 function lateTwo(out, d) { if (d !== T0 || !out.length) return out; const lb = out[out.length - 1], g = G(lb.b); let end = hm(g.end); if (end <= hm(G(blockIds()[0]).start)) end += 1440;
   Object.keys(M.half || {}).forEach((id) => { const it = I(id); if (!it || halfOld(id) || isDone(id, d)) return; const due = new Date(M.half[id].at + (+it.two || 2) * 3600000);
@@ -886,17 +893,17 @@ function lateTwo(out, d) { if (d !== T0 || !out.length) return out; const lb = o
     out.forEach((x) => { x.items = x.items.filter((k) => k !== id); }); lb.items.push(id); }); return out; }
 function slotDrop(out, d = T0) {
   const all = out.flatMap((x) => x.items); const sids = typeof subjIds === 'function' ? new Set(subjIds().flatMap(sIds)) : new Set(); const cids = typeof choreIds === 'function' ? new Set(choreIds()) : new Set();
-    const tids = typeof trainCats === 'function' ? new Set(trainCats().flatMap(kidsOf)) : new Set(); const hobOn = typeof hobArea === 'function' && all.some((id) => hobArea(id));
-    const studyOn = all.some((id) => sids.has(id) || (I(id) && I(id).part && sids.has(I(id).part))), choreOn = all.some((id) => cids.has(id) && ((M.half || {})[id] || twoDoneOn(id, d) || schedChore(id, d))), moveOn = all.some((id) => tids.has(id));
-    if (studyOn || choreOn || moveOn || hobOn) out.forEach((x) => { x.items = x.items.filter((id) => !(I(id) && I(id).type === 'slot' && ((I(id).opens === 'study' && studyOn) || (I(id).opens === 'chores' && choreOn) || (I(id).opens === 'training' && all.some((k) => slotTrainIds(id).has(k))) || (I(id).opens === 'hobbies' && hobOn)))); });
+    const tids = typeof trainCats === 'function' ? new Set(trainCats().flatMap(kidsOf)) : new Set(); const hobOn = typeof hobArea === 'function' && all.some((id) => hobArea(id) && planned(id, d));
+    const studyOn = all.some((id) => (sids.has(id) || (I(id) && I(id).part && sids.has(I(id).part))) && planned(id, d)), choreOn = all.some((id) => cids.has(id) && planned(id, d)), moveOn = all.some((id) => tids.has(id) && planned(id, d));
+    if (studyOn || choreOn || moveOn || hobOn) out.forEach((x) => { x.items = x.items.filter((id) => !(I(id) && I(id).type === 'slot' && ((I(id).opens === 'study' && studyOn) || (I(id).opens === 'chores' && choreOn) || (I(id).opens === 'training' && all.some((k) => slotTrainIds(id).has(k) && planned(k, d))) || (I(id).opens === 'hobbies' && hobOn)))); });
   afterWork(out, d); // followers of a generic item stay behind the work that replaced it
   return out; }
 // Schedule: a day with a real chore drops the generic chore item, and the chores without a set time take its place in
 // the day (its block and spot), unless I moved them myself that day (the owner, 2026-11-24)
 function choreSwap(DL, d) {
-  DL = genSwap(DL, d, 'chores', new Set(choreIds()), (id) => !!(M.half || {})[id] || twoDoneOn(id, d) || schedChore(id, d)); // a started two-parter counts too (2026-11-24)
+  DL = genSwap(DL, d, 'chores', new Set(choreIds()), (id) => planned(id, d)); // only scheduled chores, not ones I ticked (the owner, 2026-11-27)
   // scheduled training does the same to the generic movement item (the owner, 2026-11-24)
-  if (typeof trainCats === 'function') [...new Set(DL.flatMap((x) => x.items).filter((id) => I(id) && I(id).type === 'slot' && I(id).opens === 'training'))].forEach((sid) => { DL = genSwap(DL, d, (id) => id === sid, slotTrainIds(sid), () => true); });
+  if (typeof trainCats === 'function') [...new Set(DL.flatMap((x) => x.items).filter((id) => I(id) && I(id).type === 'slot' && I(id).opens === 'training'))].forEach((sid) => { DL = genSwap(DL, d, (id) => id === sid, slotTrainIds(sid), (id) => planned(id, d)); });
   // a workout that took the generic item's place takes its followers (a shower) along, so they stay right behind it (the owner, 2026-11-24)
   afterWork(DL, d, DL.chainFol); return DL; }
 function genSwap(DL, d, opens, ids, ok) { const isSlot = typeof opens === 'function' ? opens : (id) => I(id) && I(id).type === 'slot' && I(id).opens === opens;
