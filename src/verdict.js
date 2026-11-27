@@ -501,6 +501,8 @@ function vLayer() {
 // the two study mode buttons; in edit mode a tap changes the icon (2026-11-10)
 const studyBar = () => [['timer', 'Timer', 'timer'], ['support', 'Study support', 'heart-handshake']].map(([v, l, ic]) => { const on = v === 'timer' ? S.stv === 'timer' && S.area === 'study' : supOn();
   return `<button ${S.edit ? `data-a="iconfor" data-v="ui:sm-${v}"` : `data-a="vstv" data-v="${v}"`} aria-label="${S.edit ? 'Change the icon for ' + l : l}" ${on ? 'aria-current="page"' : ''} style="color:${on ? 'var(--ink)' : 'var(--faint)'}"><span class="pill" style="background:transparent;${S.edit ? 'outline:1.5px dashed var(--faint);outline-offset:2px' : ''}">${icon(uiIc('sm-' + v, ic), 24, on ? 2 : 1.6)}</span></button>`; }).join('');
+// Dark mode lives in the App section of the menu (2026-11-27)
+const darkRow = () => `<button role="menuitemcheckbox" data-a="darkmode" aria-checked="${darkOn}"><span style="flex:1;text-align:left">Dark mode</span><span class="swt" aria-hidden="true" aria-checked="${darkOn}"></span></button>`;
 function vMenu() {
   let h = '';
   // no 'This page' group in the menu any more (2026-11-06), except a project's On hold / Finished (2026-11-08)
@@ -509,7 +511,6 @@ function vMenu() {
   h += `<span class="mono">Modes</span><button role="menuitemcheckbox" data-a="studymode" aria-checked="${!!S.studyMode}"><span style="flex:1;text-align:left">Study mode</span><span class="swt" aria-hidden="true" aria-checked="${!!S.studyMode}"></span></button>`;
   h += `<button role="menuitemcheckbox" data-a="badmode" aria-checked="${isBad(T0)}"><span style="flex:1;text-align:left">Bad day</span><span class="swt" aria-hidden="true" aria-checked="${isBad(T0)}"></span></button>`;
   h += `<button role="menuitemcheckbox" data-a="recmenu" aria-checked="${!!recOf(T0)}"><span style="flex:1;text-align:left">Recovery</span><span class="swt" aria-hidden="true" aria-checked="${!!recOf(T0)}"></span></button>`;
-  h += `<button role="menuitemcheckbox" data-a="darkmode" aria-checked="${darkOn}"><span style="flex:1;text-align:left">Dark mode</span><span class="swt" aria-hidden="true" aria-checked="${darkOn}"></span></button>`;
   // Expeditions can be hidden: the folder and Expedition training go (2026-11-06)
   h += `<button role="menuitemcheckbox" data-a="expmode" aria-checked="${expOn()}"><span style="flex:1;text-align:left">Expeditions</span><span class="swt" aria-hidden="true" aria-checked="${expOn()}"></span></button>`;
   return h;

@@ -1231,7 +1231,7 @@ function sheetLayer() { let h = '';
 function renderLayer() { setTimeout(navTrack, 0);
   let h = vLayer() + insLayer();
   if (S.menu) h += `<div class="scrim" style="background:transparent" data-a="closemenu"></div><div class="menu" role="menu"><span class="mundo"><button role="menuitem" data-a="histundo" ${HIST.past.length ? '' : 'disabled'}>Undo</button><button role="menuitem" data-a="histredo" ${HIST.fut.length ? '' : 'disabled'}>Redo</button></span>${vMenu()}<span class="mono">Data</span><button role="menuitem" data-a="insopen">Insight</button>${bkMenu()}<button role="menuitem" data-a="askclearold">Clear old logs</button><span class="mono">App</span><button role="menuitem" data-a="toggleedit">${S.edit ? 'Finish editing' : 'Edit'}</button>
-    <button role="menuitem" data-a="archopen">Archive</button></div>`;
+    <button role="menuitem" data-a="archopen">Archive</button>${darkRow()}</div>`;
   // pop-ups stack (2026-11-06): the pop-ups underneath (S.sheet.back, ...) stay drawn but can't be touched; the top one works
   if (S.sheet) { const top = S.sheet, chain = []; for (let x = top; x; x = x.back) chain.unshift(x);
     chain.forEach((x) => { S.sheet = x; const one = sheetLayer(); h += x === top ? one : `<div class="under" inert aria-hidden="true">${one.replace(/ id="/g, ' data-oid="')}</div>`; }); S.sheet = top; }
