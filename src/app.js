@@ -259,6 +259,8 @@ function workoutOn(d, id) { const key = d + '|' + id; if (WKC.has(key)) return W
 // a repeat from Home or Studies that I've never done stays off my days: I get through everything once first, from its own page
 const firstRound = (id, upto) => { const it = I(id); if (!it || !it.when || it.when.mode === 'once' || it.type !== 'task') return false; if (it.when.set && it.when.date) return false; // a day I picked myself always counts (2026-11-11)
   if (!placements(id).some((p) => p === 'g-tend' || (G(p) && (G(p).style === 'room' || G(p).style === 'sgroup')))) return false; return !Object.keys(M.log).some((k) => (!upto || k <= upto) && val(k, id)); };
+// a repeating chore, steps or not, waits until I've logged it once before it schedules itself (the owner, 2026-11-26/27)
+const choreWaits = (id) => { const it = I(id); return !!it && repeatable(it) && roomIds().some((r) => kidsOf(r).includes(id)) && !everDone(id); };
 // ONE WORKOUT A DAY (the owner, 2026-11-26): workouts that stand in for the Workout generic never stack on a day. When one
 // is rescheduled onto a day that already has one (late, missed, carried from a bad day), it keeps that day and pushes the other
 // one on to the next day, and so on down the days. Ticked ones always stay on their day. Workouts set apart (nogen) are free.
@@ -297,6 +299,7 @@ function woSim(d) { const W = woIds(); let st = WKC.get('_wosim');
   return st.on[d] || new Set(); }
 function onDay(id, d) { if (d >= T0 && !WOSIM && woIds().has(id) && !frozenOf(d)) { const on = woSim(d); return on.has(id); } return onDayBase(id, d); }
 function onDayBase(id, d) { const it = I(id); if (!it) return false;
+  if (d >= T0 && choreWaits(id)) return false; // also when it follows or is blocked behind something, and for chores with steps (the owner, 2026-11-27)
   if (d >= T0 ? firstRound(id) : firstRound(id, d) && !isDone(id, d)) return false; // a past day never shows a repeat I hadn't done once yet by then (2026-11-12)
   if (!afterSrc()[id] || d < T0 || it.type === 'checkin') return onDay0(id, d);
   if (it.made && d < it.made) return false; if (it.end && d > it.end) return false;
@@ -315,7 +318,7 @@ function onDay0(id, d) {
   if (it.made && d < it.made && !isDone(id, d)) return false;
   if (it.end && d > it.end && !isDone(id, d)) return false;
   // a repeating chore waits until I've logged it once before it schedules itself (the owner, 2026-11-26)
-  if (d >= T0 && repeatable(it) && roomIds().some((r) => kidsOf(r).includes(id)) && !everDone(id)) return false; // an experiment's task stops with it (2026-11-08)
+  if (d >= T0 && choreWaits(id)) return false; // an experiment's task stops with it (2026-11-08)
   // Past days show what was planned, done or not (not done fades like the rest), not only what got done (2026-11-03)
   if (d < T0) { if (isDone(id, d)) return true; if (w.mode === 'once') return w.date === d;
     if (w.mode === 'every') { if (w.date && d < w.date) return false; const last = lastDoneBefore(id, d); return !last || diff(last, d) >= Math.max(1, w.n || 1); }
@@ -733,7 +736,7 @@ function itemRow(id, list, d) {
   if (it.type === 'routine') {
     const open = S.edit || routineOpen(id, d); const steps = S.edit ? rStepsAll(id) : rSteps(id, d);
     return `<div data-ref="${id}"><div class="row">${grip()}${tickCircle(id, d, live)}
-      <button class="lbl" data-a="ropen" data-ref="${id}" aria-expanded="${!!open}" style="display:flex;align-items:center;gap:10px">${S.edit ? `<span style="flex:1">${nm(id, it.name)}</span>` : `<span style="flex:1">${inm(it)}<span class="sub where">Routine</span>${tdur(it)}</span>`}${S.edit ? '' : `${fold(open)}`}</button>${tail(id, list)}</div>
+      <button class="lbl" data-a="ropen" data-ref="${id}" aria-expanded="${!!open}" style="display:flex;align-items:center;gap:10px">${S.edit ? `<span style="flex:1">${nm(id, it.name)}</span>` : `<span style="flex:1">${inm(it)}<span class="sub where">${esc(whereOf(id) || 'Routine')}</span>${tdur(it)}</span>`}${S.edit ? '' : `${fold(open)}`}</button>${tail(id, list)}</div>
       ${open ? `<div class="steps" data-list="s:${id}">${steps.map((s) => I(s).type === 'checkin' ? ciStepRow(s, id, d, live) : `<div class="row" data-ref="${s}">${grip()}${live && !S.edit ? `<button class="tickbtn" data-a="step" data-ref="${s}" data-v="${id}" aria-label="Tick ${esc(tnm(s))}"><span class="circ ${sVal(id, s, d) ? 'done' : ''}${pOpt(id, s).optional ? ' opt' : ''}" style="--c:${colorOf(isLinkPart(s) ? s : id)}"></span></button>` : `<span class="circ ${sVal(id, s, d) ? 'done' : ''}${pOpt(id, s).optional ? ' opt' : ''}" style="--c:${colorOf(isLinkPart(s) ? s : id)}"></span>`}<span class="lbl">${nm(s, I(s).name)}${S.edit && stepNote(s, id) && !(S.area === 'plan' && S.page === 'today') ? `<span class="sub">${esc(stepNote(s, id))}</span>` : ''}</span>${tail(s, 's:' + id, { gear: false })}</div>`).join('')}
         ${S.edit ? `<button class="addrow" data-a="addstep" data-ref="${id}"><span class="plus">+</span>Add step</button>` : ''}</div>` : ''}</div>`;
   }

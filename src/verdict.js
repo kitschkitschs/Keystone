@@ -71,7 +71,8 @@ const LONGWD = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturda
 // ---------- model ----------
 const roomIds = () => (G('g-rooms') ? G('g-rooms').kids.filter(G) : []);
 const kidsOf = (gid) => (G(gid) ? G(gid).kids.filter((k) => I(k)) : []);
-const everDone = (id) => Object.keys(M.log).some((d) => val(d, id));
+// a chore with steps counts as done on a day all its steps were ticked, too (2026-11-27)
+const everDone = (id) => Object.keys(M.log).some((d) => val(d, id) || ((I(id) || {}).type === 'routine' && isDone(id, d)));
 // study tasks (2026-11-10): a one-off is finished once ticked and goes to the Archive; a repeat never finishes, a tick just starts the count to the next one
 const sFinished = (k) => !repeatable(I(k)) && !keeps(k) && everDone(k);
 const sLastDone = (k) => isDone(k, T0) ? T0 : lastDoneBefore(k, T0);
