@@ -501,7 +501,7 @@ const missedOn = (d) => Object.entries((M.missed || {})[d] || {}).filter(([id, v
 // a two-part chore waiting on its second part only stays on a past day's list if that's the day it got done (2026-11-20)
 function halfWait(id, d) { const it = I(id); if (!it || !it.two || d >= T0 || isDone(id, d)) return false;
   for (let x = addDays(d, -1), k = 0; k < 60; x = addDays(x, -1), k++) { if (isDone(id, x)) return false; if (((M.missed || {})[x] || {})[id] === true) return true; } return false; }
-function dropMissed(out, d) { out.forEach((x) => { x.items = x.items.filter((id) => !isMissed(id, d) && !halfWait(id, d)); if (x.appts) x.appts = x.appts.filter((id) => !isMissed(id, d)); }); return out; }
+function dropMissed(out, d) { out.forEach((x) => { x.items = x.items.filter((id) => !isMissed(id, d) && !halfWait(id, d) && !brkOff(id, d)); if (x.appts) x.appts = x.appts.filter((id) => !isMissed(id, d)); }); return out; }
 // Move an item to place idx of block b on one day only (repeats and routines). One-off tasks move for good.
 function seqOf(day, b, excl) { return placeDay(day).filter((o) => o.blk === b && I(o.id).type !== 'checkin' && o.id !== excl).sort((p, q) => p.a - q.a).map((o) => o.id); }
 function moveOnDay(id, day, b, idx) {
@@ -925,6 +925,9 @@ function genSwap(DL, d, opens, ids, ok) { const isSlot = typeof opens === 'funct
 const tAt = (id, d) => ((M.dayTime || {})[d] || {})[id] || I(id).time;
 // a break's length can change for one day only (the owner, 2026-11-25): M.dayDur[day][id] = minutes
 const durOn = (id, d, def = 30) => ((M.dayDur || {})[d] || {})[id] || (I(id) || {}).dur || def;
+// a break can be taken off one day only, the rest of its days stay (the owner, 2026-11-28): M.dayOff[day][id] = 1
+const brkOff = (id, d) => !!(I(id) && I(id).brk && ((M.dayOff || {})[d] || {})[id]);
+const brkOffUI = (id) => { const ds = Object.keys(M.dayOff || {}).filter((d) => d >= T0 && M.dayOff[d][id]).sort(); return ds.length ? `<div class="fld"><span class="mono">Taken off</span><div class="stack" style="gap:6px">${ds.map((d) => `<div style="display:flex;align-items:center;gap:10px"><span style="flex:1">${esc(d === T0 ? 'Today' : relDay(d) === fmtDate(d) ? fmtDate(d) : relDay(d) + ', ' + fmtDate(d))}</span><button class="btn" data-a="brkback" data-ref="${id}" data-d="${d}">Put back</button></div>`).join('')}</div></div>` : ''; };
 const brkDayUI = (id, d) => `<div class="fld"><span class="mono">Length ${d === T0 ? 'today' : 'on ' + esc(fmtDate(d))} only</span><span class="stp"><button data-a="bdur" data-ref="${id}" data-d="${d}" data-v="-1" aria-label="Shorter">−</button><b>${estHM(durOn(id, d, 15) / 60)}</b><button data-a="bdur" data-ref="${id}" data-d="${d}" data-v="1" aria-label="Longer">+</button></span></div>`;
 // the morning routine: the first routine in the first day block (2026-11-24)
 // on a day with its own morning routine (a slow weekend one), that's the one (the owner, 2026-11-25)
@@ -955,7 +958,7 @@ function mShift(out, d, fixedL) { const at = ((M.mTick || {})[d]); const mid = m
 let TWO_IN = false; const TWO_LATE = (d) => d < T0; /* a past day keeps it where it was */
 let NAT_IN = false;
 function placeDay(d, nat) {
-  const fz = frozenOf(d); if (fz) { return fz.filter((o) => !isMissed(o.id, d) && !halfWait(o.id, d)).map((o) => Object.assign({}, o)); }
+  const fz = frozenOf(d); if (fz) { return fz.filter((o) => !isMissed(o.id, d) && !halfWait(o.id, d) && !brkOff(o.id, d)).map((o) => Object.assign({}, o)); }
   const out = []; const DL = choreSwap(dayList(d), d); STOOD[d] = DL.stood || {};
   // the Schedule shows only what was scheduled: something I ticked on a day it wasn't on stays off it (the owner, 2026-11-27)
   { const sch = schedSet(d); if (sch) DL.forEach((x) => { x.items = x.items.filter((id) => sch.has(id) || !isDone(id, d) || (M.half || {})[id]); }); }
@@ -1191,7 +1194,7 @@ function renderAppts() {
 
 // ---------- layer: menu, sheets, toast ----------
 // clear everything logged before today, keeping every item, note and setting (the owner, 2026-11-24)
-const LOG_KEYS = ['recov', 'log', 'snap', 'frozen', 'feel', 'photos', 'study', 'support', 'missed', 'badDays', 'dayMove', 'dayOrder', 'dayTime', 'dayTack', 'dayAfter', 'dayDur', 'twoDone', 'mTick', 'foodMark', 'rOpen', 'training', 'multi'];
+const LOG_KEYS = ['recov', 'log', 'snap', 'frozen', 'feel', 'photos', 'study', 'support', 'missed', 'badDays', 'dayMove', 'dayOrder', 'dayTime', 'dayTack', 'dayAfter', 'dayDur', 'dayOff', 'twoDone', 'mTick', 'foodMark', 'rOpen', 'training', 'multi'];
 function clearOldLogs() { LOG_KEYS.forEach((k) => { const o = M[k]; if (!o || typeof o !== 'object' || Array.isArray(o)) return; Object.keys(o).forEach((d) => { if (/^\d{4}-\d\d-\d\d$/.test(d) && d < T0) delete o[d]; }); });
   if (Array.isArray(M.events)) M.events = M.events.filter((e) => !e.day || e.day >= T0); }
 // Every delete asks first (2026-11-02). Returns the question, or null when the action needs none.
@@ -1359,7 +1362,7 @@ function sheetBody() {
     if (it.note) lines.push(['Note', it.note]);
     lines.push(['Status', done ? (String(val(d, s.ref)).startsWith('much') ? 'Too much' : 'Done') : d < T0 ? 'Not done' : d === T0 ? 'Not done yet' : 'Coming up']);
     return `<dl class="peek">${lines.map(([k, v]) => `<dt class="mono">${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>${it.brk && d >= T0 ? brkDayUI(s.ref, d) : ''}
-      <div class="btns">${d === T0 && it.type !== 'checkin' && it.type !== 'routine' ? `<button class="btn dark" data-a="peektick">${it.type === 'slot' ? 'Open ' + (it.opens === 'study' ? 'Study' : it.opens === 'training' ? 'Training' : it.opens === 'hobbies' ? 'Hobbies' : 'Chores') : done ? 'Untick' : 'Tick as done'}</button>` : ''}${d <= T0 && !done && it.type !== 'checkin' && !it.brk ? `<button class="btn" data-a="miss" data-ref="${s.ref}" data-d="${d}">Missed</button>` : ''}<button class="btn" data-a="peekedit">Edit</button></div>`; }
+      <div class="btns">${d === T0 && it.type !== 'checkin' && it.type !== 'routine' ? `<button class="btn dark" data-a="peektick">${it.type === 'slot' ? 'Open ' + (it.opens === 'study' ? 'Study' : it.opens === 'training' ? 'Training' : it.opens === 'hobbies' ? 'Hobbies' : 'Chores') : done ? 'Untick' : 'Tick as done'}</button>` : ''}${it.brk && d >= T0 && !frozenOf(d) ? `<button class="btn" data-a="brkoff" data-ref="${s.ref}" data-d="${d}">${d === T0 ? 'Remove today only' : 'Remove on this day only'}</button>` : ''}${d <= T0 && !done && it.type !== 'checkin' && !it.brk ? `<button class="btn" data-a="miss" data-ref="${s.ref}" data-d="${d}">Missed</button>` : ''}<button class="btn" data-a="peekedit">Edit</button></div>`; }
   if (s.kind === 'add') {
     // Add or log, redone (2026-11-08): compact, everything in reach. Always on top: a feeling, plan items, notebook items.
     // The search finds anything tickable and ticks it right there; Tick as done = everything on Today plus what I ticked lately.
@@ -1466,7 +1469,7 @@ function itemSheet(s) {
       <div class="fld"><span class="mono">Category</span><div class="chips">${G('g-appts').kids.filter(G).map((c) => `<button class="chip" style="--c:${G(c).color}" data-a="dset" data-k="cat" data-v="${c}" aria-pressed="${s.cat === c}"><span class="d"></span>${esc(G(c).name)}</button>`).join('')}</div></div>`;
   } else if (D.type !== 'checkin' && D.type !== 'step') {
     h += schedUI(s, D);
-    if (D.brk) { h += sw('follow', 'Moves with my day', D.follow) + `<p class="note" style="margin:-4px 0 10px;font-size:12.5px;color:var(--quiet)">When I tick my morning routine, it moves along with everything else. Off, it stays at its time.</p>`; if (s.ref && !s.isNew) h += brkDayUI(s.ref, T0) + `<div class="btns"><button class="btn danger" data-a="ddelete">Delete</button></div>`; return h; } // a break: a name, its time and length, its days
+    if (D.brk) { h += sw('follow', 'Moves with my day', D.follow) + `<p class="note" style="margin:-4px 0 10px;font-size:12.5px;color:var(--quiet)">When I tick my morning routine, it moves along with everything else. Off, it stays at its time.</p>`; if (s.ref && !s.isNew) h += brkDayUI(s.ref, T0) + brkOffUI(s.ref) + `<div class="btns">${!brkOff(s.ref, T0) && placeDay(T0).some((o) => o.id === s.ref) ? `<button class="btn" data-a="brkoff" data-ref="${s.ref}" data-d="${T0}">Remove today only</button>` : ''}<button class="btn danger" data-a="ddelete">Delete</button></div>`; return h; } // a break: a name, its time and length, its days
     if (D.type === 'slot') h += afterField(D) + sw('optional', 'Optional', D.optional) + optDaysUI(D); // generic items take followers too: a shower after the Workout generic (the owner, 2026-11-24)
     if (D.type === 'task' || D.type === 'routine') h += ((D.when || {}).mode === 'once' ? `<div class="fld"><span class="mono">Type</span><div class="chips">${[['1', 'Task', 'stays after a tick'], ['0', 'One-off', 'gone once ticked']].map(([v, l, sub]) => `<button class="chip" data-a="dpersist" data-v="${v}" aria-pressed="${!!D.persist === (v === '1')}">${l}<span class="sub" style="font-size:11.5px;color:var(--quiet)">· ${sub}</span></button>`).join('')}</div></div>` : '') // Task or One-off replaces the Persistent switch; a repeat is always a task (2026-11-24)
       + (isTrainSheet(s) ? afterField(D) : '') + sw('optional', 'Optional', D.optional) + optDaysUI(D) + sw('flow', 'Can run into the next block', D.flow) // a slow weekend morning routine carries on into the next block instead of spilling over (the owner, 2026-11-24)
@@ -1691,6 +1694,8 @@ document.addEventListener('click', (e) => {
     case 'darkmode': darkOn = !darkOn; try { localStorage.setItem('daybook3-dark', darkOn ? '1' : '0'); } catch (e) { /* no storage */ } applyTheme(); render(); renderLayer(); dkPass(document.body); break;
     case 'showdone': S.showDone = !S.showDone; render(); break;
     case 'showmissed': S.showMissed = !S.showMissed; render(); break;
+    case 'brkoff': { const d = a.dataset.d || T0; S.sheet = null; change(() => { M.dayOff = M.dayOff || {}; (M.dayOff[d] = M.dayOff[d] || {})[ref] = 1; }); break; }
+    case 'brkback': { const d = a.dataset.d || T0; change(() => { const o = (M.dayOff || {})[d]; if (o) { delete o[ref]; if (!Object.keys(o).length) delete M.dayOff[d]; } }); if (S.sheet) renderLayer(); break; }
     case 'miss': { const d = a.dataset.d || T0; S.sheet = null; change(() => { M.missed = M.missed || {}; (M.missed[d] = M.missed[d] || {})[ref] = true; }, 'Missed: ' + I(ref).name); break; }
     case 'unmiss': { const d = a.dataset.d || T0; change(() => { delete M.missed[d][ref]; }, 'Put back ' + I(ref).name); break; }
     case 'tick': if (isMulti(ref) && a.dataset.k != null && multiN(ref) > 1) { tickMulti(ref, +a.dataset.k); break; } tick(ref); break;
