@@ -353,8 +353,10 @@ button.wkn.sel{color:var(--ink)}
 .qd button small{font-size:10px;color:var(--quiet)}
 .qd button[aria-pressed="true"]{background:var(--card);border-color:var(--faint);color:var(--ink);box-shadow:0 1px 3px rgba(60,50,30,.1)}
 .mcal{margin-top:8px}
+.linkbtn{background:none;border:0;padding:0;font:inherit;color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .mcal .day{padding:4px 0;min-height:40px}
 .mcal .day:disabled .n{color:var(--line)}
+.mcal .day.out:not(:disabled) .n{color:var(--ink2)} /* next month's first days can be picked too, so they don't look greyed out (2026-11-28) */
 .addbtn[aria-pressed="true"]{color:var(--ink);font-weight:500}
 .plancard{background:var(--card);border-radius:14px;padding:4px 14px}
 .plancard .row{border-top:1px solid var(--line2)}
