@@ -280,8 +280,8 @@ function woSim(d) { const W = woIds(); let st = WKC.get('_wosim');
       if (x === T0) st.next = {}; // from today on, repeats count from when I last did them, as usual
       if (x < T0 && M.badDays && M.badDays[x] === 'skip') { st.q = []; st.on[x] = new Set(); st.x = addDays(x, 1); continue; } // a skipped day made bad excuses its work
       const done = ids.filter((id) => isDone(id, x));
-      const nat = ids.filter((id) => !done.includes(id) && !st.q.includes(id) && (I(id).when && I(id).when.mode === 'every' && st.next[id] ? x >= st.next[id] : onDayBase(id, x)));
-      const late = (id) => (x === T0 ? lateBy(id) : 0), picked = (id) => { const w = I(id).when || {}; return w.date === x ? 1 : 0; };
+      const nat = ids.filter((id) => { if (done.includes(id) || st.q.includes(id)) return false; const tv = x >= T0 ? turnOn(id, x) : null; if (tv != null) return tv; return I(id).when && I(id).when.mode === 'every' && st.next[id] ? x >= st.next[id] : onDayBase(id, x); });
+      const late = (id) => (x === T0 ? lateBy(id) : 0), picked = (id) => { const w = I(id).when || {}; return w.date === x || ((M.turnMove || {})[id] && turnOn(id, x) === true) ? 1 : 0; }; // a day I moved it to wins the day
       nat.sort((a, b) => (late(b) - late(a)) || (picked(b) - picked(a)));
       const cand = st.q.filter((id) => !done.includes(id)).concat(nat); const miss = (id) => isMissed(id, x); // a carried one I ticked is done: it leaves the queue, never comes back the next day (the owner, 2026-11-27)
       const rcv = typeof recOf === 'function' ? recOf(x) : null;
@@ -301,8 +301,20 @@ function woSim(d) { const W = woIds(); let st = WKC.get('_wosim');
       st.on[x] = new Set(on); st.x = addDays(x, 1); } }
   finally { WOSIM = false; }
   return st.on[d] || new Set(); }
+// ONE TURN OF A REPEAT moved to another day (the owner, 2026-11-28): M.turnMove[id][from] = to. The rest of the repeat stays as it is.
+// A repeat that counts from when I last did it (After done) is pushed as a whole: nothing between the two days, its rhythm counts on from the new day.
+function turnOn(id, d) { const t = (M.turnMove || {})[id]; if (!t) return null; const it = I(id); const ev = it && it.when && it.when.mode === 'every';
+  for (const f in t) { const to = t[f]; if (to === d) return true; if (f === d || (ev && d > (f < to ? f : to) && d < (f < to ? to : f))) return isDone(id, d) ? true : false;
+    if (ev && d > to && to >= T0) { if (isDone(id, d)) return true; for (let x = to; x < d; x = addDays(x, 1)) if (isDone(id, x)) return null; return diff(to, d) % Math.max(1, it.when.n || 1) === 0; } } // its rhythm counts on from the new day
+  return null; }
+const turnTo = (id) => { const t = (M.turnMove || {})[id] || {}; const f = Object.keys(t).find((k) => t[k] >= T0 || k >= T0); return f ? { from: f, to: t[f] } : null; };
+// the turn a Schedule pop-up moves: the day I opened it from if it's on that day, else its next day from today
+function turnFromOf(id, d0) { const m = turnTo(id); if (m) return m.from; if (d0 && d0 >= T0 && onDay(id, d0)) return d0;
+  for (let i = 0, d = T0; i < 400; i++, d = addDays(d, 1)) if (onDay(id, d)) return d; return d0 && d0 >= T0 ? d0 : T0; }
+function setTurn(id, from, to) { M.turnMove = M.turnMove || {}; const t = M.turnMove[id] = M.turnMove[id] || {}; Object.keys(t).forEach((k) => { if (t[k] >= T0 || k >= T0) delete t[k]; });
+  if (to && to !== from) t[from] = to; if (!Object.keys(t).length) delete M.turnMove[id]; }
 function onDay(id, d) { if (d >= T0 && !WOSIM && woIds().has(id) && !frozenOf(d)) { const on = woSim(d); return on.has(id); } return onDayBase(id, d); }
-function onDayBase(id, d) { const it = I(id); if (!it) return false;
+function onDayBase(id, d) { const it = I(id); if (!it) return false; { const tv = turnOn(id, d); if (tv != null) return tv; }
   if (d >= T0 && choreWaits(id)) return false; // also when it follows or is blocked behind something, and for chores with steps (the owner, 2026-11-27)
   if (d >= T0 ? firstRound(id) : firstRound(id, d) && !isDone(id, d)) return false; // a past day never shows a repeat I hadn't done once yet by then (2026-11-12)
   if (!afterSrc()[id] || d < T0 || it.type === 'checkin') return onDay0(id, d);
@@ -315,7 +327,7 @@ function onDayBase(id, d) { const it = I(id); if (!it) return false;
   const n = Math.max(1, w.n || 1); const last = lastDoneBefore(id, T0); let anchor = later ? w.date : isDone(id, T0) || workoutOn(T0, id) || !last || diff(last, T0) >= n ? T0 : last; if (d === T0) return anchor === T0;
   for (let x = addDays(anchor > T0 ? anchor : T0, 1); x <= d; x = addDays(x, 1)) { if (workoutOn(x, id) || diff(anchor, x) >= n) anchor = x; } return anchor === d; }
 function onDay0(id, d) {
-  const it = I(id); if (!it) return false;
+  const it = I(id); if (!it) return false; { const tv = turnOn(id, d); if (tv != null) return tv; }
   if (it.type === 'checkin') return true;
   let w = it.when || { mode: 'once', date: null };
   if (d < T0) w = whenOn(it, d);
@@ -1501,10 +1513,14 @@ function itemSheet(s) {
   return h;
 }
 // Scheduling, like Super Productivity: quick dates, a month to pick from, and repeat rules.
+// an existing repeat: the dates move one turn, not the start of the repeat (the owner, 2026-11-28)
+const turnSheet = (s) => !s.isNew && s.ref && I(s.ref) && !I(s.ref).brk && repeatable(I(s.ref)) && s.draft.when && s.draft.when.mode !== 'once';
 const nextMon = () => addDays(weekStart(T0), 7);
 const nextMonth = () => { const a = parse(T0); return iso(new Date(a.getFullYear(), a.getMonth() + 1, 1)); }; // the 1st (2026-11-02)
 function schedUI(s, D) {
-  const w = D.when || (D.when = { mode: 'once', date: null }); const rep = w.mode !== 'once'; const picked = w.date || null;
+  const w = D.when || (D.when = { mode: 'once', date: null }); const rep = w.mode !== 'once';
+  const tm = turnSheet(s); if (tm && s.turnFrom == null) { const m = turnTo(s.ref); s.turnFrom = turnFromOf(s.ref, s.turnDay); s.turnTo = m ? m.to : s.turnFrom; }
+  const picked = tm ? s.turnTo : w.date || null;
   const q = [['today', 'Today', T0, 'sun'], ['tomorrow', 'Tomorrow', addDays(T0, 1), 'sunrise'], ['week', 'Next week', nextMon(), 'calendar-plus'], ['month', 'Next month', nextMonth(), 'calendar-range']];
   const cm = s.calM || (picked || T0).slice(0, 7); const [y, m] = cm.split('-').map(Number); const first = iso(new Date(y, m - 1, 1));
   let wk = weekStart(first); const weeks = []; while (weeks.length < 6 && (weeks.length === 0 || wk.slice(0, 7) <= cm)) { weeks.push(wk); wk = addDays(wk, 7); }
@@ -1514,6 +1530,7 @@ function schedUI(s, D) {
     <div class="mcal"><div class="calnav"><button data-a="dcalm" data-v="-1" aria-label="Previous month">${icon('chevron-left', 16)}</button><span>${MONTHS[m - 1]} ${y}</span><button data-a="dcalm" data-v="1" aria-label="Next month">${icon('chevron-right', 16)}</button></div>
       <div class="wk wkh"><span></span>${WD.map((x) => `<span>${x.toUpperCase()}</span>`).join('')}</div>
       ${weeks.map((wk0) => `<div class="wk"><span class="wkn">${isoWeek(wk0)}</span>${[0, 1, 2, 3, 4, 5, 6].map((k) => { const d = addDays(wk0, k); return `<button class="day ${d === picked ? 'sel' : ''} ${d === T0 ? 'today' : ''} ${d.slice(0, 7) === cm ? '' : 'out'}" data-a="dq" data-v="${d}" ${d < T0 ? 'disabled' : ''}><span class="n">${parse(d).getDate()}</span></button>`; }).join('')}</div>`).join('')}</div>
+  ${tm ? `<p class="note" style="margin:8px 0 0">${s.turnTo !== s.turnFrom ? `This turn moves from ${esc(fmtDate(s.turnFrom))} to ${esc(fmtDate(s.turnTo))}. The rest of the repeat stays. <button class="linkbtn" data-a="dq" data-v="${s.turnFrom}">Put back</button>` : `A day I pick moves only this turn (${esc(fmtDate(s.turnFrom))}). The rest of the repeat stays.`}</p>` : ''}
 </div>`;
   if (D.type !== 'appt') h += `<div class="fld"><span class="mono">Time and length</span><div class="inrow"><input class="inp" type="time" id="dtime" value="${D.time || ''}" aria-label="Time (optional)">${durIn(D)}${blkBtn(s)}${isStudyItem(s, D) ? `<button class="plusic" data-a="dpart-add" aria-label="Add this day as a session">${icon('plus', 20)}</button>` : ''}</div>${isStudyItem(s, D) ? sessList(s, D) : ''}</div>`;
   // ticked once a day, or once in each day block it's in, like brushing my teeth morning and evening (the owner, 2026-11-24)
@@ -1579,6 +1596,7 @@ function saveDraft() {
     else { const old = I(id); // keep the old repeat rule for the days it covered, so past days still show what was planned then
       if (old && old.when && JSON.stringify(old.when) !== JSON.stringify(D.when) && (old.made || T0) < T0) D.past = (old.past || []).concat([{ until: addDays(T0, -1), when: old.when }]);
       M.items[id] = D; }
+    if (s.turnFrom != null && turnSheet(s)) setTurn(id, s.turnFrom, s.turnTo); // one turn moved (2026-11-28)
     if (D.type === 'task' && !isPrep(s) && !isStudyItem(s, D) && !D.part && (s.steps || []).some((x) => x.name.trim())) { D.type = 'routine'; }
     if (D.type === 'routine' || (isPrep(s) && s.steps)) { D.partOpt = {}; D.steps = s.steps.filter((x) => x.name.trim()).map((x) => { if (x.link && x.id && I(x.id)) { const o = {}; if (x.optional) o.optional = true; if (x.only) { o.only = x.only; if (x.only === 'days') o.days = (x.days || []).slice(); } if (Object.keys(o).length) D.partOpt[x.id] = o; return x.id; } const sid = x.id && I(x.id) ? x.id : uid('s'); const st = M.items[sid] = Object.assign(I(sid) || { type: 'step', kind: 'behaviour', tags: [], insight: true }, { name: x.name.trim() });
       if (x.optional !== undefined) { if (x.optional) st.optional = true; else delete st.optional; } if (x.only !== undefined) { if (x.only) st.only = x.only; else delete st.only; if (x.only === 'days') st.days = (x.days || []).slice(); else delete st.days; } if (x.tags) st.tags = x.tags.slice(); return sid; }); }
@@ -1761,14 +1779,18 @@ document.addEventListener('click', (e) => {
     case 'dmiss': { const id = S.sheet.ref; const it = I(id); S.sheet = null;
       if (repeatable(it)) change(() => { M.missed = M.missed || {}; (M.missed[T0] = M.missed[T0] || {})[id] = true; }, 'Missed: ' + it.name);
       else change(() => { it.when = Object.assign({}, it.when, { mode: 'once', date: null }); }, it.name + ' moved to Not scheduled'); break; }
-    case 'dq': { capture(); const D = S.sheet.draft; D.when.date = v && v !== D.when.date ? v : null; if (D.when.date) D.when.set = 1; else delete D.when.set; // tapping the picked day again takes the date away (the 'No date' button is gone) if (v) S.sheet.calM = v.slice(0, 7);
+    case 'dq': { capture(); const D = S.sheet.draft;
+      if (turnSheet(S.sheet)) { const s = S.sheet; s.turnTo = v && v !== s.turnTo ? v : s.turnFrom; if (v) s.calM = v.slice(0, 7); // tapping the moved-to day again puts it back
+        if (s.quick) { const id = s.ref, f = s.turnFrom, t = s.turnTo; S.sheet = null; change(() => { setTurn(id, f, t); }, t === f ? I(id).name + ' put back on ' + fmtDate(f) : I(id).name + ' moved to ' + fmtDate(t)); break; }
+        renderLayer(); break; }
+      D.when.date = v && v !== D.when.date ? v : null; if (D.when.date) D.when.set = 1; else delete D.when.set; if (v) S.sheet.calM = v.slice(0, 7); // tapping the picked day again takes the date away (the 'No date' button is gone)
       if (S.sheet.quick && D.when.mode === 'once' && !areaItem(S.sheet.ref)) { saveDraft(); break; } renderLayer(); break; }
     case 'dcalm': { const [y, m] = (S.sheet.calM || ((S.sheet.draft.when || {}).date || T0).slice(0, 7)).split('-').map(Number); S.sheet.calM = iso(new Date(y, m - 1 + (+v), 1)).slice(0, 7); renderLayer(); break; }
     case 'drule': { capture(); if (v === 'none') S.sheet.repOpen = false; const D = S.sheet.draft; const w = D.when; const start = w.date || T0;
       D.when = v === 'none' ? { mode: 'once', date: w.date || null } : v === 'daily' ? { mode: 'days', days: [0, 1, 2, 3, 4, 5, 6], n: 1, date: start } : v === 'weekly' ? { mode: 'days', days: w.mode === 'days' && (w.days || []).length < 7 ? w.days : [wd(start)], n: w.n || 1, date: start } : { mode: v, n: w.mode === v ? w.n : 1, date: start };
       if (v !== 'none' && D.insight == null && D.type !== 'appt') D.insight = true; renderLayer(); break; }
     case 'dmore': capture(); S.sheet.quick = false; S.sheet.title = (I(S.sheet.ref) || {}).type === 'routine' ? 'Routine' : 'Task'; renderLayer(); break;
-    case 'sched': { const it = I(ref); if (!it || it.type === 'appt' || it.type === 'checkin' || it.part) { openItem(ref); break; } openItem(ref); S.sheet.quick = true; S.sheet.title = 'Schedule'; renderLayer(); break; }
+    case 'sched': { const it = I(ref); if (!it || it.type === 'appt' || it.type === 'checkin' || it.part) { openItem(ref); break; } openItem(ref); S.sheet.quick = true; S.sheet.title = 'Schedule'; if (a.dataset.d) S.sheet.turnDay = a.dataset.d; renderLayer(); break; }
     case 'dday': { capture(); const ds = S.sheet.draft.when.days; const i = +v; const k = ds.indexOf(i); if (k >= 0) ds.splice(k, 1); else ds.push(i); ds.sort(); renderLayer(); break; }
     case 'dcolor': capture(); if (v) S.sheet.draft.color = v; else delete S.sheet.draft.color; renderLayer(); break;
     case 'dpersist': capture(); if (v === '1') S.sheet.draft.persist = true; else delete S.sheet.draft.persist; renderLayer(); break;
