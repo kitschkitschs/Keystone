@@ -1250,6 +1250,8 @@ html.dark .feelcard.empty{background:var(--card)}html.dark .jcard .jct,html.dark
 .wback{flex:none;width:56px;height:56px;border:1px solid var(--line);display:grid;place-items:center;color:var(--ink2)}.wback:disabled{opacity:.3}.wback.wsk{width:auto;padding:0 12px;font:400 10px var(--mono);letter-spacing:.14em;text-transform:uppercase}
 .wfoot2{text-align:center;padding:0 0 calc(8px + env(safe-area-inset-bottom,0px))}.wfoot2 button{font:400 9.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--quiet);padding:6px 10px}
 .wrowf{border-top:0;padding-bottom:8px}
+/* workout Start/Done buttons (Today and Training's Workouts list): outlined in the workout colour, right edge in line with the tick boxes (a tick box is 13px at the left of its 22px button, so 9px short of the row's edge) (the owner, 2026-11-28) */
+.wgo.wgot,.wrow>.wgo{border-color:var(--tc,var(--ink));margin-right:9px}.wrow>.wgo:disabled{border-color:var(--line)}
 .wsegs{display:flex;gap:3px;padding:8px 16px 0;flex-shrink:0}.wsegs i{flex:1;height:3px;background:var(--line2)}.wsegs i.on{background:var(--tc)}.wsegs i.cur{background:var(--ink)}
 .sb.wone{align-items:center;text-align:center;padding-top:22px}.wone h3{font:400 32px/1.1 var(--serif);margin:8px 0 0;letter-spacing:-.01em}
 .wnum{display:flex;align-items:center;gap:16px;margin-top:24px}.wnum span{font:300 116px/.9 var(--serif);font-variant-numeric:tabular-nums;min-width:1.2em}.wnum button{width:44px;height:44px;border:1px solid var(--line);color:var(--ink2);font-size:20px;display:grid;place-items:center}
