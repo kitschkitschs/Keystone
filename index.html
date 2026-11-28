@@ -1602,12 +1602,16 @@ function woIds() { if (WKC.has('_woids')) return WKC.get('_woids'); let r = new 
   WKC.set('_woids', r); return r; }
 let WOSIM = false;
 function woSim(d) { const W = woIds(); let st = WKC.get('_wosim');
-  if (!st) { const q = []; // what bad days just before today left undone comes first
-    for (let p = addDays(T0, -1), n = 0; n < 30 && isBad(p) && M.badDays[p] !== 'skip'; p = addDays(p, -1), n++) W.forEach((id) => { if (!q.includes(id) && onDayBase(id, p) && !doneSince(id, p, addDays(T0, -1))) q.unshift(id); });
-    st = { x: T0, q, next: {}, on: {} }; WKC.set('_wosim', st); }
+  // the days just before today are played through again first, as they went (what was ticked, bad days, recovery days), so whatever
+  // they still owe carries on: a workout a bad day or a recovery day moved on, or one pushed off its day because another workout
+  // took it. That way a pushed workout isn't lost when the day it was pushed to begins (the owner, 2026-11-28)
+  if (!st) { let x0 = addDays(T0, -14); try { const f = firstDay(); if (f && f > x0) x0 = f; } catch (e) {} if (x0 > T0) x0 = T0;
+    st = { x: x0, q: [], next: {}, on: {} }; WKC.set('_wosim', st); }
   if (d < T0) return new Set();
   WOSIM = true;
   try { while (st.x <= d && diff(T0, st.x) < 800) { const x = st.x; const ids = [...W];
+      if (x === T0) st.next = {}; // from today on, repeats count from when I last did them, as usual
+      if (x < T0 && M.badDays && M.badDays[x] === 'skip') { st.q = []; st.on[x] = new Set(); st.x = addDays(x, 1); continue; } // a skipped day made bad excuses its work
       const done = ids.filter((id) => isDone(id, x));
       const nat = ids.filter((id) => !done.includes(id) && !st.q.includes(id) && (I(id).when && I(id).when.mode === 'every' && st.next[id] ? x >= st.next[id] : onDayBase(id, x)));
       const late = (id) => (x === T0 ? lateBy(id) : 0), picked = (id) => { const w = I(id).when || {}; return w.date === x ? 1 : 0; };
